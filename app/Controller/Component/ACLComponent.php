@@ -1090,6 +1090,7 @@ class ACLComponent extends Component
             'viewAnalystPreview' => array('theming_enabled'),
             'viewVerdictCard' => array('theming_enabled'),
             'viewHoverCard' => array('theming_enabled'),
+            'viewHoverEnrichment' => array('theming_enabled'),
             'viewSightings' => array('theming_enabled'),
             'viewLifecycle' => array('theming_enabled'),
             'viewExternal' => array('theming_enabled'),

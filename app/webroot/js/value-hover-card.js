@@ -45,6 +45,15 @@
     var inFlight = null;
     var cache = {};
 
+    /*
+     * The enrichment strip is cached apart from the card and only once
+     * every module on it has settled. The card's own HTML is cheap to
+     * re-render and never changes; a strip is an outbound call per
+     * module, so re-hovering a value must not ask a third party again —
+     * and a half-answered strip must not be remembered as the answer.
+     */
+    var enrichCache = {};
+
     function base() {
         return (typeof baseurl === 'string' ? baseurl : '');
     }
@@ -104,11 +113,239 @@
         node.style.left = Math.round(Math.max(margin, left)) + 'px';
     }
 
-    function render(anchor, html) {
+    function render(anchor, html, value) {
         var node = element();
         node.innerHTML = html;
         node.classList.add('vp-hc-shown');
         place(anchor);
+        enrich(node, anchor, value);
+    }
+
+    /*
+     * ------------------------------------------------------------------
+     * Enrichment, which the card asks for itself.
+     * ------------------------------------------------------------------
+     * The card carries a placeholder holding the strip's line open, and
+     * the strip is a second request because knowing what a reader could
+     * ask costs an outbound call to the modules service — the card's
+     * whole cost argument is that a hover is worth one assessment and
+     * nothing more.
+     *
+     * Then the modules that have to be run fill in one at a time, which
+     * is the same contract the Overview panel fires under: the plan
+     * travels on the markup, five go at a time, each is `mode=auto` at
+     * an endpoint that decides the gate and the reuse window again when
+     * it lands. What differs is `shape=chip`.
+     */
+
+    /**
+     * @param {Element} node The card
+     * @param {Element} anchor
+     * @param {string} value
+     */
+    function enrich(node, anchor, value) {
+        var slot = node.querySelector('[data-vp-hc-enrich]');
+        if (!slot) {
+            return;
+        }
+        if (Object.prototype.hasOwnProperty.call(enrichCache, value)) {
+            swap(slot, enrichCache[value], anchor);
+            return;
+        }
+        fetch(slot.getAttribute('data-vp-hc-enrich'), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (res) {
+            return res.ok ? res.text() : '';
+        }).then(function (html) {
+            // The pointer may have moved on while this was in the air.
+            if (!slot.isConnected || currentValue !== value) {
+                return;
+            }
+            var strip = swap(slot, html, anchor);
+            if (strip) {
+                fire(strip, value, anchor);
+            }
+        }).catch(function () {
+            if (slot.isConnected) {
+                slot.remove();
+            }
+        });
+    }
+
+    /**
+     * Put the strip where the placeholder was, or take the line back.
+     *
+     * @param {Element} slot
+     * @param {string} html
+     * @param {Element} anchor
+     * @return {Element|null} The strip, where there was one
+     */
+    function swap(slot, html, anchor) {
+        var trimmed = (html || '').trim();
+        if (!trimmed) {
+            /*
+             * An instance with nothing to ask and nothing stored. The
+             * line goes rather than standing empty, and the card is
+             * re-placed because it just got shorter.
+             */
+            slot.remove();
+            place(anchor);
+            return null;
+        }
+        var holder = document.createElement('div');
+        holder.innerHTML = trimmed;
+        var strip = holder.firstElementChild;
+        if (!strip) {
+            slot.remove();
+            place(anchor);
+            return null;
+        }
+        slot.replaceWith(strip);
+        place(anchor);
+        return strip;
+    }
+
+    /**
+     * Ask the modules the plan names, five lanes at a time.
+     *
+     * @param {Element} strip
+     * @param {string} value
+     * @param {Element} anchor
+     */
+    function fire(strip, value, anchor) {
+        var plan;
+        try {
+            plan = JSON.parse(strip.getAttribute('data-vp-eb-fire') || '[]');
+        } catch (e) {
+            plan = [];
+        }
+        if (!Array.isArray(plan) || !plan.length) {
+            // Every answer was already stored, so this is the settled one.
+            keep(strip, value);
+            return;
+        }
+        var queue = plan.slice();
+        var width = parseInt(strip.getAttribute('data-vp-eb-max'), 10) || 5;
+        var lanes = Math.min(width, queue.length);
+        var running = [];
+        var next = function () {
+            var one = queue.shift();
+            if (!one) {
+                return Promise.resolve();
+            }
+            return ask(strip, one, value, anchor).then(next);
+        };
+        for (var i = 0; i < lanes; i++) {
+            running.push(next());
+        }
+        Promise.all(running).then(function () {
+            keep(strip, value);
+        });
+    }
+
+    /**
+     * Ask one module and put its headline where its spinner was.
+     *
+     * @param {Element} strip
+     * @param {Object} one `module` and `type`
+     * @param {string} value
+     * @param {Element} anchor
+     * @return {Promise}
+     */
+    function ask(strip, one, value, anchor) {
+        var slot = slotFor(strip, one.module);
+        if (!slot) {
+            return Promise.resolve();
+        }
+        var body = new URLSearchParams();
+        body.set('data[_Token][key]',
+            strip.getAttribute('data-vp-eb-token') || '');
+        body.set('data[module]', one.module);
+        body.set('data[type]', one.type || '');
+        body.set('data[mode]', 'auto');
+        body.set('data[shape]',
+            strip.getAttribute('data-vp-eb-shape') || 'chip');
+
+        return fetch(strip.getAttribute('data-vp-eb-url'), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body.toString()
+        }).then(function (res) {
+            return res.ok ? res.text() : '';
+        }).then(function (html) {
+            settle(slot, html, anchor);
+        }).catch(function () {
+            settle(slot, '', anchor);
+        });
+    }
+
+    /**
+     * @param {Element} slot
+     * @param {string} html Empty where the module could not be asked
+     * @param {Element} anchor
+     */
+    function settle(slot, html, anchor) {
+        if (!slot.isConnected) {
+            return;
+        }
+        var trimmed = (html || '').trim();
+        slot.innerHTML = trimmed
+            ? trimmed
+            : '<span class="vp-hce-v vp-hce-fail">no answer</span>';
+        /*
+         * A headline is wider than the spinner it replaces, and the
+         * card may be sitting above the cursor — where growing means
+         * moving. Re-placed rather than left to drift.
+         */
+        place(anchor);
+    }
+
+    /**
+     * Remember a strip once nothing on it is still being asked.
+     *
+     * @param {Element} strip
+     * @param {string} value
+     */
+    function keep(strip, value) {
+        if (!strip.isConnected
+            || strip.querySelector('[data-vp-eb-slot] .fa-spin')
+            || strip.querySelector('[data-vp-eb-slot] .vp-hce-wait')
+        ) {
+            /*
+             * Still moving. A spinner is this page's own request and
+             * will resolve; `vp-hce-wait` is somebody else's, which
+             * this page never sees land — so neither is an answer, and
+             * remembering either would cache the waiting as the result.
+             */
+            return;
+        }
+        enrichCache[value] = strip.outerHTML;
+    }
+
+    /**
+     * The slot belonging to one module.
+     *
+     * Walked rather than selected: a module name is a third party's
+     * string and `querySelector` would need it escaped, which is a
+     * dependency on `CSS.escape` for nothing.
+     *
+     * @param {Element} strip
+     * @param {string} name
+     * @return {Element|null}
+     */
+    function slotFor(strip, name) {
+        var rows = strip.querySelectorAll('[data-vp-eb-row]');
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].getAttribute('data-vp-eb-row') === name) {
+                return rows[i].querySelector('[data-vp-eb-slot]');
+            }
+        }
+        return null;
     }
 
     function hide() {
@@ -129,7 +366,7 @@
         currentValue = value;
 
         if (Object.prototype.hasOwnProperty.call(cache, value)) {
-            render(anchor, cache[value]);
+            render(anchor, cache[value], value);
             return;
         }
 
@@ -162,7 +399,7 @@
             cache[value] = html;
             // The pointer may have moved on while this was in the air.
             if (mine === token && currentValue === value) {
-                render(anchor, html);
+                render(anchor, html, value);
             }
         }).catch(function (err) {
             if (err && err.name === 'AbortError') {

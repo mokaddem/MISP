@@ -500,16 +500,163 @@
  * The chrome is real while the readings are not: every label the panel
  * always shows stays put, so nothing moves when the data lands.
  */
-.vp-hc-sk { animation: cc-pulse 1.6s ease-in-out infinite; }
+.vp-hc-sk { animation: vp-hc-pulse 1.6s ease-in-out infinite; }
 .vp-hc-bar { display: block; border-radius: 2px; background: currentColor; opacity: 0.12; }
 .vp-hc-bar-blk { border-radius: 3px; opacity: 0.08; }
 .vp-hc-cell-r .vp-hc-bar { margin-left: auto; }
 .vp-hc-tile .vp-hc-bar { margin: 0 auto; }
 .vp-hc-first .vp-hc-bar { align-self: center; }
-@keyframes cc-pulse {
+@keyframes vp-hc-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.58; }
 }
 @media (prefers-reduced-motion: reduce) {
     .vp-hc-sk { animation: none; }
+}
+
+
+/* ==================================================================
+ * What the modules said
+ * ------------------------------------------------------------------
+ * External knowledge, and visibly separate from everything above it:
+ * the rest of the card is what this instance records, and this is what
+ * other services say. The rule between them does that work, because a
+ * heading saying it would cost a line on a card with about eighty
+ * pixels of headroom.
+ *
+ * The chip vocabulary is the Overview panel's own — a muted key, a
+ * solid value, a dashed pill for what is not shown — so a reader who
+ * learned it on the page reads it here without relearning it. What does
+ * not come across is that panel's layout: it spends a nine-column width
+ * on one row a module, and this has 336px and one line.
+ * ================================================================== */
+
+.vp-hc-enr-strip {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 5px;
+}
+
+/*
+ * The chips themselves, in a row that gives way before they do.
+ *
+ * One line, always: a second line costs as much as a module row and
+ * says less, and what does not fit was counted server side where the
+ * module list is known. What overflows is faded rather than cut, so an
+ * edge a reader can see means *there is more* rather than looking like
+ * a rendering fault — and the fade is short enough to be invisible on
+ * the ordinary case where everything fits.
+ */
+.vp-hc-enr-flow {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 5px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px),
+        transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 14px),
+        transparent 100%);
+}
+
+.vp-hc-enr-k {
+    flex: none;
+    align-self: center;
+    margin-right: 1px;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--vp-hc-mute);
+}
+
+.vp-hc-echip {
+    /*
+     * Natural width. Sharing the loss out proportionally made `ipasn`
+     * — which fits — read as `ipa…` to make room for one that did not;
+     * the row above fades instead, and nothing that fits is cut.
+     */
+    flex: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    max-width: 148px;
+    padding: 0 6px;
+    border: 1px solid var(--vp-hc-line);
+    border-radius: 999px;
+    font-size: 9.5px;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+/* The module that said it, so it reads as a name and not as a field. */
+.vp-hc-echip-k {
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--vp-hc-mono);
+    color: var(--vp-hc-mute);
+}
+
+.vp-hc-echip-slot {
+    flex: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    /*
+     * Held open while the module is being asked, so the chip that
+     * arrives is close to the width of the chip that was waiting and
+     * the strip barely moves under the cursor.
+     */
+    min-width: 2.6em;
+    justify-content: flex-end;
+}
+
+.vp-hc-echip-slot > .fa-spin { font-size: 8px; opacity: 0.55; }
+
+.vp-hce-v { color: var(--vp-hc-ink); font-weight: 600; }
+
+/*
+ * A module that was asked and holds nothing is a finding, not a
+ * failure, and one that could not answer is neither a finding nor a
+ * measurement. Both are drawn as the absence the rest of the card uses
+ * rather than in a colour of their own.
+ */
+.vp-hce-silent,
+.vp-hce-fail,
+.vp-hce-wait { color: var(--vp-hc-mute); font-weight: 400; }
+
+.vp-hce-fail { font-style: italic; }
+
+/* What the headline left behind, counted. */
+.vp-hce-more {
+    margin-left: 3px;
+    font-weight: 400;
+    color: var(--vp-hc-mute);
+}
+
+/* Not a reading the card took: what it is not showing. */
+.vp-hc-echip-q {
+    flex: none;
+    border-style: dashed;
+    color: var(--vp-hc-mute);
+}
+
+/*
+ * The placeholder the card paints before the strip is fetched. It
+ * reserves the line rather than announcing itself, so the card does not
+ * grow under the cursor when the answer lands.
+ */
+.vp-hc-echip-skel {
+    border-color: transparent;
+    background: currentColor;
+    opacity: 0.1;
+    animation: vp-hc-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vp-hc-echip-skel { animation: none; }
 }

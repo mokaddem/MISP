@@ -58,6 +58,30 @@ $profileUrl = $this->Html->url(array(
 ));
 
 /*
+ * The enrichment strip is fetched by the card rather than rendered with
+ * it: knowing what a reader could ask costs an outbound call to the
+ * modules service, and this card's cost argument is that a hover is
+ * worth one assessment and nothing more.
+ *
+ * **Gated on the service being enabled at all**, which is a
+ * `Configure` read and not a query. Without it an instance running no
+ * modules would fire a request per hover whose only possible answer is
+ * an empty strip — and on one where the service is configured but
+ * down, that request is a timeout rather than an answer.
+ *
+ * The placeholder below reserves the strip's height, so the card does
+ * not grow under the cursor when the answer lands. A card that moves
+ * after it has been read is worse than one that waits.
+ */
+$enrichUrl = Configure::read('Plugin.Enrichment_services_enable')
+    ? $this->Html->url(array(
+        'controller' => 'values',
+        'action' => 'viewHoverEnrichment',
+        $valueB64,
+    ))
+    : null;
+
+/*
  * The spark, drawn here rather than by a helper because the geometry is
  * the argument: sightings above the line, false positives and
  * expirations below it, and **one unit the same height on both sides**.
@@ -368,6 +392,30 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
             <div class="vp-hc-sec vp-hc-why vp-hc-why-full vp-hc-why-null">
                 <i class="vp-hc-why-ico fas fa-minus" aria-hidden="true"></i>
                 <span class="vp-hc-why-t"><?= h($card['summary']) ?></span>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($enrichUrl !== null): ?>
+            <?php /*
+             * Replaced wholesale by what the strip endpoint returns,
+             * or removed where it returns nothing. Two skeleton chips
+             * rather than a spinner: the shape a reader is about to
+             * see, held open, reads as loading without a second idiom
+             * for it.
+             */ ?>
+            <div class="vp-hc-sec vp-hc-enr vp-hc-enr-wait"
+                 data-vp-hc-enrich="<?= h($enrichUrl) ?>"
+                 role="status"
+                 aria-label="<?= h(__('Loading enrichment')) ?>">
+                <div class="vp-hc-enr-strip">
+                    <span class="vp-hc-enr-k"><?= h(__('Enrichment')) ?></span>
+                    <span class="vp-hc-enr-flow">
+                    <span class="vp-hc-echip vp-hc-echip-skel"
+                          style="width:82px"></span>
+                    <span class="vp-hc-echip vp-hc-echip-skel"
+                          style="width:64px"></span>
+                    </span>
+                </div>
             </div>
         <?php endif; ?>
 
