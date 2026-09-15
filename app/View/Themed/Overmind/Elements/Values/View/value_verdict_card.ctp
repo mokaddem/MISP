@@ -156,6 +156,59 @@ if (!empty($verdict['profile_id'])) {
             <?php endif; ?>
         <?php endif; ?>
 
+        <?php /*
+         * What would move this, borrowed from the tab's own aside and
+         * drawn through its own element — three sentences on nearly
+         * every value, built by `forVerdict` for every caller and
+         * deleted here until now (`35-overview-borrowed.md` §5.3).
+         *
+         * It is under the signals because it answers the question they
+         * raise: the ledger says what the record is, and these say what
+         * would make it something else. The actions the aside draws
+         * beneath them stay on the tab — they are writes this feature
+         * does not do, and a disabled button is worse company for a
+         * summary than no button at all.
+         */ ?>
+        <?php if (!empty($verdict['changers'])):
+            /*
+             * Two lines and a count, which is the grammar this card
+             * already uses for the ledger above. All three cost 162px
+             * in a rail column — the sentences name a threshold and a
+             * band and wrap twice at this width — against the 100px
+             * §5.3 budgeted, and a summary card that spends 162px
+             * restating the tab is the thing phase 31 shortened this
+             * column to stop.
+             */
+            $changers = array_slice($verdict['changers'], 0, 2);
+            $changerRest = count($verdict['changers']) - count($changers);
+            ?>
+            <div>
+                <div class="vp-subhead">
+                    <?= __('What would change this') ?>
+                </div>
+                <div class="vp-changers">
+                    <?= $this->element(
+                        'Values/View/value_verdict_changer_rows',
+                        array('changers' => $changers)
+                    ) ?>
+                    <?php if ($changerRest > 0): ?>
+                        <div class="vp-signals-rest">
+                            <?= h(sprintf(
+                                __n(
+                                    '%s further way to change this'
+                                        . ' on the tab',
+                                    '%s further ways to change this'
+                                        . ' on the tab',
+                                    $changerRest
+                                ),
+                                $changerRest
+                            )) ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <a href="#tab-assessment"
            class="btn btn-sm btn-outline-primary w-100
                   d-flex align-items-center justify-content-center gap-1">

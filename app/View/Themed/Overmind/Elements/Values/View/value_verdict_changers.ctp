@@ -35,17 +35,10 @@ $actions = $verdict['changer_actions'] ?? array();
 
         <div class="p-3 vp-changers">
 
-            <?php foreach ($changers as $changer): ?>
-                <div class="vp-changer">
-                    <span class="vp-changer-arrow vp-changer-arrow-<?=
-                        h($changer['direction']) ?>">
-                        <?= $changer['direction'] === 'up'
-                            ? '&#9650;'
-                            : '&#9660;' ?>
-                    </span>
-                    <span><?= h($changer['text']) ?></span>
-                </div>
-            <?php endforeach; ?>
+            <?= $this->element(
+                'Values/View/value_verdict_changer_rows',
+                array('changers' => $changers)
+            ) ?>
 
             <?php if (!empty($actions)): ?>
                 <div class="vp-changer-actions">
