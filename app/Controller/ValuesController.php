@@ -260,17 +260,19 @@ class ValuesController extends AppController
         );
         if ($answer['recorded']) {
             /*
-             * The one thing the profile cannot say for itself: that
-             * the string it is about is not quite the string that was
-             * pasted. Values are stored refanged, so a defanged paste
-             * that resolves resolved to something else, and a reader
-             * who is not told that has no way to tell a refang from a
-             * wrong answer.
+             * **The instance's spelling, not the reader's.** The value
+             * columns are case-insensitive and MISP lowercases hashes,
+             * domains, hostnames and email addresses on the way in, so
+             * `CiRcL.lu` matches rows that all say `circl.lu` — and
+             * `view()` renders whatever string its URL carries. Sent
+             * the reader's own, the profile would be titled with a
+             * value nobody holds over the occurrences of one
+             * everybody does.
              */
-            $this->__sayWhatChanged($one);
+            $this->__sayWhatChanged($one, $answer['stored']);
             return $this->redirect(
                 array('action' => 'view', ValueUrlTool::encode(
-                    $one['value']
+                    $answer['stored']
                 )),
                 303
             );
@@ -298,22 +300,32 @@ class ValuesController extends AppController
      * one they still remember, and quoting a defanged spelling back
      * at them puts it in the session store for no gain.
      *
+     * Three things can have happened to a value between the box and
+     * the profile and the reader is told about whichever did, in the
+     * order that explains the most: a refang changes the string
+     * outright, quotes came off it, and the case is the instance's
+     * rather than theirs. Only the last is silent when nothing else
+     * happened and the spelling matched.
+     *
      * @param array $one What `ValueInputTool::normalise` made of it
+     * @param string $stored How the instance spells it
      * @return void
      */
-    private function __sayWhatChanged(array $one)
+    private function __sayWhatChanged(array $one, $stored)
     {
-        if (empty($one['changed'])) {
+        $changed = $one['changed'];
+        if (in_array(ValueInputTool::REFANGED, $changed, true)) {
+            $said = __('Values are stored refanged, so your paste'
+                . ' resolved to %s.');
+        } elseif (in_array(ValueInputTool::UNQUOTED, $changed, true)) {
+            $said = __('Quotes are not part of a value, so your paste'
+                . ' resolved to %s.');
+        } elseif ($stored !== $one['value']) {
+            $said = __('This instance spells that value %s.');
+        } else {
             return;
         }
-        $this->Flash->info(sprintf(
-            in_array(ValueInputTool::REFANGED, $one['changed'], true)
-                ? __('Values are stored refanged, so your paste'
-                    . ' resolved to %s.')
-                : __('Quotes are not part of a value, so your paste'
-                    . ' resolved to %s.'),
-            $one['value']
-        ));
+        $this->Flash->info(sprintf($said, $stored));
     }
 
     /**

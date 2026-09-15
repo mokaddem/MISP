@@ -96,6 +96,17 @@ class Value extends AppModel
     const PREVALENCE_PROBE_CAP = 1500;
 
     /**
+     * Rows `spellingsFor` reads to answer how a value is spelled.
+     *
+     * Four, because the question is *which spellings are there*, and
+     * the answer is almost always one: MISP lowercases the types where
+     * case could vary at all. Reading a handful covers the types it
+     * does not touch — `filename`, `text`, `url` — and stops the read
+     * being a function of the value's popularity.
+     */
+    const SPELLING_ROW_CAP = 4;
+
+    /**
      * MISP's attribute type for a date an object template records in a
      * field of its own — `time_first`, `first-seen`, `send-date`.
      *
@@ -3073,5 +3084,95 @@ class Value extends AppModel
             'fetched' => count($rows),
             'saturated' => count($rows) >= (int)$limit,
         );
+    }
+
+    /**
+     * How this instance actually spells these values, for this viewer.
+     *
+     * **The value columns are case-insensitive and the URL is not.**
+     * `attributes.value1` and `value2` are `utf8mb3_unicode_ci` in
+     * `db_schema.json`, and `AttributeValidationTool::
+     * modifyBeforeValidation()` lowercases every hash type, `hostname`,
+     * `domain`, `domain|ip`, the email types and `onion-address` on the
+     * way in — so a reader who types `CiRcL.lu` matches rows that all
+     * store `circl.lu`. The profile page renders the string it was
+     * given, so without this the banner reads a spelling nobody holds
+     * over nine occurrences of one that everybody does.
+     *
+     * A caller resolving a reader's own typing therefore asks this
+     * rather than asking whether the value exists: the answer is both.
+     * Nothing already holding a stored value needs it — every hover
+     * card in MISP links with the string it read out of the database.
+     *
+     * **One statement, bounded by `$limit` rows and not by the value's
+     * size.** An equality on the two indexed columns, ACL-scoped by
+     * `fetchAttributesSimple`, unordered — the model's default
+     * `event_id DESC` over `443`'s 48,255 occurrences would be a
+     * filesort to answer a question the first row answers. Both
+     * columns come back because a value is an identity when it is
+     * either one (`conditionsFor`), and which of them matched is not
+     * something the row says.
+     *
+     * A few rows rather than one so the caller can prefer an exact
+     * spelling where the instance holds more than one — a type MISP
+     * does not lowercase can hold `Report.doc` and `report.doc` at
+     * once, and any answer is better than a spelling that is neither,
+     * but the reader's own is better still.
+     *
+     * @param array $user
+     * @param array $values Values to look for, exactly as spelled
+     * @param array $options As conditionsFor
+     * @param int $limit Rows read, not values returned
+     * @return array<string> The distinct non-empty spellings those
+     *                       rows hold, in the order they were read
+     */
+    public function spellingsFor(array $user, array $values,
+        array $options = array(), $limit = self::SPELLING_ROW_CAP
+    ) {
+        $wanted = array();
+        foreach ($values as $value) {
+            if ($value !== '' && $value !== null) {
+                // As `prevalenceFor`: an array key that looks like an
+                // integer comes back as one, and MariaDB abandons the
+                // `value1` index comparing a varchar to a number.
+                $wanted[(string)$value] = true;
+            }
+        }
+        if (empty($wanted)) {
+            return array();
+        }
+        $keys = array_map('strval', array_keys($wanted));
+        $conditions = array('OR' => array(
+            'Attribute.value1' => $keys,
+            'Attribute.value2' => $keys,
+        ));
+        if (!empty($options['types'])) {
+            $conditions = array(
+                $conditions,
+                array('Attribute.type' => $options['types']),
+            );
+        }
+        $rows = $this->attributes()->fetchAttributesSimple($user, array(
+            'conditions' => $conditions,
+            'fields' => array('Attribute.value1', 'Attribute.value2'),
+            'limit' => (int)$limit,
+        ));
+        $spellings = array();
+        foreach ($rows as $row) {
+            foreach (array('value1', 'value2') as $column) {
+                $spelling = isset($row['Attribute'][$column])
+                    ? (string)$row['Attribute'][$column]
+                    : '';
+                if ($spelling !== '') {
+                    $spellings[$spelling] = true;
+                }
+            }
+        }
+        /*
+         * Back to strings for the same reason the keys went in as
+         * strings: `array_keys` hands back `443` as an integer, and
+         * the caller compares these against the reader's typing.
+         */
+        return array_map('strval', array_keys($spellings));
     }
 }

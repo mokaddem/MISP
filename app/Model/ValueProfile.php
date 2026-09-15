@@ -1029,8 +1029,8 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * Whether this reader's instance records this value, and the one
-     * neighbour worth offering when it does not.
+     * How this instance spells the value the reader typed, if it holds
+     * it at all — and the one neighbour worth offering if it does not.
      *
      * The resolver's whole read (`value-index.md` §7.1). It answers the
      * question the paste box asks — *is this here?* — and nothing else:
@@ -1038,40 +1038,50 @@ class ValueProfile extends AppModel
      * profile, which is the page that says everything else, and a miss
      * is an answer rather than an error.
      *
-     * **One bounded probe, and it is `prevalenceFor`'s.** An existence
-     * test wants to stop at the first row and an aggregate does not:
+     * **It answers with the stored spelling, not the reader's.** The
+     * value columns are `utf8mb3_unicode_ci` and MISP lowercases every
+     * hash, domain, hostname and email address on the way in, so
+     * `CiRcL.lu` matches nine rows that all say `circl.lu` — and
+     * `/values/view` renders the string in its URL. Sending the
+     * reader's own spelling through would title a page with a value
+     * nobody holds, over the occurrences, orgs and types of one
+     * everybody does. `Value::spellingsFor` therefore answers both
+     * halves in one statement: what is recorded, and how.
+     *
+     * **One bounded statement, and it is not an aggregate.** An
+     * existence test wants to stop at the first row:
      * `occurrenceCountFor` reads all 48,255 occurrences of `443` to
-     * say *yes*. The prevalence probe caps every arm at
-     * `PREVALENCE_ROW_CAP + 1` rows, asks it as an equality on the
-     * `value1` and `value2` indexes, and scopes it with the same
-     * `buildConditions` the profile uses — so a value the reader may
-     * not see is absent here exactly as a value nobody recorded is
-     * (§4.2, and `value-index.md` §8 G3). **`capped` is recorded**:
-     * *too common to count* is a different answer from *not there*.
+     * say *yes*, where this reads four. It is an equality on the
+     * indexed `value1` and `value2`, scoped by the same
+     * `buildConditions` the profile uses — so **a value the reader may
+     * not see is absent here exactly as a value nobody recorded is**
+     * (§4.2, and `value-index.md` §8 G3).
      *
-     * **The case probe runs on the miss path only.** `value1` is a
-     * `text` column under a 255-character prefix index; the shipped
-     * collation is `utf8mb3_unicode_ci` and this instance runs
-     * `utf8mb3_bin`, so a fold correct on both would have to be
-     * `LOWER()` on the stored column, which discards the index over
-     * 3.9M rows. What runs instead is the two or three spellings a
-     * paste actually arrives in — `caseVariants` — each an indexed
-     * equality, in one further statement. On a `_ci` instance the
-     * exact match has already succeeded and it never runs; on a value
-     * with no cased letters, `8.8.8.8` among them, there is no second
-     * statement to issue at all.
+     * **The case probe runs on the miss path only**, and on a
+     * conformant instance it can only miss, because a spelling it
+     * would find has already been found by the exact match. It is for
+     * an instance whose value columns were created under MISP's
+     * `utf8mb3_bin` table default — drift that `schemaDiagnostics`
+     * reports — where `Google.com` and `google.com` really are two
+     * values. What it asks is `caseVariants`: the two or three
+     * spellings a paste arrives in, each an indexed equality, in one
+     * further statement. A fold would be correct on both collations
+     * and is refused: `LOWER()` on the stored column discards the
+     * 255-character prefix index over 3.9M rows. A value with no cased
+     * letters, `8.8.8.8` among them, issues no second statement.
      *
-     * What comes back is an offer and never a redirect: on this
-     * instance `Google.com` and `google.com` are two values, and only
-     * the reader knows which one the ticket meant.
+     * What comes back from that probe is an offer and never a
+     * redirect: only the reader knows which spelling the report meant.
      *
      * @param array $user
      * @param string $value A value, already normalised
      * @param array $options As conditionsFor
-     * @return array `value`, `recorded`, `suggestion` (a recorded
-     *               spelling differing only in case, or null), and
-     *               `probed` — the spellings the second statement
-     *               asked about, empty when it was not issued
+     * @return array `value` as asked, `recorded`, `stored` — how the
+     *               instance spells it, null when it does not hold it
+     *               — `suggestion`, a stored spelling differing only
+     *               in case, and `probed`, the spellings the second
+     *               statement asked about, empty when it was not
+     *               issued
      */
     public function forResolve(array $user, $value,
         array $options = array()
@@ -1080,16 +1090,18 @@ class ValueProfile extends AppModel
         $answer = array(
             'value' => $value,
             'recorded' => false,
+            'stored' => null,
             'suggestion' => null,
             'probed' => array(),
         );
-        $exact = $valueModel->prevalenceFor(
+        $stored = self::spellingOf($value, $valueModel->spellingsFor(
             $user,
             array($value),
             $options
-        );
-        if (self::prevalenceHolds($exact, $value)) {
+        ));
+        if ($stored !== null) {
             $answer['recorded'] = true;
+            $answer['stored'] = $stored;
             return $answer;
         }
         $variants = self::caseVariants($value);
@@ -1097,10 +1109,15 @@ class ValueProfile extends AppModel
             return $answer;
         }
         $answer['probed'] = $variants;
-        $probe = $valueModel->prevalenceFor($user, $variants, $options);
+        $spellings = $valueModel->spellingsFor(
+            $user,
+            $variants,
+            $options
+        );
         foreach ($variants as $variant) {
-            if (self::prevalenceHolds($probe, $variant)) {
-                $answer['suggestion'] = $variant;
+            $found = self::spellingOf($variant, $spellings);
+            if ($found !== null) {
+                $answer['suggestion'] = $found;
                 break;
             }
         }
@@ -1108,20 +1125,39 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * Does the probe hold an answer for this key?
+     * Which of the spellings that came back is this value's.
      *
-     * Two places to look rather than one: a value over the row cap is
-     * reported as `capped` and carries no count, and reading only
-     * `counts` would call the instance's most common values absent.
+     * The row says `value1` and `value2` and not which of them the
+     * collation matched, and a probe of three variants gets one
+     * answer for all three — so the caller asks per value and the
+     * folding is done here, in PHP, against strings already fetched.
+     * That is not the `LOWER()` the hot path refuses: this folds two
+     * short strings in memory rather than a `text` column in MariaDB.
      *
-     * @param array $prevalence What `Value::prevalenceFor` returned
-     * @param string $key
-     * @return bool
+     * **The reader's own spelling wins when the instance holds it**,
+     * which is the case where nothing should change under them; a
+     * fold match is what redirects `CiRcL.lu` to `circl.lu`. A
+     * collation that folded something case does not — the accents
+     * `utf8mb3_unicode_ci` also equates — matches neither test, and
+     * answering null there is honest: this can say *recorded* only
+     * about a spelling it can name.
+     *
+     * @param string $value The value as asked about
+     * @param array<string> $spellings What `spellingsFor` returned
+     * @return string|null
      */
-    private static function prevalenceHolds(array $prevalence, $key)
+    private static function spellingOf($value, array $spellings)
     {
-        return isset($prevalence['counts'][$key])
-            || isset($prevalence['capped'][$key]);
+        if (in_array($value, $spellings, true)) {
+            return $value;
+        }
+        $folded = mb_strtolower((string)$value, 'UTF-8');
+        foreach ($spellings as $spelling) {
+            if (mb_strtolower($spelling, 'UTF-8') === $folded) {
+                return $spelling;
+            }
+        }
+        return null;
     }
 
     /**
