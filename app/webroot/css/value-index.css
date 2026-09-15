@@ -302,6 +302,150 @@
 
 
 /* ==================================================================
+ * The counter
+ * ------------------------------------------------------------------
+ * The cap, mirrored beside the box so a refusal is never a surprise
+ * at the end of a paste. It counts the way the parser will — blanks
+ * skipped, composites split, duplicates dropped — but it does not
+ * refang, so it is the reader's guide and the server is the
+ * authority; `value-index.js` says why the button stays pressable
+ * over the cap where the prototype disabled it.
+ * ================================================================== */
+
+.vi-count {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vi-count b {
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+
+/*
+ * The over-cap ink is the palette's own `--vp-mal-ink`, which is the
+ * one red both themes have already agreed on — a second red mixed
+ * here would be a second vocabulary for *stop*.
+ */
+.vi-count.is-over,
+.vi-count.is-over b {
+    color: var(--vp-mal-ink);
+}
+
+
+/* ==================================================================
+ * The worklist
+ * ------------------------------------------------------------------
+ * A paste, as rows. Phase 4 draws the rows and the sentence above
+ * them; the progress machinery C draws around both needs decisions to
+ * work and arrives with them (see the element's own note).
+ * ================================================================== */
+
+.vi-work {
+    padding: 13px 14px 14px 40px;
+}
+
+.vi-prov {
+    margin: 0 0 10px;
+    max-width: 78ch;
+    color: var(--bs-secondary-color);
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.vi-prov b {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.vi-whole {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-items: center;
+    margin: 0 0 11px;
+}
+
+/*
+ * The rows. One line each and the same height whatever the value is,
+ * which is the compact view's premise taken early: a 64-character
+ * hash and a four-character port make rows a reader can count down.
+ * A value that would wrap is truncated instead — the textarea above
+ * still holds every character of it.
+ */
+.vi-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.vi-row {
+    display: grid;
+    grid-template-columns: 2.4em minmax(0, 1fr) auto;
+    gap: 0 10px;
+    align-items: center;
+    height: 30px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vi-row:last-child {
+    border-bottom: 0;
+}
+
+.vi-row:hover {
+    background: var(--bs-secondary-bg);
+}
+
+.vi-n {
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.vi-val {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+/*
+ * The row's verb is quiet until the row is under the cursor: forty
+ * bordered buttons down the right-hand side would be forty things
+ * competing with the values they belong to.
+ */
+.vi-rowact .vi-btn {
+    padding: 2px 7px;
+    border-color: transparent;
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+}
+
+.vi-row:hover .vi-rowact .vi-btn,
+.vi-rowact .vi-btn:focus-visible {
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+.vi-refusal {
+    font-weight: 600;
+    font-size: 0.86rem;
+}
+
+
+/* ==================================================================
  * Narrow
  * ------------------------------------------------------------------
  * The verb drops under the field rather than squeezing it; the caret's
@@ -314,6 +458,7 @@
         width: 100%;
         border-left: 0;
         border-top: 1px solid var(--bs-border-color);
+        justify-content: space-between;
     }
 
     .vi-ta {
@@ -321,7 +466,21 @@
     }
 
     .vi-invite,
-    .vi-answerwrap {
+    .vi-answerwrap,
+    .vi-work {
         padding-left: 14px;
+    }
+
+    /*
+     * The row keeps its one line and gives up the ordinal for it:
+     * counting down a list is what the number is for, and on a phone
+     * the list is scrolled rather than counted.
+     */
+    .vi-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .vi-n {
+        display: none;
     }
 }

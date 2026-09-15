@@ -1090,6 +1090,7 @@ class ACLComponent extends Component
             // so it can only answer about records the reader may see.
             'index' => array('theming_enabled'),
             'resolve' => array('theming_enabled'),
+            'triage' => array('theming_enabled'),
             'view' => array('theming_enabled'),
             'viewOccurrences' => array('theming_enabled'),
             'viewReporting' => array('theming_enabled'),

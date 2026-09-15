@@ -9,6 +9,15 @@
  * anyway. A hit never reaches this element: it is a `303` to the
  * profile, and the profile is the page that says everything else.
  *
+ * The third is the refusal over the cap, which says the count rather
+ * than truncating to it: a page that assessed the first hundred of
+ * three hundred and forty would have dropped the two hundred and
+ * forty the reader would never think to check.
+ *
+ * It carries its own padding because `triage()` renders it as the
+ * whole response when a paste is refused, and a fragment that relies
+ * on a wrapper the page draws arrives without one.
+ *
  * **Nothing here distinguishes a value the reader may not see from a
  * value nobody recorded** (§4.2, §8 G3). There is one *absent* answer,
  * one wording, and it is drawn from `recorded === false` alone — the
@@ -30,6 +39,7 @@ $profileUrl = function ($value) {
     ));
 };
 ?>
+<div class="vi-answerwrap">
 <div class="vi-answer">
 <?php if ($kind === 'absent'): ?>
     <p class="vi-said"><?= h($resolution['value']) ?></p>
@@ -82,16 +92,21 @@ $profileUrl = function ($value) {
         $resolution['suggestion']
     )) ?></p>
 <?php   endif; ?>
-<?php elseif ($kind === 'list'): ?>
-    <p><?= h(sprintf(
-        __('That is %d values. This box opens one profile at a time.'),
-        $resolution['count']
+<?php elseif ($kind === 'over'): ?>
+    <p class="vi-refusal"><?= h(sprintf(
+        __('That is %1$d values. This page takes %2$d at a time.'),
+        $resolution['count'],
+        $resolution['cap']
     )) ?></p>
-    <p class="vi-quiet"><?= h(__(
-        'Your paste is still in the box. Leave one value in it to'
-        . ' open that value\'s profile.'
+    <p class="vi-quiet"><?= h(sprintf(
+        __('Nothing was cut and nothing was read — your paste is'
+            . ' still in the box exactly as you left it. Trim it to'
+            . ' %1$d and press again, or work it in %2$d goes.'),
+        $resolution['cap'],
+        $resolution['goes']
     )) ?></p>
 <?php else: ?>
     <p><?= h(__('There was nothing in the box to resolve.')) ?></p>
 <?php endif; ?>
+</div>
 </div>

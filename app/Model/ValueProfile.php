@@ -1161,6 +1161,100 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * A pasted list, as the rows a worklist draws.
+     *
+     * The resolver's read at a hundred times the scale, and it does
+     * the same one job: **give every row a link to a value the
+     * instance actually holds**. A report's IOC section arrives in
+     * whatever case its author's tooling wrote, and MISP lowercases
+     * every hash, domain, hostname and email address on the way in —
+     * so a pasted list of uppercase `sha256`es is otherwise a hundred
+     * links to values nobody has filed. `value-index.md` §7.2.
+     *
+     * **Canonicalisation, and deliberately nothing else.** It does not
+     * answer whether a value is recorded, though the read it makes
+     * could: a row saying *not recorded* here would be a row that
+     * looks different for a value the reader may not see, which is
+     * exactly the identity §4.2 holds and which phase 5 has the
+     * machinery to keep. What a row shows about a value is the
+     * assessment or nothing.
+     *
+     * **One bounded statement per value that has a case to vary, not
+     * one statement for the list.** The array-shaped read is the
+     * obvious shape and it is wrong, measured rather than reasoned:
+     * `value1 IN (100 values) OR value2 IN (…)` plans as an
+     * `index_merge sort_union`, which collects row ids for **every**
+     * occurrence of every value before any `LIMIT` applies, and the
+     * limit then takes a prefix of them in row-id order. A paste
+     * carrying one hot value spends that prefix on it — on the
+     * verification instance, a hundred values including `flood`
+     * (65,717 occurrences) answered **75 of 99** at four rows a value,
+     * and answering all of them meant reading 357 rows in 1,288 ms.
+     * The same list as bounded per-value equalities answered 99 of 99
+     * in 120 ms. The per-value shape also costs what the *list* is
+     * long rather than what its most popular value is popular, which
+     * is the property a page with a hundred-value cap needs.
+     *
+     * **A value with no cased letters is not asked about at all.** It
+     * has one possible spelling — `caseVariants` empty is that test,
+     * and it is the same one that saves the resolver its second
+     * statement — so an IP, a port or a timestamp costs nothing here.
+     * An IOC list is rarely all hashes: the two pastes measured above
+     * asked 64 and 59 statements for their hundred values.
+     *
+     * **The collapse happens after the read, not before.** Two
+     * spellings of one value are two values to `ValueInputTool`, which
+     * does not fold case because the instance's collation decides
+     * whether they are one thing — and here that question has just
+     * been answered. `GOOGLE.COM` and `google.com` therefore become
+     * one row on a `_ci` instance and stay two on a `_bin` one, which
+     * is the truth in both cases.
+     *
+     * @param array $user
+     * @param array<string> $values Normalised, deduplicated, in the
+     *                              order they were pasted
+     * @param array $options As conditionsFor
+     * @return array `rows` — `value`, the reader's own spelling, and
+     *               `stored`, how the instance spells it or null —
+     *               plus `recased` and `collapsed`, the counts the
+     *               provenance line names
+     */
+    public function forTriage(array $user, array $values,
+        array $options = array()
+    ) {
+        $valueModel = $this->model('Value');
+        $rows = array();
+        $at = array();
+        $recased = 0;
+        $collapsed = 0;
+        foreach ($values as $value) {
+            $value = (string)$value;
+            $stored = self::caseVariants($value) === array()
+                ? $value
+                : self::spellingOf($value, $valueModel->spellingsFor(
+                    $user,
+                    array($value),
+                    $options
+                ));
+            $key = $stored === null ? $value : $stored;
+            if (isset($at[$key])) {
+                $collapsed++;
+                continue;
+            }
+            if ($stored !== null && $stored !== $value) {
+                $recased++;
+            }
+            $at[$key] = true;
+            $rows[] = array('value' => $value, 'stored' => $stored);
+        }
+        return array(
+            'rows' => $rows,
+            'recased' => $recased,
+            'collapsed' => $collapsed,
+        );
+    }
+
+    /**
      * The spellings of a value that differ from it only in case.
      *
      * Three, because three is what a paste arrives as: all lower, the

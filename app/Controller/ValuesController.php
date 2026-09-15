@@ -72,10 +72,24 @@ class ValuesController extends AppController
          * would blackhole every run. The CSRF check stays on —
          * `viewEnrichmentRun` says why that half is worth keeping
          * where MISP's usual ajax treatment drops both.
+         *
+         * **`triage` is the prompt's own form posted somewhere else.**
+         * `FormHelper` hashes the field list together with the form's
+         * action, and `SecurityComponent` checks that hash against the
+         * URL the request arrived at — so the one form on this page,
+         * built for `resolve` and sent by the page's script to
+         * `triage` instead, fails a check that nothing is wrong with.
+         * Emitting a second form for the same textarea to satisfy it
+         * would put two copies of the reader's paste in the document.
+         * What the hash protects is a field set the reader is not
+         * meant to choose, and this form's field set is one textarea
+         * they type into: there is nothing here to tamper with that
+         * tampering would gain. CSRF is the half that matters and it
+         * stays on.
          */
         if (in_array(
             $this->request->params['action'] ?? null,
-            array('viewEnrichmentRun', 'viewEnrichmentBadge'),
+            array('viewEnrichmentRun', 'viewEnrichmentBadge', 'triage'),
             true
         )) {
             $this->Security->validatePost = false;
@@ -178,6 +192,7 @@ class ValuesController extends AppController
     public function index()
     {
         $this->set('resolution', null);
+        $this->set('triage', null);
     }
 
     /**
@@ -199,14 +214,23 @@ class ValuesController extends AppController
      * `__decodeValue`'s `NotFoundException` is right for a malformed
      * URL and wrong for this.
      *
-     * **One line is a value, more than one is a list.** The split is
-     * `ValueInputTool`'s own — a paste with more than one non-empty
-     * line has said what its unit is (§3.2) — and it is the *line*
-     * count rather than the value count on purpose:
-     * `example.com|1.2.3.4` is one value to the reader who typed it
-     * and two to the parser, so the route in is `normalise()`, which
-     * keeps the composite and the comma whole. A list gets its count
-     * back and nothing else until phase 4 gives it the worklist.
+     * **The parser's count routes, not the line count.** One value is
+     * a profile and more than one is the worklist, which phase 4 put
+     * behind this same box. Phase 3 routed on lines instead, because
+     * with no worklist to route to a comma could only be part of a
+     * value; now that there is one, `1.2.3.4, 5.6.7.8` typed on one
+     * line has to become two rows, and `example.com|1.2.3.4` has to
+     * become two as well — the composite resolves to nothing as a
+     * string, since `value1` and `value2` hold its halves and no
+     * column holds the pair.
+     *
+     * What that costs is the one reader whose value legitimately
+     * contains a comma, and they are not lost: the worklist says the
+     * commas split their line and offers the whole line as one value,
+     * which arrives back here as `whole` and is the only caller of
+     * `normalise()` left. An offer rather than a rule, for the reason
+     * the did-you-mean is one — only the reader knows which their
+     * report meant.
      *
      * @return void
      */
@@ -219,38 +243,45 @@ class ValuesController extends AppController
                 . ' history.'
             ));
         }
-        $raw = isset($this->request->data['Value']['value'])
-            ? (string)$this->request->data['Value']['value']
-            : '';
-        $many = ValueInputTool::normaliseMany($raw);
-        $report = $many['report'];
-        $byLines = $report['separator'] === ValueInputTool::BY_LINES;
-        if ($byLines && $report['total'] > 1) {
-            $this->set('resolution', array(
-                'kind' => 'list',
-                'count' => $report['total'],
-            ));
-            return $this->render('index');
-        }
-        /*
-         * A paste of lines that leaves one value — the same indicator
-         * twice, or a value beside its own defanged spelling — is a
-         * value and not a list, and refusing it to be consistent with
-         * a rule about line counts would be a worse answer than the
-         * one the reader asked for. Its value comes from the parse
-         * that split the lines, because the raw string still carries
-         * them; with one value left, the report describes that value.
-         */
-        $one = $byLines
-            ? array(
+        $raw = $this->__pasted();
+        if (!empty($this->request->data['Value']['whole'])) {
+            /*
+             * The worklist's offer, come back: the line the commas
+             * split, taken whole. `normalise()` splits nothing, which
+             * is what makes a value carrying a separator reachable at
+             * all (§3.1).
+             */
+            $one = ValueInputTool::normalise($raw);
+        } else {
+            $many = ValueInputTool::normaliseMany($raw);
+            $report = $many['report'];
+            if ($report['overflow'] > 0) {
+                $this->set('resolution', $this->__refusal($report));
+                $this->set('triage', null);
+                return $this->render('index');
+            }
+            if (count($many['values']) > 1) {
+                $this->set('resolution', null);
+                $this->set('triage', $this->__triage($many));
+                return $this->render('index');
+            }
+            /*
+             * One value left, whatever the paste looked like getting
+             * there — the same indicator twice, or a value beside its
+             * own defanged spelling. The report describes that value,
+             * so its counts read back as the tokens `normalise()`
+             * would have returned.
+             */
+            $one = array(
                 'value' => isset($many['values'][0])
                     ? $many['values'][0]
                     : null,
                 'changed' => $this->__changedIn($report),
-            )
-            : ValueInputTool::normalise($raw);
+            );
+        }
         if ($one['value'] === null) {
             $this->set('resolution', array('kind' => 'empty'));
+            $this->set('triage', null);
             return $this->render('index');
         }
         $this->loadModel('ValueProfile');
@@ -283,7 +314,116 @@ class ValuesController extends AppController
             'changed' => $one['changed'],
             'suggestion' => $answer['suggestion'],
         ));
+        $this->set('triage', null);
         return $this->render('index');
+    }
+
+    /**
+     * A pasted list, as the rows to work — **the fragment alone**.
+     *
+     * The block the page replaces when the reader presses with more
+     * than one value in the box, which is why it renders an element
+     * and not a page: the paste stays in the textarea above it
+     * untouched, the reader keeps their scroll position, and phase 5
+     * has a block it can refill without a navigation. The page still
+     * works with no script at all — `resolve()` routes a list to the
+     * same builder and renders the whole page around it.
+     *
+     * **No assessment here** (§7.2). This phase parses: it cleans the
+     * list, splits composites, drops duplicates, canonicalises each
+     * value's spelling and links it. A row that said *recorded* or
+     * *not recorded* would be a row that looks different for a value
+     * the reader may not see, which is the identity §4.2 holds.
+     *
+     * **A one-value paste is a one-row list, not an error.** The page
+     * script counts the reader's paste with a cruder parser than this
+     * one and can be one out — a defanged spelling and its fanged
+     * twin are one value here and two there — so this endpoint is
+     * reachable with a single value, and a list of one that links to
+     * a profile is a perfectly good answer to give.
+     *
+     * @return void
+     */
+    public function triage()
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'Triaging a list is a POST: a hundred indicators in a'
+                . ' query string would reach the access log one line'
+                . ' at a time.'
+            ));
+        }
+        $many = ValueInputTool::normaliseMany($this->__pasted());
+        $report = $many['report'];
+        $this->layout = false;
+        if ($report['overflow'] > 0) {
+            $this->set('resolution', $this->__refusal($report));
+            return $this->render('/Elements/Values/Index/answer');
+        }
+        if (empty($many['values'])) {
+            $this->set('resolution', array('kind' => 'empty'));
+            return $this->render('/Elements/Values/Index/answer');
+        }
+        $this->set('triage', $this->__triage($many));
+        return $this->render('/Elements/Values/Index/worklist');
+    }
+
+    /**
+     * What was in the box.
+     *
+     * @return string
+     */
+    private function __pasted()
+    {
+        return isset($this->request->data['Value']['value'])
+            ? (string)$this->request->data['Value']['value']
+            : '';
+    }
+
+    /**
+     * Over the cap: the count, and nothing read.
+     *
+     * **Refused, never truncated** (§7.2). A page that quietly
+     * assessed the first hundred of three hundred and forty would
+     * have answered a question the reader did not ask, and the two
+     * hundred and forty it dropped are the ones they would never
+     * think to check. The count is the *input's* — `normaliseMany`
+     * counts what was pasted rather than what it returned, so the
+     * number the refusal names is the number the reader can act on.
+     *
+     * Nothing is read here: the refusal happens on the parse, before
+     * any model is loaded, so an oversized paste costs the instance a
+     * `preg_split` and no statement at all.
+     *
+     * @param array $report A `ValueInputTool::normaliseMany` report
+     * @return array
+     */
+    private function __refusal(array $report)
+    {
+        return array(
+            'kind' => 'over',
+            'count' => $report['total'],
+            'cap' => $report['cap'],
+            'goes' => (int)ceil($report['total'] / max(1, $report['cap'])),
+        );
+    }
+
+    /**
+     * The rows, and what the parse did to get to them.
+     *
+     * @param array $many A `ValueInputTool::normaliseMany` answer
+     * @return array `rows`, `report`, and the two counts the spelling
+     *               read adds to it
+     */
+    private function __triage(array $many)
+    {
+        $this->loadModel('ValueProfile');
+        $triage = $this->ValueProfile->forTriage(
+            $this->Auth->user(),
+            $many['values']
+        );
+        $triage['report'] = $many['report'];
+        return $triage;
     }
 
     /**
