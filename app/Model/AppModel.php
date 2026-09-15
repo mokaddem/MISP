@@ -99,7 +99,7 @@ class AppModel extends Model
         141 => false, 142 => false, 143 => false, 144 => false, 145 => false, 146 => false,
         147 => false, 148 => false, 149 => false, 150 => false, 151 => false, 152 => false,
         153 => false, 154 => false, 157 => false, 158 => false, 159 => false,
-        160 => false, 161 => false
+        160 => false, 161 => false, 162 => false
     );
 
     const ADVANCED_UPDATES_DESCRIPTION = array(
@@ -2783,6 +2783,29 @@ class AppModel extends Model
   UNIQUE KEY `run` (`org_id`,`value_hash`,`module`,`type`),
   KEY `last_run` (`last_run`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+                break;
+            case 162:
+                // `warninglist_entries` carried an index on
+                // `warninglist_id` and none on `value`, so
+                // `Warninglist::assignComments()` -- which runs whenever
+                // anything matched, for every caller of
+                // `attachWarninglistToAttributes()` -- scanned the whole
+                // of the list it matched to find one entry's comment.
+                // Measured: 64 ms and 126,004 rows examined to fetch one
+                // comment from the 62,745-entry public resolver list,
+                // against 0.23 ms and one row with this index
+                // (prd/analyst-profile/11-restsearch.md §3.5).
+                //
+                // 191 characters of prefix, which is utf8mb3's 767-byte
+                // limit and longer than any entry on a shipped list.
+                if (!$this->checkNamedIndexExists(
+                    'warninglist_entries',
+                    'idx_wle_list_value'
+                )) {
+                    $sqlArray[] = "ALTER TABLE `warninglist_entries`"
+                        . " ADD INDEX `idx_wle_list_value`"
+                        . " (`warninglist_id`, `value`(191));";
+                }
                 break;
             case 'fixNonEmptySharingGroupID':
                 $sqlArray[] = 'UPDATE `events` SET `sharing_group_id` = 0 WHERE `distribution` != 4;';
