@@ -12,8 +12,11 @@
  * @var int|null $quality The quality. Null where nothing computed one;
  *                        **capped at 100 and not floored at 0**,
  *                        because the ledger sums to it exactly and a
- *                        record whose evidence disputes its own lean
- *                        nets negative. This element prints it; a
+ *                        record with more absences than substance nets
+ *                        negative. Not a record disputing its own
+ *                        lean — that evidence sums into `lean_weight`
+ *                        since `review-2026-09-13.md` §D1 and cannot
+ *                        reach this number. This element prints it; a
  *                        caller drawing a bar off it clamps its own
  *                        width (`value_verdict.ctp`)
  * @var string $size   'lg' for the headline, otherwise inline

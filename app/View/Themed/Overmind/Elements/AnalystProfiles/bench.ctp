@@ -102,8 +102,14 @@ if ($detail !== null) {
 $carry = array(
     'benched' => $benched !== null,
     'direction' => $directionStyle,
+    /*
+     * `block_items.ctp`'s caption, which the recompute rewrites — so
+     * the two have to say the same thing or the label changes on the
+     * first edit. It stopped naming the lean with §D1; what is left
+     * varying is whether there is a ledger to caption at all.
+     */
     'anchor' => $leanNow !== null && $leanNow !== 'none'
-        ? sprintf(__('+ toward %s'), $leanNow)
+        ? __('+ carries it')
         : '',
     'labels' => array(
         'none' => "â",

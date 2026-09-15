@@ -3,13 +3,22 @@
  * One row per ledger row, both contributions and the delta.
  *
  * **The delta column is the one place a red/green pair does real
- * work**, so it uses `--vp-dir-with` and `--vp-dir-against` — the same
- * pair the value page's ledger uses — rather than a Bootstrap state
- * that means something else.
+ * work**, so it uses `--vp-dir-with` and `--vp-dir-against` — the
+ * lean's own pair — rather than a Bootstrap state that means
+ * something else. It is no longer the pair the value page's *ledger*
+ * uses: since `review-2026-09-13.md` §D1 those rows resolve to
+ * `--vp-weighs-carries` / `--vp-weighs-lacks`, because a record
+ * weighs the same under either reading. What the two surfaces still
+ * share is the lean's pair, on the surfaces whose subject is the
+ * lean (`ValueLean::directionStyle()`). Here the subject is *did
+ * this edit move the number*, which is a direction of its own.
  *
- * Both columns sum to their own quality exactly, which is the whole
- * reason this diff is arithmetic rather than impressionistic, and the
- * footer says so per column rather than asserting it.
+ * The rows span both axes (`ValueVerdictDiffTool::diff()`), so the
+ * quality-axis subset sums to the quality exactly and the lean rows
+ * to `lean_weight` — that exactness is the whole reason this diff is
+ * arithmetic rather than impressionistic. The footer checks `sums`,
+ * which the tool narrows to the quality axis, and says so per column
+ * rather than asserting it.
  *
  * @var array $detail The diff
  * @var bool $full Every row, or only the ones that moved

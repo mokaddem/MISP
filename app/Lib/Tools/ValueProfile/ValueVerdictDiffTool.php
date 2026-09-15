@@ -393,10 +393,20 @@ class ValueVerdictDiffTool
      * Every ledger row of one assessment, keyed by signal id and
      * flattened out of its groups.
      *
+     * **Public because the editor's Signals palette needs the same
+     * answer**, and hand-rolling it a second time is how that column
+     * came to miss the lean rows for a day: §G1 taught this method to
+     * read both ledgers and `AnalystProfilesController` went on
+     * walking `ledger` alone. One traversal, so the next change to the
+     * ledger's shape has one place to reach.
+     *
      * @param array $verdict
-     * @return array
+     * @param string|null $axis One of `ValueVerdictTool`'s axis
+     *                          constants to take only that ledger;
+     *                          null for both
+     * @return array id => the row
      */
-    private static function rowsById(array $verdict, $axis = null)
+    public static function rowsById(array $verdict, $axis = null)
     {
         $rows = array();
         $ledger = isset($verdict['ledger']) && is_array($verdict['ledger'])

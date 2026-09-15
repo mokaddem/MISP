@@ -383,6 +383,28 @@ input.num[type="number"]::-webkit-inner-spin-button {
 [data-bs-theme="dark"] .d-up { color: var(--vp-dir-with-ink); }
 [data-bs-theme="dark"] .d-dn { color: var(--vp-dir-against-ink); }
 
+/*
+ * A cell holding a row that *weighs the record* rather than reads the
+ * value. Nine of the eleven shipped signals are these, and since
+ * `review-2026-09-13.md` §D1 their sign does not move with the lean —
+ * so the red/green pair, which means *with* and *against a reading*,
+ * is the wrong vocabulary for them. They take the value page's
+ * carries/lacks ink instead, which is what `.vp-signal-up` /
+ * `.vp-signal-down` resolve to on the ledger for the same reason.
+ *
+ * Overridden on the cell rather than swapped in the rules above, so
+ * `.d-up` / `.d-dn` stay one declaration and the two rows that really
+ * are directional keep them. Both inks are Bootstrap's theme-aware
+ * ones, so the dark pair is the same pair — `value-palette.css` says
+ * why.
+ */
+.wb-tbl td.is-weighs {
+    --vp-dir-with: var(--vp-weighs-carries);
+    --vp-dir-against: var(--vp-weighs-lacks);
+    --vp-dir-with-ink: var(--vp-weighs-carries);
+    --vp-dir-against-ink: var(--vp-weighs-lacks);
+}
+
 /* ---- the band strip ---- */
 .wb-strip {
     position: relative;

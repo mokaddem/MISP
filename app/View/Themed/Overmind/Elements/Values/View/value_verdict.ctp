@@ -160,13 +160,24 @@ foreach ($verdict['orgs'] as $org) {
                 <?php /*
                  * Clamped, because a quality can be negative and the
                  * fixture's could not: the ledger sums to it exactly,
-                 * so a record whose evidence disputes its own lean nets
-                 * below zero — `8.8.8.8` closes at −1 on the dev
-                 * instance. A negative width is an invalid declaration
-                 * the browser drops, which leaves the fill at whatever
-                 * width it inherits rather than at empty. The number
-                 * beside it is printed unclamped, because that one is
-                 * the assessment.
+                 * so a record with more absences than substance nets
+                 * below zero — `awake-weaves.cyou` closes at −1 on the
+                 * dev instance, one organisation and nothing else. A
+                 * negative width is an invalid declaration the browser
+                 * drops, which leaves the fill at whatever width it
+                 * inherits rather than at empty. The number beside it
+                 * is printed unclamped, because that one is the
+                 * assessment.
+                 *
+                 * **Not a record disputing its own lean**, which is
+                 * what this said before `review-2026-09-13.md` §D1
+                 * moved the lean rows to their own ledger. Evidence
+                 * that argues with the reading now sums into
+                 * `lean_weight` and can no longer reach this number;
+                 * `8.8.8.8`, the old worked example, closes at +57
+                 * where it closed at −1. Whether the absence poles
+                 * should floor here is the profile's calibration
+                 * question, not this element's — §F.
                  */ ?>
                 <?php
                 /*

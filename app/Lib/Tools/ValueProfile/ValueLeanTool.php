@@ -56,10 +56,19 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * names it has to get there before either one wins quietly.
  *
  * There is a seventh rule, and it lives with the ledger rather than
- * here: a lean whose anchored quality comes out below zero becomes
+ * here: a lean whose anchored **lean rows** sum below zero becomes
  * contested, because the record is then disputing its own assertion.
  * That one cannot be decided before scoring, so `ValueVerdictTool`
- * applies it.
+ * applies it, and it writes `decided_by = 'lean_disputed'` so the
+ * band stops naming the lean the rule discarded.
+ *
+ * **The lean rows and not the quality**, since
+ * `review-2026-09-13.md` §D1 and §A2: weighed against the whole
+ * ledger the rule fired on thin records rather than contradictory
+ * ones — a value with no galaxy, no first-seen, no sighting and
+ * nothing recent tripped it on absence penalties alone, which put 55
+ * of 60 contested values on the verification instance there by
+ * mistake.
  *
  * ## Why a rule that could not run is reported
  *

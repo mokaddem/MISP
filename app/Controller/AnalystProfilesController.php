@@ -1317,6 +1317,27 @@ class AnalystProfilesController extends AppController
      * What each weight produced on one value, so `view` can show the
      * contribution beside the number that caused it.
      *
+     * **Both ledgers, because the table holds both.** `review-2026-09
+     * -13.md` §D1 moved the lean rows out of `ledger` into
+     * `lean_ledger`, and walking only the first left the Signals
+     * table blank in the one column that says what a weight did — on
+     * `127.0.0.1` for `lifecycle.warninglist`, the heaviest row on
+     * that record at `+38`, and on `8.8.8.8` for both lean rows, the
+     * `−58` that decides its verdict. That is §G1's defect in the
+     * surface §G1's fix did not reach: the simulator was taught to
+     * read both ledgers, the palette was not, because each walked the
+     * ledger itself.
+     *
+     * So it walks neither. `ValueVerdictDiffTool::rowsById()` is the
+     * one traversal and the bench beside this table already uses it,
+     * which is what stops the two panes disagreeing about which rows
+     * exist.
+     *
+     * The lean rows carry their anchored contribution, which is what
+     * the bench and the value page render, and the row's own *reads
+     * the value* badge is what tells an analyst the sign means
+     * something different there.
+     *
      * @param array $user
      * @param string $value
      * @param array $row
@@ -1329,11 +1350,9 @@ class AnalystProfilesController extends AppController
         $verdict = $engine->verdictFor($user, $value,
             array('profile' => $row));
         $ledger = array();
-        foreach ($verdict['ledger'] as $group) {
-            foreach ($group['signals'] as $signalRow) {
-                if (!empty($signalRow['id'])) {
-                    $ledger[$signalRow['id']] = $signalRow['contribution'];
-                }
+        foreach (ValueVerdictDiffTool::rowsById($verdict) as $id => $signalRow) {
+            if (isset($signalRow['contribution'])) {
+                $ledger[$id] = $signalRow['contribution'];
             }
         }
         $notCounted = array();

@@ -2,10 +2,18 @@
 /**
  * How the two weights were reached, as a rail card.
  *
- * The same arithmetic the agreeing layout shows for its quality, except
- * there are two of them and they are never added together. Each case
- * gets its own strip and its own total, so the tug-of-war bar in the
- * hero can be checked against the signals that produced it.
+ * The arithmetic the agreeing layout shows for its quality, done over
+ * the lean ledger instead and folded into two sides that are never
+ * added together. Each case gets its own strip and its own total, so
+ * the tug-of-war bar in the hero can be checked against the signals
+ * that produced it.
+ *
+ * **The lean rows, not the quality's**, since `review-2026-09-13.md`
+ * §A3: splitting the whole ledger by sign seated five absences under
+ * a heading claiming they read the value as benign. So this card and
+ * the agreeing layout's are no longer the same rows — that one sums
+ * to `quality`, this one to `lean_weight`, which is also why the two
+ * totals here really are never the quality's difference.
  *
  * Grouped by source panel rather than listed per signal: at rail width
  * a signal's own wording does not fit, and "which panel is carrying

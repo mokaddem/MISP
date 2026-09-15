@@ -495,9 +495,11 @@ class ValueVerdictTool
      * other: what supports the record's assertion, and what disputes
      * it.
      *
-     * Both come out of the same rows the other leans render — there is
-     * no third bucket and no separate computation, which is what lets a
-     * reader add the ledger up by hand and arrive at the bar.
+     * Both come out of the same lean rows the other leans render —
+     * there is no third bucket and no separate computation, which is
+     * what lets a reader add the lean ledger up by hand and arrive at
+     * the bar. It is not the quality's rows; see **The lean rows, and
+     * only those** below.
      *
      * **Two keys, not five.** The fixture's third *unresolved* wedge
      * was never derivable from anything (`review-2026-09-02.md` B3) and

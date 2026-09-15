@@ -78,10 +78,17 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     /*
      * One line on screen, the rest behind the `i` — 09b-revisions §3.7
      * asked for that length and this is it. The wording is the plain
-     * one: *points × polarity* and *anchored sum* are exact and they
-     * are also the two phrases a reader has to already know the model
-     * to parse, which is the wrong way round for the sentence whose
-     * job is teaching the model.
+     * one: *lean axis*, *quality axis* and *anchored row* are exact
+     * and they are also the phrases a reader has to already know the
+     * model to parse, which is the wrong way round for the sentence
+     * whose job is teaching the model.
+     *
+     * Rewritten 2026-09-15. The `i` taught the anchoring — *if the
+     * lean came out benign, that whole scale is flipped* — which
+     * `review-2026-09-13.md` §D1 retired and §G2's four-surface pass
+     * did not reach. It is the same sentence
+     * `AnalystProfileFormTool::sectionSignals()` was rewritten away
+     * from, and it now carries the same two axes in the same words.
      */
     ?>
     <?= sprintf(
@@ -96,18 +103,25 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
        title="<?= h(__("The lean is decided first, by counting how many"
            . " organisations reported this value as a threat and how many"
            . " called it harmless. No points are involved.\n\n"
-           . "Then the quality is counted. Every signal scores the value"
-           . " on one scale, where a plus means it looks dangerous and a"
-           . " minus means it looks harmless. If the lean came out"
-           . " benign, that whole scale is flipped — so a plus always"
-           . " means the evidence supports the lean, and a minus always"
-           . " means it argues with it.\n\n"
-           . "The quality is those numbers added up, and the band is cut"
-           . " from the total. Relevance is a clock and touches"
-           . " neither.")) ?>">i</a>
+           . "Then the quality is counted. Most signals weigh the record"
+           . " rather than read the value: a plus means the record"
+           . " carries something — it was widely reported, it is"
+           . " published, someone attributed it — and a minus that it"
+           . " does not. That does not change with the lean, so a value"
+           . " four organisations reported is equally well documented"
+           . " whether the lean came out threat or benign. Those points"
+           . " add up to the quality, and the band is cut from that"
+           . " total.\n\n"
+           . "Two signals are different and are marked \"reads the"
+           . " value\": a warninglist hit and a false-positive sighting"
+           . " say what the value is, so they are scored against the"
+           . " lean — a plus supports it, a minus argues with it, and a"
+           . " big enough minus turns the lean contested. Those add up"
+           . " beside the quality rather than into it.\n\n"
+           . "Relevance is a clock and touches neither.")) ?>">i</a>
     <?php if ($lean['after'] === 'contested'): ?>
-        <?= h(__('This value is contested, so there is no polarity and'
-            . ' the ledger renders threat-signed.')) ?>
+        <?= h(__('This value is contested, so the rows that read it'
+            . ' render threat-signed.')) ?>
     <?php elseif ($lean['after'] === 'none'): ?>
         <?= h(__('This value has a lean of none, so there is no ledger'
             . ' at all.')) ?>
