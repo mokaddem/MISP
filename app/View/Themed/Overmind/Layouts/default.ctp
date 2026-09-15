@@ -79,6 +79,14 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 ['print', ['media' => 'print']],
                 ['misp-iconify', ['preload' => true]],
                 ['onboarding', ['preload' => true]],
+                /*
+                 * Site-wide, and deliberately not on the Value
+                 * Profile's own asset list: the hover card exists to
+                 * appear where the reader already is, and `/values/*`
+                 * is the one page they do not need it on.
+                 */
+                ['value-palette', ['preload' => true]],
+                ['value-hover-card', ['preload' => true]],
             ];
             $js = [
                 ['tom-select.complete.min', ['preload' => true]],
@@ -245,6 +253,8 @@ if (substr($currentAction, 0, 6) === 'admin_') {
             $bs5Js = [
                 'bootstrap.bundle.min',
                 'mispOvermind',
+                // After `mispOvermind`, which is where `baseurl` is set.
+                'value-hover-card',
             ];
             if (!$isAuthPage) {
                 $bs5Js[] = 'onboarding';

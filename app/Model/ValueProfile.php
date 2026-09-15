@@ -20,6 +20,7 @@ App::uses('GalaxyCategory', 'Tools/ValueProfile');
 App::uses('DomainPermutationTool', 'Tools/ValueProfile');
 App::uses('AuditActionMeta', 'Tools/ValueProfile');
 App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
+App::uses('ValueHoverTool', 'Tools/ValueProfile');
 App::uses('JsonTool', 'Tools');
 /*
  * For `NON_CORRELATING_TYPES` — the constant, not the model, so the
@@ -14919,6 +14920,59 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The hover card: one assessment, read down to what fits in 400px.
+     *
+     * **The context is built here and handed to both readers**, which
+     * is the whole of this method. `forVerdict()` accepts a `context`
+     * option precisely so a caller that needs the context for itself
+     * can own it, and this is that caller: the card's four tiles, its
+     * spark, its dates and its warninglist row are all folded from the
+     * same array the engine scored, so the hover and the page cannot
+     * disagree and the hover costs nothing the assessment did not
+     * already cost.
+     *
+     * The alternative was `forFrame()` beside `forVerdict()` — seven
+     * queries plus nine to twenty-seven — on every hover of every row
+     * of a table with fifty values in it. A reader sweeping a column
+     * would have paid for fifty pages they did not open.
+     *
+     * `with_opinions` is deliberately not passed: the analyst union is
+     * 7 to 28 queries and the card shows no opinion.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As `verdictContextFor`
+     * @return array `value` and `card`, the envelope
+     *               `value_hover_card.ctp` reads
+     */
+    public function forHoverCard(array $user, $value,
+        array $options = array()
+    ) {
+        $profile = array_key_exists('profile', $options)
+            ? $options['profile']
+            : ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        $now = isset($options['now']) ? (int)$options['now'] : time();
+        $context = $this->verdictContextFor(
+            $user,
+            $value,
+            $profile,
+            array_merge($options, array('now' => $now))
+        );
+        $envelope = $this->forVerdict($user, $value, array_merge(
+            $options,
+            array('profile' => $profile, 'context' => $context)
+        ));
+        return array(
+            'value' => $value,
+            'card' => ValueHoverTool::cardFor(
+                $envelope['verdict'],
+                $context,
+                $now
+            ),
+        );
+    }
+
+    /**
      * The display keys the templates read and the engine does not emit.
      *
      * **Derived, never invented.** `10-wiring.md` §2.2 counts thirteen
@@ -16038,6 +16092,23 @@ class ValueProfile extends AppModel
                 'recent' => $signals['recent'],
                 'recent_days' => $signals['recent_days'],
                 'first_stamp' => $signals['first_stamp'],
+                /*
+                 * The 90-day signed spark, folded off the rows the
+                 * tallies above already read rather than fetched for
+                 * the one caller that draws it. The hover card is that
+                 * caller; the Overview's Sightings card builds the same
+                 * array from its own rows through the same tool, so the
+                 * two surfaces cannot draw one value two shapes.
+                 *
+                 * These are the windowed rows, deliberately: a spark
+                 * wider than the evidence the assessment beside it
+                 * scored would be a chart disagreeing with the number
+                 * it sits under.
+                 */
+                'spark' => ValueStatsTool::sightingSpark(
+                    $rows,
+                    date('Y-m-d', $now)
+                ),
             ),
             'corroboration' => $corroboration,
             'windowed' => $windowed,

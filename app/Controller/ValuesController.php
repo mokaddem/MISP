@@ -292,6 +292,36 @@ class ValuesController extends AppController
     }
 
     /**
+     * The hover card, for a reader who has not opened this page.
+     *
+     * The only endpoint here that is fetched from somewhere else:
+     * every other action answers the Value Profile's own lazy panels,
+     * and this one answers an attribute row on an event page, an index
+     * table, or an object card. It is a fragment like the rest and
+     * arrives through the same `X-Requested-With` path.
+     *
+     * **It is served from this controller and not from wherever the
+     * reader is**, which is what lets `beforeRender()` put it under
+     * Overmind whatever theme the host page is drawn in, and what
+     * keeps one assessment in one place. `ValueProfile::forHoverCard`
+     * carries the cost argument.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewHoverCard($b64value = null)
+    {
+        $this->loadModel('ValueProfile');
+        $this->__renderPanel(
+            $this->ValueProfile->forHoverCard(
+                $this->Auth->user(),
+                $this->__decodeValue($b64value)
+            ),
+            'value_hover_card'
+        );
+    }
+
+    /**
      * The Overview's sightings card, and the one panel of that tab that
      * reads the database — see `ValueProfile::forSightings` for why it
      * was converted here rather than with the rest of the Overview.
@@ -838,15 +868,53 @@ class ValuesController extends AppController
             ));
         }
         @session_write_close();
+        /*
+         * Two surfaces draw this answer and they have different
+         * amounts of room: the Overview panel wants every chip the
+         * module returned, the hover card wants the headline. One
+         * request, one decision about what the module said, two
+         * renderings of it — which is the same seam
+         * `value_enrichment_badge` already holds between the panel and
+         * this endpoint.
+         */
+        $element = $this->__runParam('shape') === 'chip'
+            ? 'value_enrichment_chip'
+            : 'value_enrichment_badge';
         $this->__renderLivePanel(
             $b64value,
             'forEnrichmentBadge',
-            'value_enrichment_badge',
+            $element,
             array(
                 'module' => $this->__runParam('module'),
                 'type' => $this->__runParam('type'),
                 'mode' => $this->__runParam('mode'),
             )
+        );
+    }
+
+    /**
+     * The hover card's enrichment strip, asked for by the card itself.
+     *
+     * Separate from `viewHoverCard` because it is a different kind of
+     * cost: that endpoint is one assessment and no network, and this
+     * one asks the modules service what a reader could run. Folding it
+     * into the card would put an outbound call on every hover of every
+     * value, which is the thing the card's whole design refuses.
+     *
+     * So the card paints, asks for this, and grows once.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewHoverEnrichment($b64value = null)
+    {
+        $this->loadModel('ValueProfile');
+        $this->__renderPanel(
+            $this->ValueProfile->forEnrichmentPanel(
+                $this->Auth->user(),
+                $this->__decodeValue($b64value)
+            ),
+            'value_hover_enrichment'
         );
     }
 
