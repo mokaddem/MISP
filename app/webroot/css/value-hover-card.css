@@ -161,7 +161,7 @@
     background: color-mix(in srgb, var(--vp-hc-lean) 42%, var(--vp-hc-line));
 }
 .vp-hc-panel { flex: 1 1 auto; min-width: 0; }
-.vp-hc-sec { padding: 6px 11px; }
+.vp-hc-sec { padding: 5px 11px; }
 .vp-hc-sec + .vp-hc-sec { border-top: 1px solid var(--vp-hc-line); }
 /* The one micro-label. Tiny, tracked, always secondary to its figure. */
 .vp-hc-k {
@@ -241,7 +241,7 @@
 /* ---- alert condition: warninglist ------------------------------- */
 
 .vp-hc-sec.vp-hc-alert {
-    padding: 6px 11px 7px;
+    padding: 5px 11px 6px;
     background: color-mix(in srgb, var(--vp-hc-conflict) 10%, var(--vp-hc-bg));
     border-top: 1px solid color-mix(in srgb, var(--vp-hc-conflict) 38%, var(--vp-hc-line));
 }
@@ -437,19 +437,23 @@
 }
 /* ---- one clipped line of why ------------------------------------ */
 
+/* The rows stack tight: they are already separated by their own
+ * direction glyph and their weight, so a rule between them would be
+ * three borders buying nothing. */
+.vp-hc-whys { display: flex; flex-direction: column; row-gap: 1px; }
 .vp-hc-why { display: flex; align-items: flex-start; gap: 7px; }
 .vp-hc-why-ico { flex: none; width: 10px; font-size: 11px; line-height: 1; margin-top: 2px; text-align: center; }
 .vp-hc-why-t {
     flex: 1 1 auto;
     min-width: 0;
     font-size: 11.5px;
-    line-height: 1.35;
+    line-height: 1.3;
     /* A panel clips; it does not paragraph. */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.vp-hc-why-w { flex: none; font-size: 11px; font-weight: 700; line-height: 1.35; }
+.vp-hc-why-w { flex: none; font-size: 11px; font-weight: 700; line-height: 1.3; }
 /* The exception: when the panel has no number to show, the sentence is
  * the reading, so it gets its second line. Never a third. */
 .vp-hc-why-full .vp-hc-why-t {

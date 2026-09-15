@@ -369,17 +369,25 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
             <?php endif; ?>
         </div>
 
-        <?php if ($card['signal'] !== null): ?>
-            <div class="vp-hc-sec vp-hc-why vp-hc-why-<?=
-                h($card['signal']['direction']) ?>">
-                <i class="vp-hc-why-ico fas fa-caret-<?=
-                    $card['signal']['direction'] === 'down'
-                        ? 'down' : 'up' ?>" aria-hidden="true"></i>
-                <span class="vp-hc-why-t"><?= h($card['signal']['text']) ?></span>
-                <span class="vp-hc-why-w"><?= h(sprintf(
-                    '%+d',
-                    $card['signal']['contribution']
-                )) ?></span>
+        <?php if (!empty($card['signals'])): ?>
+            <?php /*
+             * One section, not one per row: the section's padding and
+             * the rule above it are the fixed cost here, and paying
+             * them per row would cost more than the rows do.
+             */ ?>
+            <div class="vp-hc-sec vp-hc-whys">
+                <?php foreach ($card['signals'] as $why): ?>
+                    <div class="vp-hc-why vp-hc-why-<?= h($why['direction']) ?>">
+                        <i class="vp-hc-why-ico fas fa-caret-<?=
+                            $why['direction'] === 'down'
+                                ? 'down' : 'up' ?>" aria-hidden="true"></i>
+                        <span class="vp-hc-why-t"><?= h($why['text']) ?></span>
+                        <span class="vp-hc-why-w"><?= h(sprintf(
+                            '%+d',
+                            $why['contribution']
+                        )) ?></span>
+                    </div>
+                <?php endforeach; ?>
             </div>
         <?php elseif (!empty($card['summary'])): ?>
             <?php /*

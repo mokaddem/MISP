@@ -37,14 +37,25 @@ class ValueHoverTool
     /**
      * The longest a signal line may be before it is cut.
      *
-     * The card rations prose to one clipped line (proposal C's rule),
-     * and the engine's signal texts run to about ninety characters —
+     * The card rations each ledger row to one clipped line, and the
+     * engine's signal texts run to about ninety characters —
      * *"47 sightings from 4 orgs, last 2 days ago"* fits, *"5 of 7
      * events are published, and the two drafts are the oldest"* does
-     * not. Cut rather than wrapped: a third line of prose on this card
-     * is the card becoming the panel it summarises.
+     * not. Cut rather than wrapped: a row that takes two lines makes
+     * the block's height depend on the prose in it, and three rows of
+     * that is the card becoming the panel it summarises.
      */
     const SIGNAL_CHARS = 58;
+
+    /**
+     * How many ledger rows the why block carries.
+     *
+     * Three is what §8.1's height budget affords once the block is a
+     * list rather than a line — the rows are the cheapest thing on
+     * this card at ~15.5px each, but they are not free, and the fourth
+     * would put the contested state past the ceiling §3 sets.
+     */
+    const SIGNAL_ROWS = 3;
 
     /**
      * What each warninglist category actually claims.
@@ -114,7 +125,7 @@ class ValueHoverTool
             'sightings' => $hot ? null : self::sightings($sightings, $now),
             'seen' => self::seen($occurrences, $now),
             'warninglist' => self::warninglist($context),
-            'signal' => self::signal($verdict),
+            'signals' => self::signals($verdict),
             'galaxy' => $hot ? null : self::galaxy($context),
             'summary' => $verdict['summary'] ?? null,
             'hot' => $hot,
@@ -256,37 +267,51 @@ class ValueHoverTool
     }
 
     /**
-     * The heaviest signal in the ledger, clipped to one line.
+     * The heaviest rows in the ledger, clipped to one line each.
      *
-     * One, not three: the ledger is proposal B's card and this is C's.
-     * What survives the shrink is the single row that moved the
-     * assessment furthest, so the number on the card is never a figure
-     * with nothing behind it.
+     * Three rather than the one proposal C shipped with. A single row
+     * answers *what moved this number most* and stops; three answer
+     * *what is this assessment made of*, which is the question a reader
+     * deciding whether to open the page is actually asking. The cost is
+     * two lines, and §8.1's budget is why it is three and not the
+     * whole ledger — that is the panel this card summarises.
+     *
+     * Ranked by magnitude, not by sign: a row that argues against the
+     * lean is exactly as much a part of the assessment as one that
+     * argues for it, and the card draws the direction per row.
      *
      * @param array $verdict
-     * @return array|null
+     * @return array Up to SIGNAL_ROWS of `text`, `contribution`,
+     *               `direction`; empty where the ledger is
      */
-    private static function signal(array $verdict)
+    private static function signals(array $verdict)
     {
-        $best = null;
+        $rows = array();
         foreach ($verdict['ledger'] ?? array() as $group) {
             foreach ($group['signals'] ?? array() as $signal) {
-                if ($best === null
-                    || abs($signal['contribution'])
-                        > abs($best['contribution'])
-                ) {
-                    $best = $signal;
-                }
+                $rows[] = $signal;
             }
         }
-        if ($best === null) {
-            return null;
+        /*
+         * PHP's sort is stable from 8.0, which is what keeps equal
+         * magnitudes in GROUP_ORDER — Reporting before Sightings
+         * before Attribution before Lifecycle, the order the ledger
+         * itself is grouped in and the tie-break the one-row version
+         * got for free by comparing with a strict `>`.
+         */
+        usort($rows, function ($a, $b) {
+            return abs((int)$b['contribution'])
+                <=> abs((int)$a['contribution']);
+        });
+        $out = array();
+        foreach (array_slice($rows, 0, self::SIGNAL_ROWS) as $row) {
+            $out[] = array(
+                'text' => self::clip($row['signal']),
+                'contribution' => (int)$row['contribution'],
+                'direction' => $row['contribution'] < 0 ? 'down' : 'up',
+            );
         }
-        return array(
-            'text' => self::clip($best['signal']),
-            'contribution' => (int)$best['contribution'],
-            'direction' => $best['contribution'] < 0 ? 'down' : 'up',
-        );
+        return $out;
     }
 
     /**
