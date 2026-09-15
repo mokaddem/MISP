@@ -76,7 +76,8 @@ class ValueSummaryTool
                 . ' is nothing to assess.');
         }
 
-        $clauses = array(self::leanClause($lean));
+        $clauses = array(self::leanClause($lean,
+            isset($verdict['decided_by']) ? $verdict['decided_by'] : null));
         $quality = self::qualityClause($band);
         $shelf = self::relevanceClause($relevance);
         if ($quality === null) {
@@ -102,19 +103,43 @@ class ValueSummaryTool
      * *"Asserted threat."* under a badge reading *Asserted threat* is
      * a caption, not a summary.
      *
+     * **Contested says which kind of contradiction**, because there
+     * are two and a reader acts on them differently. On the
+     * verification instance the ten contested values split five and
+     * five: `no_supermajority`, where the organisations that reported
+     * the value disagree with each other and there is no ledger row on
+     * either side; and `lean_disputed`, where they agree and the
+     * evidence about the value disputes them. Both printed *"What is
+     * recorded here contradicts itself"* and nothing else, which is
+     * true of both and tells a reader neither.
+     *
+     * An `escalation` keeps the bare clause: a conflict rule carries
+     * its own prose and the hero quotes it a few lines down, so naming
+     * the kind here would be the page saying it twice in different
+     * words.
+     *
      * @param string $lean
+     * @param string|null $decidedBy `ValueLeanTool`'s exit
      * @return string
      */
-    private static function leanClause($lean)
+    private static function leanClause($lean, $decidedBy = null)
     {
         switch ($lean) {
             case 'threat':
                 return __('What is recorded here reads as a threat.');
             case 'benign':
                 return __('What is recorded here reads as benign.');
-            default:
-                return __('What is recorded here contradicts itself.');
         }
+        switch ($decidedBy) {
+            case 'no_supermajority':
+                return __('What is recorded here contradicts itself: the'
+                    . ' organisations that reported it do not agree.');
+            case 'lean_disputed':
+                return __('What is recorded here contradicts itself: the'
+                    . ' evidence about the value disputes the'
+                    . ' organisations that reported it.');
+        }
+        return __('What is recorded here contradicts itself.');
     }
 
     /**
