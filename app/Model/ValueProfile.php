@@ -1029,6 +1029,143 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * Whether this reader's instance records this value, and the one
+     * neighbour worth offering when it does not.
+     *
+     * The resolver's whole read (`value-index.md` §7.1). It answers the
+     * question the paste box asks — *is this here?* — and nothing else:
+     * no assessment, no counts, no types. A hit sends the reader to the
+     * profile, which is the page that says everything else, and a miss
+     * is an answer rather than an error.
+     *
+     * **One bounded probe, and it is `prevalenceFor`'s.** An existence
+     * test wants to stop at the first row and an aggregate does not:
+     * `occurrenceCountFor` reads all 48,255 occurrences of `443` to
+     * say *yes*. The prevalence probe caps every arm at
+     * `PREVALENCE_ROW_CAP + 1` rows, asks it as an equality on the
+     * `value1` and `value2` indexes, and scopes it with the same
+     * `buildConditions` the profile uses — so a value the reader may
+     * not see is absent here exactly as a value nobody recorded is
+     * (§4.2, and `value-index.md` §8 G3). **`capped` is recorded**:
+     * *too common to count* is a different answer from *not there*.
+     *
+     * **The case probe runs on the miss path only.** `value1` is a
+     * `text` column under a 255-character prefix index; the shipped
+     * collation is `utf8mb3_unicode_ci` and this instance runs
+     * `utf8mb3_bin`, so a fold correct on both would have to be
+     * `LOWER()` on the stored column, which discards the index over
+     * 3.9M rows. What runs instead is the two or three spellings a
+     * paste actually arrives in — `caseVariants` — each an indexed
+     * equality, in one further statement. On a `_ci` instance the
+     * exact match has already succeeded and it never runs; on a value
+     * with no cased letters, `8.8.8.8` among them, there is no second
+     * statement to issue at all.
+     *
+     * What comes back is an offer and never a redirect: on this
+     * instance `Google.com` and `google.com` are two values, and only
+     * the reader knows which one the ticket meant.
+     *
+     * @param array $user
+     * @param string $value A value, already normalised
+     * @param array $options As conditionsFor
+     * @return array `value`, `recorded`, `suggestion` (a recorded
+     *               spelling differing only in case, or null), and
+     *               `probed` — the spellings the second statement
+     *               asked about, empty when it was not issued
+     */
+    public function forResolve(array $user, $value,
+        array $options = array()
+    ) {
+        $valueModel = $this->model('Value');
+        $answer = array(
+            'value' => $value,
+            'recorded' => false,
+            'suggestion' => null,
+            'probed' => array(),
+        );
+        $exact = $valueModel->prevalenceFor(
+            $user,
+            array($value),
+            $options
+        );
+        if (self::prevalenceHolds($exact, $value)) {
+            $answer['recorded'] = true;
+            return $answer;
+        }
+        $variants = self::caseVariants($value);
+        if (empty($variants)) {
+            return $answer;
+        }
+        $answer['probed'] = $variants;
+        $probe = $valueModel->prevalenceFor($user, $variants, $options);
+        foreach ($variants as $variant) {
+            if (self::prevalenceHolds($probe, $variant)) {
+                $answer['suggestion'] = $variant;
+                break;
+            }
+        }
+        return $answer;
+    }
+
+    /**
+     * Does the probe hold an answer for this key?
+     *
+     * Two places to look rather than one: a value over the row cap is
+     * reported as `capped` and carries no count, and reading only
+     * `counts` would call the instance's most common values absent.
+     *
+     * @param array $prevalence What `Value::prevalenceFor` returned
+     * @param string $key
+     * @return bool
+     */
+    private static function prevalenceHolds(array $prevalence, $key)
+    {
+        return isset($prevalence['counts'][$key])
+            || isset($prevalence['capped'][$key]);
+    }
+
+    /**
+     * The spellings of a value that differ from it only in case.
+     *
+     * Three, because three is what a paste arrives as: all lower, the
+     * form a tool writes; all upper, the form a report's hash table
+     * carries; and capitalised, the form a domain takes at the start
+     * of a sentence. **Lower first**, because it is both the most
+     * common storage form and the one a reader who typed a capital
+     * most often meant.
+     *
+     * This is a probe list and not a case fold, and the difference is
+     * the whole point: a fold is `LOWER(value1) = LOWER(?)`, which
+     * cannot use the prefix index, and these are equalities that can.
+     * What it therefore cannot find is a stored `GoOgLe.com` — a
+     * spelling no paste produces, and the price of the index.
+     *
+     * Empty when the value has no cased letters, so an IP or a decimal
+     * costs no second statement.
+     *
+     * @param string $value
+     * @return array<string> Without the value itself, deduplicated
+     */
+    private static function caseVariants($value)
+    {
+        $value = (string)$value;
+        $lower = mb_strtolower($value, 'UTF-8');
+        $upper = mb_strtoupper($value, 'UTF-8');
+        if ($lower === $upper) {
+            return array();
+        }
+        $capitalised = mb_strtoupper(mb_substr($lower, 0, 1, 'UTF-8'),
+            'UTF-8') . mb_substr($lower, 1, null, 'UTF-8');
+        $variants = array();
+        foreach (array($lower, $upper, $capitalised) as $variant) {
+            if ($variant !== $value && !in_array($variant, $variants, true)) {
+                $variants[] = $variant;
+            }
+        }
+        return $variants;
+    }
+
+    /**
      * The page frame: the banner, the fact strip and the tab badges.
      *
      * **The only synchronous read on this page**, and the reason this

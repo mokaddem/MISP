@@ -1083,6 +1083,13 @@ class ACLComponent extends Component
         // panel. Gated on theming so a themes-disabled instance answers
         // 403 rather than 500 on a missing themed view.
         'values' => array(
+            // The page in front of the profile, and the box on it. Same
+            // reasoning as the rest of this block: read-only, and every
+            // per-row ACL is enforced by the model call behind it — the
+            // resolver's existence probe is `buildConditions`-scoped,
+            // so it can only answer about records the reader may see.
+            'index' => array('theming_enabled'),
+            'resolve' => array('theming_enabled'),
             'view' => array('theming_enabled'),
             'viewOccurrences' => array('theming_enabled'),
             'viewReporting' => array('theming_enabled'),

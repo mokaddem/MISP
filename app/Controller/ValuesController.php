@@ -3,6 +3,7 @@ App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
 App::uses('ValueUrlTool', 'Tools/ValueProfile');
 App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueInputTool', 'Tools/ValueProfile');
 
 /**
  * Value Profile controller, mounted at /values/* via CakePHP's default
@@ -157,6 +158,189 @@ class ValuesController extends AppController
             $this->theme = self::THEME;
             $this->viewClass = 'Theme';
         }
+    }
+
+    /**
+     * The way in: one box, and what it resolved.
+     *
+     * Not a CakePHP index and it cannot be one. `Value::$useTable` is
+     * false because the subject of this feature is a string rather
+     * than a row, so *all values* is a `GROUP BY value1` over 3.9M
+     * attribute rows that no `LIMIT` bounds — `value-index.md` §1.1.
+     * Everything this page draws is therefore either supplied by the
+     * caller or read from a table that is genuinely value-keyed.
+     *
+     * On a `GET` there is no answer to set, so the page is the
+     * prompt and the invitation that says what pressing it does.
+     *
+     * @return void
+     */
+    public function index()
+    {
+        $this->set('resolution', null);
+    }
+
+    /**
+     * One value, resolved: the profile, or the honest answer that
+     * nothing here records it.
+     *
+     * **A POST, and the value is in the body** (§8 G2). A `GET` would
+     * put the reader's indicator in browser history, in the access
+     * log, and in the `Referer` of everything the next page loads —
+     * the disclosure `D27` refuses elsewhere, arriving through the web
+     * server instead of through the page. The cost is that a
+     * resolution cannot be bookmarked; `/values/view/<b64>` can, and
+     * that is the link this action hands over.
+     *
+     * **A value with nothing recorded is not a 404.** A reader who
+     * pasted a hash to find out whether anyone has seen it has had
+     * their question answered by the answer *no*, and the profile's
+     * own empty state says the same thing with the tabs to prove it.
+     * `__decodeValue`'s `NotFoundException` is right for a malformed
+     * URL and wrong for this.
+     *
+     * **One line is a value, more than one is a list.** The split is
+     * `ValueInputTool`'s own — a paste with more than one non-empty
+     * line has said what its unit is (§3.2) — and it is the *line*
+     * count rather than the value count on purpose:
+     * `example.com|1.2.3.4` is one value to the reader who typed it
+     * and two to the parser, so the route in is `normalise()`, which
+     * keeps the composite and the comma whole. A list gets its count
+     * back and nothing else until phase 4 gives it the worklist.
+     *
+     * @return void
+     */
+    public function resolve()
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'Resolving a value is a POST: a value in a query'
+                . ' string would reach the access log and the browser'
+                . ' history.'
+            ));
+        }
+        $raw = isset($this->request->data['Value']['value'])
+            ? (string)$this->request->data['Value']['value']
+            : '';
+        $many = ValueInputTool::normaliseMany($raw);
+        $report = $many['report'];
+        $byLines = $report['separator'] === ValueInputTool::BY_LINES;
+        if ($byLines && $report['total'] > 1) {
+            $this->set('resolution', array(
+                'kind' => 'list',
+                'count' => $report['total'],
+            ));
+            return $this->render('index');
+        }
+        /*
+         * A paste of lines that leaves one value — the same indicator
+         * twice, or a value beside its own defanged spelling — is a
+         * value and not a list, and refusing it to be consistent with
+         * a rule about line counts would be a worse answer than the
+         * one the reader asked for. Its value comes from the parse
+         * that split the lines, because the raw string still carries
+         * them; with one value left, the report describes that value.
+         */
+        $one = $byLines
+            ? array(
+                'value' => isset($many['values'][0])
+                    ? $many['values'][0]
+                    : null,
+                'changed' => $this->__changedIn($report),
+            )
+            : ValueInputTool::normalise($raw);
+        if ($one['value'] === null) {
+            $this->set('resolution', array('kind' => 'empty'));
+            return $this->render('index');
+        }
+        $this->loadModel('ValueProfile');
+        $answer = $this->ValueProfile->forResolve(
+            $this->Auth->user(),
+            $one['value']
+        );
+        if ($answer['recorded']) {
+            /*
+             * The one thing the profile cannot say for itself: that
+             * the string it is about is not quite the string that was
+             * pasted. Values are stored refanged, so a defanged paste
+             * that resolves resolved to something else, and a reader
+             * who is not told that has no way to tell a refang from a
+             * wrong answer.
+             */
+            $this->__sayWhatChanged($one);
+            return $this->redirect(
+                array('action' => 'view', ValueUrlTool::encode(
+                    $one['value']
+                )),
+                303
+            );
+        }
+        $this->set('resolution', array(
+            'kind' => 'absent',
+            'value' => $one['value'],
+            'changed' => $one['changed'],
+            'suggestion' => $answer['suggestion'],
+        ));
+        return $this->render('index');
+    }
+
+    /**
+     * Carry the parse across the redirect, when it altered the value.
+     *
+     * A flash rather than a query parameter: the whole point of §8 G2
+     * is that the value does not travel in a URL, and `?refanged=…`
+     * would carry both spellings of it into the log the POST exists to
+     * keep them out of.
+     *
+     * **It names the value and not the paste.** The reader is about
+     * to lose sight of the box, so what they need carried across is
+     * the string the profile is about; the string they typed is the
+     * one they still remember, and quoting a defanged spelling back
+     * at them puts it in the session store for no gain.
+     *
+     * @param array $one What `ValueInputTool::normalise` made of it
+     * @return void
+     */
+    private function __sayWhatChanged(array $one)
+    {
+        if (empty($one['changed'])) {
+            return;
+        }
+        $this->Flash->info(sprintf(
+            in_array(ValueInputTool::REFANGED, $one['changed'], true)
+                ? __('Values are stored refanged, so your paste'
+                    . ' resolved to %s.')
+                : __('Quotes are not part of a value, so your paste'
+                    . ' resolved to %s.'),
+            $one['value']
+        ));
+    }
+
+    /**
+     * Which transformations a one-value parse report describes.
+     *
+     * `normaliseMany` counts the input rather than listing what each
+     * value carried, which is the right shape for a table of a
+     * hundred rows and the wrong one here. With a single value left
+     * the counts are that value's, so they read back as tokens — the
+     * same tokens `normalise()` returns, so the caller cannot tell
+     * which of the two parsed.
+     *
+     * @param array $report A `ValueInputTool::normaliseMany` report
+     * @return array<string>
+     */
+    private function __changedIn(array $report)
+    {
+        $changed = array();
+        foreach (
+            array(ValueInputTool::UNQUOTED, ValueInputTool::REFANGED)
+            as $token
+        ) {
+            if (!empty($report[$token])) {
+                $changed[] = $token;
+            }
+        }
+        return $changed;
     }
 
     /**

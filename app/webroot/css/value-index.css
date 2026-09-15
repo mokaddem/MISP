@@ -1,0 +1,327 @@
+/*
+ * `/values/index` — the way in to the Value Profile.
+ *
+ * The picked direction is `prd/value-index/02b-proposal-c.html` — the
+ * worklist, with direction A's prompt — and this is that artefact
+ * wired to MISP's own tokens rather than to the prototype's copy of
+ * them. Phase 3 draws the prompt and the resolver's answers; the
+ * worklist, the small blocks and the method note bring their own
+ * sections as they land.
+ *
+ * Colours are Bootstrap 5's variables, as `value-profile.css` uses
+ * them, so both themes come for free and neither is hard-coded. The
+ * verdict palette arrives through `value-palette.css`, which every
+ * block that draws a lean loads beside this one.
+ */
+
+
+/* ==================================================================
+ * The page and its one card
+ * ================================================================== */
+
+.vi-page {
+    padding: 0 12px 24px;
+}
+
+.vi-app {
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+
+/* ==================================================================
+ * The prompt
+ * ------------------------------------------------------------------
+ * A caret, a field and a verb on one line, the field growing and the
+ * verb keeping its width. The caret is the page saying *type here*
+ * without a label taking a line to say it.
+ * ================================================================== */
+
+.vi-prompt {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin: 0;
+    background: var(--bs-secondary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+/*
+ * Focus is drawn on the whole row rather than on the textarea: the
+ * field has no border of its own, so a ring around it alone would
+ * outline a shape nothing else on the page has.
+ */
+.vi-prompt:focus-within {
+    box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.vi-prompt__caret {
+    flex: 0 0 auto;
+    width: 28px;
+    padding-top: 11px;
+    text-align: center;
+    line-height: 1;
+    font-size: 12px;
+    color: var(--primary);
+}
+
+.vi-prompt__field {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.vi-ta {
+    display: block;
+    width: 100%;
+    padding: 10px 12px 10px 0;
+    border: 0;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    resize: vertical;
+}
+
+.vi-ta:focus {
+    outline: none;
+}
+
+.vi-ta::placeholder {
+    color: var(--bs-secondary-color);
+}
+
+.vi-prompt__side {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 9px 12px;
+    border-left: 1px solid var(--bs-border-color);
+}
+
+.vi-run {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 13px;
+    border: 1px solid var(--bs-body-color);
+    border-radius: 4px;
+    background: var(--bs-body-color);
+    color: var(--bs-body-bg);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.vi-run:hover {
+    opacity: 0.88;
+}
+
+.vi-run[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.vi-kbd {
+    margin-left: 8px;
+    padding: 3px 5px;
+    border: 1px solid var(--bs-border-color);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+/* Inside the button it is the button's own ink, not the page's. */
+.vi-run .vi-kbd {
+    border-color: currentColor;
+    background: transparent;
+    color: inherit;
+    opacity: 0.7;
+}
+
+.vi-run:focus-visible,
+.vi-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+
+/* ==================================================================
+ * The invitation
+ * ------------------------------------------------------------------
+ * What the empty page says. It is one heading and one paragraph
+ * because a new instance has nothing else true to show: the other
+ * blocks are absent until they have something to say, which is what
+ * keeps a fresh install from reading as four broken panels.
+ * ================================================================== */
+
+.vi-invite {
+    padding: 18px 14px 20px 40px;
+}
+
+.vi-invite h2 {
+    margin: 0 0 6px;
+    font-size: 1.06rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
+.vi-invite p {
+    margin: 0;
+    max-width: 66ch;
+    color: var(--bs-secondary-color);
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+
+
+/* ==================================================================
+ * The answers
+ * ------------------------------------------------------------------
+ * One block, three kinds, and the *absent* kind is drawn from the
+ * absence alone: a value the reader may not see and a value nobody
+ * recorded reach this markup by the same branch, so there is no rule
+ * here that could tell them apart (`value-index.md` §8 G3).
+ * ================================================================== */
+
+.vi-answerwrap {
+    padding: 13px 14px 16px 40px;
+}
+
+.vi-answer {
+    padding: 12px 13px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    background: var(--bs-secondary-bg);
+}
+
+.vi-answer p {
+    margin: 0 0 8px;
+    max-width: 72ch;
+    font-size: 0.82rem;
+}
+
+.vi-answer p:last-child {
+    margin-bottom: 0;
+}
+
+.vi-said {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.4;
+    word-break: break-all;
+}
+
+.vi-said-inline {
+    font-family: var(--bs-font-monospace);
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.vi-note,
+.vi-quiet {
+    color: var(--bs-secondary-color);
+}
+
+.vi-offer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 10px 0 9px;
+}
+
+.vi-btn {
+    display: inline-block;
+    padding: 5px 9px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.5;
+    text-decoration: none;
+    /*
+     * A value can be a 64-character hash and the offer carries it, so
+     * the button wraps inside itself rather than pushing the card
+     * sideways.
+     */
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.vi-btn:hover {
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    text-decoration: none;
+}
+
+/*
+ * The lead offer is the did-you-mean, and it is the one place on this
+ * page where two links compete: one of them has to look like the
+ * answer or the reader reads both.
+ */
+.vi-btn--lead {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.vi-btn--lead:hover {
+    background: color-mix(in srgb, var(--primary) 10%, var(--bs-body-bg));
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.vi-btn--quiet {
+    border-color: transparent;
+    color: var(--bs-secondary-color);
+}
+
+.vi-btn--quiet:hover {
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+}
+
+.vi-mark {
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+}
+
+
+/* ==================================================================
+ * Narrow
+ * ------------------------------------------------------------------
+ * The verb drops under the field rather than squeezing it; the caret's
+ * indent goes with it, because a 40px gutter on a 360px screen is a
+ * tenth of the line.
+ * ================================================================== */
+
+@media (max-width: 575.98px) {
+    .vi-prompt__side {
+        width: 100%;
+        border-left: 0;
+        border-top: 1px solid var(--bs-border-color);
+    }
+
+    .vi-ta {
+        padding-right: 8px;
+    }
+
+    .vi-invite,
+    .vi-answerwrap {
+        padding-left: 14px;
+    }
+}
