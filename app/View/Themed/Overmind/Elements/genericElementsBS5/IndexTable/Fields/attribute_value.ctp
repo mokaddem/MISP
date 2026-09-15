@@ -1,4 +1,6 @@
 <?php
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
+
 $attribute = Hash::extract($row, $field['data_path']);
 
 if (empty($attribute)) {
@@ -20,6 +22,28 @@ $hoverEnrichId = (Configure::read('Plugin.Enrichment_hover_enable') && !empty($m
     && empty($isProposalRow) && !empty($attribute['id']))
     ? (int)$attribute['id'] : null;
 $hoverClickOnly = (bool)Configure::read('Plugin.Enrichment_hover_popover_only');
+
+/*
+ * The value hover card: the assessment of this value, floated beside
+ * the cursor. Off unless the instance asks for it — it is a database
+ * read per hover, and an instance that does not want to pay for one
+ * should not have to opt out of it.
+ *
+ * **Which element carries the trigger depends on what already owns the
+ * hover.** Where enrichment is bound to the value's own text the card
+ * takes a glyph instead, because two popovers racing for one gesture
+ * is worse than a second affordance; everywhere else the value itself
+ * is the trigger, which is the gesture this was asked for.
+ */
+$vpHoverValue = (Configure::read('MISP.value_hover_card')
+    && !empty($attribute['value']))
+    ? ValueUrlTool::encode($attribute['value'])
+    : null;
+$vpHoverOnText = $vpHoverValue !== null
+    && !($hoverEnrichId && !$hoverClickOnly);
+$vpHoverAttrs = $vpHoverValue === null ? '' : ' class="vp-hc-trigger"'
+    . ' data-vp-hc-value="' . h($vpHoverValue) . '"'
+    . ' title="' . h(__('Hover for this value\'s assessment')) . '"';
 
 
 $renderPropActions = function ($pid) use ($canModifyProposal, $baseurl) {
@@ -60,16 +84,23 @@ $renderPropActions = function ($pid) use ($canModifyProposal, $baseurl) {
         <?php endif; ?>
 
         <?php if ($hoverEnrichId && !$hoverClickOnly): ?>
-            <p class="mb-0 om-hover-enrichment"
-               data-hover-enrichment-id="<?= $hoverEnrichId ?>"
-               data-hover-trigger="hover"
-               style="cursor:help;"
-               title="<?= __('Hover to look up enrichment') ?>">
-                <?= h($attribute['value']); ?>
+            <p class="mb-0">
+                <span class="om-hover-enrichment"
+                      data-hover-enrichment-id="<?= $hoverEnrichId ?>"
+                      data-hover-trigger="hover"
+                      style="cursor:help;"
+                      title="<?= __('Hover to look up enrichment') ?>"><?= h($attribute['value']); ?></span>
+                <?php if ($vpHoverValue !== null): ?>
+                    <button type="button" class="vp-hc-trigger ms-1"
+                            data-vp-hc-value="<?= h($vpHoverValue) ?>"
+                            title="<?= h(__('This value\'s assessment')) ?>"
+                            aria-label="<?= h(__('This value\'s assessment')) ?>"><i
+                        class="fas fa-gauge-high" aria-hidden="true"></i></button>
+                <?php endif; ?>
             </p>
         <?php elseif ($hoverEnrichId && $hoverClickOnly): ?>
             <p class="mb-0">
-                <?= h($attribute['value']); ?>
+                <span<?= $vpHoverOnText ? $vpHoverAttrs : '' ?>><?= h($attribute['value']); ?></span>
                 <i class="fas fa-magnifying-glass-plus text-muted ms-1 om-hover-enrichment"
                    role="button" tabindex="0"
                    data-hover-enrichment-id="<?= $hoverEnrichId ?>"
@@ -79,7 +110,7 @@ $renderPropActions = function ($pid) use ($canModifyProposal, $baseurl) {
             </p>
         <?php else: ?>
             <p class="mb-0">
-                <?= h($attribute['value']); ?>
+                <span<?= $vpHoverOnText ? $vpHoverAttrs : '' ?>><?= h($attribute['value']); ?></span>
             </p>
         <?php endif; ?>
 

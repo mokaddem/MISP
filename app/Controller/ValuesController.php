@@ -292,6 +292,36 @@ class ValuesController extends AppController
     }
 
     /**
+     * The hover card, for a reader who has not opened this page.
+     *
+     * The only endpoint here that is fetched from somewhere else:
+     * every other action answers the Value Profile's own lazy panels,
+     * and this one answers an attribute row on an event page, an index
+     * table, or an object card. It is a fragment like the rest and
+     * arrives through the same `X-Requested-With` path.
+     *
+     * **It is served from this controller and not from wherever the
+     * reader is**, which is what lets `beforeRender()` put it under
+     * Overmind whatever theme the host page is drawn in, and what
+     * keeps one assessment in one place. `ValueProfile::forHoverCard`
+     * carries the cost argument.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewHoverCard($b64value = null)
+    {
+        $this->loadModel('ValueProfile');
+        $this->__renderPanel(
+            $this->ValueProfile->forHoverCard(
+                $this->Auth->user(),
+                $this->__decodeValue($b64value)
+            ),
+            'value_hover_card'
+        );
+    }
+
+    /**
      * The Overview's sightings card, and the one panel of that tab that
      * reads the database — see `ValueProfile::forSightings` for why it
      * was converted here rather than with the rest of the Overview.

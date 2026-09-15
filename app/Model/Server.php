@@ -6450,6 +6450,13 @@ class Server extends AppModel
                     'test' => 'testBool',
                     'type' => 'boolean'
                 ),
+                'value_hover_card' => array(
+                    'level' => 1,
+                    'description' => __('Hovering an attribute value shows a card summarising what this instance records about that value — its assessment, how widely it is reported, when it was last seen and how long it stays relevant. Each hover is a database read, so this is off by default; the card costs the same as the Value Profile\'s own assessment and nothing more.'),
+                    'value' => false,
+                    'test' => 'testBool',
+                    'type' => 'boolean'
+                ),
                 'unpublishedprivate' => array(
                     'level' => 2,
                     'description' => __('True will deny access to unpublished events to users outside the organization of the submitter except site admins.'),
