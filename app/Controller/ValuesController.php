@@ -300,15 +300,16 @@ class ValuesController extends AppController
      * one they still remember, and quoting a defanged spelling back
      * at them puts it in the session store for no gain.
      *
-     * Three things can have happened to a value between the box and
-     * the profile and the reader is told about whichever did, in the
-     * order that explains the most: a refang changes the string
-     * outright, quotes came off it, and the case is the instance's
-     * rather than theirs. Only the last is silent when nothing else
-     * happened and the spelling matched.
+     * **Only the parse is worth saying.** A refang and a quote strip
+     * change the string outright, so a reader who is not told has no
+     * way to tell either from a wrong answer. A value that differed
+     * from the stored spelling only in case says so by arriving: the
+     * banner on the profile is the spelling, in the size the page
+     * gives it, and a toast repeating it is one more thing to dismiss.
      *
      * @param array $one What `ValueInputTool::normalise` made of it
-     * @param string $stored How the instance spells it
+     * @param string $stored How the instance spells it — what the
+     *                       reader is landing on, so what is named
      * @return void
      */
     private function __sayWhatChanged(array $one, $stored)
@@ -320,8 +321,6 @@ class ValuesController extends AppController
         } elseif (in_array(ValueInputTool::UNQUOTED, $changed, true)) {
             $said = __('Quotes are not part of a value, so your paste'
                 . ' resolved to %s.');
-        } elseif ($stored !== $one['value']) {
-            $said = __('This instance spells that value %s.');
         } else {
             return;
         }
