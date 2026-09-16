@@ -24,7 +24,7 @@
  */
 ?>
 <div class="vi-tile" data-vi-tile="warninglists">
-    <div class="vi-tile__label"><?= h(__('Warninglists')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-shield-halved vi-tile__icon" aria-hidden="true"></i><?= h(__('Warninglists')) ?></div>
 <?php if ($warninglists === 0): ?>
     <div class="vi-tile__value vi-tile__value--none">
         <?= h(__('None enabled')) ?>

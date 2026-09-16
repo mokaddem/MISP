@@ -22,7 +22,7 @@
  */
 ?>
 <div class="vi-tile" data-vi-tile="modules">
-    <div class="vi-tile__label"><?= h(__('Enrichment modules')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-puzzle-piece vi-tile__icon" aria-hidden="true"></i><?= h(__('Enrichment modules')) ?></div>
 <?php if ($modules === 0): ?>
     <div class="vi-tile__value vi-tile__value--none">
         <?= h(__('None declared')) ?>

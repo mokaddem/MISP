@@ -28,7 +28,7 @@
  */
 ?>
 <div class="vi-tile" data-vi-tile="weighs">
-    <div class="vi-tile__label"><?= h(__('What weighs a record')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-scale-balanced vi-tile__icon" aria-hidden="true"></i><?= h(__('What weighs a record')) ?></div>
     <div class="vi-tile__value">
         <?= h(number_format($weighs['signals'])) ?>
     </div>

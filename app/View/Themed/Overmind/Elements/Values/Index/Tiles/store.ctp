@@ -61,7 +61,7 @@ $window = sprintf(
 );
 ?>
 <div class="vi-tile" data-vi-tile="store">
-    <div class="vi-tile__label"><?= h(__('Enrichment store')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-database vi-tile__icon" aria-hidden="true"></i><?= h(__('Enrichment store')) ?></div>
 <?php if ($store['count'] === 0): ?>
     <div class="vi-tile__value vi-tile__value--none">
         <?= h(__('None yet')) ?>

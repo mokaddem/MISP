@@ -612,7 +612,7 @@
 
 
 /* ==================================================================
- * The worklist's own tokens
+ * The page's own tokens
  * ------------------------------------------------------------------
  * The three axes the rows draw, mapped onto the palette every other
  * block on this feature reads. Two of them the palette already names;
@@ -621,9 +621,16 @@
  * of forty rows has no room for the date. The fallbacks are the ones
  * `02b-proposal-c.html` measured both themes against, so a palette
  * that grows `--vp-rel-*` later takes over without a redraw here.
+ *
+ * **Declared on the page and not on the card**, which is where they
+ * started. The tile row moved out of the card and the band scale went
+ * blank — `color-mix()` over an undefined custom property is invalid
+ * at computed-value time, so the segment simply did not paint, with no
+ * error anywhere. A token used by two regions belongs to the ancestor
+ * of both.
  * ================================================================== */
 
-.vi-app {
+.vi-page {
     --vi-carries: var(--vp-weighs-carries, #212529);
     --vi-lacks: var(--vp-weighs-lacks, #6c757d);
     --vi-mal-chip: var(--vp-mal-ink, #a71d2a);
@@ -641,7 +648,7 @@
  * chip is the loudest thing on the page, and the lean is meant to be
  * read, not shouted.
  */
-[data-bs-theme="dark"] .vi-app {
+[data-bs-theme="dark"] .vi-page {
     --vi-mal-chip: var(--vp-mal, #dc3545);
     --vi-mal-chip-ink: #15181b;
     --vi-ben-chip: var(--vp-ben, #3c8c5c);
@@ -1944,10 +1951,94 @@
  * does not introduce the number.
  */
 .vi-tile__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 0.72rem;
     font-weight: 600;
     color: var(--bs-secondary-color);
     line-height: 1.3;
+}
+
+/*
+ * The icon is identity, not status.
+ *
+ * It is what makes five tiles scannable as five different things
+ * rather than as five numbers, and it is drawn in the label's own
+ * quiet ink for exactly that reason: **colour on these pages means
+ * assessment** (`value-palette.css`), so an icon taking a hue would
+ * read as a claim about a value rather than as a heading. It is also
+ * `aria-hidden` — the label beside it already says what the tile is,
+ * and a screen reader announcing *shield* before *Warninglists* is
+ * being told the same thing twice, worse the first time.
+ *
+ * Sized against the label rather than in pixels, so it tracks the text
+ * if the label's size ever moves.
+ */
+.vi-tile__icon {
+    flex: none;
+    width: 1em;
+    font-size: 0.86rem;
+    text-align: center;
+    opacity: 0.75;
+}
+
+
+/* ==================================================================
+ * The band scale
+ * ------------------------------------------------------------------
+ * The one micro-visual in the row, on the one tile whose value is a
+ * position rather than a quantity: *60* means nothing without the
+ * 0-100 it sits on. The three segments are the three bands at their
+ * real widths, so a profile that moves `high` to 80 draws a visibly
+ * narrower one.
+ *
+ * **No hue, and that is the rule rather than a preference.** Quality
+ * is a magnitude; `value-palette.css` reserves colour for the lean,
+ * and a three-colour scale here would teach a reader that a band has a
+ * colour — which is exactly what the worklist spent three phases not
+ * saying. The bands separate by ink weight instead: the same
+ * `--vi-carries` against `--vi-lacks` pairing the row's quality bar
+ * uses for filled against unfilled, with one step between them.
+ *
+ * The 2px gap is the surface showing through, which is what keeps
+ * three adjacent fills reading as three rather than as a gradient.
+ * ================================================================== */
+
+.vi-bandbar {
+    display: flex;
+    gap: 2px;
+    height: 5px;
+    margin: 0 0 6px;
+}
+
+.vi-bandbar__seg {
+    border-radius: 1px;
+    /*
+     * `flex-grow` carries the width and the basis is zero, so the
+     * three segments divide the track in the thresholds' own
+     * proportions rather than in those proportions plus their content
+     * — which, being empty, would otherwise still claim `auto`.
+     */
+    flex-basis: 0;
+    min-width: 0;
+}
+
+/*
+ * Hollow, because *low* is the band a record lands in when nothing
+ * carried it further — the same reading the row's quality bar gives an
+ * unfilled segment.
+ */
+.vi-bandbar__seg--low {
+    box-shadow: inset 0 0 0 1px var(--vi-lacks);
+}
+
+.vi-bandbar__seg--medium {
+    background: color-mix(in srgb, var(--vi-carries) 45%, transparent);
+}
+
+.vi-bandbar__seg--high {
+    background: var(--vi-carries);
 }
 
 /*
