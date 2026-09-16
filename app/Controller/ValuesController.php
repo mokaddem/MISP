@@ -205,8 +205,9 @@ class ValuesController extends AppController
      * — and phase 3 has already been bitten once by something that
      * rendered, and rendered wrong, rather than failing. Phase 6's
      * carried-over list was the first of the small blocks to arrive
-     * through here and phase 7's profile the second; phase 9 adds its
-     * count to this one method.
+     * through here, phase 7's profile the second and phase 9's
+     * enrichment store the third; phase 8 needed nothing, because a
+     * method note has no data to be given.
      *
      * @param array|null $resolution What `resolve()` made of the box
      * @param array|null $triage The rows a pasted list became
@@ -223,6 +224,7 @@ class ValuesController extends AppController
             'inForce',
             $this->ValueProfile->forProfileInForce($user)
         );
+        $this->set('store', $this->ValueProfile->forEnrichmentStore($user));
         return $this->render('index');
     }
 

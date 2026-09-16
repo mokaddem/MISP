@@ -112,6 +112,47 @@ class ValueEnrichmentRun extends AppModel
     }
 
     /**
+     * How many answers this store holds for one organisation.
+     *
+     * `/values/index`'s one sentence about the store
+     * (`value-index.md` §7.7): a reader whose Enrichment tab replied
+     * instantly, or whose press on a fresh answer changed nothing, has
+     * met the reuse window without anything on the page naming it. The
+     * count says the memory exists and `max_age_hours` says how long
+     * it lasts.
+     *
+     * **A number and nothing else.** No values, no module names, no
+     * dates — the survey asked for *recently enriched values* and D27
+     * refuses exactly that one level down: a list of what an
+     * organisation just enriched is a list of what it is currently
+     * investigating. A count cannot identify anything.
+     *
+     * **Scoped to the reader's organisation, because the store is.**
+     * An instance-wide count is a smaller version of the same
+     * disclosure — a hint about other organisations' activity — and
+     * the org scope is also the only one that answers the reader's
+     * actual question, since a row another organisation wrote will
+     * never serve this one's tab.
+     *
+     * One statement over the unique key's leading column.
+     *
+     * @param array $user
+     * @return int
+     */
+    public function countFor(array $user)
+    {
+        if (empty($user['org_id'])) {
+            return 0;
+        }
+        return (int)$this->find('count', array(
+            'recursive' => -1,
+            'conditions' => array(
+                'ValueEnrichmentRun.org_id' => (int)$user['org_id'],
+            ),
+        ));
+    }
+
+    /**
      * Every stored run for one value, keyed `module|type`.
      *
      * One statement over the unique key's leading columns, which is

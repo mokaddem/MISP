@@ -12,10 +12,10 @@
  * The page's shape is `value-index/02b-proposal-c.html` as picked in
  * `02a-contract.md` §12 — the worklist, with A's prompt. Phase 3 wires
  * the prompt and the resolver's answers, phase 4 the rows a paste
- * becomes, phase 6 the carried-over line and phase 7 the conditions
- * strip; the method note and the enrichment count are phases 8 and 9,
- * and the blocks that have nothing to say are absent rather than drawn
- * empty.
+ * becomes, phase 6 the carried-over line, phase 7 the conditions
+ * strip, phase 8 the method note and phase 9 the enrichment store's
+ * two numbers. The blocks that have nothing to say are absent rather
+ * than drawn empty.
  *
  * **The strip is above the box and the carried-over line below it.**
  * What the strip says — whose thresholds decide the assessments —
@@ -27,6 +27,12 @@
  * the same box and never two at once, so they share a container the
  * page's script can refill from `ValuesController::triage()` without
  * the paste above it moving.
+ *
+ * **The strip carries all three conditions.** Phase 7 put the profile
+ * in force there, phase 9 the enrichment store's count and window, and
+ * phase 8 the method note that explains the vocabulary both of them
+ * use. They are one block because they are one statement: this is
+ * under what rules the answers below were worked.
  *
  * **The carried-over line sits outside that region**, at the foot of
  * the card, because it is the one block on the page that is not about
@@ -41,6 +47,7 @@
  * @var array $recent The values this reader last opened, newest first
  * @var array|null $inForce The Analyst Profile deciding this reader's
  *                          assessments, or null when none is
+ * @var array $store The enrichment store's count and reuse window
  */
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-palette', 'value-index'),
@@ -57,6 +64,7 @@ $this->set('headerDescription', __(
     <div class="vi-app">
         <?= $this->element('Values/Index/conditions', array(
             'inForce' => $inForce,
+            'store' => $store,
         )) ?>
         <?= $this->element('Values/Index/prompt') ?>
         <div class="vi-out" data-vi-out>

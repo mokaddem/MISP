@@ -1529,6 +1529,49 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The enrichment store, in two numbers.
+     *
+     * The question the run store generates and nothing currently
+     * answers (`value-index.md` §7.7, D25): why a value's Enrichment
+     * tab replied instantly, and why pressing *run* on a fresh answer
+     * changes nothing. Both have the same cause — this organisation
+     * already has an answer, and it is younger than the reuse window —
+     * and neither the tab nor anything else says the memory exists.
+     *
+     * **Two numbers, and deliberately two.** The survey proposed
+     * *recently enriched values*; that is withdrawn, because a list of
+     * what an organisation recently enriched is a list of what it is
+     * currently investigating and D27 refuses exactly that disclosure
+     * one level down. What survives cannot identify anything: a count
+     * carries no value, no module and no date.
+     *
+     * **The window is the one the tab honours, not the default.**
+     * `ValueEnrichmentTool::planFor()` over the profile
+     * `resolveFor()` gives, which is the same pair of calls
+     * `enrichmentCatalogue()` makes — so the strip cannot cite a
+     * window the tab would not apply. A profile that declares no
+     * window resolves to `DEFAULT_MAX_AGE_HOURS` there and therefore
+     * here.
+     *
+     * **Cost: one statement on top of phase 7.** `resolveFor()`
+     * memoises per request and the strip has already asked it, so the
+     * profile is free here and only the `COUNT(*)` is new.
+     *
+     * @param array $user
+     * @return array{count: int, max_age_hours: int}
+     */
+    public function forEnrichmentStore(array $user)
+    {
+        $plan = ValueEnrichmentTool::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        );
+        return array(
+            'count' => $this->model('ValueEnrichmentRun')->countFor($user),
+            'max_age_hours' => (int)$plan['max_age_hours'],
+        );
+    }
+
+    /**
      * The page frame: the banner, the fact strip and the tab badges.
      *
      * **The only synchronous read on this page**, and the reason this

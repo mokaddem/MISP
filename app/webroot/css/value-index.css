@@ -93,6 +93,17 @@
 }
 
 /*
+ * The store's two figures are quantities in a sentence, and they are
+ * set as the page sets every other quantity: tabular, so a count that
+ * changes between two loads changes in place rather than reflowing the
+ * clause after it. They keep `.vi-cond b`'s ink — the number is the
+ * word a reader looks for, exactly as the profile's name is.
+ */
+.vi-store b {
+    font-variant-numeric: tabular-nums;
+}
+
+/*
  * Underlined by a border rather than by `text-decoration`, so the rule
  * sits clear of the descenders and thickens on hover instead of
  * appearing there — the link is part of a sentence and should not
