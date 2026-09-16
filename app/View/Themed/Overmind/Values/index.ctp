@@ -28,12 +28,17 @@
  * page's script can refill from `ValuesController::triage()` without
  * the paste above it moving.
  *
- * **The strip carries the conditions; the foot carries the
- * measurements.** Phase 7 put the profile in force in the strip and
- * phase 8 the method note that explains the vocabulary it uses — both
- * are rules the reader works under. Phase 9's enrichment store is not
- * a rule but a figure that moves, so it is a tile in `.vi-tiles` at
- * the foot, which is the region any further small number joins.
+ * **The tiles come before the card, not inside it.** They are
+ * standing facts about the reader's own situation — what weighs a
+ * record, where the bands sit, how much is checked and enriched — and
+ * they are read once on arrival and not again. That makes them part of
+ * the page's introduction rather than part of the box: a reader who
+ * already knows them scrolls past a row, while the same facts inside
+ * the card would sit between the header and the control the page
+ * exists for.
+ *
+ * The conditions strip stays inside the card, because what it says is
+ * a rule every answer the box gives was worked under.
  *
  * **The carried-over line sits outside that region**, at the foot of
  * the card, because it is the one block on the page that is not about
@@ -48,7 +53,8 @@
  * @var array $recent The values this reader last opened, newest first
  * @var array|null $inForce The Analyst Profile deciding this reader's
  *                          assessments, or null when none is
- * @var array $store The enrichment store's count and reuse window
+ * @var array $tiles The tile row's five facts, `weighs`, `bands` and
+ *                   `modules` null when no profile is in force
  */
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-palette', 'value-index'),
@@ -62,6 +68,43 @@ $this->set('headerDescription', __(
 ));
 ?>
 <div class="vi-page">
+<?php
+/*
+ * The tile row. A grid that wraps, and each occupant is a label, a
+ * figure and a line qualifying it — so a tile added here costs one
+ * line and no layout decision.
+ *
+ * **Three of the five describe the profile in force and are absent
+ * when none is**, which is this page's rule rather than this row's: a
+ * block with nothing to say is omitted, not drawn empty. A site admin
+ * can disable the instance default, and a *0 signals* tile beside a
+ * strip already saying assessments carry no quality would be a second,
+ * worse way of saying it.
+ */
+?>
+    <div class="vi-tiles">
+        <?php if ($tiles['weighs'] !== null): ?>
+        <?= $this->element('Values/Index/Tiles/weighs', array(
+            'weighs' => $tiles['weighs'],
+        )) ?>
+        <?php endif; ?>
+        <?php if ($tiles['bands'] !== null): ?>
+        <?= $this->element('Values/Index/Tiles/bands', array(
+            'bands' => $tiles['bands'],
+        )) ?>
+        <?php endif; ?>
+        <?= $this->element('Values/Index/Tiles/warninglists', array(
+            'warninglists' => $tiles['warninglists'],
+        )) ?>
+        <?php if ($tiles['modules'] !== null): ?>
+        <?= $this->element('Values/Index/Tiles/modules', array(
+            'modules' => $tiles['modules'],
+        )) ?>
+        <?php endif; ?>
+        <?= $this->element('Values/Index/Tiles/store', array(
+            'store' => $tiles['store'],
+        )) ?>
+    </div>
     <div class="vi-app">
         <?= $this->element('Values/Index/conditions', array(
             'inForce' => $inForce,
@@ -93,20 +136,5 @@ $this->set('headerDescription', __(
         <?= $this->element('Values/Index/recent', array(
             'recent' => $recent,
         )) ?>
-<?php
-/*
- * The tiles. One region, a grid that wraps, and each occupant is a
- * label, a figure and a line qualifying it — so a tile added here
- * costs one line and no layout decision. They sit below the
- * carried-over list because none of them is a way back to anything:
- * they are the standing facts of the reader's own situation, read once
- * on arrival and not again.
- */
-?>
-        <div class="vi-tiles">
-            <?= $this->element('Values/Index/store', array(
-                'store' => $store,
-            )) ?>
-        </div>
     </div>
 </div>

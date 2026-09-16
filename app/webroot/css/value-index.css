@@ -19,8 +19,23 @@
  * The page and its one card
  * ================================================================== */
 
+/*
+ * A flex column purely so the narrow rule below can reorder it. The
+ * default order is the source order, so nothing changes on a wide
+ * screen.
+ */
 .vi-page {
+    display: flex;
+    flex-direction: column;
     padding: 0 12px 24px;
+}
+
+/*
+ * The tile row is the first thing under the page header, and the
+ * header supplies no bottom margin of its own.
+ */
+.vi-page > .vi-tiles:first-child {
+    margin-top: 12px;
 }
 
 /*
@@ -1890,24 +1905,30 @@
 
 
 /* ==================================================================
- * The tiles
+ * The tile row
  * ------------------------------------------------------------------
- * The foot's second region: standing facts of the reader's own
- * situation, each a label, a figure and a line qualifying it. The
- * strip at the head says what rules the session is worked under; these
- * are measurements, which is why they are not up there.
+ * Above the card, not inside it: standing facts about the reader's own
+ * situation, read once on arrival. The strip inside the card says what
+ * rules the box's answers were worked under; these are measurements of
+ * the instance and the profile, and they belong to the page's
+ * introduction rather than to the control.
+ *
+ * It carries no chrome of its own — no ground, no border, no padding.
+ * The tiles are the cards and the page's own gutter is the margin, so
+ * the row reads as a row of small cards rather than as a panel with
+ * cards inside it.
  *
  * `auto-fill` rather than a column count, so adding a tile is one line
- * of markup and no layout decision — one tile fills the row, three sit
- * three abreast, and a narrow card stacks them without a media query.
+ * of markup and no layout decision: five sit abreast on a wide screen,
+ * four with one below at 1024, and a phone stacks them without a media
+ * query.
  * ================================================================== */
 
 .vi-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
     gap: 10px;
-    padding: 12px 14px;
-    border-top: 1px solid var(--bs-border-color);
+    margin-bottom: 12px;
 }
 
 .vi-tile {
@@ -1981,6 +2002,30 @@
  * ================================================================== */
 
 @media (max-width: 575.98px) {
+    /*
+     * **On a phone the tiles go after the card.** Five stacked tiles
+     * are 526px, which puts the one control this page exists for below
+     * the fold — a reader who came to paste a value would scroll past
+     * five facts to reach the box. They are standing facts read once,
+     * so they lose nothing by being read second; the box does.
+     *
+     * The order swaps and the source does not, so a screen reader and
+     * a keyboard still meet them in the order they are written.
+     */
+    .vi-app {
+        order: 1;
+    }
+
+    .vi-tiles {
+        order: 2;
+        margin-top: 12px;
+        margin-bottom: 0;
+    }
+
+    .vi-page > .vi-tiles:first-child {
+        margin-top: 12px;
+    }
+
     .vi-prompt__side {
         width: 100%;
         border-left: 0;
