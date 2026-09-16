@@ -6,7 +6,7 @@
  * page still draws perfectly — which is how a dead prompt ships
  * looking finished.
  *
- * Four jobs, and the page works without the first three:
+ * Five jobs, and the page works without all but the fourth:
  *
  *   1. Enter submits, Shift+Enter makes a line, an empty box cannot
  *      be pressed. Phase 3's.
@@ -22,6 +22,9 @@
  *      and nothing renders it otherwise — which is why every control
  *      that acts on an assessment is hidden until this boots, and why
  *      what is left without it is exactly the list phase 4 shipped.
+ *   5. The method note remembers which way this reader left it. A
+ *      real `<details>` opens and closes with no script at all; this
+ *      only carries the choice to the next page load.
  */
 (function () {
     'use strict';
@@ -854,6 +857,52 @@
         root.setAttribute('data-vi-booted', '1');
         return new Work(root);
     }
+
+    /*
+     * The method note's open state, carried to the next page load.
+     *
+     * **Viewer state and nothing else.** It records that somebody
+     * reads the note or does not, which is neither a fact about a
+     * value nor visible to anyone but them — the second of the two
+     * exemptions from *nothing writes about a value*
+     * (`02a-contract.md` §4.2), and the reason it is `localStorage`
+     * rather than a `UserSetting`: a preference the server never needs
+     * to know is a round trip the page never needs to make.
+     *
+     * Every access is guarded. A private window, a browser set to
+     * block site data and a thumbnailer all throw on the accessor
+     * itself rather than answering null, and a note that took the page
+     * down with it would be a broken prompt in exchange for a
+     * remembered chevron. No stored value means the default, which is
+     * shut.
+     */
+    var NOTE_KEY = 'valueIndexMethodNote';
+
+    ready(function () {
+        var note = document.querySelector('[data-vi-note]');
+        if (!note) {
+            return;
+        }
+        var stored = null;
+        try {
+            stored = window.localStorage.getItem(NOTE_KEY);
+        } catch (e) {
+            stored = null;
+        }
+        if (stored === 'open') {
+            note.open = true;
+        }
+        note.addEventListener('toggle', function () {
+            try {
+                window.localStorage.setItem(
+                    NOTE_KEY,
+                    note.open ? 'open' : 'shut'
+                );
+            } catch (e) {
+                /* A reader who cannot be remembered still gets to read. */
+            }
+        });
+    });
 
     ready(function () {
         var form = document.getElementById('vi-prompt');

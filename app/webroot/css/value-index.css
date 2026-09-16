@@ -118,6 +118,181 @@
 
 
 /* ==================================================================
+ * The method note
+ * ------------------------------------------------------------------
+ * The strip's last occupant, and the only one that is not a sentence.
+ * Closed it is one quiet line at the end of the strip's first row;
+ * open it takes a row of its own, because a table and two paragraphs
+ * are a block and a block sharing a line with a sentence would squeeze
+ * the sentence into a column.
+ *
+ * `flex: 1 0 100%` is what does that, and it is on `[open]` rather
+ * than always: a note that reserved its own row while shut would cost
+ * the page a line of height above the box every time it is not being
+ * read, which is nearly always.
+ * ================================================================== */
+
+.vi-note {
+    min-width: 0;
+}
+
+.vi-note[open] {
+    flex: 1 0 100%;
+}
+
+/*
+ * The marker goes and the chevron replaces it, so the summary is a
+ * line of the strip rather than a list item sitting in it. Safari
+ * needs the `-webkit-` pseudo-element as well as `list-style`.
+ */
+.vi-note > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    list-style: none;
+    cursor: pointer;
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.vi-note > summary::-webkit-details-marker {
+    display: none;
+}
+
+.vi-note > summary:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+.vi-note__chev {
+    flex: none;
+    color: var(--bs-secondary-color);
+    transition: transform 0.15s ease;
+}
+
+.vi-note[open] .vi-note__chev {
+    transform: rotate(90deg);
+}
+
+/*
+ * A reader who has asked not to be moved is not moved. The chevron is
+ * the page's only animation and it is one a reader triggers, so this
+ * costs nothing but says the page honours the setting.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .vi-note__chev {
+        transition: none;
+    }
+}
+
+/*
+ * Separated from the summary by a rule rather than by a border round
+ * the whole note: the note is part of the strip and a bordered card
+ * inside a tinted band reads as a panel that failed to be placed.
+ */
+.vi-note__body {
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid var(--bs-border-color);
+    /*
+     * The strip's ink is a sentence's — quiet, because the sentence is
+     * a condition rather than something to read. Two paragraphs
+     * somebody opened in order to read them are not that, so the note
+     * takes the body colour back and hands the quiet one to the
+     * questions, which is where the hierarchy belongs.
+     */
+    color: var(--bs-body-color);
+}
+
+.vi-note__body p {
+    margin: 0 0 8px;
+    max-width: 78ch;
+    line-height: 1.6;
+}
+
+.vi-note__body p:last-child {
+    margin-bottom: 0;
+}
+
+.vi-note__body code {
+    font-size: 0.74rem;
+    color: var(--bs-body-color);
+}
+
+/*
+ * The axes. Two columns, the axis and everything said about it, so a
+ * narrow card stacks the question over the vocabulary instead of
+ * squeezing three columns none of which may wrap mid-chip.
+ */
+.vi-axes {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 10px;
+}
+
+.vi-axes th,
+.vi-axes td {
+    text-align: left;
+    padding: 6px 10px 6px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+    vertical-align: baseline;
+}
+
+.vi-axes tr:last-child th,
+.vi-axes tr:last-child td {
+    border-bottom: 0;
+}
+
+/*
+ * `width: 1%` with `nowrap` is the table idiom for *as narrow as the
+ * word*: the axis names are three fixed strings and every pixel the
+ * column takes beyond them comes off the vocabulary.
+ */
+.vi-axes th {
+    width: 1%;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+
+.vi-axq {
+    display: block;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * The vocabulary wraps as chips do everywhere else on the page, and
+ * the row gap is the one that matters: four lean chips on a narrow
+ * card take two lines and would otherwise touch.
+ */
+.vi-axv {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 8px;
+    margin-top: 5px;
+}
+
+.vi-axband {
+    font-size: 0.72rem;
+    color: var(--vi-lacks);
+}
+
+/*
+ * The bands are four words in one colour and the flex gap alone reads
+ * them as a phrase. The relevance words need no separator because each
+ * carries its own hue, and the lean chips need none because each
+ * carries its own ground.
+ */
+.vi-axband + .vi-axband::before {
+    content: '\00b7';
+    margin-right: 8px;
+    color: var(--bs-secondary-color);
+}
+
+
+/* ==================================================================
  * The prompt
  * ------------------------------------------------------------------
  * A caret, a field and a verb on one line, the field growing and the

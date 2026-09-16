@@ -30,8 +30,13 @@
  * one. That is worth saying plainly; it is the one condition on this
  * page a reader could otherwise mistake for a broken engine.
  *
- * Phases 8 and 9 add their occupants beside this one: the method note
- * and the enrichment store's count and reuse window.
+ * **Phase 8's occupant is the method note**, last in the strip and
+ * carrying its own block. The sentence above says whose thresholds
+ * decided an assessment; the note says what an assessment is at all,
+ * and a reader who needs the second needs it before the first means
+ * anything. It is a `<details>`, so it costs one quiet line until it
+ * is asked for. Phase 9 adds the enrichment store's count and reuse
+ * window beside the sentence.
  *
  * @var array{id: int|null, name: string, scope: string,
  *            revision: int, editable: bool}|null $inForce
@@ -98,4 +103,5 @@ if ($inForce === null) {
 ?>
 <div class="vi-cond">
     <span><?= $line ?><?php if ($link !== null): ?> <?= $link ?><?php endif; ?></span>
+    <?= $this->element('Values/Index/method') ?>
 </div>
