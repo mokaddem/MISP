@@ -1091,6 +1091,7 @@ class ACLComponent extends Component
             'index' => array('theming_enabled'),
             'resolve' => array('theming_enabled'),
             'triage' => array('theming_enabled'),
+            'assess' => array('theming_enabled'),
             'view' => array('theming_enabled'),
             'viewOccurrences' => array('theming_enabled'),
             'viewReporting' => array('theming_enabled'),

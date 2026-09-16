@@ -89,7 +89,8 @@ class ValuesController extends AppController
          */
         if (in_array(
             $this->request->params['action'] ?? null,
-            array('viewEnrichmentRun', 'viewEnrichmentBadge', 'triage'),
+            array('viewEnrichmentRun', 'viewEnrichmentBadge', 'triage',
+                'assess'),
             true
         )) {
             $this->Security->validatePost = false;
@@ -366,6 +367,73 @@ class ValuesController extends AppController
         }
         $this->set('triage', $this->__triage($many));
         return $this->render('/Elements/Values/Index/worklist');
+    }
+
+    /**
+     * One row of the worklist, assessed.
+     *
+     * **A POST carrying one value, and the reason it is not the hover
+     * card's GET** (`02a-contract.md` §12.4). `viewHoverCard` already
+     * exists, is already ACL'd and already returns exactly this
+     * assessment — taking it as-is was the cheapest way to fill these
+     * rows, and it would have put the reader's whole IOC list through
+     * the access log one line at a time. That the hover card leaks the
+     * same value elsewhere is true and is not the same quantity: a
+     * hundred deliberate hovers over an hour is a different act from
+     * one keypress producing a hundred logged lookups, and *the
+     * reader's list, one line each* is a fair description of the
+     * resulting log. The fix is this route and no engine change.
+     *
+     * **One request per value, five lanes**, which is the transport
+     * all three prototypes proposed and the pick took. It costs N
+     * round trips rather than one, and it buys: the first answers in
+     * about 10 ms instead of the last in 1.2 s, no request held open
+     * for the length of a hundred assessments, and a lane that fails
+     * failing one row rather than the batch. The page draws every one
+     * of those states.
+     *
+     * **The value arrives as the worklist spelled it** — the stored
+     * spelling where the instance holds one, the reader's own where it
+     * does not — and is not parsed again. `ValueInputTool` already
+     * produced this string, and re-running it here would let a second
+     * parse of an already-parsed value disagree with the link in the
+     * same row.
+     *
+     * **Nothing is enriched** (§8 G7). `forHoverCard` reads the
+     * record; asking a module is `viewEnrichmentRun`, a press, and a
+     * triage of a hundred values that quietly made a hundred outbound
+     * calls would be a denial-of-service vector wearing a paste box.
+     *
+     * @return void
+     */
+    public function assess()
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'Assessing a value is a POST: a worklist of a hundred'
+                . ' would otherwise reach the access log one line at a'
+                . ' time.'
+            ));
+        }
+        /*
+         * Five of these land together, so the same insurance
+         * `viewEnrichmentRun` carries applies: a session handler
+         * holding an exclusive lock would serialise the lanes and the
+         * fifth answer would arrive after the sum of the first four —
+         * a failure that looks exactly like a slow instance.
+         */
+        @session_write_close();
+        $value = trim($this->__pasted());
+        if ($value === '') {
+            throw new BadRequestException(__('No value supplied.'));
+        }
+        $this->loadModel('ValueProfile');
+        $this->set('assessment', $this->ValueProfile->forHoverCard(
+            $this->Auth->user(),
+            $value
+        ));
+        $this->layout = false;
+        return $this->render('/Elements/Values/Index/assessment');
     }
 
     /**
