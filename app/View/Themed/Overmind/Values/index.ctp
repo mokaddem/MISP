@@ -12,9 +12,15 @@
  * The page's shape is `value-index/02b-proposal-c.html` as picked in
  * `02a-contract.md` §12 — the worklist, with A's prompt. Phase 3 wires
  * the prompt and the resolver's answers, phase 4 the rows a paste
- * becomes; the recently-viewed line, the conditions strip and the
- * method note are phases 6 to 9, and the blocks that have nothing to
- * say are absent rather than drawn empty.
+ * becomes, phase 6 the carried-over line and phase 7 the conditions
+ * strip; the method note and the enrichment count are phases 8 and 9,
+ * and the blocks that have nothing to say are absent rather than drawn
+ * empty.
+ *
+ * **The strip is above the box and the carried-over line below it.**
+ * What the strip says — whose thresholds decide the assessments —
+ * is true of every answer the box will give, so a reader meets it
+ * before the first one rather than after.
  *
  * **One region below the prompt, and it has one occupant.** The
  * invitation, an answer and the worklist are three things to say about
@@ -33,6 +39,8 @@
  *                             of the box, or null on a plain load
  * @var array|null $triage The rows a pasted list became, or null
  * @var array $recent The values this reader last opened, newest first
+ * @var array|null $inForce The Analyst Profile deciding this reader's
+ *                          assessments, or null when none is
  */
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-palette', 'value-index'),
@@ -47,6 +55,9 @@ $this->set('headerDescription', __(
 ?>
 <div class="vi-page">
     <div class="vi-app">
+        <?= $this->element('Values/Index/conditions', array(
+            'inForce' => $inForce,
+        )) ?>
         <?= $this->element('Values/Index/prompt') ?>
         <div class="vi-out" data-vi-out>
 <?php if ($triage !== null): ?>

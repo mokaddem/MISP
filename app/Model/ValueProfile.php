@@ -1454,6 +1454,81 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * Which Analyst Profile is deciding this reader's assessments.
+     *
+     * An assessment is not a property of a value: it is what a set of
+     * thresholds made of the record, and the thresholds resolve user →
+     * org → instance default with the nearest owner winning. A reader
+     * who does not know which of the three answered has no way to read
+     * a band they disagree with, so the strip at the head of
+     * `/values/index` says it before the box does anything
+     * (`value-index.md` §7.5).
+     *
+     * **The scope is the half that can be acted on.** Under D3 the
+     * name says which document and the scope says whose — whether
+     * disagreeing with a weight means editing your own page's
+     * thresholds, your colleagues' too, or the instance's.
+     *
+     * **`revision` tells a changed assessment from a changed value.**
+     * It is the local edit counter `AnalystProfile::bumpRevision()`
+     * moves, and the same number the profile's own page cites, so a
+     * reader whose band moved overnight can tell which of the two
+     * things under it moved.
+     *
+     * **`editable` is the editor's own predicate**, not a restatement
+     * of it. `AnalystProfilesController::edit()` refuses with
+     * `isEditableByCurrentUser()`, and a strip that decided
+     * separately — by scope, say — would offer a site admin no link to
+     * the default they may edit, and offer an ordinary reader on their
+     * organisation's profile one that 403s. An edit link that 403s is
+     * worse than no edit link (§7.5), and the only way to be sure it
+     * does not is to ask the same question the action asks.
+     *
+     * **No profile in force is a real state.** `resolveFor()` returns
+     * null when a site admin has disabled the default and the reader
+     * owns nothing, and every assessment on the instance then carries
+     * a lean and no quality — `ValueVerdictTool::qualityBand()` bands
+     * `none` when no signal can fire. That is worth a sentence, which
+     * is the caller's to write; this returns null and says so.
+     *
+     * **It costs nothing on a page that assessed anything.**
+     * `resolveFor()` memoises per request and `forTriage()`'s cards
+     * have already asked, so the statement is paid only on the plain
+     * load that has nothing else to pay for.
+     *
+     * @param array $user
+     * @return array{id: int|null, name: string, scope: string,
+     *               revision: int, editable: bool}|null
+     */
+    public function forProfileInForce(array $user)
+    {
+        $analystProfile = ClassRegistry::init('AnalystProfile');
+        $row = $analystProfile->resolveFor($user);
+        if (empty($row)) {
+            return null;
+        }
+        return array(
+            /*
+             * Null rather than absent when the row carries no id: the
+             * caller draws a link only where there is something to
+             * link to, and a profile assembled in memory — which is
+             * what `ValueProfileFixture` hands the engine — has no
+             * page of its own.
+             */
+            'id' => isset($row['id']) ? (int)$row['id'] : null,
+            'name' => isset($row['name']) ? (string)$row['name'] : '',
+            'scope' => $analystProfile->scopeOf($row),
+            'revision' => isset($row['revision'])
+                ? (int)$row['revision']
+                : 0,
+            'editable' => $analystProfile->isEditableByCurrentUser(
+                $user,
+                $row
+            ),
+        );
+    }
+
+    /**
      * The page frame: the banner, the fact strip and the tab badges.
      *
      * **The only synchronous read on this page**, and the reason this

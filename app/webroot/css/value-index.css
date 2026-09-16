@@ -45,6 +45,79 @@
 
 
 /* ==================================================================
+ * The conditions strip
+ * ------------------------------------------------------------------
+ * One line at the head of the card saying under what rules this
+ * session is worked. It shares the prompt's ground and is separated
+ * from it by a rule, so the two read as one head rather than as a
+ * banner over a control — what the strip says is a property of the
+ * box's answers, not a notice about the page.
+ *
+ * A flex row with a wide column gap: phases 8 and 9 put a second and
+ * a third occupant here, and on a narrow card each takes its own line
+ * without any of them being given a width.
+ * ================================================================== */
+
+.vi-cond {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 22px;
+    padding: 9px 14px;
+    background: var(--bs-secondary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * The name is the one word in the sentence a reader looks for, so it
+ * takes the body colour while the sentence around it stays quiet.
+ */
+.vi-cond b {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+/*
+ * The revision is a number about a document rather than a word in the
+ * sentence, and it is set as one: monospace, quiet, and never broken
+ * away from the name it qualifies.
+ */
+.vi-rev {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.7rem;
+    white-space: nowrap;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * Underlined by a border rather than by `text-decoration`, so the rule
+ * sits clear of the descenders and thickens on hover instead of
+ * appearing there — the link is part of a sentence and should not
+ * shout across it.
+ */
+.vi-condlink {
+    color: var(--bs-body-color);
+    text-decoration: none;
+    border-bottom: 1px solid var(--bs-border-color);
+    white-space: nowrap;
+}
+
+.vi-condlink:hover,
+.vi-condlink:focus {
+    color: var(--bs-body-color);
+    border-bottom-color: var(--bs-body-color);
+}
+
+.vi-condlink:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+
+/* ==================================================================
  * The prompt
  * ------------------------------------------------------------------
  * A caret, a field and a verb on one line, the field growing and the

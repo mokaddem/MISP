@@ -204,8 +204,9 @@ class ValuesController extends AppController
      * to five call sites, four of which a reviewer reads as unrelated
      * — and phase 3 has already been bitten once by something that
      * rendered, and rendered wrong, rather than failing. Phase 6's
-     * carried-over list is the first of the small blocks to arrive
-     * through here; phases 7 and 9 add theirs to this one method.
+     * carried-over list was the first of the small blocks to arrive
+     * through here and phase 7's profile the second; phase 9 adds its
+     * count to this one method.
      *
      * @param array|null $resolution What `resolve()` made of the box
      * @param array|null $triage The rows a pasted list became
@@ -214,11 +215,14 @@ class ValuesController extends AppController
     private function __indexPage($resolution, $triage)
     {
         $this->loadModel('ValueProfile');
+        $user = $this->Auth->user();
         $this->set('resolution', $resolution);
         $this->set('triage', $triage);
-        $this->set('recent', $this->ValueProfile->forRecent(
-            $this->Auth->user()
-        ));
+        $this->set('recent', $this->ValueProfile->forRecent($user));
+        $this->set(
+            'inForce',
+            $this->ValueProfile->forProfileInForce($user)
+        );
         return $this->render('index');
     }
 
