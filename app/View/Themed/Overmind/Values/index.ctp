@@ -28,11 +28,12 @@
  * page's script can refill from `ValuesController::triage()` without
  * the paste above it moving.
  *
- * **The strip carries all three conditions.** Phase 7 put the profile
- * in force there, phase 9 the enrichment store's count and window, and
- * phase 8 the method note that explains the vocabulary both of them
- * use. They are one block because they are one statement: this is
- * under what rules the answers below were worked.
+ * **The strip carries the conditions; the foot carries the
+ * measurements.** Phase 7 put the profile in force in the strip and
+ * phase 8 the method note that explains the vocabulary it uses — both
+ * are rules the reader works under. Phase 9's enrichment store is not
+ * a rule but a figure that moves, so it is a tile in `.vi-tiles` at
+ * the foot, which is the region any further small number joins.
  *
  * **The carried-over line sits outside that region**, at the foot of
  * the card, because it is the one block on the page that is not about
@@ -64,7 +65,6 @@ $this->set('headerDescription', __(
     <div class="vi-app">
         <?= $this->element('Values/Index/conditions', array(
             'inForce' => $inForce,
-            'store' => $store,
         )) ?>
         <?= $this->element('Values/Index/prompt') ?>
         <div class="vi-out" data-vi-out>
@@ -93,5 +93,20 @@ $this->set('headerDescription', __(
         <?= $this->element('Values/Index/recent', array(
             'recent' => $recent,
         )) ?>
+<?php
+/*
+ * The tiles. One region, a grid that wraps, and each occupant is a
+ * label, a figure and a line qualifying it — so a tile added here
+ * costs one line and no layout decision. They sit below the
+ * carried-over list because none of them is a way back to anything:
+ * they are the standing facts of the reader's own situation, read once
+ * on arrival and not again.
+ */
+?>
+        <div class="vi-tiles">
+            <?= $this->element('Values/Index/store', array(
+                'store' => $store,
+            )) ?>
+        </div>
     </div>
 </div>

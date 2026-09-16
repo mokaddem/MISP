@@ -37,15 +37,15 @@
  * anything. It is a `<details>`, so it costs one quiet line until it
  * is asked for.
  *
- * **Phase 9's occupant is the enrichment store**, between the two:
- * both sentences say under what conditions this session is worked —
- * one names the thresholds that decide an assessment, the other the
- * memory that decides whether a module is asked at all — and the note
- * that explains the vocabulary sits after the facts it explains.
+ * **The strip holds conditions and not measurements.** Phase 9's
+ * enrichment store started here and moved to a tile at the foot: what
+ * the strip says is a rule the reader works under and cannot change by
+ * working, while a count moves as the organisation enriches. A figure
+ * that moves, set as running prose between two rules, is a figure
+ * nobody reads twice.
  *
  * @var array{id: int|null, name: string, scope: string,
  *            revision: int, editable: bool}|null $inForce
- * @var array{count: int, max_age_hours: int} $store
  */
 if ($inForce === null) {
     $line = h(__(
@@ -109,6 +109,5 @@ if ($inForce === null) {
 ?>
 <div class="vi-cond">
     <span><?= $line ?><?php if ($link !== null): ?> <?= $link ?><?php endif; ?></span>
-    <?= $this->element('Values/Index/store', array('store' => $store)) ?>
     <?= $this->element('Values/Index/method') ?>
 </div>
