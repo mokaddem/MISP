@@ -32,6 +32,7 @@
  *                        `ValueProfile::forHoverCard`
  */
 App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 App::uses('ValueUrlTool', 'Tools/ValueProfile');
 
 $card = $assessment['card'];
@@ -52,15 +53,17 @@ $profileUrl = $this->Html->url(array(
  * the value is in its lifetime and the qualifier says how much the
  * clock behind that is worth, and a reader cannot take a single token
  * apart again.
+ *
+ * Asked of `ValueRelevanceTool` rather than kept here. That accessor
+ * exists because the copies of these four strings had already drifted
+ * once — one surface printed `uncertain` raw where the rest said
+ * *timeline uncertain* — and phase 8's method note now draws the same
+ * four as a legend for these rows. A legend disagreeing with the rows
+ * it explains is the worst place yet for the next drift, and two
+ * writers is how it would happen.
  */
-$relevanceWords = array(
-    'current' => __('current'),
-    'aging' => __('aging'),
-    'expired' => __('expired'),
-    'uncertain' => __('timeline uncertain'),
-);
 $relevanceState = $relevance['state'];
-$relevanceWord = $relevanceWords[$relevanceState] ?? $relevanceState;
+$relevanceWord = ValueRelevanceTool::stateLabel($relevanceState);
 /*
  * No figure rather than a zero where the timeline is a floor: `0d`
  * against an *expired* caption reads as *expired today*, which is a
