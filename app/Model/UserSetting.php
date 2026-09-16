@@ -168,6 +168,18 @@ class UserSetting extends AppModel
             'placeholder' => true,
             'validation' => 'validate_json',
         ],
+        // The last few values a reader opened on the Value Profile, as
+        // `/values/index` carries them over — `{value, at}`, newest
+        // first, capped at `ValueProfile::RECENT_CAP`. Internal for the
+        // same reason as `onboarding_pending` and one more: a list of
+        // which values a colleague is looking at is precisely the
+        // disclosure that feature refuses elsewhere, so it is kept out
+        // of the audit log as well as out of the settings list.
+        'value_profile_recent' => [
+            'internal' => true,
+            'placeholder' => [],
+            'validation' => 'validate_json',
+        ],
     );
 
     public static function validate_homepage($value, $user)

@@ -1561,6 +1561,87 @@
 
 
 /* ==================================================================
+ * Carried over
+ * ------------------------------------------------------------------
+ * A line of chips at the foot of the card, and a sentence saying whose
+ * line it is. It is the quietest block on the page on purpose: a way
+ * back to what the reader was doing, offered where it cannot compete
+ * with the box they came here to type in.
+ *
+ * Each chip is a link that also answers on hover, so it takes the
+ * hover card's trigger class and overrides what that class says about
+ * the cursor — `cursor: help` and a dotted underline are the affordance
+ * for a word inside a sentence, and this is a bordered chip whose whole
+ * job is to be clicked.
+ * ================================================================== */
+
+.vi-recent {
+    border-top: 1px solid var(--bs-border-color);
+    padding: 11px 14px 12px 40px;
+    background: var(--bs-body-bg);
+}
+
+.vi-recent__lead {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+}
+
+.vi-recent__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 8px;
+    margin-top: 8px;
+}
+
+.vi-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    max-width: 100%;
+    padding: 4px 7px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    color: var(--bs-body-color);
+}
+
+.vi-chip,
+.vi-chip.vp-hc-trigger {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.vi-chip:hover,
+.vi-chip:focus-visible {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+}
+
+/*
+ * A `sha256` is 64 characters and a line of ten of them is not a line.
+ * The chip truncates and the profile it links to carries the value in
+ * full — the same trade the compact worklist row makes, and for the
+ * same reason (`02a-contract.md` §12.8).
+ */
+.vi-chip__value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 34ch;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72rem;
+    font-weight: 500;
+}
+
+.vi-chip__at {
+    flex: none;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+}
+
+
+/* ==================================================================
  * Narrow
  * ------------------------------------------------------------------
  * The verb drops under the field rather than squeezing it; the caret's
@@ -1582,7 +1663,8 @@
 
     .vi-invite,
     .vi-answerwrap,
-    .vi-work {
+    .vi-work,
+    .vi-recent {
         padding-left: 14px;
     }
 

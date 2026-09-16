@@ -178,6 +178,28 @@ class ValueProfile extends AppModel
     const OCCURRENCE_ORDER = 'Attribute.timestamp DESC';
 
     /**
+     * How many values `/values/index` carries over from last time.
+     *
+     * Ten, which is a line of chips rather than a panel — the block is
+     * a way back to what the reader was just doing, not an inventory
+     * of what they have looked at. The number is also the privacy
+     * argument's other half: a list that forgets is a list an
+     * administrator who reads the row learns little from.
+     */
+    const RECENT_CAP = 10;
+
+    /**
+     * The `user_settings` key the carried-over list lives under.
+     *
+     * `internal`, following `onboarding_pending`: it is plumbing a
+     * feature writes rather than a preference a reader sets, so it is
+     * kept out of the user's own settings list and out of the audit
+     * log. `UserSetting::VALID_SETTINGS` is where that is declared and
+     * this is only the name.
+     */
+    const RECENT_SETTING = 'value_profile_recent';
+
+    /**
      * What a ledger row means by *recent* when it counts sightings.
      *
      * Not a profile setting, deliberately: it is the denominator in a
@@ -1293,6 +1315,142 @@ class ValueProfile extends AppModel
             }
         }
         return $variants;
+    }
+
+    /**
+     * The values this reader last opened, newest first.
+     *
+     * **The one block on `/values/index` whose rows are not the
+     * reader's own paste**, and it can exist only because it reads a
+     * table that is genuinely value-keyed: not `attributes` — where
+     * *all values* is a `GROUP BY value1` no `LIMIT` bounds
+     * (`value-index.md` §1.1) — but one `user_settings` row holding ten
+     * strings this reader put there themselves.
+     *
+     * **Per-viewer and never shared.** D27 refuses to name who ran an
+     * enrichment because naming the runner tells the organisation which
+     * colleague is looking at which value; a shared recently-viewed is
+     * that disclosure with a different label. The setting is keyed by
+     * `user_id` and nothing reads another reader's.
+     *
+     * **No assessment.** Ten values is ten engine runs before the
+     * reader has pasted anything, which is the page's whole load spent
+     * on a block nobody asked a question of — so the chips carry the
+     * value and the time, and the hover card supplies the assessment at
+     * the moment a reader wants one (`02a-contract.md` §12.7). That is
+     * also why the stored entry holds no lean: a frozen chip turns a
+     * question about the database *now* into one about the database
+     * *then*.
+     *
+     * Malformed rows are dropped rather than repaired. The value is
+     * free text a past release wrote and a future one may reshape, and
+     * a block that cannot draw an entry has nothing to say about it.
+     *
+     * @param array $user
+     * @return array<array{value: string, at: int}> At most RECENT_CAP
+     */
+    public function forRecent(array $user)
+    {
+        if (empty($user['id'])) {
+            return array();
+        }
+        $stored = $this->model('UserSetting')->getValueForUser(
+            $user['id'],
+            self::RECENT_SETTING
+        );
+        if (!is_array($stored)) {
+            return array();
+        }
+        $entries = array();
+        foreach ($stored as $entry) {
+            if (!is_array($entry)
+                || !isset($entry['value'], $entry['at'])
+                || !is_string($entry['value'])
+                || $entry['value'] === ''
+            ) {
+                continue;
+            }
+            $entries[] = array(
+                'value' => $entry['value'],
+                'at' => (int)$entry['at'],
+            );
+            if (count($entries) >= self::RECENT_CAP) {
+                break;
+            }
+        }
+        return $entries;
+    }
+
+    /**
+     * Record that this reader opened a value's profile.
+     *
+     * One write on a page that already costs eight reads, and the only
+     * write the Value Profile makes about the *reader* rather than
+     * about a value.
+     *
+     * **Re-opening moves rather than duplicates**, so the list is ten
+     * distinct values and not ten visits to one. The match is
+     * byte-for-byte: the list records the strings the reader opened,
+     * and deciding that `GOOGLE.COM` and `google.com` are one entry is
+     * a question for the instance's collation that `forTriage` pays a
+     * statement to ask — not something worth a statement here, where
+     * the wrong answer costs one duplicate chip.
+     *
+     * **It never fails the page.** A profile that 500s because its
+     * convenience list could not be written would be the tail wagging
+     * the dog, so a failed write is dropped: the next open records
+     * both.
+     *
+     * **Neither log records it.** The setting is `internal`, which is
+     * what makes `setSettingInternal` pass `skipAuditLog`; the legacy
+     * `SysLogLogable` engine is suppressed around the save because its
+     * `change => full` configuration would otherwise write the whole
+     * list into `logs` on every open — and `MISP.log_new_audit`
+     * defaults off, so that is the default instance rather than an
+     * exotic one. A per-viewer list that an administrator can read out
+     * of the log is not per-viewer.
+     *
+     * @param array $user
+     * @param string $value As the reader opened it
+     * @return void
+     */
+    public function rememberViewed(array $user, $value)
+    {
+        $value = (string)$value;
+        if (empty($user['id']) || $value === '') {
+            return;
+        }
+        $entries = $this->forRecent($user);
+        $kept = array(array('value' => $value, 'at' => time()));
+        foreach ($entries as $entry) {
+            if ($entry['value'] === $value) {
+                continue;
+            }
+            $kept[] = $entry;
+            if (count($kept) >= self::RECENT_CAP) {
+                break;
+            }
+        }
+        $userSetting = $this->model('UserSetting');
+        $logged = $userSetting->Behaviors->enabled(
+            'SysLogLogable.SysLogLogable'
+        );
+        $userSetting->Behaviors->disable('SysLogLogable.SysLogLogable');
+        try {
+            $userSetting->setSettingInternal(
+                $user['id'],
+                self::RECENT_SETTING,
+                $kept
+            );
+        } catch (Exception $e) {
+            CakeLog::write(
+                'warning',
+                'ValueProfile::rememberViewed — ' . $e->getMessage()
+            );
+        }
+        if ($logged) {
+            $userSetting->Behaviors->enable('SysLogLogable.SysLogLogable');
+        }
     }
 
     /**

@@ -192,8 +192,34 @@ class ValuesController extends AppController
      */
     public function index()
     {
-        $this->set('resolution', null);
-        $this->set('triage', null);
+        return $this->__indexPage(null, null);
+    }
+
+    /**
+     * The index page, whatever brought the reader to it.
+     *
+     * `resolve()` renders this view from four places and `index()`
+     * from a fifth, and every one of them owes the template the same
+     * variables. A block added to the page is otherwise a block added
+     * to five call sites, four of which a reviewer reads as unrelated
+     * — and phase 3 has already been bitten once by something that
+     * rendered, and rendered wrong, rather than failing. Phase 6's
+     * carried-over list is the first of the small blocks to arrive
+     * through here; phases 7 and 9 add theirs to this one method.
+     *
+     * @param array|null $resolution What `resolve()` made of the box
+     * @param array|null $triage The rows a pasted list became
+     * @return CakeResponse
+     */
+    private function __indexPage($resolution, $triage)
+    {
+        $this->loadModel('ValueProfile');
+        $this->set('resolution', $resolution);
+        $this->set('triage', $triage);
+        $this->set('recent', $this->ValueProfile->forRecent(
+            $this->Auth->user()
+        ));
+        return $this->render('index');
     }
 
     /**
@@ -257,14 +283,16 @@ class ValuesController extends AppController
             $many = ValueInputTool::normaliseMany($raw);
             $report = $many['report'];
             if ($report['overflow'] > 0) {
-                $this->set('resolution', $this->__refusal($report));
-                $this->set('triage', null);
-                return $this->render('index');
+                return $this->__indexPage(
+                    $this->__refusal($report),
+                    null
+                );
             }
             if (count($many['values']) > 1) {
-                $this->set('resolution', null);
-                $this->set('triage', $this->__triage($many));
-                return $this->render('index');
+                return $this->__indexPage(
+                    null,
+                    $this->__triage($many)
+                );
             }
             /*
              * One value left, whatever the paste looked like getting
@@ -281,9 +309,7 @@ class ValuesController extends AppController
             );
         }
         if ($one['value'] === null) {
-            $this->set('resolution', array('kind' => 'empty'));
-            $this->set('triage', null);
-            return $this->render('index');
+            return $this->__indexPage(array('kind' => 'empty'), null);
         }
         $this->loadModel('ValueProfile');
         $answer = $this->ValueProfile->forResolve(
@@ -309,14 +335,12 @@ class ValuesController extends AppController
                 303
             );
         }
-        $this->set('resolution', array(
+        return $this->__indexPage(array(
             'kind' => 'absent',
             'value' => $one['value'],
             'changed' => $one['changed'],
             'suggestion' => $answer['suggestion'],
-        ));
-        $this->set('triage', null);
-        return $this->render('index');
+        ), null);
     }
 
     /**
@@ -603,6 +627,21 @@ class ValuesController extends AppController
         // Re-encoded rather than passed through, so the panel URLs the page
         // builds are well-formed whichever alphabet the caller arrived with.
         $this->set('valueB64', ValueUrlTool::encode($profile['value']));
+        /*
+         * And the one write this page makes: `/values/index` carries
+         * the last ten values a reader opened, so opening one is what
+         * puts it there (`value-index.md` §7.4). It goes last because
+         * it is a convenience and the profile is the page — a list
+         * that could not be written must not cost anybody a value.
+         *
+         * The string recorded is the one the URL carried, which is the
+         * instance's own spelling for every reader who arrived through
+         * the resolver, because that is the value it redirects to.
+         */
+        $this->ValueProfile->rememberViewed(
+            $this->Auth->user(),
+            $profile['value']
+        );
     }
 
     /**

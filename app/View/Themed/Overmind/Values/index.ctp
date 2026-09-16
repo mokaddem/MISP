@@ -22,9 +22,17 @@
  * page's script can refill from `ValuesController::triage()` without
  * the paste above it moving.
  *
+ * **The carried-over line sits outside that region**, at the foot of
+ * the card, because it is the one block on the page that is not about
+ * the box: a reader who pastes a list has not stopped being the reader
+ * who opened something an hour ago, and a strip the script wiped on
+ * every submission would be a way back that disappears the moment it
+ * is wanted.
+ *
  * @var array|null $resolution What `ValuesController::resolve()` made
  *                             of the box, or null on a plain load
  * @var array|null $triage The rows a pasted list became, or null
+ * @var array $recent The values this reader last opened, newest first
  */
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-palette', 'value-index'),
@@ -63,5 +71,8 @@ $this->set('headerDescription', __(
             )) ?>
 <?php endif; ?>
         </div>
+        <?= $this->element('Values/Index/recent', array(
+            'recent' => $recent,
+        )) ?>
     </div>
 </div>
