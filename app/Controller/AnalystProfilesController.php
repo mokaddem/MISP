@@ -347,7 +347,21 @@ class AnalystProfilesController extends AppController
         $posted = isset($this->request->data['AnalystProfile'])
             ? $this->request->data['AnalystProfile']
             : $this->request->data;
-        $forOrg = !empty($posted['for_org']);
+        /*
+         * `for_org` is read from the query as well as from the body,
+         * because both buttons that set it put it there: the index'
+         * *Fork to my organisation* is a `postLink` carrying
+         * `?for_org=1`, and the profile page's is a header action,
+         * which builds its own `postLink` and has no way to add a
+         * field to it. Read from the body alone the flag never
+         * arrived — a CakePHP 2 query string does not reach
+         * `request->data` — and both buttons quietly forked to the
+         * caller instead, which is the opposite scope from the one
+         * they name. The POST is still the Security component's to
+         * accept; this only says where the flag may be written.
+         */
+        $forOrg = !empty($posted['for_org'])
+            || !empty($this->request->query['for_org']);
         $replace = !empty($posted['replace']);
         $name = isset($posted['name']) && trim((string)$posted['name']) !== ''
             ? trim((string)$posted['name'])
