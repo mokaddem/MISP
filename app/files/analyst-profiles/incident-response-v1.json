@@ -129,6 +129,21 @@
                     "recent_days": 30,
                     "old_days": 365
                 }
+            },
+            {
+                "id": "enrichment.answer",
+                "group": "Enrichment",
+                "enabled": true,
+                "points": {
+                    "per_verdict": 12,
+                    "cap": 24
+                },
+                "config": {
+                    "window_hours": 168,
+                    "abuse_confidence_min": 75,
+                    "malicious_ratio": 5,
+                    "benign_engines": 40
+                }
             }
         ],
         "thresholds": {
@@ -216,6 +231,7 @@
         },
         "reference": {
             "org_trust": {},
+            "module_trust": {},
             "org_trust_scale": {
                 "A": 1.25,
                 "B": 1.1,

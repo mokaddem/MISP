@@ -1604,6 +1604,7 @@ class AnalystProfileFormTool
                         'options' => array(),
                     ),
                 ),
+                $this->moduleTrustBlock($section, $factors, $sources),
                 array(
                     'kind' => 'fields',
                     'id' => 'org_trust_scale',
@@ -1949,7 +1950,7 @@ class AnalystProfileFormTool
     }
 
     /**
-     * The four shipped ledger groups.
+     * The shipped ledger groups.
      *
      * `ValueSignalBase` is included by the loader's scan rather than by
      * `App::uses` — it lives under `Model/ValueSignals/`, which is not a
@@ -2234,6 +2235,114 @@ class AnalystProfileFormTool
                             'path' => array('enrichment', 'max_age_hours'),
                         ),
                     ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * How far this profile believes each enrichment module.
+     *
+     * The same judgement as the block above it, applied to a second
+     * kind of source, so it uses the same vocabulary, the same scale
+     * and the same control. *How far do I trust this?* asked twice
+     * with two grading schemes would be the analyst learning the
+     * question twice.
+     *
+     * **And the one asymmetry, which the blurb has to state**: an
+     * ungraded organisation is worth 1.00 and an ungraded module is
+     * worth nothing. MISP's own reports count by default; an outside
+     * vendor's opinion is not something the shipped profile may assert
+     * a weight for, so the rows appear in the ledger marked as not
+     * counted until somebody grades the module. That makes grading one
+     * a single visible act rather than a setting whose effect nobody
+     * can find, and it is why this block sits beside the organisation
+     * map rather than in the enrichment section: what it changes is a
+     * score, not what gets run.
+     *
+     * @param array $section The stored `reference` section
+     * @param array $factors The scale in force
+     * @param array $sources
+     * @return array
+     */
+    private function moduleTrustBlock(array $section, array $factors,
+        array $sources
+    ) {
+        $grades = isset($section['module_trust'])
+            && is_array($section['module_trust'])
+            ? $section['module_trust']
+            : array();
+        $source = isset($sources['modules']) && is_array($sources['modules'])
+            ? $sources['modules']
+            : array();
+        $catalogue = isset($source['catalogue'])
+            && is_array($source['catalogue'])
+            ? $source['catalogue']
+            : array();
+        $entries = array();
+        foreach ($grades as $module => $grade) {
+            $entries[] = array(
+                'key' => (string)$module,
+                'label' => (string)$module,
+                /*
+                 * A graded module the instance does not offer is drawn
+                 * rather than dropped, the same way a graded
+                 * organisation this instance does not have is: the
+                 * grade is the analyst's judgement about a source and
+                 * survives the source being turned off here.
+                 */
+                'missing' => !empty($catalogue)
+                    && !isset($catalogue[(string)$module]),
+                'value' => $grade,
+                'type' => 'select',
+                'options' => $this->gradeOptions(),
+                'factor' => $this->factorLabel($factors, $grade),
+                'path' => array('reference', 'module_trust',
+                    (string)$module),
+            );
+        }
+        return array(
+            'kind' => 'map',
+            'id' => 'module_trust',
+            'title' => __('Enrichment module reputation'),
+            'blurb' => __(
+                'The same Admiralty grade, for the outside services'
+                . ' your modules ask. It multiplies what a verdict from'
+                . ' that module contributes to the assessment — and'
+                . ' unlike an organisation, a module you have not'
+                . ' graded is worth nothing rather than worth one. Its'
+                . ' answers still appear in the ledger, marked as not'
+                . ' counted, so you can see what was said before you'
+                . ' decide whether it should count. Only verdicts are'
+                . ' scored at all: where an address is, who announces'
+                . ' it and when it was registered are drawn and never'
+                . ' counted.'
+            ),
+            'key_label' => __('Module'),
+            'value_label' => __('Grade'),
+            'value_type' => 'select',
+            'value_options' => $this->gradeOptions(),
+            'value_factors' => $factors,
+            'value_factor_path' => array('reference', 'org_trust_scale'),
+            'empty_label' => __('No module graded — every verdict is'
+                . ' shown and none of them counts'),
+            'path' => array('reference', 'module_trust'),
+            'entries' => $entries,
+            'add' => array(
+                'label' => __('Grade a module'),
+                'source' => 'modules',
+                'search' => true,
+                'placeholder' => __('filter modules…'),
+                /*
+                 * Every module the build offers rather than only the
+                 * enabled ones, for the reason the locality map gives:
+                 * a grade is knowledge about a source, and an analyst
+                 * recording what they think of a service is right to
+                 * do it before it is turned on rather than after.
+                 */
+                'options' => $this->unusedKeys(
+                    array_keys($catalogue),
+                    $grades
                 ),
             ),
         );

@@ -236,6 +236,105 @@ class ValueTrustTool
     }
 
     /**
+     * The same judgement applied to a second kind of source: how far
+     * to believe an enrichment module.
+     *
+     * *How far do I trust this source* is one question, so it uses one
+     * vocabulary — the admiralty scale the organisation map already
+     * uses, the same `org_trust_scale` overrides, and the same editor
+     * surface. A second grading scheme for vendors would be the same
+     * judgement written twice.
+     *
+     * **And one deliberate divergence: ungraded is zero here, where
+     * an ungraded organisation is 1.0.** The asymmetry is the whole of
+     * what keeps the shipped default neutral. An organisation's
+     * evidence is MISP's own and counts by default — not grading it
+     * says nothing. An outside vendor's opinion is not something a
+     * neutral document may assert a weight for, and a fallback grade
+     * would have `default-v1` asserting that some particular service
+     * is worth twelve points, which is precisely the shipped opinion
+     * it refuses to be. So on a stock instance the rows appear, are
+     * marked as not counted, and grading a module is the single act
+     * that turns them on.
+     *
+     * @param array|null $profile
+     * @return array `grades` (module => GRADE), `scale`, `in_force`
+     *               and `invalid`
+     */
+    public static function modulePlanFor($profile)
+    {
+        $section = self::section($profile);
+        $scale = self::scaleFrom($section);
+        $grades = array();
+        $invalid = array();
+        $map = isset($section['module_trust'])
+            && is_array($section['module_trust'])
+            ? $section['module_trust']
+            : array();
+        foreach ($map as $module => $grade) {
+            /*
+             * Not lowercased, unlike an organisation's uuid. A module
+             * name is matched exactly everywhere else in this corpus —
+             * `Plugin.Enrichment_<name>_enabled` is exact — and a
+             * helpfully corrected name would be this class quietly
+             * grading something the profile did not name.
+             */
+            $module = trim((string)$module);
+            if ($module === '') {
+                continue;
+            }
+            $normalised = self::normaliseGrade($grade);
+            if ($normalised === null) {
+                $invalid[$module] = (string)$grade;
+                continue;
+            }
+            $grades[$module] = $normalised;
+        }
+        return array(
+            'grades' => $grades,
+            'scale' => $scale,
+            'in_force' => !empty($grades),
+            'invalid' => $invalid,
+        );
+    }
+
+    /**
+     * What one module's answer is multiplied by.
+     *
+     * Zero for a module the map does not name — see `modulePlanFor()`
+     * — so a caller must check the factor rather than assume a row is
+     * worth something.
+     *
+     * @param array $plan From `modulePlanFor()`
+     * @param string $module
+     * @return float
+     */
+    public static function moduleFactor(array $plan, $module)
+    {
+        $grade = self::moduleGrade($plan, $module);
+        return $grade === null
+            ? 0.0
+            : self::factorForGrade($plan, $grade);
+    }
+
+    /**
+     * One module's grade, or null where the profile has not given it
+     * one.
+     *
+     * @param array $plan
+     * @param string $module
+     * @return string|null
+     */
+    public static function moduleGrade(array $plan, $module)
+    {
+        $grades = isset($plan['grades']) && is_array($plan['grades'])
+            ? $plan['grades']
+            : array();
+        $module = trim((string)$module);
+        return isset($grades[$module]) ? $grades[$module] : null;
+    }
+
+    /**
      * The scale in force: the default, with whatever the profile
      * overrode.
      *

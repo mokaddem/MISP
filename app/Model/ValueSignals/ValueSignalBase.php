@@ -148,13 +148,22 @@ abstract class ValueSignalBase
      */
     const AXIS_QUALITY = 'quality';
 
-    /** The ledger's four groups. A profile may move a signal between
-     *  them; a custom signal may name a fifth. */
+    /**
+     * The ledger's groups. A profile may move a signal between them;
+     * a custom signal may name one of its own.
+     *
+     * The first four name where inside MISP the evidence came from.
+     * `Enrichment` is the fifth and names the one place it did not: an
+     * outside source's opinion, which a reader weighs differently from
+     * the record's own and which would be misfiled under any of the
+     * four.
+     */
     const GROUPS = array(
         'Reporting',
         'Sightings',
         'Attribution',
         'Lifecycle',
+        'Enrichment',
     );
 
     /** The profile's key for this signal, e.g. `reporting.published_ratio`. */

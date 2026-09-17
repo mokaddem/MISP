@@ -267,12 +267,39 @@ class ValueVerdictTool
                 $counts['silent']++;
                 continue;
             }
-            $rows[] = $this->anchor(
-                $outcome['row'],
-                $entry,
-                $outcome['signal'],
-                $polarity
-            );
+            /*
+             * **Rows, plural, since the enrichment group.** Every
+             * shipped signal returns one and is normalised into a
+             * list of one; a signal whose evidence is a set of
+             * independent sources returns several, because *GreyNoise
+             * said mass scanner, asked 3 h ago, −12* is a row a reader
+             * can open the run behind, and one row summing three
+             * vendors is not.
+             *
+             * The counts stay per **signal** — one signal that fired,
+             * however many rows it put in the ledger — because that is
+             * what `configured`, `evaluated` and `silent` are counting
+             * beside it.
+             */
+            foreach ($outcome['rows'] as $row) {
+                $rows[] = $this->anchor(
+                    $row,
+                    $entry,
+                    $outcome['signal'],
+                    $polarity
+                );
+            }
+            /*
+             * And a signal may set some of its own evidence aside. The
+             * enrichment group is the case: a module the profile has
+             * not graded multiplies by zero, and a row worth nothing
+             * belongs in `not_counted` with the reason rather than in
+             * the ledger at `+0`, which reads as *counted, and worth
+             * nothing*.
+             */
+            foreach ($outcome['not_counted'] as $note) {
+                $notCounted[] = $note;
+            }
             $counts['fired']++;
         }
 
@@ -720,15 +747,68 @@ class ValueVerdictTool
         if ($row === null) {
             return array('state' => 'silent');
         }
-        $invalid = $this->rowFault($row);
-        if ($invalid !== null) {
-            return $this->cannotRun($id, $invalid, 'broken', $signal);
+        $returned = $this->normaliseReturn($row);
+        if (is_string($returned)) {
+            return $this->cannotRun($id, $returned, 'broken', $signal);
+        }
+        foreach ($returned['rows'] as $one) {
+            $invalid = $this->rowFault($one);
+            if ($invalid !== null) {
+                return $this->cannotRun($id, $invalid, 'broken',
+                    $signal);
+            }
+        }
+        if (empty($returned['rows'])
+            && empty($returned['not_counted'])
+        ) {
+            return array('state' => 'silent');
         }
         return array(
             'state' => 'fired',
-            'row' => $row,
+            'rows' => $returned['rows'],
+            'not_counted' => $returned['not_counted'],
             'signal' => $signal,
         );
+    }
+
+    /**
+     * What a signal returned, as rows and set-aside notes.
+     *
+     * Two shapes, and the older one is the one nearly every signal
+     * uses: **a ledger row** — an array carrying `contribution` — or
+     * **an envelope** carrying `rows` and, optionally, `not_counted`.
+     *
+     * Told apart by `contribution` rather than by whether the array
+     * looks like a list, because that test is the kind that works
+     * until a signal returns exactly one row in a list and then
+     * silently scores it as a malformed row. A row always has the key;
+     * an envelope never does.
+     *
+     * @param array $returned
+     * @return array|string The two lists, or why it could not be read
+     */
+    private function normaliseReturn(array $returned)
+    {
+        if (array_key_exists('contribution', $returned)) {
+            return array(
+                'rows' => array($returned),
+                'not_counted' => array(),
+            );
+        }
+        if (!array_key_exists('rows', $returned)
+            && !array_key_exists('not_counted', $returned)
+        ) {
+            return __('The signal returned something that is not a'
+                . ' ledger row.');
+        }
+        $rows = isset($returned['rows']) && is_array($returned['rows'])
+            ? array_values($returned['rows'])
+            : array();
+        $notes = isset($returned['not_counted'])
+            && is_array($returned['not_counted'])
+            ? array_values($returned['not_counted'])
+            : array();
+        return array('rows' => $rows, 'not_counted' => $notes);
     }
 
     /**

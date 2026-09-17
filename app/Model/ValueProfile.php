@@ -16145,6 +16145,81 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The stored enrichment answers this reader's organisation holds,
+     * with the profile's grade for each module beside them.
+     *
+     * **One indexed read of one table, and the payloads it needs.**
+     * The runs are already stored shaped, so nothing is parsed and
+     * nothing is asked of a module — the signal that scores these is
+     * forbidden from querying, and the reason is that a score which
+     * moved because a vendor was slow is not reproducible.
+     *
+     * **A module the profile has not graded is still read.** Its
+     * answer appears in the ledger marked as not counted, which is
+     * what makes grading it a single visible act rather than a setting
+     * whose effect nobody can see. Skipping ungraded modules here
+     * would make the shipped default look like an instance where
+     * nothing had ever been asked.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array|null $profile
+     * @param array $options `scored_enrichment => false` builds none
+     * @return array `runs` and `trust`
+     */
+    private function verdictEnrichment(array $user, $value, $profile,
+        array $options = array()
+    ) {
+        $empty = array('runs' => array(), 'trust' => array(
+            'grades' => array(),
+            'factors' => array(),
+            'in_force' => false,
+        ));
+        if (array_key_exists('scored_enrichment', $options)
+            && empty($options['scored_enrichment'])
+        ) {
+            return $empty;
+        }
+        if (empty($user['org_id'])) {
+            return $empty;
+        }
+        $plan = ValueTrustTool::modulePlanFor($profile);
+        $store = $this->model('ValueEnrichmentRun');
+        $held = $store->forValue($user, $value);
+        if (empty($held)) {
+            return $empty;
+        }
+        $runs = array();
+        $factors = array();
+        foreach ($held as $row) {
+            if ($row['state'] !== 'ok') {
+                continue;
+            }
+            $shaped = ValueEnrichmentRun::unpack(
+                $store->one($user, $value, $row['module'], $row['type'])
+                    ?: array()
+            );
+            if ($shaped === null) {
+                continue;
+            }
+            $shaped['ran_at'] = (int)$row['last_run'];
+            $runs[] = $shaped;
+            $factors[$row['module']] = ValueTrustTool::moduleFactor(
+                $plan,
+                $row['module']
+            );
+        }
+        return array(
+            'runs' => $runs,
+            'trust' => array(
+                'grades' => $plan['grades'],
+                'factors' => $factors,
+                'in_force' => !empty($plan['in_force']),
+            ),
+        );
+    }
+
+    /**
      * The rail's chart: shelf life over the last 90 days.
      *
      * **What this card used to draw cannot be drawn.** The fixture
@@ -16353,6 +16428,36 @@ class ValueProfile extends AppModel
                 'attribution' => ValueLabelPriority::attribution($profile),
             ),
             'budget' => $budget,
+            /*
+             * What outside sources have said, and how far this profile
+             * believes each of them.
+             *
+             * **Scoped to the viewer's organisation**, because the run
+             * store is: an answer this organisation paid for is not
+             * evidence anybody else on the instance holds. The honest
+             * consequence, stated rather than hidden, is that two
+             * organisations on one instance can legitimately read
+             * different quality numbers for the same value — because
+             * they know different things about it. Each ledger says
+             * why, on the row.
+             *
+             * **And it is the seam the export gate needs.** The gate
+             * materialises one assessment per value under the instance
+             * default profile so that `restSearch` can filter on it,
+             * and a per-organisation number cannot be that: the
+             * filtering decision would depend on which org happened to
+             * run which module, which is irreproducible for everyone
+             * else. A caller building the assessment passes
+             * `scored_enrichment => false` and gets a context with no
+             * enrichment in it at all, so the exclusion is structural
+             * rather than a rule somebody has to remember.
+             */
+            'enrichment' => $this->verdictEnrichment(
+                $user,
+                $value,
+                $profile,
+                $options
+            ),
             'excluded' => array(),
             'missing' => array(),
         );
