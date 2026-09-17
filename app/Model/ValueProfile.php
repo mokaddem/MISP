@@ -2292,19 +2292,23 @@ class ValueProfile extends AppModel
             ValueLabelPriority::PINNED
         );
         if (!empty($pinnedTaxonomies)) {
-            $rows = $this->model('Taxonomy')->find('list', array(
+            $rows = $this->model('Taxonomy')->find('all', array(
                 'conditions' => array(
                     'LOWER(Taxonomy.namespace)' => $pinnedTaxonomies,
                     'Taxonomy.enabled' => 1,
                 ),
-                'fields' => array('Taxonomy.namespace', 'Taxonomy.namespace'),
+                'fields' => array('Taxonomy.namespace'),
                 'recursive' => -1,
             ));
+            $permitted = array();
+            foreach ($rows as $row) {
+                $permitted[] = $row['Taxonomy']['namespace'];
+            }
             $absent['taxonomies'] = ValueLabelPriority::absent(
                 $taxonomies,
                 $plan,
                 ValueLabelPriority::TAXONOMIES,
-                array_values($rows)
+                $permitted
             );
         }
         $pinnedGalaxies = ValueLabelPriority::keys(
@@ -2313,19 +2317,23 @@ class ValueProfile extends AppModel
             ValueLabelPriority::PINNED
         );
         if (!empty($pinnedGalaxies)) {
-            $rows = $this->model('Galaxy')->find('list', array(
+            $rows = $this->model('Galaxy')->find('all', array(
                 'conditions' => array(
                     'LOWER(Galaxy.type)' => $pinnedGalaxies,
                     'Galaxy.enabled' => 1,
                 ),
-                'fields' => array('Galaxy.type', 'Galaxy.type'),
+                'fields' => array('Galaxy.type'),
                 'recursive' => -1,
             ));
+            $permitted = array();
+            foreach ($rows as $row) {
+                $permitted[] = $row['Galaxy']['type'];
+            }
             $absent['galaxies'] = ValueLabelPriority::absent(
                 $galaxies,
                 $plan,
                 ValueLabelPriority::GALAXIES,
-                array_values($rows)
+                $permitted
             );
         }
         return $absent;
