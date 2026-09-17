@@ -3,11 +3,20 @@
 /**
  * What a URL looked like when somebody fetched it.
  *
- * **Nothing emits this today**, and this is the one conversion in its
- * group that needs an upstream template before it needs a module
- * change: one module has the page bytes as an attachment and nowhere
- * to put them, and another has a screenshot URL, a title and a server
- * banner and emits none of it.
+ * **One module draws this today, and it is a keyed one.**
+ * `rst_screenshot` emits an `image` object with the PNG attached, so
+ * a reader whose instance has that key sees the widget. The free
+ * answers are still prose: `sourcecache` holds the page bytes as an
+ * attachment and emits no object, and `urlscan` holds a screenshot
+ * URL, a title and a server banner and emits none of it.
+ *
+ * **`page-capture` is claimed here in advance**, the way `reputation`
+ * is. `image` carries a picture and no date and `domain-crawled`
+ * carries the URLs a crawl found rather than what they returned, so
+ * neither can say *when* a page looked like this — which is the one
+ * fact a capture is read for. The day a template for the capture
+ * itself lands, the two conversions have somewhere to emit that
+ * already has a widget.
  *
  * **A capture with no image is still a capture.** An archived copy and
  * its extracted text are what a disinformation reader came for as much
@@ -18,21 +27,20 @@ class PageCaptureRenderer extends ValueRendererBase
 {
     public $id = 'page-capture';
 
-    public $templates = array('image', 'domain-crawled');
+    public $templates = array(
+        'image',
+        'domain-crawled',
+        'page-capture',
+    );
 
     public $compact = 'Values/Renderers/page_capture_compact';
 
     public $full = 'Values/Renderers/page_capture_full';
 
-    public $producer = self::PRODUCER_CONVERSION;
-
     public function __construct()
     {
         $this->description = __('A captured copy of a page, with what'
             . ' it looked like.');
-        $this->producer_note = __('One module holds the page bytes and'
-            . ' another a screenshot URL; neither emits an object, and'
-            . ' a page-capture template does not exist yet.');
     }
 
     public function matches(array $objects, array $attributes)
@@ -95,7 +103,16 @@ class PageCaptureRenderer extends ValueRendererBase
             'attachment' => $attachment,
             'archive' => $archive,
             'text' => $text,
-            'captured' => null,
+            /*
+             * Only `page-capture` carries this. The other two
+             * templates date nothing, so the sort falls through to
+             * when the module ran - which is the capture date for a
+             * module that captured just now and wrong for one that
+             * fetched the page out of an archive.
+             */
+            'captured' => $this->stamp(
+                $this->value($object, 'capture-date')
+            ),
             'module' => $object['module'] ?? null,
             'ran_at' => $object['ran_at'] ?? null,
         );
