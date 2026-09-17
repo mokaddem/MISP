@@ -3,17 +3,18 @@
 /**
  * When a domain was registered, and by whom through whom.
  *
- * **Nothing emits this today, and the reason is worth stating.** The
- * module that fetches registration data queries a whois server over a
- * socket and sends back the raw text it got — so the data is fetched,
- * and then flattened into prose that no widget can read. Filling in
- * `text` alone would be trivial and would give no age, which is the
- * one fact every profile that ranks this shape ranks it for; the
- * dates, the registrar and the nameservers mean either parsing free
- * text or asking RDAP, which returns them as JSON.
+ * **`rdap` emits this, free and unauthenticated.** RDAP is the
+ * structured successor to whois, and the module returns a `whois`
+ * object carrying `creation-date`, `expiration-date`,
+ * `modification-date`, the registrar, the registrant and the
+ * nameservers — every relation this renderer reads. Three keyed
+ * modules emit the template as a side result besides.
  *
- * Three other modules do emit this template as a keyed side result, so
- * an instance with those keys sees the widget today.
+ * The older `whois` module still queries a whois server over a socket
+ * and sends back the raw text it got, which is why one of the two
+ * answers to *when was this registered* is a widget and the other is a
+ * paragraph. That is a conversion upstream, and it no longer gates
+ * this shape.
  *
  * **A `whois` object carrying only `text` is declined.** It would draw
  * a widget whose one fact is *a registration record exists*, and the
@@ -29,8 +30,6 @@ class RegistrationRenderer extends ValueRendererBase
 
     public $full = 'Values/Renderers/registration_full';
 
-    public $producer = self::PRODUCER_CONVERSION;
-
     const REGISTRANT = array(
         'registrant-name' => 'name',
         'registrant-org' => 'organisation',
@@ -42,8 +41,6 @@ class RegistrationRenderer extends ValueRendererBase
     {
         $this->description = __('When a domain was registered, its'
             . ' registrar and its nameservers.');
-        $this->producer_note = __('The module that answers this sends'
-            . ' the raw record as text; it emits no object yet.');
     }
 
     public function matches(array $objects, array $attributes)
