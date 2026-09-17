@@ -373,11 +373,39 @@
 }
 
 /* Inside the button it is the button's own ink, not the page's. */
-.vi-run .vi-kbd {
+.vi-run .vi-kbd,
+.vi-wipe .vi-kbd {
     border-color: currentColor;
     background: transparent;
     color: inherit;
     opacity: 0.7;
+}
+
+/*
+ * Clear. It is `.vi-btn--quiet` because it is the third thing on a
+ * line whose second thing is a count and whose third is the page's
+ * one filled button: a second filled button here would make the
+ * reader choose between two, and only one of them does anything they
+ * came for.
+ */
+.vi-wipe {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/*
+ * The second press. A batch with rows already opened or cleared is
+ * work the page cannot hand back — it writes nothing — so clearing it
+ * asks once, in the button, rather than in a dialog the reader has to
+ * read somewhere else.
+ */
+.vi-wipe.is-asking {
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
 }
 
 .vi-run:focus-visible,

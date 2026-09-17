@@ -4,7 +4,8 @@
  *
  * Direction A's, taken into C at the pick (`02a-contract.md` §12.3):
  * the live `n/100` counter, the verb that says what pressing will do,
- * and the `Enter` hint.
+ * and the `Enter` hint. Clear joined them later and sits on the same
+ * line, because what it undoes is what the rest of the line did.
  *
  * The counter and the verb are rendered at their empty-box values and
  * moved by `value-index.js` from there. A box that comes back filled
@@ -55,6 +56,32 @@ echo $this->Form->create('Value', array(
         )) ?>
     </div>
     <div class="vi-prompt__side">
+        <?php
+        /*
+         * Clear. It empties the box and puts the region back to the
+         * invitation, which is the state a reload would reach — the
+         * difference being that a reload also throws away the tiles,
+         * the strip and the carried-over line, none of which the
+         * reader's paste changed.
+         *
+         * **It is `hidden` until there is something to clear**, so the
+         * empty page is not offering to empty itself, and it starts
+         * that way in the markup rather than being hidden by the
+         * script: a page whose script never boots shows a button that
+         * does nothing otherwise.
+         *
+         * **It does not touch the carried-over list.** That list is
+         * this reader's history rather than this session's work, and
+         * emptying it is `value-index.md` §10's own item.
+         */
+        ?>
+        <button type="button" class="vi-btn vi-btn--quiet vi-wipe"
+                data-vi-clear
+                data-vi-ask="<?= h(__('Clear anyway?')) ?>"
+                hidden>
+            <span data-vi-clear-verb><?= h(__('Clear')) ?></span>
+            <span class="vi-kbd"><?= h(__('Esc')) ?></span>
+        </button>
         <span class="vi-count" data-vi-count
               data-vi-cap="<?= h(ValueInputTool::CAP) ?>"
               aria-live="polite"><b>0</b>/<?= h(ValueInputTool::CAP) ?></span>

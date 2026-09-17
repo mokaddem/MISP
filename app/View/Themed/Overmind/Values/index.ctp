@@ -26,7 +26,10 @@
  * invitation, an answer and the worklist are three things to say about
  * the same box and never two at once, so they share a container the
  * page's script can refill from `ValuesController::triage()` without
- * the paste above it moving.
+ * the paste above it moving. The clear control refills the same
+ * container from the template below it, which is why the invitation
+ * is an element: it is the region's empty state and the thing clear
+ * puts back.
  *
  * **The tiles come before the card, not inside it.** They are
  * standing facts about the reader's own situation — what weighs a
@@ -117,22 +120,25 @@ $this->set('headerDescription', __(
                 'triage' => $triage,
             )) ?>
 <?php elseif ($resolution === null): ?>
-            <div class="vi-invite">
-                <h2><?= h(__('Look up a value')) ?></h2>
-                <p><?= h(__(
-                    'Enter a single value to open its Value Profile, or'
-                    . ' paste a list to get one row per value. Defanged'
-                    . ' input such as hxxp:// or 1.2.3[.]4 is refanged'
-                    . ' automatically. What you paste is never added to'
-                    . ' the URL, so it stays out of your browser history.'
-                )) ?></p>
-            </div>
+            <?= $this->element('Values/Index/invite') ?>
 <?php else: ?>
             <?= $this->element('Values/Index/answer', array(
                 'resolution' => $resolution,
             )) ?>
 <?php endif; ?>
         </div>
+<?php
+/*
+ * The invitation again, inert, for the clear control to put back.
+ *
+ * It is emitted on every load rather than only on the loads that
+ * arrive with an answer: a reader who lands on the empty page, pastes
+ * a list and then clears it has an answer in the region that the
+ * server never rendered, and a template conditional on the *server's*
+ * state would be missing for exactly that reader.
+ */
+?>
+        <template data-vi-invite><?= $this->element('Values/Index/invite') ?></template>
         <?= $this->element('Values/Index/recent', array(
             'recent' => $recent,
         )) ?>
