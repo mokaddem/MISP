@@ -44,6 +44,49 @@ $taxonomies = $profile['tags'];
 $galaxies = $profile['galaxies'];
 $tagCap = isset($profile['tag_cap']) ? $profile['tag_cap'] : null;
 
+/*
+ * **The dimensions the reader always wants, and this value has none
+ * of** (`02-context-priority.md` §4). Only a pinned taxonomy or galaxy
+ * is drawn absent, because an unlabelled value is not an unrestricted
+ * one and a reader who does not notice the label is missing will
+ * assume they saw it. It says nothing about what they cannot see: no
+ * tag of this dimension is on this value *within what this reader may
+ * read*, which is the page's standing rule, and there is no count of
+ * anything withheld.
+ */
+$absent = array();
+if (!empty($profile['absent'])) {
+    foreach (array('taxonomies', 'galaxies') as $kind) {
+        foreach ($profile['absent'][$kind] as $row) {
+            $absent[] = array('key' => $row['key'], 'kind' => $kind);
+        }
+    }
+}
+
+/*
+ * **A pinned handling label renders the most restrictive one, and
+ * counts the rest** (§4). A value's context tags come from every
+ * occurrence's event as well as from the attributes, so a shared value
+ * almost always carries more than one `tlp` — and a reader who sees
+ * `tlp:clear` in the pinned slot and misses `tlp:red` two chips away
+ * has been misled in exactly the way the tier exists to prevent. The
+ * others are named in the count's title rather than dropped.
+ */
+foreach ($taxonomies as $at => $taxonomy) {
+    if (empty($taxonomy['lead'])) {
+        continue;
+    }
+    $others = array();
+    foreach ($taxonomy['tags'] as $tag) {
+        if ($tag['name'] !== $taxonomy['lead']['tag']['name']) {
+            $others[] = $tag['name'];
+        }
+    }
+    $taxonomies[$at]['tags'] = array($taxonomy['lead']['tag']);
+    $taxonomies[$at]['lead_more'] = $taxonomy['lead']['others'];
+    $taxonomies[$at]['lead_others'] = $others;
+}
+
 $conflicts = 0;
 foreach ($taxonomies as $taxonomy) {
     if (!empty($taxonomy['conflict'])) {
@@ -177,12 +220,57 @@ if ($conflicts > 0) {
         'panelExtra' => $headerExtra,
     )) ?>
 
-    <?php if (empty($taxonomies) && empty($galaxies)): ?>
+    <?php if (empty($taxonomies) && empty($galaxies) && empty($absent)): ?>
         <div class="vp-empty">
             <i class="fas fa-tag"></i>
             <span><?= __('Nobody has tagged this value.') ?></span>
         </div>
     <?php else: ?>
+
+        <?php if (empty($taxonomies) && empty($galaxies)): ?>
+            <?php
+            /*
+             * Pinned and nothing else: the value is untagged, and the
+             * absences below are the whole of what the card has to
+             * say. Both statements are drawn, because *nobody tagged
+             * this* and *this dimension is not recorded* answer
+             * different questions.
+             */
+            ?>
+            <div class="vp-empty">
+                <i class="fas fa-tag"></i>
+                <span><?= __('Nobody has tagged this value.') ?></span>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($absent)): ?>
+            <div class="vp-tax vp-tax-absent">
+                <div class="vp-tax-name"><?= __('Always shown') ?></div>
+                <div class="vp-tax-body">
+                    <div class="vp-tax-tags">
+                        <?php foreach ($absent as $row): ?>
+                            <span class="vp-absent"
+                                  title="<?= h($row['kind'] === 'galaxies'
+                                      ? __('You always see this galaxy.'
+                                          . ' Nothing on this value is'
+                                          . ' attributed to one of its'
+                                          . ' clusters.')
+                                      : __('You always see this'
+                                          . ' taxonomy. Nothing on this'
+                                          . ' value carries a label'
+                                          . ' from it.')) ?>">
+                                <span class="vp-absent-name">
+                                    <?= h($row['key']) ?>
+                                </span>
+                                <span class="vp-absent-note">
+                                    <?= __('not recorded') ?>
+                                </span>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <?php if ($tagCap !== null): ?>
             <?php
@@ -247,6 +335,24 @@ if ($conflicts > 0) {
                                         ) ?>
                                     </span>
                                 <?php endforeach; ?>
+                                <?php if (!empty(
+                                    $taxonomy['lead_more']
+                                )): ?>
+                                    <span class="vp-tag-more"
+                                          title="<?= h(implode(
+                                              ', ',
+                                              $taxonomy['lead_others']
+                                          )) ?>"><?= h(sprintf(
+                                        __n(
+                                            'and %s other label',
+                                            'and %s other labels',
+                                            $taxonomy['lead_more']
+                                        ),
+                                        number_format(
+                                            $taxonomy['lead_more']
+                                        )
+                                    )) ?></span>
+                                <?php endif; ?>
                             </span>
                         <?php endforeach; ?>
                     </div>
@@ -324,6 +430,18 @@ if ($conflicts > 0) {
                                 ) ?>
                             </span>
                         <?php endforeach; ?>
+                        <?php if (!empty($taxonomy['lead_more'])): ?>
+                            <span class="vp-tag-more" title="<?= h(
+                                implode(', ', $taxonomy['lead_others'])
+                            ) ?>"><?= h(sprintf(
+                                __n(
+                                    'and %s other label',
+                                    'and %s other labels',
+                                    $taxonomy['lead_more']
+                                ),
+                                number_format($taxonomy['lead_more'])
+                            )) ?></span>
+                        <?php endif; ?>
                     </div>
 
                 </div>

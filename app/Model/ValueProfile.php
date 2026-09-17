@@ -2211,30 +2211,124 @@ class ValueProfile extends AppModel
             );
         }
 
+        /*
+         * The reader's own priority lists, which reorder what is drawn
+         * and say which dimensions are drawn even when the value
+         * carries none of them (`02-context-priority.md` §2). Free on a
+         * page that assessed anything — `resolveFor()` memoises per
+         * request — and on a stock instance it changes nothing, because
+         * `default-v1` declares no list at all.
+         */
+        $plan = ValueLabelPriority::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        );
         if (empty($tags) && empty($galaxyTags)) {
             return array(
                 'value' => $value,
                 'tags' => array(),
                 'galaxies' => array(),
                 'tag_cap' => null,
+                'absent' => $this->pinnedAbsences(array(), array(), $plan),
             );
         }
+        $taxonomies = empty($tags) ? array() : ValueContextTool::taxonomies(
+            $tags,
+            $this->taxonomyFold(array_keys($tags)),
+            $this->tagConflicts($tags),
+            $capped
+        );
+        $galaxies = empty($galaxyTags)
+            ? array()
+            : ValueContextTool::galaxies(
+                $galaxyTags,
+                $this->galaxyClusters($user, $galaxyTags)
+            );
         return array(
             'value' => $value,
-            'tags' => empty($tags) ? array() : ValueContextTool::taxonomies(
-                $tags,
-                $this->taxonomyFold(array_keys($tags)),
-                $this->tagConflicts($tags),
-                $capped
+            'tags' => ValueLabelPriority::order(
+                $taxonomies,
+                $plan,
+                ValueLabelPriority::TAXONOMIES
             ),
-            'galaxies' => empty($galaxyTags)
-                ? array()
-                : ValueContextTool::galaxies(
-                    $galaxyTags,
-                    $this->galaxyClusters($user, $galaxyTags)
-                ),
+            'galaxies' => ValueLabelPriority::order(
+                $galaxies,
+                $plan,
+                ValueLabelPriority::GALAXIES
+            ),
             'tag_cap' => $capped ? self::CONTEXT_TAG_CAP : null,
+            'absent' => $this->pinnedAbsences($taxonomies, $galaxies, $plan),
         );
+    }
+
+    /**
+     * The pinned dimensions this value carries nothing of, in both
+     * kinds, with the instance's enablement applied.
+     *
+     * **The floor is a query and it is the only one here** (D41), which
+     * is why it is paid on the model's side of `ValueLabelPriority`
+     * rather than inside it: a pin on a taxonomy a site admin has
+     * disabled draws nothing, because `enabled = 0` says *this does not
+     * exist here* and a pin says *when it is used, it matters*. The
+     * first wins. Nothing is read at all unless a profile pins
+     * something, so the stock instance pays for none of it.
+     *
+     * The stored declaration is untouched by any of this: the profile
+     * keeps its entry, and re-enabling the taxonomy brings the pin
+     * back rather than leaving an analyst to discover it was silently
+     * erased a week ago.
+     *
+     * @param array $taxonomies The taxonomy groups, before ordering
+     * @param array $galaxies The galaxy groups, before ordering
+     * @param array $plan `ValueLabelPriority::planFor()`
+     * @return array `taxonomies` and `galaxies`, each a list of keys
+     */
+    private function pinnedAbsences(array $taxonomies, array $galaxies,
+        array $plan
+    ) {
+        $absent = array('taxonomies' => array(), 'galaxies' => array());
+        $pinnedTaxonomies = ValueLabelPriority::keys(
+            $plan,
+            ValueLabelPriority::TAXONOMIES,
+            ValueLabelPriority::PINNED
+        );
+        if (!empty($pinnedTaxonomies)) {
+            $rows = $this->model('Taxonomy')->find('list', array(
+                'conditions' => array(
+                    'LOWER(Taxonomy.namespace)' => $pinnedTaxonomies,
+                    'Taxonomy.enabled' => 1,
+                ),
+                'fields' => array('Taxonomy.namespace', 'Taxonomy.namespace'),
+                'recursive' => -1,
+            ));
+            $absent['taxonomies'] = ValueLabelPriority::absent(
+                $taxonomies,
+                $plan,
+                ValueLabelPriority::TAXONOMIES,
+                array_values($rows)
+            );
+        }
+        $pinnedGalaxies = ValueLabelPriority::keys(
+            $plan,
+            ValueLabelPriority::GALAXIES,
+            ValueLabelPriority::PINNED
+        );
+        if (!empty($pinnedGalaxies)) {
+            $rows = $this->model('Galaxy')->find('list', array(
+                'conditions' => array(
+                    'LOWER(Galaxy.type)' => $pinnedGalaxies,
+                    'Galaxy.enabled' => 1,
+                ),
+                'fields' => array('Galaxy.type', 'Galaxy.type'),
+                'recursive' => -1,
+            ));
+            $absent['galaxies'] = ValueLabelPriority::absent(
+                $galaxies,
+                $plan,
+                ValueLabelPriority::GALAXIES,
+                array_values($rows)
+            );
+        }
+        return $absent;
     }
 
     /**
@@ -4707,6 +4801,18 @@ class ValueProfile extends AppModel
             }
             return strcasecmp($a['name'], $b['name']);
         });
+        /*
+         * And then the reader's own order over that one. The panel
+         * opens with eight, so eight of a neighbourhood's sixty-three
+         * are chosen — by count until now, which is how a threat actor
+         * ends up below six pieces of tooling. Ordered last, so what
+         * the profile does not rank keeps the count order it just got.
+         */
+        $rows = ValueLabelPriority::order(
+            $rows,
+            ClassRegistry::init('AnalystProfile')->resolveFor($user),
+            ValueLabelPriority::GALAXIES
+        );
         $found['rows'] = $rows;
         $found['total'] = count($rows);
         return $found;
@@ -4750,6 +4856,13 @@ class ValueProfile extends AppModel
                 'galaxy' => empty($row['Galaxy']['name'])
                     ? $row['type']
                     : $row['Galaxy']['name'],
+                /*
+                 * What a profile's priority lists name this galaxy by,
+                 * so the eight this panel opens with are the eight
+                 * this reader asked for rather than the eight the
+                 * neighbourhood happened to report most widely.
+                 */
+                'key' => $row['type'],
                 'kind' => GalaxyCategory::kindOf($row['type']),
                 'attachment' => $attachment,
                 /*
@@ -15631,7 +15744,8 @@ class ValueProfile extends AppModel
             'card' => ValueHoverTool::cardFor(
                 $envelope['verdict'],
                 $context,
-                $now
+                $now,
+                ValueLabelPriority::planFor($profile)
             ),
         );
     }

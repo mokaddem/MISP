@@ -2,6 +2,8 @@
 
 App::uses('ValueLean', 'Tools/ValueProfile');
 App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('GalaxyCategory', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 
 /**
  * The hover card's payload, folded from an assessment already made.
@@ -91,10 +93,12 @@ class ValueHoverTool
      * @param array $context The context that verdict scored
      * @param int|null $now Unix time; the caller's, so a render and the
      *                      clock it prints cannot drift apart
+     * @param array|null $plan The reader's label priority, for the one
+     *                         cluster this card has room to name
      * @return array The payload `value_hover_card.ctp` reads
      */
     public static function cardFor(array $verdict, array $context,
-        $now = null
+        $now = null, $plan = null
     ) {
         $now = $now === null ? time() : (int)$now;
         $occurrences = $context['occurrences'] ?? array();
@@ -126,7 +130,7 @@ class ValueHoverTool
             'seen' => self::seen($occurrences, $now),
             'warninglist' => self::warninglist($context),
             'signals' => self::signals($verdict),
-            'galaxy' => $hot ? null : self::galaxy($context),
+            'galaxy' => $hot ? null : self::galaxy($context, $plan),
             'summary' => $verdict['summary'] ?? null,
             'hot' => $hot,
         );
@@ -321,21 +325,89 @@ class ValueHoverTool
      * mean something to a reader mid-sweep, and `T1071.001` is a thing
      * they look up on the page.
      *
+     * **One of twenty-six, and until now it was whichever the list
+     * happened to hold first.** `verdictGalaxies()` returns cluster
+     * name => occurrences, so `reset()` took a *count*, `['name']` on
+     * it was null, and the card drew an empty name beside a `+25`. The
+     * order is now the reader's: the profile's galaxy priority over the
+     * occurrence count, so a profile preferring `threat-actor` sees the
+     * actor here and one that declares nothing sees the most-carried
+     * cluster — which is what the card meant to show all along.
+     *
      * @param array $context
+     * @param array|null $plan `ValueLabelPriority::planFor()`
      * @return array|null
      */
-    private static function galaxy(array $context)
+    private static function galaxy(array $context, $plan = null)
     {
         $clusters = $context['galaxies']['clusters'] ?? array();
         if (empty($clusters)) {
             return null;
         }
-        $first = reset($clusters);
-        return array(
-            'name' => $first['name'] ?? null,
-            'kind' => $first['kind'] ?? null,
-            'more' => max(0, count($clusters) - 1),
+        $types = $context['galaxies']['types'] ?? array();
+        $ranked = ValueLabelPriority::keys(
+            $plan,
+            ValueLabelPriority::GALAXIES
         );
+        $ranked = array_flip($ranked);
+        $groups = array();
+        foreach ($clusters as $name => $occurrences) {
+            $groups[] = array(
+                'name' => (string)$name,
+                'count' => (int)$occurrences,
+                'key' => self::galaxyOf(
+                    isset($types[$name]) ? $types[$name] : array(),
+                    $ranked
+                ),
+            );
+        }
+        usort($groups, function ($a, $b) {
+            if ($a['count'] !== $b['count']) {
+                return $b['count'] - $a['count'];
+            }
+            return strcasecmp($a['name'], $b['name']);
+        });
+        $groups = ValueLabelPriority::order(
+            $groups,
+            $plan,
+            ValueLabelPriority::GALAXIES
+        );
+        $first = $groups[0];
+        return array(
+            'name' => $first['name'],
+            'kind' => $first['key'] === null
+                ? null
+                : GalaxyCategory::kindOf($first['key']),
+            'more' => max(0, count($groups) - 1),
+        );
+    }
+
+    /**
+     * Which galaxy to credit a cluster to, where more than one names
+     * it.
+     *
+     * *Lazarus Group* is a `threat-actor` and an
+     * `mitre-intrusion-set`, and the context folds both into one entry
+     * — so the one the reader ranked is the one that decides both this
+     * cluster's place and the kind printed beside it. Without a ranked
+     * candidate the first is as good as any, and it is what the fold
+     * met first.
+     *
+     * @param array $types The galaxies this cluster came from
+     * @param array $ranked Galaxy type => anything, as a set
+     * @return string|null
+     */
+    private static function galaxyOf(array $types, array $ranked)
+    {
+        if (empty($types)) {
+            return null;
+        }
+        foreach ($types as $type) {
+            if (isset($ranked[$type])) {
+                return $type;
+            }
+        }
+        return reset($types);
     }
 
     /**

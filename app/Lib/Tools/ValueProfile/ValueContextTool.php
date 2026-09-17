@@ -100,6 +100,16 @@ class ValueContextTool
                     'tags' => array(),
                     'total' => 0,
                 );
+                /*
+                 * What a profile's priority lists name this group by
+                 * (`ValueLabelPriority`), and it is deliberately
+                 * absent on the freetext group: *not in a taxonomy* is
+                 * not a dimension anybody can pin, prefer or demote,
+                 * and a group with no key is unlisted by definition.
+                 */
+                if ($namespace !== self::FREETEXT) {
+                    $groups[$namespace]['key'] = $namespace;
+                }
             }
             $groups[$namespace]['tags'][] = array(
                 'id' => $row['tag']['id'],
@@ -341,6 +351,13 @@ class ValueContextTool
             if (!isset($galaxies[$galaxy])) {
                 $galaxies[$galaxy] = array(
                     'galaxy' => $galaxy,
+                    /*
+                     * The galaxy's `type` rather than its name, because
+                     * that is the string a profile's priority lists
+                     * hold and the one inside every tag — the name is
+                     * how this instance spells it.
+                     */
+                    'key' => $cluster['type'],
                     /*
                      * `kindOf` answers null for a galaxy it does not
                      * classify — a custom one, or a new upstream galaxy

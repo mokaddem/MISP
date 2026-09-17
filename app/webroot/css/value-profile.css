@@ -842,6 +842,55 @@ tr.vp-occ-deleted td {
 }
 
 /*
+ * A dimension the reader pinned and this value carries nothing of.
+ *
+ * Drawn as an outline rather than as a chip, because it is the one
+ * thing on this card that is not a label somebody applied: a filled
+ * chip reading `tlp` would be read as a tag at a glance, which is the
+ * opposite of what the row says. Muted for the same reason, and it
+ * still says *not recorded* in words — a colour alone cannot carry
+ * "this is missing" to a reader who has never seen the row filled.
+ */
+.vp-tax-absent .vp-tax-name {
+    color: var(--bs-secondary-color);
+}
+
+.vp-absent {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 2px 9px;
+    border: 1px dashed var(--bs-border-color);
+    border-radius: 999px;
+    background: transparent;
+}
+
+.vp-absent-name {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.vp-absent-note {
+    font-size: 0.68rem;
+    font-style: italic;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * What a pinned handling group did not draw. The cell shows the most
+ * restrictive label of the mixture, so this counts the others and names
+ * them in its title — it is a statement about the group rather than
+ * another label, which is why it is not a chip.
+ */
+.vp-tag-more {
+    align-self: center;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
  * The taxonomies flowed into one band instead of a row each, taken when
  * the value carries more of them than the card can spend 49px apiece
  * on. No name column — each group carries its own name inline — so the
