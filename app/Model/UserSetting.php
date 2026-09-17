@@ -180,7 +180,57 @@ class UserSetting extends AppModel
             'placeholder' => [],
             'validation' => 'validate_json',
         ],
+        /*
+         * The uuid of the Analyst Profile this user has selected
+         * (prd/personas/03-profiles.md §5, D45). The way to *use* a
+         * shipped profile rather than fork it: `resolveFor()`
+         * dereferences this before it falls through to the
+         * organisation's selection and then to the instance setting.
+         *
+         * Not internal. D13 needs no grant for a user to choose their
+         * own profile - the same reasoning that leaves user settings
+         * ungated at all - and it is a preference a reader may want to
+         * read, clear or set from the settings form as well as from the
+         * profile index. Stored as a bare uuid string, not JSON.
+         *
+         * Clearing it is writing an empty value, which is why the
+         * validator accepts one: a user with no selection resolves the
+         * next scope, and that is a supported state rather than a hole.
+         */
+        'analyst_profile' => [
+            'placeholder' => '6e2679bc-ebb0-417f-90d8-16cb1d0144ba',
+            'validation' => 'validate_analyst_profile',
+        ],
     );
+
+    /**
+     * A selection names a profile this reader may actually read.
+     *
+     * Checked here rather than only in the controller because the
+     * generic settings form writes this field too, and a uuid nobody can
+     * resolve would leave a reader silently scored by the next scope with
+     * nothing on screen saying why. `fetchProfile()` applies the same
+     * readability rule the index does.
+     *
+     * @param string $value
+     * @param array $user
+     * @return bool
+     */
+    public static function validate_analyst_profile($value, $user)
+    {
+        if (is_array($value)) {
+            return false;
+        }
+        $value = trim((string)$value);
+        if ($value === '') {
+            return true;
+        }
+        if (!Validation::uuid($value)) {
+            return false;
+        }
+        $AnalystProfile = ClassRegistry::init('AnalystProfile');
+        return $AnalystProfile->fetchProfile($user, $value) !== null;
+    }
 
     public static function validate_homepage($value, $user)
     {

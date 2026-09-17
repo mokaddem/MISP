@@ -26,6 +26,18 @@ class AnalystProfile extends AppModel
     const DEFAULT_PROFILE_PATH = APP . 'files/analyst-profiles/';
 
     /**
+     * `default-v1`'s uuid — what the instance runs when it names nothing.
+     *
+     * The site setting `ValueProfile_instance_profile` is what actually
+     * decides (D44), and this is only its fall-back: an instance that
+     * takes the upgrade and sets nothing resolves the same profile it
+     * resolved before six of them shipped. Any other value there wins,
+     * including one naming a profile that is gone — which falls through
+     * and is reported, rather than quietly snapping back to this.
+     */
+    const SHIPPED_DEFAULT_UUID = '6e2679bc-ebb0-417f-90d8-16cb1d0144ba';
+
+    /**
      * Resolution cache, keyed by "user_id:org_id".
      *
      * resolveFor() is called once per panel and the value page loads up to
@@ -34,6 +46,17 @@ class AnalystProfile extends AppModel
      * @var array
      */
     private $resolutionCache = array();
+
+    /**
+     * Why the last `selectProfile()` refused, as a sentence for the form.
+     *
+     * Not `validationErrors`: a refused selection is not a refused save of
+     * *this* model's row — the profile named is usually fine and the
+     * problem is that this scope may not point at it.
+     *
+     * @var string|null
+     */
+    public $selectionError = null;
 
     public $validate = array(
         'name' => array(
@@ -263,6 +286,70 @@ class AnalystProfile extends AppModel
     public function afterSave($created, $options = array())
     {
         $this->resolutionCache = array();
+        $this->__clearSupersededSelection();
+    }
+
+    /**
+     * An owner who enables a profile of their own stops selecting.
+     *
+     * The other half of D45's *one answer per scope*. `selectProfile()`
+     * disables the owned row when a selection is saved; this is the
+     * reverse, and it lives here for the same reason the cache flush
+     * does — the paths that enable a row are the editor's enable action,
+     * a fork, and an import, and a rule whose correctness depends on
+     * three callers remembering is a rule that will be broken by the
+     * fourth.
+     *
+     * A save that does not leave the row enabled changes nothing: a
+     * disable is how a reader goes *back* to their selection, so it must
+     * not take the selection away on the way past.
+     *
+     * @return void
+     */
+    private function __clearSupersededSelection()
+    {
+        $data = isset($this->data[$this->alias])
+            ? $this->data[$this->alias]
+            : array();
+        if (!array_key_exists('enabled', $data) || empty($data['enabled'])) {
+            return;
+        }
+        /*
+         * A shipped profile has no owner, so there is no selection of
+         * its owner's to clear. Named rather than reached through the
+         * lookup below, because `updateDefaults()` takes this path once
+         * per shipped file on a fresh instance.
+         */
+        if (!empty($data['default'])) {
+            return;
+        }
+        $userId = isset($data['user_id']) ? $data['user_id'] : null;
+        $orgId = isset($data['org_id']) ? $data['org_id'] : null;
+        if (!array_key_exists('user_id', $data)
+            && !array_key_exists('org_id', $data)
+            && !empty($this->id)
+        ) {
+            $stored = $this->find('first', array(
+                'conditions' => array('AnalystProfile.id' => $this->id),
+                'fields' => array(
+                    'AnalystProfile.user_id',
+                    'AnalystProfile.org_id',
+                ),
+                'recursive' => -1,
+            ));
+            if (!empty($stored)) {
+                $userId = $stored['AnalystProfile']['user_id'];
+                $orgId = $stored['AnalystProfile']['org_id'];
+            }
+        }
+        if (!empty($userId)) {
+            ClassRegistry::init('UserSetting')->deleteAll(array(
+                'UserSetting.user_id' => $userId,
+                'UserSetting.setting' => 'analyst_profile',
+            ), false);
+        } elseif (!empty($orgId)) {
+            ClassRegistry::init('AnalystProfileSelection')->clearFor($orgId);
+        }
     }
 
     /**
@@ -275,11 +362,26 @@ class AnalystProfile extends AppModel
     }
 
     /**
+     * Forget what is in force, for a caller that changed it elsewhere.
+     *
+     * Writes to this model clear the cache themselves; a selection can
+     * also move because a site setting or a row in another table did,
+     * and those have no `afterSave` here to hang it on.
+     *
+     * @return void
+     */
+    public function resetResolution()
+    {
+        $this->resolutionCache = array();
+    }
+
+    /**
      * The one function every reader calls: the profile in force for a viewer.
      *
-     * Nearest owner wins (D3) — the viewer's own, else their organisation's,
-     * else the instance default. One statement rather than a fallback chain
-     * of three.
+     * Nearest scope wins (D3) — the viewer's, else their organisation's,
+     * else the instance's. Each scope answers with an owned profile *or* a
+     * selection (D45) and never both, so there are still three candidates
+     * to rank and not six.
      *
      * **Returns null when nothing matches**, which happens when a site admin
      * has disabled the instance default and the viewer owns no profile. That
@@ -292,6 +394,29 @@ class AnalystProfile extends AppModel
      */
     public function resolveFor(array $user)
     {
+        $resolution = $this->resolutionFor($user);
+        return $resolution['profile'];
+    }
+
+    /**
+     * Resolution, with its reasoning — what won, how it was reached, and
+     * what each scope declared that did not resolve.
+     *
+     * `resolveFor()` answers the question every reader asks and nothing
+     * more; this answers the one the profile index asks, which is *why*.
+     * A selection whose target has been deleted, disabled or is no longer
+     * readable falls through silently to the next scope (§5), and silently
+     * is exactly what a reader must not be left with when they go looking
+     * for the profile that scored their page.
+     *
+     * Both share one cache entry and one query, because the value page
+     * resolves twenty-seven times per request and the index once.
+     *
+     * @param array $user
+     * @return array `profile`, `via`, `selections`, `unresolved`
+     */
+    public function resolutionFor(array $user)
+    {
         $userId = isset($user['id']) ? $user['id'] : null;
         $orgId = isset($user['org_id']) ? $user['org_id'] : null;
         $cacheKey = $userId . ':' . $orgId;
@@ -299,6 +424,38 @@ class AnalystProfile extends AppModel
             return $this->resolutionCache[$cacheKey];
         }
 
+        $selections = $this->selectionsFor($user);
+
+        /*
+         * One statement, still. §3.1 forbids three sequential queries
+         * walking the scopes, and this is not that: the three selections
+         * are read first — two cheap single-row lookups and a
+         * `Configure::read()` — and then *one* statement fetches every row
+         * they could possibly name alongside the owned ones.
+         *
+         * The old query said `default = 1` for the instance branch and
+         * carried a comment claiming at most three rows could match,
+         * justified by `__validateOneEnabledPerOwner()`. That validation
+         * returns true for instance scope — it caps users and orgs only —
+         * and `updateDefaults()` marks every shipped file `default = 1`.
+         * With six shipped profiles six rows matched, `limit 3` read three
+         * of them in no defined order, and a reader's own row could fall
+         * outside the three that were read (§5.1). Every row is now named:
+         * the user's, the organisation's, and the three uuids the
+         * selections carry. Six is a true bound rather than an assumed one.
+         *
+         * Named rows are fetched whether or not they are enabled, so that
+         * a selection pointing at something switched off can be reported
+         * as switched off rather than as absent. Owned rows keep the
+         * `enabled = 1` filter, because an owner may hold any number of
+         * disabled profiles and only the enabled one is a candidate.
+         */
+        $named = array();
+        foreach ($selections as $uuid) {
+            if ($uuid !== null && !in_array($uuid, $named, true)) {
+                $named[] = $uuid;
+            }
+        }
         $ownership = array();
         if ($userId !== null) {
             $ownership[] = array('AnalystProfile.user_id' => $userId);
@@ -306,51 +463,392 @@ class AnalystProfile extends AppModel
         if ($orgId !== null) {
             $ownership[] = array('AnalystProfile.org_id' => $orgId);
         }
-        $ownership[] = array('AnalystProfile.default' => 1);
-
-        /*
-         * At most three rows can match — one per scope, because
-         * __validateOneEnabledPerOwner() caps each owner at one enabled
-         * profile — so the nearest is picked from the result rather than in
-         * the ORDER BY.
-         *
-         * The specification wrote this as one statement ordered by
-         * `(user_id IS NOT NULL) DESC, (org_id IS NOT NULL) DESC`. It is
-         * still one statement; only the tie-break moved, because CakePHP 2
-         * quotes identifiers inside an `order` string and an expression
-         * there is a quoting hazard rather than a readable one. What §3.1
-         * actually forbids — three sequential queries walking the scopes —
-         * is preserved.
-         */
-        $candidates = $this->find('all', array(
-            'conditions' => array(
+        $branches = array();
+        if (!empty($ownership)) {
+            $branches[] = array(
                 'AnalystProfile.enabled' => 1,
                 'OR' => $ownership,
-            ),
-            'recursive' => -1,
-            'limit' => 3,
-        ));
+            );
+        }
+        if (!empty($named)) {
+            $branches[] = array('AnalystProfile.uuid' => $named);
+        }
 
-        $resolved = null;
-        $bestRank = -1;
+        $candidates = array();
+        if (!empty($branches)) {
+            $candidates = $this->find('all', array(
+                'conditions' => array('OR' => $branches),
+                'recursive' => -1,
+                'limit' => 6,
+            ));
+        }
+
+        $byUuid = array();
+        $owned = array();
         foreach ($candidates as $candidate) {
             $row = $candidate['AnalystProfile'];
-            if ($userId !== null && $row['user_id'] == $userId) {
-                $rank = 2;
-            } elseif ($orgId !== null && $row['org_id'] == $orgId) {
-                $rank = 1;
-            } elseif (!empty($row['default'])) {
-                $rank = 0;
-            } else {
+            $byUuid[$row['uuid']] = $row;
+            if (empty($row['enabled'])) {
                 continue;
             }
-            if ($rank > $bestRank) {
-                $bestRank = $rank;
-                $resolved = $row;
+            if ($userId !== null && $row['user_id'] == $userId) {
+                $owned['user'] = $row;
+            } elseif ($orgId !== null && $row['org_id'] == $orgId) {
+                $owned['org'] = $row;
             }
         }
-        $this->resolutionCache[$cacheKey] = $resolved;
-        return $resolved;
+
+        $resolution = array(
+            'profile' => null,
+            'via' => null,
+            'selections' => $selections,
+            'unresolved' => array(),
+        );
+        foreach (array('user', 'org', 'instance') as $scope) {
+            if (isset($owned[$scope]) && $resolution['profile'] === null) {
+                $resolution['profile'] = $owned[$scope];
+                $resolution['via'] = $scope;
+                continue;
+            }
+            if ($selections[$scope] === null) {
+                continue;
+            }
+            $refused = $this->__refuseSelection(
+                $user,
+                $scope,
+                $selections[$scope],
+                isset($byUuid[$selections[$scope]])
+                    ? $byUuid[$selections[$scope]]
+                    : null
+            );
+            if ($refused !== null) {
+                $resolution['unresolved'][$scope] = $refused;
+                continue;
+            }
+            if ($resolution['profile'] === null) {
+                $resolution['profile'] = $byUuid[$selections[$scope]];
+                /*
+                 * `user_selection` and `org_selection` distinguish a
+                 * scope's two possible answers. The instance has only
+                 * one — it owns no profile, it names one — so there is
+                 * nothing there to distinguish it from, and `instance`
+                 * is what it was called before selections existed.
+                 */
+                $resolution['via'] = $scope === 'instance'
+                    ? 'instance'
+                    : $scope . '_selection';
+            }
+        }
+
+        $this->resolutionCache[$cacheKey] = $resolution;
+        return $resolution;
+    }
+
+    /**
+     * The uuid each scope has declared, before any of them is resolved.
+     *
+     * Three stores, because each scope already had or needed a different
+     * one (D45): a user writes to `user_settings`, an organisation to
+     * `analyst_profile_selections`, and the instance to a site setting.
+     * A missing site setting reads as the shipped default's uuid, so an
+     * instance that takes the upgrade and sets nothing resolves exactly
+     * what it resolved before.
+     *
+     * @param array $user
+     * @return array `user`, `org`, `instance`, each a uuid or null
+     */
+    public function selectionsFor(array $user)
+    {
+        $selections = array(
+            'user' => null,
+            'org' => null,
+            'instance' => null,
+        );
+        if (!empty($user['id'])) {
+            $stored = ClassRegistry::init('UserSetting')
+                ->getValueForUser($user['id'], 'analyst_profile');
+            if (is_string($stored) && Validation::uuid(trim($stored))) {
+                $selections['user'] = trim($stored);
+            }
+        }
+        if (!empty($user['org_id'])) {
+            $stored = ClassRegistry::init('AnalystProfileSelection')
+                ->forOrg($user['org_id']);
+            if (is_string($stored) && Validation::uuid($stored)) {
+                $selections['org'] = $stored;
+            }
+        }
+        $instance = Configure::read('Plugin.ValueProfile_instance_profile');
+        if (!is_string($instance) || !Validation::uuid(trim($instance))) {
+            $instance = self::SHIPPED_DEFAULT_UUID;
+        }
+        $selections['instance'] = trim($instance);
+        return $selections;
+    }
+
+    /**
+     * Why a declared selection is not the answer, or null when it is.
+     *
+     * The three refusals are kept apart because the index prints them:
+     * *the profile you chose has been deleted* and *the profile you chose
+     * is switched off* send a reader to different places.
+     *
+     * @param array $user
+     * @param string $scope
+     * @param string $uuid
+     * @param array|null $row
+     * @return array|null
+     */
+    private function __refuseSelection(array $user, $scope, $uuid, $row)
+    {
+        if ($row === null) {
+            return array('uuid' => $uuid, 'reason' => 'missing');
+        }
+        if (empty($row['enabled'])) {
+            return array(
+                'uuid' => $uuid,
+                'reason' => 'disabled',
+                'name' => $row['name'],
+            );
+        }
+        if (!$this->isSelectableAt($user, $scope, $row)) {
+            return array(
+                'uuid' => $uuid,
+                'reason' => 'unreadable',
+                'name' => $row['name'],
+            );
+        }
+        return null;
+    }
+
+    /**
+     * May this scope point at this profile?
+     *
+     * Narrower than `isReadableByCurrentUser()` on purpose, in two ways.
+     * A site admin reads every profile on the instance, and if that let
+     * their *selection* resolve to another organisation's row then
+     * `resolveFor()` would return a row whose owner is not the reader —
+     * breaking the one assumption that lets `scopeOf()` describe the
+     * profile in force from its columns alone, with no `$user` to compare
+     * against (10-wiring.md §11.1). And the instance scope may name only
+     * a shipped profile, for the same reason: every other row belongs to
+     * somebody, and nobody's profile should score a stranger's page.
+     *
+     * @param array $user
+     * @param string $scope `user`, `org` or `instance`
+     * @param array $row The unwrapped row
+     * @return bool
+     */
+    public function isSelectableAt(array $user, $scope, array $row)
+    {
+        if (!empty($row['default'])) {
+            return true;
+        }
+        if ($scope === 'instance') {
+            return false;
+        }
+        if (!empty($row['user_id'])) {
+            return $scope === 'user'
+                && !empty($user['id'])
+                && $row['user_id'] == $user['id'];
+        }
+        if (!empty($row['org_id'])) {
+            return !empty($user['org_id'])
+                && $row['org_id'] == $user['org_id'];
+        }
+        return false;
+    }
+
+    /**
+     * Point a scope at a profile, and take that scope's other answer away.
+     *
+     * D45's rule is *one answer per scope*: an owner holds an enabled
+     * owned profile **or** a selection, never both. Saving a selection
+     * therefore disables the owned row rather than losing to it or
+     * racing it, and the caller is handed what was displaced so the form
+     * can say so — nothing is deleted, exactly as replacing an enabled
+     * profile with another one already behaves.
+     *
+     * @param array $user
+     * @param string $scope `user` or `org`
+     * @param string $uuid
+     * @return array|null `profile` and `displaced`, or null with
+     *                    `selectionError` set
+     */
+    public function selectProfile(array $user, $scope, $uuid)
+    {
+        $this->selectionError = null;
+        if (!in_array($scope, array('user', 'org'), true)) {
+            $this->selectionError = __(
+                'The instance profile is a site setting, not a selection.'
+            );
+            return null;
+        }
+        if (!Validation::uuid($uuid)) {
+            $this->selectionError = __('That is not a profile uuid.');
+            return null;
+        }
+        $row = $this->find('first', array(
+            'conditions' => array('AnalystProfile.uuid' => $uuid),
+            'recursive' => -1,
+        ));
+        if (empty($row)) {
+            $this->selectionError = __(
+                'No profile on this instance carries that uuid.'
+            );
+            return null;
+        }
+        $row = $row['AnalystProfile'];
+        if (!$this->isSelectableAt($user, $scope, $row)) {
+            $this->selectionError = __(
+                'That profile is not one this scope may select.'
+            );
+            return null;
+        }
+        if (empty($row['enabled'])) {
+            $this->selectionError = __(
+                'That profile is switched off. Selecting it would leave'
+                . ' this scope scored by the next one.'
+            );
+            return null;
+        }
+
+        $displaced = $this->__enabledOwnedBy($user, $scope);
+        /*
+         * Own it or choose it. Without this, a scope choosing the very
+         * profile it owns would disable that row — the displacement step
+         * below — and then point a selection at a switched-off profile,
+         * which resolves to nothing and falls through to the next scope.
+         * The reader's answer would silently become somebody else's.
+         */
+        if ($displaced !== null
+            && (int)$displaced['id'] === (int)$row['id']
+        ) {
+            $this->selectionError = __(
+                'This scope already owns that profile, and an owned'
+                . ' profile is already the answer. There is nothing to'
+                . ' choose.'
+            );
+            return null;
+        }
+        if ($displaced !== null) {
+            $this->id = $displaced['id'];
+            if (!$this->saveField('enabled', 0)) {
+                $this->selectionError = __(
+                    'The profile this scope owns could not be disabled, so'
+                    . ' the selection was not saved.'
+                );
+                return null;
+            }
+        }
+
+        if ($scope === 'user') {
+            $saved = $this->__writeUserSelection($user, $uuid);
+        } else {
+            $saved = ClassRegistry::init('AnalystProfileSelection')
+                ->selectFor($user['org_id'], $uuid);
+        }
+        if (!$saved) {
+            if ($displaced !== null) {
+                $this->id = $displaced['id'];
+                $this->saveField('enabled', 1);
+            }
+            if ($this->selectionError === null) {
+                $this->selectionError = __(
+                    'The selection could not be saved.'
+                );
+            }
+            return null;
+        }
+
+        $this->resolutionCache = array();
+        return array('profile' => $row, 'displaced' => $displaced);
+    }
+
+    /**
+     * Stop selecting, at one scope. The next scope answers.
+     *
+     * @param array $user
+     * @param string $scope `user` or `org`
+     * @return bool
+     */
+    public function clearSelection(array $user, $scope)
+    {
+        if ($scope === 'user') {
+            $this->__writeUserSelection($user, '');
+        } elseif ($scope === 'org') {
+            ClassRegistry::init('AnalystProfileSelection')
+                ->clearFor($user['org_id']);
+        } else {
+            return false;
+        }
+        $this->resolutionCache = array();
+        return true;
+    }
+
+    /**
+     * @param array $user
+     * @param string $uuid Empty string clears it.
+     * @return bool
+     */
+    private function __writeUserSelection(array $user, $uuid)
+    {
+        $UserSetting = ClassRegistry::init('UserSetting');
+        if ($uuid === '') {
+            $UserSetting->deleteAll(array(
+                'UserSetting.user_id' => $user['id'],
+                'UserSetting.setting' => 'analyst_profile',
+            ), false);
+            return true;
+        }
+        /*
+         * Written through `setSetting()` rather than
+         * `setSettingInternal()`, so that a selection goes through the
+         * same permission check, the same validator and the same audit
+         * entry as any other user setting — the point of D45 being that
+         * this *is* a user setting. It refuses by exception; the caller
+         * wants a sentence, so the refusal is caught and becomes one.
+         */
+        try {
+            return (bool)$UserSetting->setSetting($user, array(
+                'UserSetting' => array(
+                    'user_id' => $user['id'],
+                    'setting' => 'analyst_profile',
+                    'value' => $uuid,
+                ),
+            ));
+        } catch (Exception $e) {
+            $this->selectionError = $e->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * The enabled profile a scope owns, if it holds one.
+     *
+     * @param array $user
+     * @param string $scope
+     * @return array|null
+     */
+    private function __enabledOwnedBy(array $user, $scope)
+    {
+        $conditions = array('AnalystProfile.enabled' => 1);
+        if ($scope === 'user') {
+            if (empty($user['id'])) {
+                return null;
+            }
+            $conditions['AnalystProfile.user_id'] = $user['id'];
+        } else {
+            if (empty($user['org_id'])) {
+                return null;
+            }
+            $conditions['AnalystProfile.org_id'] = $user['org_id'];
+        }
+        $row = $this->find('first', array(
+            'conditions' => $conditions,
+            'recursive' => -1,
+        ));
+        return empty($row) ? null : $row['AnalystProfile'];
     }
 
     /**
@@ -572,11 +1070,12 @@ class AnalystProfile extends AppModel
      */
     public function indexFor(array $user)
     {
-        $inForce = $this->resolveFor($user);
+        $resolution = $this->resolutionFor($user);
+        $inForce = $resolution['profile'];
         $rows = array();
         foreach ($this->fetchProfiles($user) as $profile) {
             $rows[] = $this->__decorate($user, $profile[$this->alias],
-                $inForce);
+                $inForce, $resolution);
         }
         /*
          * The one in force leads, then the reader's own, their
@@ -592,7 +1091,11 @@ class AnalystProfile extends AppModel
             }
             return strcasecmp($a['name'], $b['name']);
         });
-        return array('profiles' => $rows, 'in_force' => $inForce);
+        return array(
+            'profiles' => $rows,
+            'in_force' => $inForce,
+            'resolution' => $resolution,
+        );
     }
 
     /**
@@ -630,10 +1133,12 @@ class AnalystProfile extends AppModel
      * @param array $user
      * @param array $row
      * @param array|null $inForce
+     * @param array $resolution
      * @return array
      */
-    private function __decorate(array $user, array $row, $inForce)
-    {
+    private function __decorate(array $user, array $row, $inForce,
+        array $resolution = array()
+    ) {
         $mine = !empty($row['user_id']) && $row['user_id'] == $user['id'];
         $ours = !empty($row['org_id']) && $row['org_id'] == $user['org_id'];
         if (!empty($row['user_id'])) {
@@ -643,13 +1148,48 @@ class AnalystProfile extends AppModel
         } else {
             $scopeRank = 0;
         }
+        /*
+         * Which scopes point at this row, and whether this reader could
+         * make one point at it. A selection is not ownership — the row is
+         * still the instance's — so it is reported beside the owner label
+         * rather than folded into it.
+         */
+        $selections = isset($resolution['selections'])
+            ? $resolution['selections']
+            : array('user' => null, 'org' => null, 'instance' => null);
+        $selectedBy = array();
+        foreach ($selections as $scope => $uuid) {
+            if ($uuid !== null && $uuid === $row['uuid']) {
+                $selectedBy[] = $scope;
+            }
+        }
+        $inForceHere = $inForce !== null
+            && (int)$inForce['id'] === (int)$row['id'];
         $decorated = $this->summarise($row) + array(
             'owner' => $this->__ownerLabel($user, $row),
             'scope_rank' => $scopeRank,
             'editable' => $this->isEditableByCurrentUser($user, $row),
-            'in_force' => $inForce !== null
-                && (int)$inForce['id'] === (int)$row['id'],
+            'in_force' => $inForceHere,
             'signals' => $this->__signalCount($row),
+            'selected_by' => $selectedBy,
+            /*
+             * Offered only where choosing would change something. A row
+             * already in force for this reader has nothing to choose,
+             * and a row a scope *owns* must not be offered to that same
+             * scope: choosing disables the owned profile first, so a
+             * scope selecting its own would switch the row off and then
+             * point at it, and the selection would fall through to the
+             * next scope. Own it or choose it — that is D45's rule seen
+             * from the button.
+             */
+            'selectable' => !empty($row['enabled'])
+                && !$inForceHere
+                && !$mine
+                && $this->isSelectableAt($user, 'user', $row),
+            'selectable_for_org' => !empty($row['enabled'])
+                && !$ours
+                && !empty($user['Role']['perm_admin'])
+                && $this->isSelectableAt($user, 'org', $row),
         );
         $decorated['standing'] = $this->__standing($user, $row, $inForce,
             $decorated);
@@ -680,6 +1220,16 @@ class AnalystProfile extends AppModel
         }
         if (empty($decorated['enabled'])) {
             return array('state' => 'disabled');
+        }
+        /*
+         * MISP ships six profiles and puts none of them in force by
+         * itself (D44). Five of them are therefore enabled, readable by
+         * everyone, and doing nothing — which is not *overridden*, it is
+         * *not chosen*, and the difference is the whole of what the
+         * selection UI is for.
+         */
+        if (!empty($row['default']) && empty($decorated['selected_by'])) {
+            return array('state' => 'not_selected');
         }
         if ($inForce === null) {
             /*

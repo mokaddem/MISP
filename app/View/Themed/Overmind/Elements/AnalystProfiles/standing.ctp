@@ -14,6 +14,7 @@ $tone = array(
     'in_force' => 't-force',
     'disabled' => 't-off',
     'overridden' => 't-over',
+    'not_selected' => 't-plain',
     'other_owner' => 't-plain',
     'unresolved' => 't-missing',
 );
@@ -21,9 +22,19 @@ $label = array(
     'in_force' => __('in force'),
     'disabled' => __('disabled'),
     'overridden' => __('overridden'),
+    'not_selected' => __('not chosen'),
     'other_owner' => __('another owner'),
     'unresolved' => __('unresolved'),
 );
+/*
+ * Which scopes point at this row (D45). A shipped profile that nobody
+ * has chosen is switched on and doing nothing, and *not chosen* is a
+ * different sentence from *overridden* — one of them names something a
+ * reader can do about it.
+ */
+$selectedBy = isset($profile['selected_by'])
+    ? $profile['selected_by']
+    : array();
 ?>
 <span class="pill <?= h(isset($tone[$state]) ? $tone[$state] : 't-plain') ?>">
     <?= h(isset($label[$state]) ? $label[$state] : $state) ?>
@@ -31,6 +42,20 @@ $label = array(
 <div class="wb-sub mt-1">
     <?php if ($state === 'in_force'): ?>
         <?= h(__('Every value page you open is scored by this one.')) ?>
+        <?php if (in_array('user', $selectedBy, true)): ?>
+            <?= h(__('You chose it; you did not fork it, so it stays'
+                . ' corrected as MISP corrects it.')) ?>
+        <?php elseif (in_array('org', $selectedBy, true)): ?>
+            <?= h(__('Your organisation chose it. Choosing one of your'
+                . ' own, or forking, overrides that for you alone.')) ?>
+        <?php elseif (in_array('instance', $selectedBy, true)): ?>
+            <?= h(__('The instance runs this one, for everybody whose'
+                . ' organisation and account have chosen none.')) ?>
+        <?php endif; ?>
+    <?php elseif ($state === 'not_selected'): ?>
+        <?= h(__('One of the profiles MISP ships, switched on and chosen'
+            . ' by nobody. Choose it and it scores your pages — no fork,'
+            . ' so corrections to it reach you.')) ?>
     <?php elseif ($state === 'disabled' && $profile['editable']): ?>
         <?= h(__('Yours, and weighting nothing. You may hold one enabled'
             . ' profile, so enabling this one disables the other — the'
@@ -47,9 +72,12 @@ $label = array(
         <?php else: ?>
             <?= h(__('a nearer profile.')) ?>
         <?php endif; ?>
-        <?php if (!empty($profile['default'])): ?>
-            <?= h(__('It is still what a colleague who has not forked is'
-                . ' scored by.')) ?>
+        <?php if (in_array('instance', $selectedBy, true)): ?>
+            <?= h(__('It is still what a colleague who has chosen nothing'
+                . ' is scored by.')) ?>
+        <?php elseif (in_array('org', $selectedBy, true)): ?>
+            <?= h(__('It is still what a colleague in your organisation'
+                . ' who has chosen nothing is scored by.')) ?>
         <?php endif; ?>
     <?php elseif ($state === 'other_owner'): ?>
         <?= h(__('Somebody else\'s. You can see it because you administer'

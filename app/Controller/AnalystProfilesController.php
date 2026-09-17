@@ -159,6 +159,22 @@ class AnalystProfilesController extends AppController
                     'name' => $inForce['name'],
                 ),
             'scoring_off' => $inForce === null,
+            /*
+             * How the winner was reached, and what each scope declared
+             * that did not resolve. A selection whose target has been
+             * deleted or switched off falls through in silence (D45),
+             * and this is where the silence is broken: the index says
+             * *your selection is gone and the instance profile is
+             * scoring you* rather than leaving a reader to work out why
+             * the name at the top of their value page changed.
+             */
+            'via' => $board['resolution']['via'],
+            'selections' => $board['resolution']['selections'],
+            'unresolved' => $board['resolution']['unresolved'],
+            'may_select_for_org' =>
+                !empty($user['Role']['perm_admin']),
+            'may_select_for_instance' =>
+                !empty($user['Role']['perm_site_admin']),
             'loader_errors' => $this->__loaderErrors(),
             'comparison_set' => $this->__comparisonSet($user),
             'comparison_limit' => self::COMPARISON_LIMIT,
@@ -492,6 +508,197 @@ class AnalystProfilesController extends AppController
     public function disable($id = null)
     {
         return $this->__setEnabled($id, false);
+    }
+
+    /**
+     * Use a profile without forking it (D45).
+     *
+     * `?scope=user` (the default) writes the uuid to this reader's
+     * `analyst_profile` user setting, `?scope=org` to
+     * `analyst_profile_selections`, and `?scope=instance` to the site
+     * setting. D13 decides who may do which and there is still no new
+     * permission flag: choosing for yourself needs no grant, choosing
+     * for an organisation is `perm_admin`, choosing for the instance is
+     * site-admin only.
+     *
+     * The instance scope is a site setting rather than a row, so it is
+     * written through `Server::serverSettingsSaveValue()` — the same
+     * path the settings page uses — and gets the same validator.
+     *
+     * @param int|string|null $id id or uuid
+     * @return CakeResponse
+     */
+    public function select($id = null)
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'Choosing a profile is a POST.'
+            ));
+        }
+        $user = $this->Auth->user();
+        $scope = $this->__selectionScope();
+        $profile = $this->__profileOr404($user, $id);
+        $row = $profile['AnalystProfile'];
+
+        if ($scope === 'instance') {
+            return $this->__selectForInstance($row);
+        }
+        $chosen = $this->AnalystProfile->selectProfile(
+            $user,
+            $scope,
+            $row['uuid']
+        );
+        if ($chosen === null) {
+            return $this->__refuse(array(
+                $this->AnalystProfile->selectionError
+                    ?: __('The selection could not be saved.'),
+            ));
+        }
+        $inForce = $this->AnalystProfile->resolveFor($user);
+        $displaced = $chosen['displaced'];
+        return $this->__wrote(array(
+            'scope' => $scope,
+            'selected' => $this->AnalystProfile->summarise($row),
+            'displaced' => $displaced === null
+                ? null
+                : array('enabled' => false)
+                    + $this->AnalystProfile->summarise($displaced),
+            'in_force' => $inForce === null
+                ? null
+                : $this->AnalystProfile->summarise($inForce),
+        ),
+            $displaced === null
+                ? sprintf(
+                    $scope === 'org'
+                        ? __('%s is now your organisation\'s profile.')
+                        : __('%s is now your profile.'),
+                    $row['name']
+                )
+                : sprintf(
+                    __('%1$s is now in force, so %2$s was disabled — one'
+                        . ' answer per scope, and nothing was deleted.'),
+                    $row['name'],
+                    $displaced['name']
+                ),
+            array('action' => 'index')
+        );
+    }
+
+    /**
+     * Stop selecting, so the next scope answers.
+     *
+     * @return CakeResponse
+     */
+    public function deselect()
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'Clearing a selection is a POST.'
+            ));
+        }
+        $user = $this->Auth->user();
+        $scope = $this->__selectionScope();
+        if ($scope === 'instance') {
+            return $this->__refuse(array(__(
+                'The instance always names a profile. Point it at another'
+                . ' one, or disable the one it names to switch scoring'
+                . ' off.'
+            )));
+        }
+        $this->AnalystProfile->clearSelection($user, $scope);
+        $inForce = $this->AnalystProfile->resolveFor($user);
+        return $this->__wrote(array(
+            'scope' => $scope,
+            'in_force' => $inForce === null
+                ? null
+                : $this->AnalystProfile->summarise($inForce),
+        ),
+            $inForce === null
+                ? __('The selection is cleared, and nothing scores your'
+                    . ' pages now.')
+                : sprintf(
+                    __('The selection is cleared. %s scores your pages'
+                        . ' now.'),
+                    $inForce['name']
+                ),
+            array('action' => 'index')
+        );
+    }
+
+    /**
+     * Which scope this write is for, checked against D13's permissions.
+     *
+     * @return string
+     */
+    private function __selectionScope()
+    {
+        $scope = 'user';
+        if (!empty($this->request->data['AnalystProfile']['scope'])) {
+            $scope = $this->request->data['AnalystProfile']['scope'];
+        } elseif (!empty($this->request->data['scope'])) {
+            $scope = $this->request->data['scope'];
+        } elseif (!empty($this->request->query['scope'])) {
+            $scope = $this->request->query['scope'];
+        }
+        if (!in_array($scope, array('user', 'org', 'instance'), true)) {
+            throw new MethodNotAllowedException(__(
+                'A profile is chosen for you, for your organisation or for'
+                . ' the instance.'
+            ));
+        }
+        $user = $this->Auth->user();
+        if ($scope === 'org' && empty($user['Role']['perm_admin'])) {
+            throw new ForbiddenException(__(
+                'Choosing what your colleagues are scored by is an'
+                . ' organisation admin action.'
+            ));
+        }
+        if ($scope === 'instance' && empty($user['Role']['perm_site_admin'])) {
+            throw new ForbiddenException(__(
+                'Choosing what the whole instance is scored by is a site'
+                . ' admin action.'
+            ));
+        }
+        return $scope;
+    }
+
+    /**
+     * @param array $row
+     * @return CakeResponse
+     */
+    private function __selectForInstance(array $row)
+    {
+        $Server = ClassRegistry::init('Server');
+        $verdict = $Server->testAnalystProfileUuid($row['uuid']);
+        if ($verdict !== true) {
+            return $this->__refuse(array($verdict));
+        }
+        if (!$Server->serverSettingsSaveValue(
+            'Plugin.ValueProfile_instance_profile',
+            $row['uuid']
+        )) {
+            return $this->__refuse(array(__(
+                'The setting could not be written. Check that the'
+                . ' configuration file is writable by the web server.'
+            )));
+        }
+        Configure::write('Plugin.ValueProfile_instance_profile', $row['uuid']);
+        $this->AnalystProfile->resetResolution();
+        $inForce = $this->AnalystProfile->resolveFor($this->Auth->user());
+        return $this->__wrote(array(
+            'scope' => 'instance',
+            'selected' => $this->AnalystProfile->summarise($row),
+            'in_force' => $inForce === null
+                ? null
+                : $this->AnalystProfile->summarise($inForce),
+        ),
+            sprintf(
+                __('%s is now the instance profile, for every reader whose'
+                    . ' organisation and account have chosen none.'),
+                $row['name']
+            ),
+            array('action' => 'index')
+        );
     }
 
     /**

@@ -99,7 +99,7 @@ class AppModel extends Model
         141 => false, 142 => false, 143 => false, 144 => false, 145 => false, 146 => false,
         147 => false, 148 => false, 149 => false, 150 => false, 151 => false, 152 => false,
         153 => false, 154 => false, 157 => false, 158 => false, 159 => false,
-        160 => false, 161 => false, 162 => false
+        160 => false, 161 => false, 162 => false, 163 => false
     );
 
     const ADVANCED_UPDATES_DESCRIPTION = array(
@@ -2806,6 +2806,35 @@ class AppModel extends Model
                         . " ADD INDEX `idx_wle_list_value`"
                         . " (`warninglist_id`, `value`(191));";
                 }
+                break;
+            case 163:
+                // An organisation's choice of Analyst Profile
+                // (prd/personas/03-profiles.md §5, D45).
+                //
+                // The other two scopes already had somewhere to put this:
+                // a user writes the uuid to `user_settings` under
+                // `analyst_profile`, and the instance names one in
+                // `ValueProfile_instance_profile`. Nothing in MISP holds a
+                // per-organisation setting, so this is that table and
+                // nothing more — it is not a profile and must never be
+                // mistaken for one, which is why it is three columns
+                // rather than a row in `analyst_profiles` carrying empty
+                // `parameters`.
+                //
+                // `org_id` is unique because D45 gives each scope one
+                // answer. The form disables an owned profile when a
+                // selection is saved and clears the selection when an
+                // owned profile is enabled; this says the same thing in
+                // the schema, where it cannot be forgotten.
+                $sqlArray[] = "CREATE TABLE IF NOT EXISTS `analyst_profile_selections` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `org_id` int(11) NOT NULL,
+  `uuid` varchar(40) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
+  `modified` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `org_id` (`org_id`),
+  KEY `uuid` (`uuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
                 break;
             case 'fixNonEmptySharingGroupID':
                 $sqlArray[] = 'UPDATE `events` SET `sharing_group_id` = 0 WHERE `distribution` != 4;';

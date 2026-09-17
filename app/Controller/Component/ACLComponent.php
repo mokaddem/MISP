@@ -239,6 +239,8 @@ class ACLComponent extends Component
             'delete' => array('*'),
             'enable' => array('*'),
             'disable' => array('*'),
+            'select' => array('*'),
+            'deselect' => array('*'),
             'export' => array('*'),
             'import' => array('*'),
             'simulate' => array('*'),

@@ -2026,6 +2026,52 @@ class Server extends AppModel
         return true;
     }
 
+    /**
+     * The instance's Analyst Profile names a shipped profile that is here.
+     *
+     * A warning rather than a refusal when the row is missing: the
+     * setting is written by `Admin setSetting` on instances where the
+     * profiles have not been loaded yet - `updateDefaults()` runs on
+     * upgrade, and a deployment may set this first - and refusing would
+     * make the order of two unrelated steps matter. What it does refuse
+     * is a value that can never work: something that is not a uuid, or a
+     * profile owned by a user or an organisation.
+     *
+     * @param string $value
+     * @return string|true
+     */
+    public function testAnalystProfileUuid($value)
+    {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return 'Value not set.';
+        }
+        if (!Validation::uuid($value)) {
+            return 'This has to be the uuid of an Analyst Profile.';
+        }
+        $profile = ClassRegistry::init('AnalystProfile')->find('first', array(
+            'conditions' => array('AnalystProfile.uuid' => $value),
+            'fields' => array(
+                'AnalystProfile.name',
+                'AnalystProfile.user_id',
+                'AnalystProfile.org_id',
+                'AnalystProfile.default',
+            ),
+            'recursive' => -1,
+        ));
+        if (empty($profile)) {
+            return 'No Analyst Profile on this instance carries that uuid.'
+                . ' If the shipped profiles have not been loaded yet, run'
+                . ' the profile update and this will resolve.';
+        }
+        if (empty($profile['AnalystProfile']['default'])) {
+            return 'That profile belongs to a user or an organisation.'
+                . ' Only a profile MISP ships can be put in force for the'
+                . ' whole instance.';
+        }
+        return true;
+    }
+
     public function testForPath($value)
     {
         if ($value === '') {
@@ -8596,6 +8642,41 @@ class Server extends AppModel
                         'site_admin' => __('Site administrators only'),
                         'on' => __('On'),
                     ),
+                ),
+                /*
+                 * Which Analyst Profile this instance runs
+                 * (prd/personas/03-profiles.md §4, D44).
+                 *
+                 * `resolveFor()`'s instance branch used to mean "any
+                 * enabled row with `default = 1`", which was well defined
+                 * only because exactly one such row existed. MISP now
+                 * ships six, so the instance says which one it means.
+                 *
+                 * It names a uuid rather than a name or an id, because a
+                 * uuid is what survives `updateDefaults()` re-reading the
+                 * shipped files and a re-import giving a profile a new id.
+                 * The default is `default-v1`'s, so an instance taking the
+                 * upgrade keeps scoring exactly as it did: none of the
+                 * five opinionated profiles comes into force unless a site
+                 * admin names it here.
+                 *
+                 * Only a shipped profile can be named. Every other row
+                 * belongs to a user or an organisation, and putting one of
+                 * those in force instance-wide would hand `scopeOf()` a
+                 * row whose owner is not the reader - which is the one
+                 * assumption that lets `verdictPanels()` describe the
+                 * profile in force without taking a `$user`.
+                 *
+                 * Disabling the named profile still switches assessment
+                 * scoring off for everyone who owns none, which is how
+                 * that is done today and stays unchanged.
+                 */
+                'ValueProfile_instance_profile' => array(
+                    'level' => 1,
+                    'description' => __('The uuid of the Analyst Profile this instance scores values with, for every reader whose organisation and account have selected none. Defaults to the shipped default-v1. It must name a profile MISP ships or one imported as an instance profile; a profile owned by a user or an organisation cannot be put in force here.'),
+                    'value' => '6e2679bc-ebb0-417f-90d8-16cb1d0144ba',
+                    'test' => 'testAnalystProfileUuid',
+                    'type' => 'string',
                 ),
                 'Import_services_enable' => array(
                     'level' => 0,

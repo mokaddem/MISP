@@ -9,9 +9,21 @@
  * disabled. So the rail is the resolution order and every row carries
  * its own standing, which is computed rather than drawn.
  *
+ * Since D45 there is a second way to be confused, and it is the one
+ * MISP creates by shipping six profiles: a reader may have *chosen* a
+ * profile rather than forked one, and a choice can stop resolving
+ * without anybody touching it — the profile is deleted, or switched
+ * off. `$unresolved` is that, and it is drawn above the table rather
+ * than on a row, because the row it is about may no longer exist.
+ *
  * @var array $profiles
  * @var array|null $in_force
  * @var bool $scoring_off
+ * @var string|null $via How the profile in force was reached
+ * @var array $selections The uuid each scope declares
+ * @var array $unresolved Declarations that resolved to nothing
+ * @var bool $may_select_for_org
+ * @var bool $may_select_for_instance
  * @var array $loader_errors
  * @var array $comparison_set
  * @var int $comparison_limit
@@ -115,13 +127,54 @@ $this->set('headerActions', array(array(
                         ? h(__('Nothing is in force, so no value on this'
                             . ' instance is scored for you at all.'))
                         : h(__('Resolution walks these three in order and'
-                            . ' stops at the first enabled profile, which'
-                            . ' is why a profile you have just forked is'
-                            . ' not yet the one weighting your pages.')) ?>
+                            . ' stops at the first answer, which is why a'
+                            . ' profile you have just forked is not yet the'
+                            . ' one weighting your pages. Each scope'
+                            . ' answers with a profile it owns or one it'
+                            . ' has chosen, never both.')) ?>
                 </p>
             </nav>
 
             <div class="wb-body">
+                <?php if (!empty($unresolved)): ?>
+                    <?php
+                    /*
+                     * A choice that stopped resolving. Drawn here and not
+                     * on a row because the profile it names may have been
+                     * deleted, and a reader whose page is suddenly scored
+                     * by something else has no other way to find out why.
+                     */
+                    $scopeWord = array(
+                        'user' => __('Your choice'),
+                        'org' => __('Your organisation\'s choice'),
+                        'instance' => __('The instance\'s choice'),
+                    );
+                    $reasonWord = array(
+                        'missing' => __('names a profile that is no longer'
+                            . ' on this instance'),
+                        'disabled' => __('names a profile that has been'
+                            . ' switched off'),
+                        'unreadable' => __('names a profile this scope may'
+                            . ' not use'),
+                    );
+                    ?>
+                    <?php foreach ($unresolved as $scope => $problem): ?>
+                        <p class="wb-note warn mb-2">
+                            <?= h(sprintf(
+                                __('%1$s %2$s (%3$s). The next scope is'
+                                    . ' answering instead.'),
+                                isset($scopeWord[$scope])
+                                    ? $scopeWord[$scope] : $scope,
+                                isset($reasonWord[$problem['reason']])
+                                    ? $reasonWord[$problem['reason']]
+                                    : $problem['reason'],
+                                isset($problem['name'])
+                                    ? $problem['name']
+                                    : substr($problem['uuid'], 0, 8)
+                            )) ?>
+                        </p>
+                    <?php endforeach; ?>
+                <?php endif; ?>
                 <table class="wb-tbl">
                     <thead>
                         <tr>
@@ -231,6 +284,104 @@ $this->set('headerActions', array(array(
                                                 $profile['id']),
                                             array('class' => 'btn btn-sm'
                                                 . ' btn-outline-secondary py-0 px-2')
+                                        ) ?>
+                                    <?php endif; ?>
+                                    <?php
+                                    /*
+                                     * Choosing, beside forking (D45).
+                                     * They are different verbs on
+                                     * purpose: a fork is a frozen copy
+                                     * with no lineage (D5), so a reader
+                                     * who forks one of the shipped five
+                                     * stops receiving its corrections.
+                                     * Choosing is how you use a profile
+                                     * MISP maintains.
+                                     */
+                                    $chosenByMe = in_array(
+                                        'user', $profile['selected_by'], true);
+                                    $chosenByOrg = in_array(
+                                        'org', $profile['selected_by'], true);
+                                    $chosenByInstance = in_array(
+                                        'instance', $profile['selected_by'],
+                                        true);
+                                    ?>
+                                    <?php if ($chosenByMe): ?>
+                                        <?= $this->Form->postLink(
+                                            __('Stop using'),
+                                            array('action' => 'deselect',
+                                                '?' => array('scope' => 'user')),
+                                            array('class' => 'btn btn-sm'
+                                                . ' btn-outline-secondary py-0 px-2')
+                                        ) ?>
+                                    <?php elseif (!empty($profile['selectable'])): ?>
+                                        <?= $this->Form->postLink(
+                                            __('Use this'),
+                                            array('action' => 'select',
+                                                $profile['id'],
+                                                '?' => array('scope' => 'user')),
+                                            array('class' => 'btn btn-sm'
+                                                . ' btn-primary py-0 px-2'),
+                                            $in_force !== null
+                                                && $in_force['name'] !== $profile['name']
+                                                ? sprintf(
+                                                    __('Use %1$s? It replaces'
+                                                        . ' %2$s for you. If'
+                                                        . ' %2$s is one you'
+                                                        . ' own it is disabled,'
+                                                        . ' not deleted.'),
+                                                    $profile['name'],
+                                                    $in_force['name']
+                                                )
+                                                : false
+                                        ) ?>
+                                    <?php endif; ?>
+                                    <?php if ($chosenByOrg && $may_select_for_org): ?>
+                                        <?= $this->Form->postLink(
+                                            __('Stop for my organisation'),
+                                            array('action' => 'deselect',
+                                                '?' => array('scope' => 'org')),
+                                            array('class' => 'btn btn-sm'
+                                                . ' btn-outline-secondary py-0 px-2')
+                                        ) ?>
+                                    <?php elseif (!empty($profile['selectable_for_org'])): ?>
+                                        <?= $this->Form->postLink(
+                                            __('Use for my organisation'),
+                                            array('action' => 'select',
+                                                $profile['id'],
+                                                '?' => array('scope' => 'org')),
+                                            array('class' => 'btn btn-sm'
+                                                . ' btn-outline-primary py-0 px-2'),
+                                            sprintf(
+                                                __('Make %s your'
+                                                    . ' organisation\'s'
+                                                    . ' profile? Every'
+                                                    . ' colleague who has not'
+                                                    . ' chosen or forked one'
+                                                    . ' is scored by it.'),
+                                                $profile['name']
+                                            )
+                                        ) ?>
+                                    <?php endif; ?>
+                                    <?php if ($may_select_for_instance
+                                        && !empty($profile['default'])
+                                        && !$chosenByInstance
+                                        && !empty($profile['enabled'])): ?>
+                                        <?= $this->Form->postLink(
+                                            __('Run on this instance'),
+                                            array('action' => 'select',
+                                                $profile['id'],
+                                                '?' => array(
+                                                    'scope' => 'instance')),
+                                            array('class' => 'btn btn-sm'
+                                                . ' btn-outline-primary py-0 px-2'),
+                                            sprintf(
+                                                __('Make %s the instance'
+                                                    . ' profile? Every reader'
+                                                    . ' whose organisation and'
+                                                    . ' account have chosen'
+                                                    . ' none is scored by it.'),
+                                                $profile['name']
+                                            )
                                         ) ?>
                                     <?php endif; ?>
                                     <?php if (!$profile['in_force']
