@@ -17,6 +17,7 @@ App::uses('ValueContextTool', 'Tools/ValueProfile');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 App::uses('DomainPermutationTool', 'Tools/ValueProfile');
 App::uses('AuditActionMeta', 'Tools/ValueProfile');
 App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
@@ -16141,6 +16142,8 @@ class ValueProfile extends AppModel
             'galaxies' => array(
                 'clusters' => array(),
                 'techniques' => array(),
+                'types' => array(),
+                'attribution' => ValueLabelPriority::attribution($profile),
             ),
             'budget' => $budget,
             'excluded' => array(),
@@ -16207,7 +16210,8 @@ class ValueProfile extends AppModel
                 $value,
                 $options,
                 $budget,
-                $now
+                $now,
+                $profile
             );
         }
 
@@ -16794,16 +16798,32 @@ class ValueProfile extends AppModel
      * one: a ledger row reading `T1071.001` is one an analyst can look
      * up, where the full cluster title is a sentence.
      *
+     * **`clusters` is everything that is not ATT&CK-shaped**, which
+     * is a wider set than the name suggests and the reason the profile
+     * has a say here at all: a value tagged `sector:banking`,
+     * `country:lu` and a `preventive-measure` puts three clusters in
+     * it, and `attribution.galaxy` pays for all three under a signal
+     * whose own absence row reads *"Nobody has attributed this value
+     * to an actor, family or campaign"*. So the galaxies each cluster
+     * came from are carried beside the counts, and the profile's
+     * `galaxies.attribution` list — which is a scoring judgement and
+     * not the card's display priority (D43) — says which of them name
+     * a threat. A profile declaring none leaves `attribution` null and
+     * the signal counts what it counts today.
+     *
      * @param array $user
      * @param string $value
      * @param array $options
      * @param array $budget
      * @param int $now
+     * @param array|null $profile The profile in force, for the
+     *                            eligibility list alone
      * @return array
      */
     private function verdictGalaxies(array $user, $value,
-        array $options, array $budget, $now
+        array $options, array $budget, $now, $profile = null
     ) {
+        $eligible = ValueLabelPriority::attribution($profile);
         $events = $this->model('Value')
             ->occurrenceEventsFor($user, $value, $options);
         if (!empty($budget['window_days'])) {
@@ -16816,10 +16836,13 @@ class ValueProfile extends AppModel
         }
         $clusters = array();
         $techniques = array();
+        $types = array();
         if (empty($events)) {
             return array(
                 'clusters' => $clusters,
                 'techniques' => $techniques,
+                'types' => $types,
+                'attribution' => $eligible,
             );
         }
         $tags = $this->model('Value')->ownTagsFor(
@@ -16849,11 +16872,26 @@ class ValueProfile extends AppModel
             } else {
                 $key = $parsed['cluster'];
                 $clusters[$key] = ($clusters[$key] ?? 0) + $occurrences;
+                /*
+                 * The galaxy a cluster came from, which the count
+                 * above throws away: two galaxies naming the same
+                 * cluster fold into one entry here, so the galaxies
+                 * are carried as a set rather than as one answer.
+                 * `attribution.galaxy` needs them to know what it may
+                 * count, and the hover card needs them to know which
+                 * of twenty-six clusters this reader asked for first.
+                 */
+                $types[$key][$parsed['type']] = true;
             }
+        }
+        foreach ($types as $key => $set) {
+            $types[$key] = array_keys($set);
         }
         return array(
             'clusters' => $clusters,
             'techniques' => $techniques,
+            'types' => $types,
+            'attribution' => $eligible,
         );
     }
 

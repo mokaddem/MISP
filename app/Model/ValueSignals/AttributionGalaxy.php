@@ -22,6 +22,18 @@
  * occurrences"*, where a per-occurrence weight would have paid 107
  * times for one judgement. The occurrence count belongs in the prose,
  * where it is context rather than arithmetic.
+ *
+ * **Not every cluster is an attribution, and the profile says which
+ * are** (D43). The context splits a value's galaxy tags into techniques
+ * and clusters on *is this ATT&CK-shaped*, so `clusters` is every
+ * galaxy that is not — sectors, countries, countermeasures and
+ * typologies included. This signal consulted no category table at all,
+ * so on a value tagged `sector:banking`, `country:lu` and a
+ * `preventive-measure` it paid three times over and called it
+ * attribution. `galaxies.attribution` is the eligibility filter it
+ * never had; a profile declaring none leaves it counting what it
+ * counted before, which is what a document forked before the section
+ * existed needs.
  */
 class AttributionGalaxy extends ValueSignalBase
 {
@@ -68,16 +80,38 @@ class AttributionGalaxy extends ValueSignalBase
         $galaxies = isset($context['galaxies'])
             ? $context['galaxies']
             : array();
-        $clusters = isset($galaxies['clusters'])
+        $carried = isset($galaxies['clusters'])
             ? $galaxies['clusters']
             : array();
+        $clusters = $this->eligible($galaxies, $carried);
         if (empty($clusters)) {
             if (!$this->absenceFires($config, $context, 'galaxies')) {
                 return null;
             }
+            /*
+             * Two absences, and they are not the same finding. Nobody
+             * labelled this at all, or somebody labelled it with
+             * galaxies that name no threat — and a signal that said
+             * *no galaxy on any occurrence* over a value carrying
+             * `sector:banking` would be contradicted by the context
+             * card two panels away.
+             */
+            $ruled = count($carried);
+            if ($ruled === 0) {
+                $signal = __('No galaxy on any occurrence');
+            } elseif ($ruled === 1) {
+                $signal = __('One galaxy on the occurrences, and it'
+                    . ' names no threat');
+            } else {
+                $signal = sprintf(
+                    __('%d galaxies on the occurrences, none of them'
+                        . ' naming a threat'),
+                    $ruled
+                );
+            }
             return $this->row(
                 $this->points($config, 'absent'),
-                __('No galaxy on any occurrence'),
+                $signal,
                 __('Nobody has attributed this value to an actor,'
                     . ' family or campaign'),
                 $context
@@ -111,5 +145,52 @@ class AttributionGalaxy extends ValueSignalBase
             implode(', ', array_slice($names, 0, 4)),
             $context
         );
+    }
+
+    /**
+     * The clusters this profile counts as an attribution.
+     *
+     * The filter is off unless the profile declares a list, so an
+     * instance whose profile predates the section scores exactly as it
+     * did. A cluster whose galaxy the context could not record is kept
+     * for the same reason: dropping it would silently lower a score on
+     * a data shape this signal cannot see, and the wrong answer there
+     * is the one that removes evidence rather than the one that keeps
+     * it.
+     *
+     * A cluster name folds two galaxies into one entry where both name
+     * it — *Lazarus Group* is a `threat-actor` and an
+     * `mitre-intrusion-set` — so one eligible galaxy is enough.
+     *
+     * @param array $galaxies The context's galaxy half
+     * @param array $clusters Cluster name => occurrences
+     * @return array The subset that attributes
+     */
+    private function eligible(array $galaxies, array $clusters)
+    {
+        if (empty($galaxies['attribution'])
+            || !is_array($galaxies['attribution'])
+            || empty($clusters)
+        ) {
+            return $clusters;
+        }
+        $allowed = array_flip($galaxies['attribution']);
+        $types = isset($galaxies['types']) && is_array($galaxies['types'])
+            ? $galaxies['types']
+            : array();
+        $kept = array();
+        foreach ($clusters as $name => $occurrences) {
+            if (!isset($types[$name]) || !is_array($types[$name])) {
+                $kept[$name] = $occurrences;
+                continue;
+            }
+            foreach ($types[$name] as $type) {
+                if (isset($allowed[$type])) {
+                    $kept[$name] = $occurrences;
+                    break;
+                }
+            }
+        }
+        return $kept;
     }
 }
