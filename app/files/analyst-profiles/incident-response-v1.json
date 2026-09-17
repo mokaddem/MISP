@@ -1,7 +1,7 @@
 {
     "uuid": "a556ee9d-eb23-43df-8cdc-4b4995135797",
     "name": "Incident Response & Investigation",
-    "description": "For an analyst who arrives from a case rather than from a queue, and for whom an old indicator is evidence rather than noise. It carries the shipped default's evidence weights, thresholds and bands unchanged, so the quality number a value is given here is the number every other profile on this instance gives it; what changes is what the page puts in front of you and how long it treats a report as current. TLP, PAP and the admiralty scale are pinned, so the page states their absence rather than leaving a gap - what may be done with a finding, and how far its source was trusted, are part of the record a case carries. Threat actors, intrusion sets and the two incident-classification frameworks sort ahead of everything else it draws. Shelf life is lengthened at the far end, to two years and five years for the buckets a file hash sits in, because an investigation's timeline is longer than a feed's. It counts the same galaxies as an attribution as the shipped default: a framework that classifies an incident sorts high on the page without being paid for as though somebody had named an actor. It runs nothing: the modules it names arrive ticked on the Enrichment tab and a run still takes a press, and a module an administrator has not turned on stays off. It is meant to be forked rather than edited - take a copy, change your own, and the nearest profile to the reader wins.",
+    "description": "For an analyst who arrives from a case rather than from a queue, and for whom an old indicator is evidence rather than noise. It carries the shipped default's evidence weights, thresholds and bands unchanged, so the quality number a value is given here is the number every other profile on this instance gives it; what changes is what the page puts in front of you and how long it treats a report as current. TLP, PAP and the admiralty scale are pinned, so the page states their absence rather than leaving a gap - what may be done with a finding, and how far its source was trusted, are part of the record a case carries. Threat actors, intrusion sets and the two incident-classification frameworks sort ahead of everything else it draws. The enrichment strip leads with resolution history, then certificates, network ownership, open ports and file verdicts - everything there answers what else is part of this, which is the question a case brings. Shelf life is lengthened at the far end, to two years and five years for the buckets a file hash sits in, because an investigation's timeline is longer than a feed's. It counts the same galaxies as an attribution as the shipped default: a framework that classifies an incident sorts high on the page without being paid for as though somebody had named an actor. It runs nothing: the modules it names arrive ticked on the Enrichment tab and a run still takes a press, and a module an administrator has not turned on stays off. It is meant to be forked rather than edited - take a copy, change your own, and the nearest profile to the reader wins.",
     "version": 1,
     "parameters": {
         "format": 1,
@@ -231,7 +231,13 @@
         },
         "reference": {
             "org_trust": {},
-            "module_trust": {},
+            "module_trust": {
+                "circl_passivedns": "A",
+                "circl_passivessl": "A",
+                "hashlookup": "A",
+                "virustotal": "B",
+                "censys_enrich": "B"
+            },
             "org_trust_scale": {
                 "A": 1.25,
                 "B": 1.1,
@@ -304,7 +310,14 @@
                 }
             },
             "locality": {},
-            "max_age_hours": 24
+            "max_age_hours": 24,
+            "shapes": [
+                "resolution-timeline",
+                "certificate-set",
+                "network-ownership",
+                "port-service-set",
+                "file-verdict"
+            ]
         },
         "context": {
             "taxonomies": {
