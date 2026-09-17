@@ -284,7 +284,7 @@ class ValuesController extends AppController
              */
             $one = ValueInputTool::normalise($raw);
         } else {
-            $many = ValueInputTool::normaliseMany($raw);
+            $many = $this->__parse($raw);
             $report = $many['report'];
             if ($report['overflow'] > 0) {
                 return $this->__indexPage(
@@ -292,7 +292,20 @@ class ValuesController extends AppController
                     null
                 );
             }
-            if (count($many['values']) > 1) {
+            /*
+             * **An extraction always lands on the worklist**, even on
+             * one value, where a list reading would redirect to the
+             * profile. A reader who asked the page to find the values
+             * in their report is owed the count it found as well as
+             * the value — *one* is an answer about their report — and
+             * the paste they are still reading stays on screen. It is
+             * also what keeps the scripted road and the no-script road
+             * giving the same answer, since the script sends every
+             * extraction to `triage()`.
+             */
+            if (count($many['values']) > 1
+                || ($this->__extracting() && $many['values'])
+            ) {
                 return $this->__indexPage(
                     null,
                     $this->__triage($many)
@@ -313,7 +326,7 @@ class ValuesController extends AppController
             );
         }
         if ($one['value'] === null) {
-            return $this->__indexPage(array('kind' => 'empty'), null);
+            return $this->__indexPage($this->__nothing(), null);
         }
         $this->loadModel('ValueProfile');
         $answer = $this->ValueProfile->forResolve(
@@ -380,7 +393,7 @@ class ValuesController extends AppController
                 'This endpoint only accepts POST requests.'
             ));
         }
-        $many = ValueInputTool::normaliseMany($this->__pasted());
+        $many = $this->__parse($this->__pasted());
         $report = $many['report'];
         $this->layout = false;
         if ($report['overflow'] > 0) {
@@ -388,7 +401,7 @@ class ValuesController extends AppController
             return $this->render('/Elements/Values/Index/answer');
         }
         if (empty($many['values'])) {
-            $this->set('resolution', array('kind' => 'empty'));
+            $this->set('resolution', $this->__nothing($report));
             return $this->render('/Elements/Values/Index/answer');
         }
         $this->set('triage', $this->__triage($many));
@@ -473,6 +486,39 @@ class ValuesController extends AppController
     }
 
     /**
+     * Which reading of the box the reader asked for.
+     *
+     * One checkbox, sent with the paste, and **nothing remembers it**
+     * (`value-index.md` §11, V20). Only the reader knows whether they
+     * pasted a list of values or a report with values in it, and a
+     * remembered answer is the page deciding on their behalf for the
+     * next paste, which will be the other kind.
+     *
+     * @return bool
+     */
+    private function __extracting()
+    {
+        return !empty($this->request->data['Value']['extract']);
+    }
+
+    /**
+     * The box, as values — whichever reading was asked for.
+     *
+     * Both roads land on the same `['values', 'report']` pair with the
+     * same keys, so nothing downstream of here learns a second shape:
+     * `__triage()`, the refusal and the worklist each read one report.
+     *
+     * @param string $raw
+     * @return array{values: array<string>, report: array}
+     */
+    private function __parse($raw)
+    {
+        return $this->__extracting()
+            ? ValueInputTool::extractMany($raw)
+            : ValueInputTool::normaliseMany($raw);
+    }
+
+    /**
      * Over the cap: the count, and nothing read.
      *
      * **Refused, never truncated** (§7.2). A page that quietly
@@ -490,6 +536,31 @@ class ValuesController extends AppController
      * @param array $report A `ValueInputTool::normaliseMany` report
      * @return array
      */
+    /**
+     * The box gave nothing, and which reading gave nothing.
+     *
+     * An empty box and a page of prose the extractor found no
+     * indicator in are the same shape and not the same answer: the
+     * first is *you pasted nothing*, the second is *this found nothing
+     * in what you pasted*, and only the second is worth offering a way
+     * back from. The element draws them apart on `mode` alone.
+     *
+     * @param array|null $report The parser's report, where there was one
+     * @return array
+     */
+    private function __nothing(array $report = null)
+    {
+        return array(
+            'kind' => 'empty',
+            'mode' => $report === null
+                ? ($this->__extracting()
+                    ? ValueInputTool::MODE_EXTRACT
+                    : ValueInputTool::MODE_LINES)
+                : $report['mode'],
+            'lines' => $report === null ? 0 : $report['lines'],
+        );
+    }
+
     private function __refusal(array $report)
     {
         return array(

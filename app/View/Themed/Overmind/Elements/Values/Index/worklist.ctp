@@ -94,14 +94,48 @@ if ($report['empty']) {
  * unsurprising, and a single line split on its commas is the one
  * reading this box makes that the reader might not have meant.
  */
-$byCommas = $report['separator'] === ValueInputTool::BY_COMMAS;
-$lead = $byCommas
-    ? sprintf(__n('One line, split on its %1$d comma, became %2$d row.',
+$extracted = isset($report['mode'])
+    && $report['mode'] === ValueInputTool::MODE_EXTRACT;
+$byCommas = !$extracted
+    && $report['separator'] === ValueInputTool::BY_COMMAS;
+if ($extracted) {
+    /*
+     * The extraction's lead names both numbers, because the gap
+     * between them is the whole of what the reader agreed to: text
+     * went in and a shortlist came out, and how much text produced
+     * how little is the first thing worth knowing about it.
+     */
+    $lead = sprintf(__n('%1$d lines of text, %2$d value found.',
+        '%1$d lines of text, %2$d values found.', count($rows)),
+        $report['lines'], count($rows));
+} elseif ($byCommas) {
+    $lead = sprintf(__n('One line, split on its %1$d comma, became'
+        . ' %2$d row.',
         'One line, split on its %1$d commas, became %2$d rows.',
-        count($rows)), max(0, $report['fields'] - 1), count($rows))
-    : sprintf(__n('%1$d line became %2$d row.',
+        count($rows)), max(0, $report['fields'] - 1), count($rows));
+} else {
+    $lead = sprintf(__n('%1$d line became %2$d row.',
         '%1$d lines became %2$d rows.', count($rows)),
         $report['lines'], count($rows));
+}
+
+/*
+ * **The offer, both ways round** (§11.3). An extraction always carries
+ * a way back to the reader's own lines, because the extractor cannot
+ * type about half of what an instance holds and a reader whose `mutex`
+ * vanished has no other way to say *no, those were my values*. A line
+ * reading offers the other direction when the rows look like prose —
+ * the same shape as the comma offer below, and for the same reason
+ * given there: only the reader knows which their report meant.
+ *
+ * Two rows carrying whitespace is the whole test. It is deliberately
+ * weak, because it decides whether to *offer* and never whether to
+ * take: a clean IOC list almost never trips it, and a `text` value
+ * that does costs the reader a line they can ignore.
+ */
+$wordy = isset($report['wordy']) ? (int)$report['wordy'] : 0;
+$unread = isset($report['unread']) ? (int)$report['unread'] : 0;
+$offerExtract = !$extracted && $wordy >= 2;
 ?>
 <div class="vi-work" data-vi-work
      data-vi-assess="<?= h($this->Html->url(array(
@@ -117,6 +151,65 @@ $lead = $byCommas
 <?php endif; ?>
         <?= h(__('Your original paste is still in the box above.')) ?>
     </p>
+<?php if ($extracted): ?>
+<?php
+    /*
+     * **The line the mode cannot ship without** (§11.3.3, V20). The
+     * extractor recognises about half of what a MISP instance holds
+     * and says nothing about the rest, so a paste that lost a `mutex`,
+     * a `cpe` or a user-agent has to say so here — otherwise the
+     * reader cannot tell *nobody recorded it* from *nothing asked*,
+     * which is the one confusion this page's rules forbid.
+     *
+     * A line is counted only when the reader plainly meant it as a
+     * value; `ValueInputTool::unreadLines()` has the rule. Naming the
+     * first one is what makes the number checkable — a reader who
+     * sees their own string knows immediately whether the rest of the
+     * count is worth acting on.
+     */
+?>
+<?php   if ($unread > 0): ?>
+    <p class="vi-unread">
+        <b><?= h(sprintf(__n('%d line looks like a value but could'
+            . ' not be extracted.', '%d lines look like values but could'
+            . ' not be extracted.', $unread), $unread)) ?></b>
+<?php     if ($report['unread_example'] !== null): ?>
+        <?php
+        /*
+         * The em-dash after the example rather than a full stop: the
+         * `code` span carries its own padding and a border, so a
+         * period set against it reads as a floating dot.
+         */
+        ?>
+        <?= h(__('The first one is')) ?>
+        <code class="vi-said-inline"><?= h(
+            $report['unread_example']
+        ) ?></code> &mdash;
+        <?= h(__('extraction only picks up values it can give an'
+            . ' attribute type.')) ?>
+<?php     else: ?>
+        <?= h(__('Extraction only picks up values it can give an'
+            . ' attribute type.')) ?>
+<?php     endif; ?>
+    </p>
+<?php   endif; ?>
+    <?= $this->element('Values/Index/reread', array(
+        'extract' => 0,
+        'label' => __('Look up each line instead'),
+        'note' => $unread > 0
+            ? __('To look up every line exactly as pasted:')
+            : __('If each line was meant to be a value:'),
+    )) ?>
+<?php elseif ($offerExtract): ?>
+    <?= $this->element('Values/Index/reread', array(
+        'extract' => 1,
+        'label' => __('Extract values from the text instead'),
+        'note' => sprintf(__n('%d row looks like text rather than a'
+            . ' value. If you pasted a report:',
+            '%d rows look like text rather than values. If you'
+            . ' pasted a report:', $wordy), $wordy),
+    )) ?>
+<?php endif; ?>
 <?php if ($byCommas && count($rows) > 1): ?>
     <?php
     /*

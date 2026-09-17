@@ -101,7 +101,37 @@ $profileUrl = function ($value) {
         $resolution['goes']
     )) ?></p>
 <?php else: ?>
+<?php
+    /*
+     * An empty box and a page of prose the extractor found nothing in
+     * are the same shape and not the same answer. The first is *you
+     * pasted nothing*; the second is *this found nothing in what you
+     * pasted*, which is a claim about the reader's text and has to be
+     * offered a way back — the extractor can only find what MISP is
+     * able to type (`value-index.md` §11.2).
+     */
+    $mode = isset($resolution['mode'])
+        ? $resolution['mode']
+        : ValueInputTool::MODE_LINES;
+?>
+<?php   if ($mode === ValueInputTool::MODE_EXTRACT
+        && !empty($resolution['lines'])): ?>
+    <p><?= h(sprintf(__n('No value found in that %d line.',
+        'No value found in those %d lines.',
+        $resolution['lines']), $resolution['lines'])) ?></p>
+    <p class="vi-quiet"><?= h(__(
+        'Extraction only picks up values it can give an attribute'
+        . ' type, so a mutex, a CPE string or a user agent is missed.'
+        . ' Your paste is still in the box.'
+    )) ?></p>
+    <?= $this->element('Values/Index/reread', array(
+        'extract' => 0,
+        'label' => __('Look up each line instead'),
+        'note' => __('To look up every line exactly as pasted:'),
+    )) ?>
+<?php   else: ?>
     <p><?= h(__('The box is empty. Paste a value to look it up.')) ?></p>
+<?php   endif; ?>
 <?php endif; ?>
 </div>
 </div>

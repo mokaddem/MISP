@@ -21,6 +21,12 @@
  * The textarea refills itself from `$this->request->data`, which is
  * the whole of *the box keeps its content* (§8 G11) — a reader fixing
  * one character does not re-type the value.
+ *
+ * Under the box is the one question about it: whether what was pasted
+ * is a list of values or a text with values in it (§11). It sits
+ * there rather than beside the verb because it changes what the paste
+ * *means*, not what pressing does, and a reader checks it while
+ * looking at what they pasted.
  */
 App::uses('ValueInputTool', 'Tools/ValueProfile');
 
@@ -54,6 +60,42 @@ echo $this->Form->create('Value', array(
             'placeholder' => __('Paste a value, or a list of values'),
             'aria-label' => __('Values to look up'),
         )) ?>
+        <?php
+        /*
+         * The one question about the paste, under the paste.
+         *
+         * **Off every time, and nothing remembers it**
+         * (`value-index.md` §11, V20). Only the reader knows whether
+         * what they just pasted is a list of values or a report with
+         * values in it, and the next paste is as likely to be the
+         * other kind — so a remembered answer would be the page
+         * deciding, once, on behalf of every paste after it.
+         *
+         * `FormHelper` emits its own hidden field before the box, so
+         * an unchecked press posts `0` rather than nothing, and
+         * `SecurityComponent` sees the field set it hashed. The
+         * `checked` state is given explicitly: a submission that comes
+         * back with the box refilled must come back with the mode the
+         * reader chose, or their next press would silently change the
+         * question.
+         */
+        ?>
+        <label class="vi-mode">
+            <?= $this->Form->checkbox('extract', array(
+                'value' => 1,
+                'checked' => !empty(
+                    $this->request->data['Value']['extract']
+                ),
+                'data-vi-extract' => '1',
+            )) ?>
+            <span class="vi-mode__say"><?= h(__(
+                'Extract values from text'
+            )) ?></span>
+            <span class="vi-mode__why"><?= h(__(
+                'Use this for a pasted report or advisory. When off,'
+                . ' each line is looked up as one value.'
+            )) ?></span>
+        </label>
     </div>
     <div class="vi-prompt__side">
         <?php
@@ -96,6 +138,7 @@ echo $this->Form->create('Value', array(
             <span data-vi-verb
                   data-vi-one="<?= h(__('Open profile')) ?>"
                   data-vi-many="<?= h(__('Look up %d values')) ?>"
+                  data-vi-find="<?= h(__('Extract values')) ?>"
                   ><?= h(__('Open profile')) ?></span>
             <span class="vi-kbd"><?= h(__('Enter')) ?></span>
         </button>
