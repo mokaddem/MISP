@@ -11378,3 +11378,440 @@ a.vp-lane-tag:focus-visible {
     margin: 0 6px;
     opacity: 0.6;
 }
+
+/* ==================================================================
+ * Renderer widgets
+ * ------------------------------------------------------------------
+ * The compact form of a shape, and the full rendering of one.
+ *
+ * **The compact widget is a 190×150 budget and every rule here spends
+ * against it.** The strip is one row of five inside 200px; a widget
+ * that overflows its cell does not make its own row taller, it makes
+ * the panel taller, and the panel's whole argument for being on the
+ * Overview at all is that it costs about 180px. So the content box is
+ * clipped rather than allowed to push, and each template puts its most
+ * important line first — what falls off the bottom is what it chose to
+ * put last.
+ *
+ * **And it degrades to text.** Not every viewport gives a cell 190px:
+ * the strip drops to fewer columns before it drops widgets, so the
+ * rules below set no fixed width, use `min-width: 0` so flex children
+ * may actually shrink, and truncate rather than wrap. A widget legible
+ * only at its ideal width is a widget that breaks the Overview on a
+ * laptop.
+ * ================================================================== */
+
+.vp-rw-in {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    max-height: 150px;
+    overflow: hidden;
+}
+
+/* One line, truncated. Every headline in every shape is a name, a
+   place or a number a reader scans - none of them reads better on two
+   lines at this size, and two lines cost a third of the budget. */
+.vp-rw-head,
+.vp-rw-sub,
+.vp-rw-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-rw-head {
+    color: var(--bs-body-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.vp-rw-quiet {
+    color: var(--bs-secondary-color);
+    font-weight: 500;
+}
+
+.vp-rw-sub {
+    color: var(--bs-secondary-color);
+    font-size: 0.72rem;
+    line-height: 1.25;
+}
+
+.vp-rw-note {
+    color: var(--bs-secondary-color);
+    font-size: 0.65rem;
+    line-height: 1.3;
+}
+
+/* The one line a widget is allowed to raise its voice on: a
+   disagreement, an expiry, an exploit. It is the reason to open the
+   full rendering, and in the quiet grey of every other note it would
+   not be read. */
+.vp-rw-split {
+    color: var(--vp-conflict-ink);
+    font-weight: 600;
+}
+
+/* A two-letter code beside the thing it qualifies - a country code, a
+   record type, a service name. Quieter and smaller than its neighbour
+   without being a second colour. */
+.vp-rw-code {
+    margin-left: 5px;
+    color: var(--bs-secondary-color);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* A count and what was counted. The number carries the size and the
+   label carries the noun, so the eye lands on the digits - which is
+   the whole reason a set is drawn as a number rather than as a list. */
+.vp-rw-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+}
+
+.vp-rw-metric-n {
+    color: var(--bs-body-color);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.05;
+}
+
+.vp-rw-metric-l {
+    overflow: hidden;
+    color: var(--bs-secondary-color);
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A verdict word, which is the one piece of a widget that carries a
+   colour with a meaning. The tint is 12% rather than the 5% the case
+   heads use because this is a chip on a panel rather than a header
+   band, and at chip size a 5% tint is invisible. */
+.vp-rw-verdict {
+    align-self: flex-start;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-rw-v-mal {
+    background: color-mix(in srgb, var(--vp-mal) 12%, var(--bs-body-bg));
+    color: var(--vp-mal-ink);
+}
+
+.vp-rw-v-ben {
+    background: color-mix(in srgb, var(--vp-ben) 12%, var(--bs-body-bg));
+    color: var(--vp-ben-ink);
+}
+
+/* No opinion is a state and not an absence, so it is drawn rather than
+   left blank - a widget with nothing where the verdict goes looks like
+   a rendering that failed. */
+.vp-rw-v-unknown {
+    background: color-mix(in srgb, var(--vp-unknown) 10%,
+        var(--bs-body-bg));
+    color: var(--bs-secondary-color);
+}
+
+/* A short set drawn as items rather than as prose: ports, addresses,
+   platforms. It wraps, and it is the one element here allowed to,
+   because the items are short and a wrapped set still reads as a set. */
+.vp-rw-set {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 8px;
+    margin: 1px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--bs-body-color);
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+
+.vp-rw-set > li {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-rw-hot {
+    color: var(--vp-conflict-ink);
+    font-weight: 600;
+}
+
+/* The position plot. It has a fixed aspect through the viewBox and a
+   height cap here, because a 2:1 box given the full cell width would
+   be 95px of the 150 on its own. */
+.vp-rw-plot {
+    width: 100%;
+    max-height: 56px;
+    margin-top: 2px;
+}
+
+/* Every colour an SVG shape takes carries a literal fallback inside
+   the `var()`, and the reason is specific to SVG: a `fill` that is
+   invalid at computed-value time does not fall back to a previous
+   declaration the way a normal property would - it takes the initial
+   value, which for `fill` is **black**. A missing theme variable
+   anywhere else here costs a shade; here it would paint a solid block
+   over the widget. */
+.vp-rw-plot-bg {
+    fill: color-mix(in srgb, var(--bs-body-color, #212529) 4%,
+        var(--bs-body-bg, #fff));
+}
+
+.vp-rw-plot-grid {
+    stroke: var(--bs-border-color, #dee2e6);
+    stroke-width: 0.5;
+}
+
+.vp-rw-plot-faint {
+    opacity: 0.5;
+}
+
+.vp-rw-plot-dot {
+    fill: var(--vp-e-accent, #6f5fb5);
+    fill-opacity: 0.85;
+    stroke: var(--bs-body-bg, #fff);
+    stroke-width: 1;
+}
+
+/* The sparkline. No axis and no labels: at 180×44 a label is illegible
+   and an axis is a second line competing with the one line that
+   matters. The range is stated as text underneath instead. */
+.vp-rw-spark {
+    width: 100%;
+    max-height: 44px;
+    margin-top: 2px;
+}
+
+.vp-rw-spark-line {
+    fill: none;
+    stroke: var(--vp-e-accent, #6f5fb5);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+}
+
+/* A proportion, where the proportion is the answer. Drawn only for the
+   detection ratio, because it is the one number here whose two halves
+   are both meaningful and whose text form hides the relation between
+   them. */
+.vp-rw-bar {
+    height: 5px;
+    margin-top: 3px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--bs-body-color) 8%,
+        var(--bs-body-bg));
+    overflow: hidden;
+}
+
+.vp-rw-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--vp-unknown);
+}
+
+.vp-rw-bar-mal {
+    background: var(--vp-mal);
+}
+
+.vp-rw-bar-ben {
+    background: var(--vp-ben);
+}
+
+/* ------------------------------------------------------------------
+ * The full rendering
+ * ------------------------------------------------------------------
+ * On the Enrichment pane, above the object table and never instead of
+ * it. It has the width of the pane and no height budget at all, which
+ * is the whole difference from the rules above: nothing here truncates,
+ * because a visualisation an analyst cannot check is a visualisation
+ * that has to be checked against the table below it.
+ * ------------------------------------------------------------------ */
+
+.vp-rf {
+    margin-bottom: 14px;
+}
+
+.vp-rf-block {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-rf-block:last-child {
+    border-bottom: 0;
+}
+
+.vp-rf-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.vp-rf-key {
+    color: var(--bs-body-color);
+    font-weight: 700;
+}
+
+.vp-rf-name {
+    color: var(--bs-body-color);
+}
+
+/* Where the answer came from, on every surface that draws one. It is
+   the least of what a row says and the thing a reader checks last, so
+   it is quiet everywhere and never in a column of its own. */
+.vp-rf-dim {
+    color: var(--bs-secondary-color);
+    font-size: 0.72rem;
+}
+
+.vp-rf-sub {
+    margin-top: 3px;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+}
+
+.vp-rf-note {
+    margin: 4px 0 8px;
+    color: var(--bs-secondary-color);
+    font-size: 0.78rem;
+}
+
+.vp-rf-warn {
+    color: var(--vp-conflict-ink);
+    font-weight: 600;
+}
+
+.vp-rf-prose {
+    margin: 6px 0;
+    color: var(--bs-body-color);
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.vp-rf-link {
+    font-size: 0.72rem;
+}
+
+/* A wide table scrolls inside itself rather than widening the pane.
+   The certificate table has six columns and one of them is a list of
+   subject alternative names. */
+.vp-rf-table {
+    display: block;
+    overflow-x: auto;
+    font-size: 0.78rem;
+}
+
+.vp-rf-table th {
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+/* A row about something that has stopped being current. Dimmed rather
+   than hidden: an expired certificate still being served is a finding,
+   and a filter would be this template deciding it is not. */
+.vp-rf-past td {
+    opacity: 0.6;
+}
+
+.vp-rf-hot td:first-child {
+    font-weight: 700;
+}
+
+.vp-rf-pairs {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 14px;
+    margin: 6px 0 0;
+    font-size: 0.78rem;
+}
+
+.vp-rf-pairs dt {
+    color: var(--bs-secondary-color);
+    font-weight: 500;
+}
+
+.vp-rf-pairs dd {
+    margin: 0;
+    color: var(--bs-body-color);
+    word-break: break-word;
+}
+
+.vp-rf-prefixes,
+.vp-rf-refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 14px;
+    margin: 5px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.78rem;
+}
+
+.vp-rf-refs {
+    flex-direction: column;
+    gap: 2px;
+}
+
+.vp-rf-raw {
+    margin-top: 8px;
+    font-size: 0.75rem;
+}
+
+.vp-rf-raw summary {
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+}
+
+/* The raw record a parse was made from. Capped and scrollable, because
+   a whois response is a hundred lines and it is offered as a check on
+   the fields above rather than as the content of the pane. */
+.vp-rf-raw pre {
+    max-height: 300px;
+    margin: 6px 0 0;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--bs-body-color) 4%,
+        var(--bs-body-bg));
+    overflow: auto;
+    font-size: 0.72rem;
+    white-space: pre-wrap;
+}
+
+.vp-rf-plot {
+    width: 100%;
+    max-height: 200px;
+    margin-bottom: 10px;
+}
+
+/* The map container, which is empty until the page's script fills it.
+   The height is here rather than on the script so that the pane does
+   not jump when it does. */
+.vp-rf-map {
+    height: 280px;
+    margin-bottom: 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+}
