@@ -1740,6 +1740,34 @@ class EventsController extends AppController
         $this->set('defaultFilteringRules', self::DEFAULT_FILTERING_RULE);
         $this->set('typeGroups', array_keys(MispAttribute::TYPE_GROUPINGS));
 
+        /*
+         * Which labels this reader's analyst profile asks to see first.
+         *
+         * **Here and not in `__viewUI`**, because the attribute rows —
+         * where the tag and galaxy columns actually are — are rendered
+         * by `viewEventAttributes`, which is its own action and never
+         * runs `__viewUI`. This method is what all three event-view
+         * paths share, so setting it once here is what reaches the
+         * fragment as well as the page.
+         *
+         * A view variable rather than an element parameter:
+         * `View::_renderElement` merges the view variables into every
+         * element's scope, so `ajaxTags` and `galaxyQuickViewNew` —
+         * several elements deep, behind `eventattribute` and
+         * `row_attribute` — read it without the elements between them
+         * carrying something they have no use for.
+         *
+         * One statement. `resolveFor()` memoises per request, and both
+         * elements treat an absent or empty plan as *render what you
+         * were handed*, so an instance whose profile declares no
+         * priority draws exactly what it draws today.
+         * prd/personas/04-label-surfaces.md §6, D52.
+         */
+        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        $this->set('labelPlan', ValueLabelPriority::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        ));
+
         $orgTable = $this->Event->Orgc->find('list', array(
             'fields' => array('Orgc.id', 'Orgc.name')
         ));

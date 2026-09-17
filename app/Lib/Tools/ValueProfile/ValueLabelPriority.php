@@ -297,6 +297,140 @@ class ValueLabelPriority
     }
 
     /**
+     * The same tiers, over a list of individual labels.
+     *
+     * `order()`'s twin for the surfaces that hand out a chip or a row
+     * per label rather than a group per dimension — the claim target
+     * card, the occurrence facet rail and the event view's tag column.
+     * One table of tiers, two entry points: the precedence, the
+     * lowercasing and the *declares nothing changes nothing* rule are
+     * `order()`'s and are not restated here.
+     *
+     * **It differs in exactly one thing**, and the difference is
+     * §4's handling rule at a granularity it was not written for. A
+     * pinned `tlp` *group* renders the most restrictive label with a
+     * count of the others, because the group is one slot and something
+     * has to fill it. A list of `tlp` *items* has no slot to win: the
+     * reader sees `tlp:clear`, `tlp:red` and `tlp:amber` as three
+     * chips, and what matters is that the most restrictive is the
+     * first of them. Ranking them equal — which is what `order()`
+     * does, since they share a key and therefore a rank — leaves the
+     * incoming order deciding, and the incoming order is a count.
+     *
+     * So within a handling namespace the profile has **listed**,
+     * items are ordered by `HANDLING` severity, from the table `lead()`
+     * reads, so the page cannot rank `tlp` two ways.
+     *
+     * **A namespace nobody listed keeps arrival order, `tlp`
+     * included.** Re-sorting a handling taxonomy no profile mentioned
+     * would change every page on every instance in the name of a
+     * profile that declared nothing, which is the one thing
+     * `declares()` exists to prevent.
+     *
+     * Each item carries `key` — as a group does — and `name`, the full
+     * tag string severity is read from. An item with no `name` ranks
+     * last inside its tier rather than first, which is `severity()`'s
+     * answer for a predicate the table does not know.
+     *
+     * @param array $labels Individual labels, each carrying `key`
+     * @param array|null $plan A plan, a profile, or its parameters
+     * @param string $scope `taxonomies` or `galaxies`
+     * @return array The same labels, ordered and marked
+     */
+    public static function labels(array $labels, $plan, $scope)
+    {
+        $plan = self::planFor($plan);
+        if (empty($labels) || !self::declares($plan, $scope)) {
+            return $labels;
+        }
+        $places = self::places($plan, $scope);
+        $ranked = array();
+        foreach ($labels as $at => $label) {
+            $key = self::keyOf($label);
+            $place = $key !== null && isset($places[$key])
+                ? $places[$key]
+                : array('rank' => 2, 'within' => 0, 'tier' => null);
+            $label['priority'] = $place['tier'];
+            /*
+             * Constant for everything the profile did not list, so
+             * those items tie and `at` keeps them where they were.
+             */
+            $severity = 0;
+            if ($place['tier'] !== null && isset(self::HANDLING[$key])) {
+                $severity = self::severity(
+                    $label,
+                    $key,
+                    self::HANDLING[$key]
+                );
+            }
+            $ranked[] = array(
+                'rank' => $place['rank'],
+                'within' => $place['within'],
+                'severity' => $severity,
+                'at' => $at,
+                'label' => $label,
+            );
+        }
+        usort($ranked, function ($a, $b) {
+            if ($a['rank'] !== $b['rank']) {
+                return $a['rank'] - $b['rank'];
+            }
+            if ($a['within'] !== $b['within']) {
+                return $a['within'] - $b['within'];
+            }
+            if ($a['severity'] !== $b['severity']) {
+                return $a['severity'] < $b['severity'] ? -1 : 1;
+            }
+            return $a['at'] - $b['at'];
+        });
+        $out = array();
+        foreach ($ranked as $row) {
+            $out[] = $row['label'];
+        }
+        return $out;
+    }
+
+    /**
+     * The namespace a tag name belongs to, which is what a profile
+     * lists taxonomies by.
+     *
+     * Everything before the first colon, lowercased; null where there
+     * is no colon, which is a tag in no taxonomy at all.
+     *
+     * **Looser than `Taxonomy::splitTagToComponents` on purpose.** The
+     * strict grammar is already copied once, in
+     * `ValueContextTool::split()`, which needs the predicate and the
+     * value as well; a third copy to answer *what is in front of the
+     * colon* would be a regex maintained in three places to decide one
+     * substring. The only input the two disagree about is a string no
+     * machine-tag grammar accepts — `foo"bar:baz` — and there they
+     * disagree harmlessly: the loose answer is a key no profile can
+     * have listed, so the label is unlisted and keeps its place, which
+     * is the same place a strict null would have left it.
+     *
+     * A galaxy tag answers `misp-galaxy`, and no profile lists that: a
+     * profile's galaxy list is keyed by the galaxy `type`, which is the
+     * other dimension and is ordered where the clusters are drawn. So a
+     * galaxy tag that survives into a tag list keeps its place rather
+     * than being ranked under the wrong dimension.
+     *
+     * @param string|null $name A tag name
+     * @return string|null
+     */
+    public static function namespaceOf($name)
+    {
+        if (!is_string($name) && !is_numeric($name)) {
+            return null;
+        }
+        $name = trim((string)$name);
+        $at = strpos($name, ':');
+        if ($at === false || $at === 0) {
+            return null;
+        }
+        return mb_strtolower(substr($name, 0, $at));
+    }
+
+    /**
      * The pinned dimensions this value carries nothing of.
      *
      * The only tier that renders absence, and the reason it exists:

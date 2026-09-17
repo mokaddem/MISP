@@ -1,6 +1,7 @@
 <?php
 App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
 App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 
 /**
  * The cross-cutting aggregates the Value Profile page's panels share:
@@ -363,14 +364,26 @@ class ValueStatsTool
      * absent group; `value_facet_group` is what decides that a group of
      * zeroes renders nothing at all.
      *
+     * **The two label groups are ordered by the reader's profile, and
+     * ordered here rather than in the rail** (`04-label-surfaces.md`
+     * §1.4, D51): `value_facet_group` shows ten rows and folds the
+     * rest, so this is the one surface in that phase where priority
+     * decides what is visible rather than what is read first. Ordering
+     * after the fold would have ranked the ten the counts chose.
+     *
+     * A null plan — every caller that has no profile to hand — leaves
+     * both groups exactly as the counts ranked them.
+     *
      * @param array $rows fetchAttributes-shaped occurrence rows,
      *                    already carrying Event.Orgc, SharingGroup,
      *                    AttributeTag.Tag and proposal_count
      * @param int $total The viewer's occurrence count for the value
+     * @param array|null $plan `ValueLabelPriority::planFor()`
      * @return array
      */
-    public static function occurrenceFacets(array $rows, $total)
-    {
+    public static function occurrenceFacets(array $rows, $total,
+        $plan = null
+    ) {
         $groups = array(
             'organisation' => array(),
             'type' => array(),
@@ -532,6 +545,12 @@ class ValueStatsTool
                     array(
                         'tag' => $tag,
                         'local' => !empty($tag['local']) ? 1 : 0,
+                        // What a profile lists a taxonomy by, and the
+                        // full name its handling order is read from.
+                        'key' => ValueLabelPriority::namespaceOf(
+                            $tag['name']
+                        ),
+                        'name' => $tag['name'],
                     )
                 );
             }
@@ -543,6 +562,12 @@ class ValueStatsTool
                     array(
                         'cluster' => $cluster['name'],
                         'galaxy' => $cluster['galaxy'],
+                        // The galaxy `type`, which is what a profile
+                        // lists; `galaxy` beside it is the display
+                        // name and is not a key.
+                        'key' => isset($cluster['type'])
+                            ? $cluster['type']
+                            : null,
                     )
                 );
             }
@@ -580,6 +605,21 @@ class ValueStatsTool
         foreach ($groups as $key => $facets) {
             $groups[$key] = self::rank($facets);
         }
+        /*
+         * After the count rank and before the rail's fold, so a
+         * preferred taxonomy reaches the visible ten and the counts
+         * still decide the order inside each tier.
+         */
+        $groups['tag'] = ValueLabelPriority::labels(
+            $groups['tag'],
+            $plan,
+            ValueLabelPriority::TAXONOMIES
+        );
+        $groups['galaxy'] = ValueLabelPriority::labels(
+            $groups['galaxy'],
+            $plan,
+            ValueLabelPriority::GALAXIES
+        );
 
         return array_merge(
             array(

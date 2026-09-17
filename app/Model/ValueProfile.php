@@ -2570,7 +2570,22 @@ class ValueProfile extends AppModel
              */
             'occurrence_facets' => empty($rows)
                 ? null
-                : ValueStatsTool::occurrenceFacets($rows, $total),
+                : ValueStatsTool::occurrenceFacets(
+                    $rows,
+                    $total,
+                    /*
+                     * The rail folds at ten, so the profile has to
+                     * reach it before the fold rather than after
+                     * (`04-label-surfaces.md` §1.4). `resolveFor()`
+                     * memoises, so this tab pays nothing for it.
+                     */
+                    ValueLabelPriority::planFor(
+                        array_key_exists('profile', $options)
+                            ? $options['profile']
+                            : ClassRegistry::init('AnalystProfile')
+                                ->resolveFor($user)
+                    )
+                ),
             'occurrence_cap' => $total > $stats['shown']
                 ? array('shown' => $stats['shown'], 'total' => $total)
                 : null,
@@ -3418,6 +3433,14 @@ class ValueProfile extends AppModel
                 'galaxy' => empty($cluster['Galaxy']['name'])
                     ? $cluster['type']
                     : $cluster['Galaxy']['name'],
+                /*
+                 * What a profile's priority lists name this galaxy by,
+                 * which the display name above is not: the lists hold
+                 * `threat-actor` and the name reads *Threat Actor*.
+                 * Beside it rather than instead of it, because the
+                 * rail prints one and ranks by the other.
+                 */
+                'type' => $cluster['type'],
                 'tag_name' => $cluster['tag_name'],
             );
         }
@@ -7311,6 +7334,15 @@ class ValueProfile extends AppModel
             'tags' => $tags['plain'],
             'galaxy_by_event' => $tags['galaxy_by_event'],
             'clusters' => $clusters['by_tag'],
+            /*
+             * Resolved once for every claim on the tab rather than per
+             * card: `resolveFor()` memoises per request, so the cost is
+             * one statement, and a plan built here cannot differ
+             * between two claims on one page.
+             */
+            'plan' => ValueLabelPriority::planFor(
+                ClassRegistry::init('AnalystProfile')->resolveFor($user)
+            ),
         );
         foreach ($claims as $key => $claim) {
             $claims[$key]['target'] = $this->claimTarget(
@@ -7730,9 +7762,19 @@ class ValueProfile extends AppModel
                 ? (int)$row['distribution']
                 : null,
             'uuid' => isset($row['uuid']) ? $row['uuid'] : null,
-            'tags' => isset($lookups['tags'][$id])
-                ? $lookups['tags'][$id]
-                : array(),
+            /*
+             * Ordered by the reader's profile, item by item, because
+             * this card draws a chip per tag rather than a group per
+             * namespace (`04-label-surfaces.md` §1.3, D51). The key a
+             * profile lists a tag by is its namespace, which no Tag row
+             * carries, so it is stamped on the way past.
+             */
+            'tags' => self::claimLabels(
+                isset($lookups['tags'][$id])
+                    ? $lookups['tags'][$id]
+                    : array(),
+                isset($lookups['plan']) ? $lookups['plan'] : null
+            ),
             'clusters' => array(),
         );
         $facts['detail'] = array_filter($facts['detail'], 'strlen');
@@ -7756,9 +7798,52 @@ class ValueProfile extends AppModel
                 'galaxy' => empty($cluster['Galaxy']['name'])
                     ? $cluster['type']
                     : $cluster['Galaxy']['name'],
+                // The key a profile lists this galaxy by, which the
+                // display name beside it is not (`04-label-surfaces.md`
+                // §1.3).
+                'key' => $cluster['type'],
             );
         }
+        $facts['clusters'] = ValueLabelPriority::labels(
+            $facts['clusters'],
+            isset($lookups['plan']) ? $lookups['plan'] : null,
+            ValueLabelPriority::GALAXIES
+        );
         return $facts;
+    }
+
+    /**
+     * A claim card's tag chips, in the reader's order.
+     *
+     * The card draws one chip per tag, so this is `labels()` and not
+     * `order()` — D51's distinction. The namespace is stamped here
+     * because a `Tag` row does not carry one and the priority class
+     * takes the key from the caller.
+     *
+     * **No absence is drawn from it** (D54): a pinned taxonomy missing
+     * from the event at a claim's far end is a judgment about an event
+     * this page is citing rather than assessing, and the value's own
+     * context card is where a missing pin is reported.
+     *
+     * @param array $tags Flat `Tag` rows
+     * @param array|null $plan A plan, or null for today's order
+     * @return array
+     */
+    private static function claimLabels(array $tags, $plan)
+    {
+        if (empty($tags)) {
+            return $tags;
+        }
+        foreach ($tags as $at => $tag) {
+            $tags[$at]['key'] = ValueLabelPriority::namespaceOf(
+                isset($tag['name']) ? $tag['name'] : null
+            );
+        }
+        return ValueLabelPriority::labels(
+            $tags,
+            $plan,
+            ValueLabelPriority::TAXONOMIES
+        );
     }
 
     /**
