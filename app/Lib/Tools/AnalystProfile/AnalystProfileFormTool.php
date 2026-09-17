@@ -3,6 +3,7 @@
 App::uses('ValueSignalLoader', 'Tools/ValueProfile');
 App::uses('ValueExclusionTool', 'Tools/ValueProfile');
 App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
+App::uses('ValueRendererTool', 'Tools/ValueProfile');
 App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 App::uses('ValueTrustTool', 'Tools/ValueProfile');
 App::uses('ValueVerdictTool', 'Tools/ValueProfile');
@@ -2083,11 +2084,13 @@ class AnalystProfileFormTool
             'title' => __('Enrichment'),
             'blurb' => __(
                 'Which modules you would want asked about a value of'
-                . ' each type. Most of these arrive ticked and wait for'
-                . ' your press; one choice runs by itself, and only if'
-                . ' an administrator has allowed that here.'
+                . ' each type, and which of their answers you want'
+                . ' drawn first. Most modules arrive ticked and wait'
+                . ' for your press; one choice runs by itself, and only'
+                . ' if an administrator has allowed that here.'
             ),
             'blocks' => array(
+                $this->shapeOrderBlock($section),
                 array(
                     'kind' => 'map',
                     'id' => 'auto_run',
@@ -2234,6 +2237,134 @@ class AnalystProfileFormTool
                 ),
             ),
         );
+    }
+
+    /**
+     * The ranking of visualisations, as an ordered block.
+     *
+     * The one setting in this section that is about **reading** rather
+     * than about running: which of the answers already held get a
+     * widget on the Overview, and in what order. It is a ranking of
+     * *shapes* and never of modules, so the list stays about a dozen
+     * stable entries instead of tracking every module name in the
+     * build, and it survives a module being replaced by another that
+     * answers the same question.
+     *
+     * **Only shapes this instance can draw are offered**, because a
+     * ranking that names something no renderer here claims is a
+     * declaration that cannot resolve. A shape the *document* already
+     * names is drawn as a row whatever its standing — the same
+     * restraint the module rows make — with what is wrong with it
+     * stated on the row, so a profile written where a custom renderer
+     * is installed survives being opened where it is not.
+     *
+     * **Three standings, not two**, and the middle one is the useful
+     * one: a shape whose renderer is here but which nothing in the
+     * modules build emits yet can be ranked, will keep a slot, and
+     * will read *not asked* until somebody upstream moves. Saying that
+     * at declaration time is the whole reason the renderers carry a
+     * producer note.
+     *
+     * @param array $section The stored `enrichment` section
+     * @return array
+     */
+    private function shapeOrderBlock(array $section)
+    {
+        $catalogue = ValueRendererTool::catalogue();
+        $ranked = ValueEnrichmentTool::planFor(
+            array('enrichment' => $section)
+        );
+        $ranked = $ranked['shapes'];
+        $standing = ValueRendererTool::standingOf($ranked);
+        $entries = array();
+        foreach ($ranked as $shape) {
+            $entries[] = array(
+                'key' => $shape,
+                'label' => $this->shapeLabel($shape),
+                'description' => isset($catalogue[$shape])
+                    ? $catalogue[$shape]['description']
+                    : null,
+                'standing' => $standing[$shape],
+                'note' => $this->shapeNote($shape, $catalogue,
+                    $standing[$shape]),
+            );
+        }
+        $options = array();
+        foreach ($catalogue as $id => $shape) {
+            if (!in_array($id, $ranked, true)) {
+                $options[$id] = $this->shapeLabel($id);
+            }
+        }
+        asort($options);
+        return array(
+            'kind' => 'order',
+            'id' => 'shapes',
+            'title' => __('Which visualisations come first'),
+            'blurb' => __(
+                'The Overview draws up to five of these as widgets,'
+                . ' in this order, out of answers already held — it'
+                . ' runs nothing. Anything you rank keeps its place'
+                . ' even when no module has answered it yet, and the'
+                . ' slot says so; anything you leave off can still be'
+                . ' drawn, in the order this instance ships for each'
+                . ' attribute type. Rank nothing and that shipped order'
+                . ' is what applies.'
+            ),
+            'empty_label' => __('Nothing ranked — each attribute type'
+                . ' uses the order this instance ships'),
+            'cap' => ValueRendererTool::STRIP_MAX,
+            'cap_note' => __('Past the fifth, a ranking only matters'
+                . ' when something above it is not drawn.'),
+            'path' => array('enrichment', 'shapes'),
+            'entries' => $entries,
+            'add' => array(
+                'label' => __('Rank a visualisation'),
+                'search' => true,
+                'placeholder' => __('filter visualisations…'),
+                'options' => $options,
+            ),
+        );
+    }
+
+    /**
+     * A shape id as a heading.
+     *
+     * Derived rather than looked up, for the reason the strip derives
+     * it too: a table of seventeen labels is a second place for a
+     * shape's name to live, and the ids are already written to be read.
+     *
+     * @param string $shape
+     * @return string
+     */
+    private function shapeLabel($shape)
+    {
+        return ucfirst(str_replace('-', ' ', $shape));
+    }
+
+    /**
+     * What is wrong with a ranked shape, where something is.
+     *
+     * @param string $shape
+     * @param array $catalogue
+     * @param string $standing
+     * @return string|null
+     */
+    private function shapeNote($shape, array $catalogue, $standing)
+    {
+        if ($standing === 'unknown') {
+            return __('No renderer on this instance draws this shape.'
+                . ' It stays in your document and will draw again'
+                . ' wherever one is installed.');
+        }
+        if ($standing === 'no_producer') {
+            $note = isset($catalogue[$shape]['producer_note'])
+                ? $catalogue[$shape]['producer_note']
+                : null;
+            return $note === null
+                ? __('Nothing emits this shape yet.')
+                : $note;
+        }
+        return null;
     }
 
     /**
@@ -3945,6 +4076,60 @@ class AnalystProfileFormTool
         $merged = $this->transposeModules($merged, $posted);
         $merged = $this->transposeTiers($merged, $posted);
         $merged = $this->transposeAttribution($merged, $posted);
+        $merged = $this->reindexShapes($merged);
+        return $merged;
+    }
+
+    /**
+     * The shape ranking, written back as a list rather than as
+     * whatever the form's indices happened to be.
+     *
+     * The order block posts one input per row, named by its position,
+     * and the page renumbers them on every move — but a row removed
+     * without a renumber, or a browser that posts a sparse set for any
+     * other reason, gives keys like `0, 2, 3`. PHP keeps those as an
+     * associative array and `json_encode` writes `{"0":…}` where the
+     * document says a list. Nothing downstream breaks — the reading is
+     * tolerant — but the stored document would no longer be the shape
+     * it claims, and a document is read by hand as often as by code.
+     *
+     * Sorting by key first is what makes this a re-index rather than a
+     * reshuffle: the keys *are* the ranking.
+     *
+     * @param array $merged
+     * @return array
+     */
+    private function reindexShapes(array $merged)
+    {
+        if (!isset($merged['enrichment']['shapes'])
+            || !is_array($merged['enrichment']['shapes'])
+        ) {
+            return $merged;
+        }
+        $shapes = $merged['enrichment']['shapes'];
+        ksort($shapes, SORT_NUMERIC);
+        $out = array();
+        foreach ($shapes as $shape) {
+            if (!is_string($shape) && !is_numeric($shape)) {
+                continue;
+            }
+            $shape = trim((string)$shape);
+            if ($shape !== '' && !in_array($shape, $out, true)) {
+                $out[] = $shape;
+            }
+        }
+        /*
+         * An empty ranking is taken out rather than stored as `[]`,
+         * so that a profile which has never ranked anything and one
+         * that ranked something and then cleared it are the same
+         * document. The shipped default's neutrality is exactly this
+         * rule applied to every other section.
+         */
+        if (empty($out)) {
+            unset($merged['enrichment']['shapes']);
+            return $merged;
+        }
+        $merged['enrichment']['shapes'] = $out;
         return $merged;
     }
 

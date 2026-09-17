@@ -1494,6 +1494,147 @@ function boot() {
         }
     });
 
+    /*
+     * The ordered list, where the position is the setting.
+     *
+     * Everything here renumbers rather than rewrites: a row carries a
+     * hidden input whose *value* is the shape and whose *name* holds
+     * its position, so moving a row is swapping two list items and
+     * re-indexing. Nothing needs to know what a shape is.
+     */
+    document.querySelectorAll('[data-ap-order]').forEach(function (box) {
+        var list = box.querySelector('[data-ap-order-list]');
+        var empty = box.querySelector('[data-ap-order-empty]');
+        var capNote = box.querySelector('[data-ap-order-capnote]');
+        var pick = box.querySelector('[data-ap-order-pick]');
+        var prefix = box.getAttribute('data-ap-order-name');
+        var cap = parseInt(box.getAttribute('data-ap-order-cap'), 10) || 0;
+        if (!list) {
+            return;
+        }
+
+        function renumber() {
+            var rows = list.querySelectorAll('[data-ap-order-row]');
+            rows.forEach(function (row, i) {
+                var input = row.querySelector('[data-ap-order-input]');
+                var rank = row.querySelector('[data-ap-order-rank]');
+                if (input) {
+                    input.name = prefix + '[' + i + ']';
+                }
+                if (rank) {
+                    rank.textContent = i + 1;
+                }
+                /*
+                 * Past the cap a row is still a real declaration - it
+                 * simply only matters when something above it is not
+                 * drawn - so it is dimmed rather than refused. An
+                 * analyst with a reason to rank eight is spending
+                 * something, and the editor's job is to say what.
+                 */
+                row.classList.toggle('is-past-cap', cap > 0 && i >= cap);
+            });
+            if (empty) {
+                empty.hidden = rows.length > 0;
+            }
+            list.hidden = rows.length === 0;
+            if (capNote) {
+                capNote.hidden = !(cap > 0 && rows.length > cap);
+            }
+            mark();
+        }
+
+        list.addEventListener('click', function (event) {
+            var row = event.target.closest
+                ? event.target.closest('[data-ap-order-row]')
+                : null;
+            if (!row) {
+                return;
+            }
+            if (event.target.closest('[data-ap-order-up]')) {
+                var prev = row.previousElementSibling;
+                if (prev) {
+                    list.insertBefore(row, prev);
+                }
+            } else if (event.target.closest('[data-ap-order-down]')) {
+                var next = row.nextElementSibling;
+                if (next) {
+                    list.insertBefore(next, row);
+                }
+            } else if (event.target.closest('[data-ap-order-remove]')) {
+                var key = row.getAttribute('data-ap-key');
+                row.parentNode.removeChild(row);
+                /*
+                 * Back into the picker, so a row removed by mistake is
+                 * one choice away rather than a page reload away.
+                 */
+                if (pick && key) {
+                    var option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key
+                        .replace(/-/g, ' ')
+                        .replace(/^./, function (c) {
+                            return c.toUpperCase();
+                        });
+                    pick.appendChild(option);
+                }
+            } else {
+                return;
+            }
+            event.preventDefault();
+            renumber();
+        });
+
+        if (pick) {
+            pick.addEventListener('change', function () {
+                var key = pick.value;
+                if (!key) {
+                    return;
+                }
+                var row = document.createElement('li');
+                row.className = 'ap-order-row';
+                row.setAttribute('data-ap-order-row', '');
+                row.setAttribute('data-ap-key', key);
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.value = key;
+                input.setAttribute('data-ap-order-input', '');
+                var rank = document.createElement('span');
+                rank.className = 'ap-order-rank';
+                rank.setAttribute('data-ap-order-rank', '');
+                var bodyCell = document.createElement('span');
+                bodyCell.className = 'ap-order-body';
+                var title = document.createElement('span');
+                title.className = 'fw-semibold';
+                title.textContent = pick.options[pick.selectedIndex]
+                    .textContent;
+                bodyCell.appendChild(title);
+                var moves = document.createElement('span');
+                moves.className = 'ap-order-moves';
+                [['data-ap-order-up', '↑'],
+                    ['data-ap-order-down', '↓'],
+                    ['data-ap-order-remove', '×']
+                ].forEach(function (pair) {
+                    var button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'btn btn-sm btn-link';
+                    button.setAttribute(pair[0], '');
+                    button.textContent = pair[1];
+                    moves.appendChild(button);
+                });
+                row.appendChild(input);
+                row.appendChild(rank);
+                row.appendChild(bodyCell);
+                row.appendChild(moves);
+                list.appendChild(row);
+                pick.remove(pick.selectedIndex);
+                pick.value = '';
+                renumber();
+            });
+        }
+
+        renumber();
+    });
+
     window.analystProfileSave = function () {
         if (!form) {
             return;

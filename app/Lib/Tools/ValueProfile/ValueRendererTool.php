@@ -219,25 +219,35 @@ class ValueRendererTool
     /**
      * The five shapes that get a slot, in the order they are drawn.
      *
-     * **A shape the profile ranked keeps its slot whether or not this
-     * value has an answer for it**, and that asymmetry with the
-     * fallback is the whole of how a ranking differs from a default.
-     * A ranking is a request — *these are the answers I want to see* —
-     * so a gap in it is information, and the slot says *not asked*.
-     * Skipping it and closing the row up would report four answers to
-     * a reader who asked for five and got four, which is the one thing
-     * a summary must not do.
+     * **Three passes, and the order between them is the design.**
      *
-     * The shipped fallback is not a request but a sensible default, so
-     * it contributes only shapes that actually drew. Otherwise a stock
-     * instance that has simply never enriched anything would draw five
-     * *not asked* boxes on every value — a permanently empty first row
-     * on the Overview, which is exactly what this panel refuses to be.
+     * 1. Shapes the profile ranked that this value answered, in the
+     *    profile's order.
+     * 2. Shapes the profile ranked that it did not, in the profile's
+     *    order. These are the slots that read *not asked*.
+     * 3. Shapes the shipped fallback names that this value answered,
+     *    in the fallback's order.
      *
-     * **And nothing else gets promoted.** A drawn shape that neither
-     * the profile nor the fallback names stays a chip. The tempting
-     * extra rule — *and then anything else, newest first, so nothing
-     * is hidden* — reads as generosity and breaks the first rule the
+     * **A gap is information, but never more important than an
+     * answer.** That is what puts pass 2 after pass 1 rather than
+     * interleaved with it: a profile ranking six shapes where only the
+     * sixth has an answer would otherwise fill the row with five empty
+     * boxes and hide the one thing the value actually said. The eye
+     * goes left first and the row is five wide; an answer earns the
+     * left.
+     *
+     * **And the shipped fallback never draws a gap at all**, which is
+     * the whole of how a default differs from a request. A ranking
+     * says *these are the answers I want to see*, so its silence is
+     * worth reporting; the fallback is only a sensible order, and a
+     * stock instance that has never enriched anything would otherwise
+     * draw five *not asked* boxes on every value — the permanently
+     * empty first row this panel exists not to be.
+     *
+     * **Nothing else gets promoted.** A drawn shape that neither the
+     * profile nor the fallback names stays a chip. The tempting extra
+     * rule — *and then anything else, newest first, so nothing is
+     * hidden* — reads as generosity and breaks the first rule the
      * whole discovery mechanism rests on: dropping a renderer into a
      * directory would then change what every reader on the instance
      * sees, with nobody having chosen it. A custom shape reaches the
@@ -255,6 +265,11 @@ class ValueRendererTool
         $catalogue = self::catalogue();
         $out = array();
         foreach ($ranked as $id) {
+            if (isset($drawn[$id]) && !in_array($id, $out, true)) {
+                $out[] = $id;
+            }
+        }
+        foreach ($ranked as $id) {
             if (count($out) >= self::STRIP_MAX) {
                 break;
             }
@@ -262,16 +277,14 @@ class ValueRendererTool
              * A ranked shape this instance has no renderer for is
              * skipped rather than drawn empty. *Not asked* would be
              * untrue of it — nothing here could draw it however many
-             * modules answered — and the honest report of that
-             * belongs in the editor, at declaration time, rather than
-             * as a permanent box on every value page.
+             * modules answered — and the honest report of that belongs
+             * in the editor, at declaration time, rather than as a
+             * permanent box on every value page.
              */
-            if (!isset($drawn[$id]) && !isset($catalogue[$id])) {
+            if (!isset($catalogue[$id]) || in_array($id, $out, true)) {
                 continue;
             }
-            if (!in_array($id, $out, true)) {
-                $out[] = $id;
-            }
+            $out[] = $id;
         }
         foreach (self::fallbackFor($types) as $id) {
             if (count($out) >= self::STRIP_MAX) {
@@ -281,7 +294,7 @@ class ValueRendererTool
                 $out[] = $id;
             }
         }
-        return $out;
+        return array_slice($out, 0, self::STRIP_MAX);
     }
 
     /**

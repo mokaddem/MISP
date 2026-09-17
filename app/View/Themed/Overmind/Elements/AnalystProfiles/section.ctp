@@ -2,7 +2,7 @@
 /**
  * One section of the document: its blurb, then its blocks.
  *
- * Four block kinds and no section-specific form code — the view-model
+ * Five block kinds and no section-specific form code — the view-model
  * already decided what each section is made of, and a template that
  * knew better would be a second opinion about the same document.
  *
@@ -116,6 +116,11 @@ foreach ($section['blocks'] as $block) {
                 )) ?>
                 </div>
             <?php endif; ?>
+        <?php elseif ($block['kind'] === 'order'): ?>
+            <?= $this->element('AnalystProfiles/block_order', array(
+                'block' => $block,
+                'editable' => $editable,
+            )) ?>
         <?php elseif ($block['kind'] === 'strip'): ?>
             <?= $this->element('AnalystProfiles/block_strip', array(
                 'strip' => $block,
