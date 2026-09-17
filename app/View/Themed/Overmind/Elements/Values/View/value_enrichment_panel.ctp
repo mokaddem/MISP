@@ -153,6 +153,20 @@ $onPanel = count($rows) + count($failures);
      data-vp-eb-silent="<?= h(__('%s had nothing to say')) ?>"
      data-vp-eb-sub="<?= h($subFmt) ?>"
      data-vp-eb-url="<?= h($baseurl . '/values/viewEnrichmentBadge/'
+        . $valueB64) ?>"
+     <?php
+     /*
+      * Where the strip is redrawn from once the modules that fired on
+      * arrival have all landed. The panel's own endpoint rather than a
+      * second one written to say the same thing: a widget is built
+      * from every answer the store holds, so the only honest way to
+      * redraw one is to ask the thing that reads the store. Only the
+      * strip is taken out of what comes back — the rows below it have
+      * already been updated one at a time, and replacing them would
+      * undo that.
+      */
+     ?>
+     data-vp-eb-panel="<?= h($baseurl . '/values/viewEnrichmentPanel/'
         . $valueB64) ?>">
 
     <?= $this->element('Values/View/value_panel_header', array(
@@ -176,6 +190,14 @@ $onPanel = count($rows) + count($failures);
         'strip' => $panel['strip'],
         'valueB64' => $valueB64,
         'baseurl' => $baseurl,
+        /*
+         * How many modules are still answering. Only ever non-zero on
+         * a profile that marked something `auto` under an open gate,
+         * which is the one case where what this row says is not final
+         * on load — and a number that moves without saying why is
+         * worse than one that took a moment.
+         */
+        'pending' => count($panel['fire']),
     )) ?>
 
     <div class="vp-eb-body">
@@ -220,4 +242,26 @@ $onPanel = count($rows) + count($failures);
             <span class="vp-eb-failed"><?= h($failureLine($entry)) ?></span>
         <?php endforeach; ?>
     </div>
+
+    <?php if (!empty($panel['gate_note'])): ?>
+        <?php
+        /*
+         * The instance's own policy, stated once and kept out of the
+         * line above it: that one collects modules that could not
+         * answer, and this is not about a module at all — it is about
+         * what this instance permits, and a reader acts on it by
+         * talking to an administrator rather than by pressing
+         * anything.
+         *
+         * It says nothing about what this instance holds. The reason
+         * the gate exists is worth remembering here: asking a third
+         * party about an attacker's domain tells that third party, and
+         * sometimes the attacker, that somebody is looking.
+         */
+        ?>
+        <div class="vp-eb-policy">
+            <i class="fas fa-hand" aria-hidden="true"></i>
+            <?= h($panel['gate_note']) ?>
+        </div>
+    <?php endif; ?>
 </div>

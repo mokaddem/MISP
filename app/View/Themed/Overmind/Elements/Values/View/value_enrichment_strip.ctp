@@ -26,11 +26,19 @@
  * The Enrichment tab is where every module has its own control, so the
  * slot points there rather than guessing.
  *
+ * **On a profile that marks nothing `auto`, this row is final on
+ * load**, like everything else the Overview draws. Where some modules
+ * are still answering it says so and how many, and redraws itself once
+ * they have landed — because a widget that changed silently would be a
+ * page arguing with what a reader had already read.
+ *
  * @var array $strip From the panel's `strip`
  * @var string $valueB64
  * @var string $baseurl
+ * @var int $pending Modules still answering
  */
-if (empty($strip['slots'])) {
+$pending = isset($pending) ? (int)$pending : 0;
+if (empty($strip['slots']) && $pending < 1) {
     return;
 }
 
@@ -87,4 +95,32 @@ $label = function ($shape) {
             <?php endif; ?>
         </div>
     <?php endforeach; ?>
+
+    <?php if ($pending > 0): ?>
+        <?php
+        /*
+         * A cell rather than a line above the row, so the reader can
+         * see that the row is not the whole of it without the row
+         * jumping when the answers land: this is the space they will
+         * arrive in.
+         */
+        ?>
+        <div class="vp-eb-cell vp-eb-cell-wait" data-vp-eb-waiting>
+            <div class="vp-eb-cell-head">
+                <span class="vp-eb-cell-name"><?=
+                    h(__('asking')) ?></span>
+            </div>
+            <div class="vp-eb-cell-none">
+                <span class="vp-eb-cell-none-w">
+                    <i class="fas fa-circle-notch fa-spin"
+                       aria-hidden="true"></i>
+                    <?= h(sprintf(
+                        __n('%s module is still answering',
+                            '%s modules are still answering', $pending),
+                        $pending
+                    )) ?>
+                </span>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>

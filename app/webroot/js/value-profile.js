@@ -5107,9 +5107,69 @@
             return enrichBadgeAsk(panel, one.module, one.type)
                 .then(next);
         };
+        var running = [];
         for (var i = 0; i < lanes; i++) {
-            next();
+            running.push(next());
         }
+        /*
+         * Once, when they have all landed, and never per answer. A
+         * widget is built from every answer the store holds, so
+         * redrawing it after each one would be N requests to draw the
+         * same row N times, each of them already out of date.
+         */
+        Promise.all(running).then(function () {
+            enrichStripRedraw(panel);
+        });
+    }
+
+    /**
+     * Redraw the strip from the store, now that the modules that fired
+     * on arrival have answered.
+     *
+     * **The panel's own endpoint, and only the strip taken out of it.**
+     * The rows below have been updated one at a time as each answer
+     * landed, and replacing them with a second render would undo that
+     * — and would move a reader's eye for no gain, because they have
+     * already seen those change.
+     *
+     * A failure is silence: the row on the page is what the store held
+     * when it was drawn, which is true and merely older than it could
+     * be. Blanking it because a second request failed would replace an
+     * honest row with nothing.
+     *
+     * @param {Element} panel
+     */
+    function enrichStripRedraw(panel) {
+        var url = panel.dataset.vpEbPanel;
+        var strip = panel.querySelector('[data-vp-eb-strip]');
+        if (!url || !strip) {
+            return;
+        }
+        fetch(url, {
+            credentials: 'same-origin',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(function (response) {
+            return response.ok ? response.text() : null;
+        }).then(function (html) {
+            if (html === null) {
+                return;
+            }
+            var frame = document.createElement('div');
+            frame.innerHTML = html;
+            var fresh = frame.querySelector('[data-vp-eb-strip]');
+            if (fresh) {
+                strip.replaceWith(fresh);
+            } else {
+                /*
+                 * Nothing drawable came back, which is a real outcome:
+                 * every module that fired answered with something no
+                 * renderer claims. The waiting cell must not be left
+                 * spinning over it.
+                 */
+                strip.remove();
+            }
+        }).catch(function () {
+        });
     }
 
     /**

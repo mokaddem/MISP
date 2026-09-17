@@ -11800,8 +11800,13 @@ a.vp-lane-tag:focus-visible {
     white-space: pre-wrap;
 }
 
+/* Capped rather than full width: the plot has a fixed 2:1 aspect, so
+   a pane-wide box leaves it stranded in the middle of its own
+   whitespace with the table underneath starting at the left edge. */
 .vp-rf-plot {
+    display: block;
     width: 100%;
+    max-width: 420px;
     max-height: 200px;
     margin-bottom: 10px;
 }
@@ -11939,4 +11944,76 @@ a.vp-lane-tag:focus-visible {
 
 .vp-eb-cell-run {
     font-size: 0.65rem;
+}
+
+/* The instance's auto-run policy, where this reader's profile ran into
+   it. Kept out of the failure line above: that one collects modules
+   that could not answer, and this is not about a module - it is about
+   what the instance permits, and a reader acts on it by talking to an
+   administrator rather than by pressing anything. */
+.vp-eb-policy {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 6px 20px 8px;
+    border-top: 1px solid var(--bs-border-color);
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+    line-height: 1.5;
+}
+
+.vp-eb-policy > i {
+    padding-top: 2px;
+    opacity: 0.7;
+}
+
+/* ------------------------------------------------------------------
+ * The shape's full rendering on the Enrichment pane
+ * ------------------------------------------------------------------
+ * Above the object table and never instead of it. The heading is the
+ * seam: without one the widget reads as part of the answer's chrome,
+ * and a reader who wants to check it against the rows underneath has
+ * no way to tell where the drawing stops and the data starts.
+ * ------------------------------------------------------------------ */
+
+.vp-e-shape {
+    margin: 10px 0 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--vp-e-accent, #6f5fb5) 3%,
+        var(--bs-body-bg));
+}
+
+.vp-e-shape-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.vp-e-shape-name {
+    color: var(--bs-secondary-color);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.vp-e-shape-sub {
+    color: var(--bs-secondary-color);
+    font-size: 0.72rem;
+}
+
+/* The space the answers still in flight will arrive in. A cell rather
+   than a line above the row, so the reader sees that the row is not
+   the whole of it and the row does not jump when they land. */
+.vp-eb-cell-wait {
+    border-style: dashed;
+    background: transparent;
+}
+
+.vp-eb-cell-wait .vp-eb-cell-none-w {
+    font-style: normal;
 }

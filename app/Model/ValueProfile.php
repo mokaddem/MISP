@@ -14615,7 +14615,54 @@ class ValueProfile extends AppModel
                 $catalogue['profile'],
                 $catalogue['types']
             ),
+            /*
+             * The one policy a reader of *this* panel is owed, and only
+             * where it applies to them. An empty band and a forbidden
+             * band look identical, and only one of them is a fact
+             * about the value — so where the profile asked for
+             * something to run on its own and the instance does not
+             * allow that, the panel says so once rather than leaving
+             * slots that look like answers nobody found.
+             *
+             * Taken from the resolved conditions rather than worded
+             * here: the Enrichment tab already states this in a
+             * sentence, and a second phrasing of one policy is two
+             * places for it to drift.
+             */
+            'gate_note' => $this->enrichmentGateNote($catalogue),
         );
+    }
+
+    /**
+     * The instance's auto-run policy, where the profile ran into it.
+     *
+     * Null on every instance that has not turned auto-run on **and**
+     * every profile that never asked for it, which between them is
+     * nearly all of them: a note stating a policy nobody has met is
+     * the permanently-present sentence that makes readers stop reading
+     * notes.
+     *
+     * @param array $catalogue
+     * @return string|null
+     */
+    private function enrichmentGateNote(array $catalogue)
+    {
+        $conditions = isset($catalogue['profile']['conditions'])
+            && is_array($catalogue['profile']['conditions'])
+            ? $catalogue['profile']['conditions']
+            : array();
+        $wanted = array(
+            ValueEnrichmentTool::C_STATE_AUTO_DISABLED,
+            ValueEnrichmentTool::C_STATE_AUTO_SITE_ADMIN,
+        );
+        foreach ($conditions as $condition) {
+            if (isset($condition['id'])
+                && in_array($condition['id'], $wanted, true)
+            ) {
+                return $condition['note'];
+            }
+        }
+        return null;
     }
 
     /**

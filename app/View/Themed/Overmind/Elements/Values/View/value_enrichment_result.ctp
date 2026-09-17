@@ -38,6 +38,8 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueRendererTool', 'Tools/ValueProfile');
+
 $run = $valueProfile['run'];
 $state = $run['state'];
 
@@ -451,6 +453,46 @@ $manyObjects = count($run['objects']) > 1;
             </div>
         </div>
     <?php endif; ?>
+
+    <?php
+    /*
+     * The shape's full rendering, **above** the returned data and
+     * never instead of it.
+     *
+     * A visualisation that hid the rows it was drawn from would be one
+     * an analyst cannot check, and checking it is the whole reason the
+     * table below kept its cap, its stated total and its *already in
+     * MISP* marks. What this adds is the reading: a hundred
+     * `passive-dns` objects are a history, and a table of them is a
+     * hundred rows.
+     *
+     * Drawn from this module's answer alone, unlike the Overview's
+     * strip, which merges every module that answered the same
+     * question. The pane is a module's own pane and a widget here
+     * carrying somebody else's data would be answering a question the
+     * rail did not ask.
+     */
+    $drawn = $state === 'ok'
+        ? ValueRendererTool::drawFor(array($run))
+        : array();
+    ?>
+    <?php foreach ($drawn as $shape): ?>
+        <?php if ($shape['full'] === null) {
+            continue;
+        } ?>
+        <div class="vp-e-shape" data-vp-e-shape="<?= h($shape['shape']) ?>">
+            <div class="vp-e-shape-head">
+                <span class="vp-e-shape-name"><?= h(ucfirst(
+                    str_replace('-', ' ', $shape['shape'])
+                )) ?></span>
+                <span class="vp-e-shape-sub"><?=
+                    h($shape['description']) ?></span>
+            </div>
+            <?= $this->element($shape['full'], array(
+                'data' => $shape['data'],
+            )) ?>
+        </div>
+    <?php endforeach; ?>
 
     <?php if ($showFilter): ?>
         <?php
