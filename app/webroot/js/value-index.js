@@ -943,6 +943,7 @@
         var verb = form.querySelector('[data-vi-verb]');
         var out = document.querySelector('[data-vi-out]');
         var wipe = form.querySelector('[data-vi-clear]');
+        var mode = form.querySelector('[data-vi-extract]');
         var blank = document.querySelector('[data-vi-invite]');
         var cap = counter
             ? parseInt(counter.getAttribute('data-vi-cap'), 10) || 100
@@ -965,7 +966,13 @@
          */
         function dirty() {
             return box.value !== ''
+                || (mode && mode.checked)
                 || !!(out && !out.querySelector('.vi-invite'));
+        }
+
+        /* Whether the reader asked for the paste to be read as text. */
+        function extracting() {
+            return !!(mode && mode.checked);
         }
 
         /*
@@ -1010,6 +1017,14 @@
                 work = null;
             }
             box.value = '';
+            /*
+             * The mode goes with the paste it was about. Nothing
+             * remembers it between pastes by design, so a page put
+             * back to how it arrived is a page with it off.
+             */
+            if (mode) {
+                mode.checked = false;
+            }
             if (out && blank && blank.content) {
                 out.innerHTML = '';
                 out.appendChild(blank.content.cloneNode(true));
@@ -1028,7 +1043,19 @@
          */
         function say() {
             n = countValues(box.value);
+            /*
+             * **The counter goes when the mode comes on.** It counts
+             * fields, and an extraction's answer is however many
+             * indicators are buried in them — a number no parser in
+             * this file can produce, since the one that can is
+             * `ComplexTypeTool` on the server. A count that cannot be
+             * right must not be shown at all: V19 tolerates it being
+             * one out against a cap, not it being forty out against
+             * the answer.
+             */
+            var finding = extracting();
             if (counter) {
+                counter.hidden = finding;
                 counter.innerHTML = '';
                 var strong = document.createElement('b');
                 strong.textContent = String(n);
@@ -1036,13 +1063,18 @@
                 counter.appendChild(
                     document.createTextNode('/' + cap)
                 );
-                counter.classList.toggle('is-over', n > cap);
+                counter.classList.toggle('is-over',
+                    !finding && n > cap);
             }
             if (verb) {
-                verb.textContent = n > 1
-                    ? verb.getAttribute('data-vi-many')
-                        .replace('%d', String(n))
-                    : verb.getAttribute('data-vi-one');
+                if (finding) {
+                    verb.textContent = verb.getAttribute('data-vi-find');
+                } else {
+                    verb.textContent = n > 1
+                        ? verb.getAttribute('data-vi-many')
+                            .replace('%d', String(n))
+                        : verb.getAttribute('data-vi-one');
+                }
             }
             go.disabled = busy || box.value.trim() === '';
             if (wipe) {
@@ -1127,7 +1159,18 @@
          * road.
          */
         form.addEventListener('submit', function (event) {
-            if (busy || n < 2 || !out || !window.fetch) {
+            /*
+             * **An extraction always goes to `triage`**, however few
+             * lines it started from, because its answer is a list —
+             * even a list of one, which is an answer about the
+             * reader's report and not just about a value. `resolve()`
+             * routes the same way for the same reason, so the two
+             * roads cannot disagree.
+             */
+            var listish = extracting()
+                ? box.value.trim() !== ''
+                : n >= 2;
+            if (busy || !listish || !out || !window.fetch) {
                 return;
             }
             event.preventDefault();
@@ -1158,6 +1201,9 @@
         });
 
         box.addEventListener('input', say);
+        if (mode) {
+            mode.addEventListener('change', say);
+        }
         say();
         /*
          * A worklist that came with the page rather than through the

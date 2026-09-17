@@ -381,6 +381,38 @@
     color: var(--bs-secondary-color);
 }
 
+/*
+ * The one question about the paste, under the paste. It is small and
+ * quiet because it is a qualifier on the box rather than a second
+ * control competing with it — and it is a `<label>` so the whole line,
+ * not a 13px square, is the target.
+ */
+.vi-mode {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 7px 0 1px;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.vi-mode input[type="checkbox"] {
+    flex: 0 0 auto;
+    margin: 0;
+    cursor: pointer;
+}
+
+.vi-mode__say {
+    color: var(--bs-body-color);
+    font-weight: 500;
+}
+
+.vi-mode__why {
+    color: var(--bs-secondary-color);
+}
+
 .vi-prompt__side {
     flex: 0 0 auto;
     display: flex;
@@ -731,6 +763,56 @@
     gap: 9px;
     align-items: center;
     margin: 0 0 11px;
+}
+
+/*
+ * The mode's way back, which reads as one line with the comma offer
+ * above it: a note saying what happened and a button offering the
+ * other reading. The form inside contributes no box of its own — the
+ * row is the layout and the form is only what makes the button work
+ * without a script.
+ */
+.vi-reread {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-items: center;
+    margin: 0 0 11px;
+}
+
+.vi-reread__form {
+    display: contents;
+    margin: 0;
+}
+
+/*
+ * What the extraction could not read. It is a caution and it carries
+ * **no hue**: colour on these pages means an assessment
+ * (`value-palette.css`), and a value this page failed to ask about is
+ * not a malicious one. Weight and the page's own ink say it instead.
+ */
+.vi-unread {
+    margin: 0 0 9px;
+    max-width: 78ch;
+    color: var(--bs-secondary-color);
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.vi-unread b {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.vi-unread code {
+    padding: 1px 4px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.95em;
+    word-break: break-all;
 }
 
 /*

@@ -13,13 +13,22 @@ App::uses('ComplexTypeTool', 'Tools');
  * has been told the page is unreliable rather than that their input was
  * odd. So both go through this file. `value-index.md` §3, V4.
  *
- * Two functions, and the difference between them is the whole design:
+ * Three functions, and the difference between them is the whole
+ * design:
  *
  *   normalise()      one string in, one value out. Splits nothing.
  *   normaliseMany()  a paste in, a list of values out. Splits.
+ *   extractMany()    a paste in, the values *inside* it out.
  *
  * `normalise()` splitting nothing is what makes a value containing a
  * separator reachable at all — see the comma rule below.
+ *
+ * `extractMany()` is the reader's choice per paste and never a
+ * default: it finds indicators in prose that the other two bury, and
+ * it cannot type about half of what a MISP instance holds. It is here
+ * rather than in the controller for the reason the other two are —
+ * one parsing tool, so no two ways in can disagree about what a value
+ * is (V4).
  *
  * **Nothing here is altered silently.** Both functions report every
  * transformation they applied, because the page renders the reader's
@@ -69,6 +78,18 @@ class ValueInputTool
 
     /** One line; commas separate the values on it. */
     const BY_COMMAS = 'commas';
+
+    /**
+     * Every field the reader sent is a value. The page's default, and
+     * the reading `normaliseMany()` makes.
+     */
+    const MODE_LINES = 'lines';
+
+    /**
+     * The paste is text, and the values are inside it. The reading
+     * `extractMany()` makes, asked for by the reader per paste.
+     */
+    const MODE_EXTRACT = 'extract';
 
     /**
      * Quote pairs stripped when they wrap the whole value.
@@ -213,6 +234,7 @@ class ValueInputTool
         }
 
         $report = array(
+            'mode' => self::MODE_LINES,
             'lines' => count($lines),
             'fields' => count($fields),
             'separator' => $separator,
@@ -222,6 +244,9 @@ class ValueInputTool
             self::REFANGED => 0,
             'composites' => 0,
             'duplicates' => 0,
+            'wordy' => 0,
+            'unread' => 0,
+            'unread_example' => null,
             'total' => 0,
             'returned' => 0,
             'cap' => $cap,
@@ -282,8 +307,224 @@ class ValueInputTool
             $values = array_slice($values, 0, $cap);
         }
         $report['returned'] = count($values);
+        $report['wordy'] = self::countWordy($values);
 
         return array('values' => $values, 'report' => $report);
+    }
+
+    /**
+     * The same paste, read as text with the values inside it.
+     *
+     * `normaliseMany()` treats every field the reader sent as a value,
+     * which is right for an IOC list and wrong for a report: a
+     * paragraph becomes a row per sentence, each answering *not
+     * recorded*. Worse than useless, in fact — `REFANG_EXTRA` turns
+     * *URLs at the proxy* into `URLs@the proxy`, and a literal
+     * `` `domain|ip` `` in the prose splits into two rows. This reads
+     * the paste the other way: `ComplexTypeTool::checkFreeText()`, the
+     * engine behind freetext import, finds the indicators and
+     * everything around them is left alone.
+     *
+     * **It is the reader's choice per paste and never a default**
+     * (`value-index.md` §11, V20). Measured against 2,114 values out
+     * of a real instance, the extractor hands back 51.7% of them: 51
+     * of 126 type-and-slot combinations lose every value — `AS`,
+     * `cpe`, `user-agent`, `tlsh`, `yara`, `snort`, `mutex`, `port`,
+     * `datetime`, every `target-*`, the whole person family. So this
+     * function's job is not only to extract but to **count what it
+     * could not read**, in `unread`, because a box that silently stops
+     * answering for a `mutex` is the one failure this page's rules
+     * forbid.
+     *
+     * **Still pure, and still takes no `$user`**
+     * (`value-profile-live/00-contract.md` §14.5). `ComplexTypeTool`
+     * accepts a TLD list and a security-vendor domain list, and
+     * `EventsController::freeTextImport()` reads both off
+     * `Warninglist`. Neither is passed here, because neither changes
+     * *which strings survive* — only the `default_type` attached to
+     * them, which this page never reads. Verified over the same 2,114
+     * values: with a TLD list and without, the extracted set is
+     * identical for every one of them.
+     *
+     * The composites are the one thing that must be undone. The
+     * extractor returns `filename|md5` whole and even invents a
+     * composite — `1.2.3.4:443` comes back as `1.2.3.4|443` — and no
+     * column holds a pair (§1.1, V16), so every hit goes through the
+     * same `splitComposite()` the line reading uses.
+     *
+     * @param string|null $raw
+     * @param int|null $cap Values returned at most; null or <1 for none
+     * @return array{values: array<string>, report: array}
+     */
+    public static function extractMany($raw, $cap = self::CAP)
+    {
+        $raw = (string)$raw;
+        $lines = preg_split('/\R/u', $raw);
+        if ($lines === false) {
+            $lines = preg_split('/\R/', $raw);
+        }
+        $lines = self::cleanFields($lines === false ? array() : $lines);
+
+        App::uses('ComplexTypeTool', 'Tools');
+        $tool = new ComplexTypeTool();
+        $hits = $tool->checkFreeText($raw);
+
+        $report = array(
+            'mode' => self::MODE_EXTRACT,
+            'lines' => count($lines),
+            'fields' => count($hits),
+            'separator' => self::BY_LINES,
+            'candidates' => count($hits),
+            'empty' => 0,
+            'commas_kept' => 0,
+            self::UNQUOTED => 0,
+            self::REFANGED => 0,
+            'composites' => 0,
+            'duplicates' => 0,
+            'wordy' => 0,
+            'unread' => 0,
+            'unread_example' => null,
+            'total' => 0,
+            'returned' => 0,
+            'cap' => $cap,
+            'overflow' => 0,
+        );
+
+        $produced = array();
+        foreach ($hits as $hit) {
+            /*
+             * `original_value` is the token as it stood in the text,
+             * before the extractor refanged it — so *what was done to
+             * get here* is read off the same comparison the line
+             * reading makes, and the two cannot spell it differently.
+             */
+            $original = isset($hit['original_value'])
+                ? (string)$hit['original_value']
+                : (string)$hit['value'];
+            $changed = self::refang($original) === $original
+                ? array()
+                : array(self::REFANGED);
+            $parts = self::splitComposite((string)$hit['value']);
+            if (count($parts) > 1) {
+                $report['composites']++;
+            }
+            foreach ($parts as $part) {
+                $produced[] = array(
+                    'value' => $part['value'],
+                    'changed' => array_values(array_unique(
+                        array_merge($changed, $part['changed'])
+                    )),
+                );
+            }
+        }
+
+        $seen = array();
+        $values = array();
+        foreach ($produced as $item) {
+            if ($item['value'] === '') {
+                continue;
+            }
+            if (isset($seen[$item['value']])) {
+                $report['duplicates']++;
+                continue;
+            }
+            $seen[$item['value']] = true;
+            $values[] = $item['value'];
+            foreach ($item['changed'] as $token) {
+                $report[$token]++;
+            }
+        }
+
+        $report['total'] = count($values);
+        if ($cap !== null && $cap > 0 && count($values) > $cap) {
+            $report['overflow'] = count($values) - $cap;
+            $values = array_slice($values, 0, $cap);
+        }
+        $report['returned'] = count($values);
+        $report['wordy'] = self::countWordy($values);
+
+        $unread = self::unreadLines($lines, $values);
+        $report['unread'] = count($unread);
+        $report['unread_example'] = isset($unread[0]) ? $unread[0] : null;
+
+        return array('values' => $values, 'report' => $report);
+    }
+
+    /**
+     * Values that contain whitespace, which is the page's tell that a
+     * paste was prose rather than a list.
+     *
+     * A `text` attribute legitimately holds a sentence, so this
+     * proves nothing on its own — it is what the worklist uses to
+     * decide whether to *offer* the other reading, never to take it.
+     *
+     * @param array<string> $values
+     * @return int
+     */
+    private static function countWordy(array $values)
+    {
+        $wordy = 0;
+        foreach ($values as $value) {
+            if (preg_match('/\s/u', $value) || preg_match('/\s/', $value)) {
+                $wordy++;
+            }
+        }
+        return $wordy;
+    }
+
+    /**
+     * Lines the reader plainly meant as values, that the extractor
+     * gave nothing for.
+     *
+     * **This is the count the whole mode turns on.** The extractor
+     * types about half of what a MISP instance holds and says nothing
+     * about the rest; a reader who pastes a `mutex` among their hashes
+     * would otherwise watch it vanish with no way to tell that from
+     * *nobody recorded it*. So the page counts the lines it could not
+     * read and offers them back.
+     *
+     * A line qualifies only if it looks like somebody meant it as one
+     * value: no whitespace in it, at least one alphanumeric character,
+     * and at least three characters long. That is what keeps a
+     * markdown fence, a `---` rule and a `#` heading out of the count
+     * — they are punctuation the reader never meant as a value, and a
+     * caution that named them would be noise standing exactly where
+     * the real warning has to be believed.
+     *
+     * A line *carries* a value when the value occurs inside it once
+     * refanged, which is what makes `1.2.3.4:443` and
+     * `invoice.doc|<md5>` count as read: both give their halves.
+     *
+     * @param array<string> $lines Cleaned lines of the paste
+     * @param array<string> $values The values being returned
+     * @return array<string> The unread lines, in the order pasted
+     */
+    private static function unreadLines(array $lines, array $values)
+    {
+        $unread = array();
+        foreach ($lines as $line) {
+            if (strlen($line) < 3) {
+                continue;
+            }
+            if (preg_match('/\s/u', $line) || preg_match('/\s/', $line)) {
+                continue;
+            }
+            if (!preg_match('/[a-z0-9]/i', $line)) {
+                continue;
+            }
+            $refanged = self::refang($line);
+            $carried = false;
+            foreach ($values as $value) {
+                if ($value !== '' && strpos($refanged, $value) !== false) {
+                    $carried = true;
+                    break;
+                }
+            }
+            if (!$carried) {
+                $unread[] = $line;
+            }
+        }
+        return $unread;
     }
 
     /**
