@@ -164,6 +164,20 @@ $onPanel = count($rows) + count($failures);
             . '</span>',
     )) ?>
 
+    <?php
+    /*
+     * The widgets, above the rows that summarise the same answers as
+     * chips. Both, and not one instead of the other: the strip shows
+     * five shapes and a value can carry eight answers, so the rows are
+     * what says the other three exist.
+     */
+    ?>
+    <?= $this->element('Values/View/value_enrichment_strip', array(
+        'strip' => $panel['strip'],
+        'valueB64' => $valueB64,
+        'baseurl' => $baseurl,
+    )) ?>
+
     <div class="vp-eb-body">
         <?php foreach ($rows as $entry): ?>
             <div class="vp-eb-row"

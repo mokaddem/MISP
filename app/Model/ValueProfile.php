@@ -8,6 +8,8 @@ App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools/ValueProfile');
 App::uses('ValueTrustTool', 'Tools/ValueProfile');
 App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
+App::uses('ValueRendererTool', 'Tools/ValueProfile');
+App::uses('ValueSignalLoader', 'Tools/ValueProfile');
 App::uses('ValueEnrichmentRun', 'Model');
 App::uses('ValueVerdictTool', 'Tools/ValueProfile');
 App::uses('ValueSummaryTool', 'Tools/ValueProfile');
@@ -14492,6 +14494,14 @@ class ValueProfile extends AppModel
         $store = $this->model('ValueEnrichmentRun');
 
         $entries = array();
+        /*
+         * The same unpacked runs the chips are built from, kept so the
+         * widgets can be built from them too. One read of the store
+         * answers both questions — *what is the headline* and *what
+         * shape is this* — and a second pass would be a second set of
+         * inflates over the same blobs.
+         */
+        $runs = array();
         foreach ($catalogue['modules'] as $row) {
             if (empty($row['stored']) || empty($row['stored']['held'])) {
                 continue;
@@ -14505,6 +14515,17 @@ class ValueProfile extends AppModel
             $shaped = $held === null
                 ? null
                 : ValueEnrichmentRun::unpack($held);
+            if ($shaped !== null) {
+                /*
+                 * `pack()` drops the two fields that are about *now*
+                 * rather than about then, so the stamp is put back
+                 * from the row that carried it — which is what lets a
+                 * re-run visibly take a slot from the answer it
+                 * replaced.
+                 */
+                $shaped['ran_at'] = (int)$held['last_run'];
+                $runs[] = $shaped;
+            }
             $entries[$row['name']] = array(
                 'module' => $row['name'],
                 'type' => $row['stored']['type'],
@@ -14589,7 +14610,71 @@ class ValueProfile extends AppModel
             'modules' => $modules,
             'fire' => $fire,
             'max_age_hours' => $catalogue['profile']['max_age_hours'],
+            'strip' => $this->enrichmentStrip(
+                $runs,
+                $catalogue['profile'],
+                $catalogue['types']
+            ),
         );
+    }
+
+    /**
+     * The promoted widgets, in the order they are drawn.
+     *
+     * One row above the module rows, and the geometry is the whole
+     * decision: five widgets at roughly 190px sit inside the same
+     * ~180px this panel was already measured and accepted at, where a
+     * stack of five would be 500–1000px and would make enrichment the
+     * tallest thing on the Overview — which is not what an overview
+     * is.
+     *
+     * **One widget per shape.** Where three modules all returned a
+     * geolocation, the renderers merge them and the strip shows one
+     * map; the rest of what those modules said is still on the rows
+     * below as chips. Five *different* visual answers, never three
+     * maps.
+     *
+     * Everything about which five is `ValueRendererTool`'s: the
+     * profile's ranking first — answered or not — then the shipped
+     * per-type order for what actually drew, and nothing that neither
+     * names. This method's own job is only to carry the drawings
+     * across to a template with the two facts a reader needs beside
+     * each: which modules answered, and when.
+     *
+     * **A slot is returned for a ranked shape with no answer**, with
+     * `widget` null. Closing the row up would report four answers to a
+     * reader who asked for five and got four.
+     *
+     * @param array $runs Unpacked runs carrying `ran_at`
+     * @param array $profile The resolved declaration
+     * @param array $types `typesFor` output
+     * @return array
+     */
+    private function enrichmentStrip(array $runs, array $profile,
+        array $types
+    ) {
+        $ranked = isset($profile['shapes']) ? $profile['shapes'] : array();
+        /*
+         * A value with nothing stored still has slots to draw where a
+         * profile ranked something — the gap is the point — so the
+         * early return is only for the case where nobody asked for
+         * anything either.
+         */
+        if (empty($runs) && empty($ranked)) {
+            return array('slots' => array());
+        }
+        $drawn = ValueRendererTool::drawFor($runs);
+        $promoted = ValueRendererTool::promote($drawn, $ranked, $types);
+        $slots = array();
+        foreach ($promoted as $shape) {
+            $slots[] = array(
+                'shape' => $shape,
+                'widget' => isset($drawn[$shape])
+                    ? $drawn[$shape]
+                    : null,
+            );
+        }
+        return array('slots' => $slots);
     }
 
     /**

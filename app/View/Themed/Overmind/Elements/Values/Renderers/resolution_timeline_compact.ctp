@@ -32,11 +32,24 @@ $max = empty($months) ? 0 : max($months);
         $width = 180;
         $height = 44;
         $step = $width / max(1, count($months) - 1);
+        $min = min($months);
         $x = 0;
         $line = array();
         foreach ($months as $count) {
+            /*
+             * A history that never varied is drawn down the middle
+             * rather than at the top. Scaled against the maximum
+             * alone, every point of a flat series lands at the ceiling
+             * and the sparkline reads as a rule across the top of the
+             * cell — which is a drawing artefact rather than a fact
+             * about the value, and the honest shape of *one
+             * resolution, all along* is a level line.
+             */
+            $share = $max === $min
+                ? 0.5
+                : ($count - $min) / ($max - $min);
             $line[] = round($x, 1) . ','
-                . round($height - ($count / $max) * ($height - 4), 1);
+                . round($height - 2 - $share * ($height - 6), 1);
             $x += $step;
         }
         $keys = array_keys($months);

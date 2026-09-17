@@ -217,23 +217,32 @@ class ValueRendererTool
     }
 
     /**
-     * The five that get a slot, in the order they are drawn.
+     * The five shapes that get a slot, in the order they are drawn.
      *
-     * The profile's ranking comes first and is taken as given — a
-     * profile that ranks a shape this value has no answer for simply
-     * does not fill that slot, and the caller draws it as *not asked*
-     * rather than closing the gap silently. The shipped fallback for
-     * the types this value is fills the rest.
+     * **A shape the profile ranked keeps its slot whether or not this
+     * value has an answer for it**, and that asymmetry with the
+     * fallback is the whole of how a ranking differs from a default.
+     * A ranking is a request — *these are the answers I want to see* —
+     * so a gap in it is information, and the slot says *not asked*.
+     * Skipping it and closing the row up would report four answers to
+     * a reader who asked for five and got four, which is the one thing
+     * a summary must not do.
      *
-     * **Nothing else gets promoted, and that is the point.** A drawn
-     * shape that neither the profile nor the fallback names stays a
-     * chip. The tempting extra rule — *and then anything else, newest
-     * first, so nothing is hidden* — reads as generosity and breaks
-     * the first rule the whole discovery mechanism rests on: dropping
-     * a renderer into a directory would then change what every reader
-     * on the instance sees, with nobody having chosen it. A custom
-     * shape reaches the strip the same way every other preference
-     * does, by a profile saying so.
+     * The shipped fallback is not a request but a sensible default, so
+     * it contributes only shapes that actually drew. Otherwise a stock
+     * instance that has simply never enriched anything would draw five
+     * *not asked* boxes on every value — a permanently empty first row
+     * on the Overview, which is exactly what this panel refuses to be.
+     *
+     * **And nothing else gets promoted.** A drawn shape that neither
+     * the profile nor the fallback names stays a chip. The tempting
+     * extra rule — *and then anything else, newest first, so nothing
+     * is hidden* — reads as generosity and breaks the first rule the
+     * whole discovery mechanism rests on: dropping a renderer into a
+     * directory would then change what every reader on the instance
+     * sees, with nobody having chosen it. A custom shape reaches the
+     * strip the way every other preference does, by a profile saying
+     * so.
      *
      * @param array $drawn From `drawFor`
      * @param array $ranked The profile's ordered shape ids
@@ -243,17 +252,32 @@ class ValueRendererTool
     public static function promote(array $drawn, array $ranked,
         array $types
     ) {
-        $order = array();
-        foreach (array($ranked, self::fallbackFor($types)) as $list) {
-            foreach ($list as $id) {
-                if (!in_array($id, $order, true)) {
-                    $order[] = $id;
-                }
+        $catalogue = self::catalogue();
+        $out = array();
+        foreach ($ranked as $id) {
+            if (count($out) >= self::STRIP_MAX) {
+                break;
+            }
+            /*
+             * A ranked shape this instance has no renderer for is
+             * skipped rather than drawn empty. *Not asked* would be
+             * untrue of it — nothing here could draw it however many
+             * modules answered — and the honest report of that
+             * belongs in the editor, at declaration time, rather than
+             * as a permanent box on every value page.
+             */
+            if (!isset($drawn[$id]) && !isset($catalogue[$id])) {
+                continue;
+            }
+            if (!in_array($id, $out, true)) {
+                $out[] = $id;
             }
         }
-        $out = array();
-        foreach ($order as $id) {
-            if (isset($drawn[$id]) && count($out) < self::STRIP_MAX) {
+        foreach (self::fallbackFor($types) as $id) {
+            if (count($out) >= self::STRIP_MAX) {
+                break;
+            }
+            if (isset($drawn[$id]) && !in_array($id, $out, true)) {
                 $out[] = $id;
             }
         }

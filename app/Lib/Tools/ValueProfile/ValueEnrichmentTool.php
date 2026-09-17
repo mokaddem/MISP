@@ -280,6 +280,21 @@ class ValueEnrichmentTool
             'declared' => $declared,
             'locality' => $locality,
             /*
+             * Which visualisations this profile wants promoted, best
+             * first. It is a ranking of *shapes* rather than of
+             * modules on purpose: a profile then holds about a dozen
+             * stable entries instead of tracking every module name in
+             * the build, and it survives a module being replaced by
+             * another that answers the same question.
+             *
+             * Empty on every profile that says nothing, which is the
+             * shipped default — a promotion order is an opinion, and
+             * the neutral document has none. What draws then is the
+             * shipped per-type order, which lives in code beside the
+             * renderers for the same reason.
+             */
+            'shapes' => self::shapesOf($section),
+            /*
              * The reuse window, and since phase 11 it governs
              * something: `value_enrichment_runs` holds what a module
              * last said, and a row younger than this is served rather
@@ -298,6 +313,48 @@ class ValueEnrichmentTool
              */
             'in_force' => !empty($declared),
         );
+    }
+
+    /**
+     * The shape ranking, normalised the same tolerant way everything
+     * else here is.
+     *
+     * A bare string is one shape, because a document naming a single
+     * one reads better written that way and refusing it would be
+     * strictness with no benefit. Repeats collapse rather than
+     * erroring — a shape ranked twice means it is wanted, once.
+     *
+     * **An unknown name is kept.** Whether a shape exists is a
+     * question about this instance and not about this document: a
+     * profile written where a custom renderer is installed must
+     * survive being imported where it is not, and come back intact if
+     * it is exported again. What the instance does with a name it
+     * cannot draw is say so — in the editor at declaration time, and
+     * by leaving the slot unfilled at read time.
+     *
+     * @param array $section
+     * @return array Shape ids, in the profile's order
+     */
+    private static function shapesOf(array $section)
+    {
+        $raw = isset($section['shapes']) ? $section['shapes'] : null;
+        if (is_string($raw)) {
+            $raw = array($raw);
+        }
+        if (!is_array($raw)) {
+            return array();
+        }
+        $out = array();
+        foreach ($raw as $shape) {
+            if (!is_string($shape) && !is_numeric($shape)) {
+                continue;
+            }
+            $shape = trim((string)$shape);
+            if ($shape !== '' && !in_array($shape, $out, true)) {
+                $out[] = $shape;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -526,6 +583,16 @@ class ValueEnrichmentTool
         $out = array(
             'in_force' => !empty($plan['in_force']),
             'max_age_hours' => $plan['max_age_hours'],
+            /*
+             * Set before the early return below, because `in_force`
+             * is about the *module* declaration: a profile that ranks
+             * shapes and names no module is a perfectly ordinary
+             * document — it says which answers to draw first and lets
+             * the instance decide which modules are offered — and
+             * losing its ranking here would silently fall the strip
+             * back to the shipped order.
+             */
+            'shapes' => isset($plan['shapes']) ? $plan['shapes'] : array(),
             'auto_gate' => self::normaliseGate(
                 isset($facts['auto_gate']) ? $facts['auto_gate'] : null
             ),
