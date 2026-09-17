@@ -25,6 +25,12 @@
  *   5. The method note remembers which way this reader left it. A
  *      real `<details>` opens and closes with no script at all; this
  *      only carries the choice to the next page load.
+ *   6. Clear puts the box and the region back to how the page
+ *      arrived, which without it is a reload — and a reload also
+ *      re-reads the tiles, the strip and the carried-over line, none
+ *      of which the reader's paste changed. The control is hidden in
+ *      the markup and shown from here, so a page whose script never
+ *      boots does not offer it.
  */
 (function () {
     'use strict';
@@ -271,6 +277,7 @@
         this.filter = 'all';
         this.sort = 'paste';
         this.flying = 0;
+        this.stopped = false;
         this.buildTape();
         this.bind();
         root.classList.add('is-live');
@@ -404,7 +411,25 @@
      * The lanes
      * --------------------------------------------------------------- */
 
+    /*
+     * Abandoned. The rows go with the region the clear control
+     * refills, and a lane that comes back to a detached node writes
+     * into nothing — but it has already cost a statement on the
+     * server, so the queue stops being fed as well.
+     */
+    Work.prototype.stop = function () {
+        this.stopped = true;
+    };
+
+    /* Whether anything in the batch has been opened or cleared. */
+    Work.prototype.worked = function () {
+        return this.rows.some(decided);
+    };
+
     Work.prototype.pump = function () {
+        if (this.stopped) {
+            return;
+        }
         while (this.flying < LANES) {
             var row = null;
             for (var i = 0; i < this.rows.length; i++) {
@@ -917,11 +942,82 @@
         var counter = form.querySelector('[data-vi-count]');
         var verb = form.querySelector('[data-vi-verb]');
         var out = document.querySelector('[data-vi-out]');
+        var wipe = form.querySelector('[data-vi-clear]');
+        var blank = document.querySelector('[data-vi-invite]');
         var cap = counter
             ? parseInt(counter.getAttribute('data-vi-cap'), 10) || 100
             : 100;
         var n = 0;
         var busy = false;
+        var work = null;
+        var asking = false;
+        var askTimer = null;
+        var wipeWord = wipe
+            ? wipe.querySelector('[data-vi-clear-verb]')
+            : null;
+        var wipeSaid = wipeWord ? wipeWord.textContent : '';
+
+        /*
+         * Whether there is anything to clear. The box holding a value
+         * is the obvious half; the other is a region showing an answer
+         * or a worklist over an empty box, which is what a reader has
+         * in front of them after clearing the box by hand.
+         */
+        function dirty() {
+            return box.value !== ''
+                || !!(out && !out.querySelector('.vi-invite'));
+        }
+
+        /*
+         * The confirmation lives in the button and expires. A reader
+         * who pressed clear by accident does nothing and it goes back
+         * to saying *Clear* — the shape a dialog cannot have, since a
+         * dialog has to be answered before the page can be used again.
+         */
+        function ask(on) {
+            asking = on;
+            if (askTimer) {
+                window.clearTimeout(askTimer);
+                askTimer = null;
+            }
+            if (!wipe) {
+                return;
+            }
+            wipe.classList.toggle('is-asking', on);
+            if (wipeWord) {
+                wipeWord.textContent = on
+                    ? wipe.getAttribute('data-vi-ask')
+                    : wipeSaid;
+            }
+            if (on) {
+                askTimer = window.setTimeout(function () {
+                    ask(false);
+                }, 4000);
+            }
+        }
+
+        /*
+         * Clear. The state a reload would reach, minus the reload:
+         * the box empty, the region back to its invitation and the
+         * batch abandoned. The tiles, the conditions strip and the
+         * carried-over line are untouched, because none of them came
+         * from what the reader pasted.
+         */
+        function clear() {
+            ask(false);
+            if (work) {
+                work.stop();
+                work = null;
+            }
+            box.value = '';
+            if (out && blank && blank.content) {
+                out.innerHTML = '';
+                out.appendChild(blank.content.cloneNode(true));
+                out.removeAttribute('aria-busy');
+            }
+            say();
+            box.focus();
+        }
 
         /*
          * The verb says what pressing will do, which is the whole of
@@ -949,6 +1045,12 @@
                     : verb.getAttribute('data-vi-one');
             }
             go.disabled = busy || box.value.trim() === '';
+            if (wipe) {
+                wipe.hidden = !dirty();
+                if (wipe.hidden && asking) {
+                    ask(false);
+                }
+            }
         }
 
         /*
@@ -975,6 +1077,44 @@
                 form.submit();
             }
         });
+
+        /*
+         * `Esc` clears, and it is bound on the form rather than on the
+         * document: the worklist below has its own keys and a page-wide
+         * `Esc` would be a second handler competing with every dialog
+         * MISP opens over this one. The reader who wants it from the
+         * rows has the button, which `Tab` reaches.
+         */
+        function wipeAsked() {
+            if (!dirty()) {
+                return;
+            }
+            if (work && work.worked() && !asking) {
+                ask(true);
+                return;
+            }
+            clear();
+        }
+
+        form.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape' && event.key !== 'Esc') {
+                return;
+            }
+            if (!dirty()) {
+                return;
+            }
+            event.preventDefault();
+            wipeAsked();
+        });
+
+        if (wipe) {
+            wipe.addEventListener('click', wipeAsked);
+            wipe.addEventListener('blur', function () {
+                if (asking) {
+                    ask(false);
+                }
+            });
+        }
 
         /*
          * A list is worked in place. A single value is left to the
@@ -1006,7 +1146,7 @@
                 return response.text();
             }).then(function (html) {
                 out.innerHTML = html;
-                bootWork(out);
+                work = bootWork(out) || null;
                 busy = false;
                 out.removeAttribute('aria-busy');
                 say();
@@ -1024,7 +1164,7 @@
          * script — the no-JavaScript road, taken by a reader who has
          * JavaScript — is the same block and boots the same way.
          */
-        bootWork(document);
+        work = bootWork(document) || null;
 
         /*
          * The caret goes to the end rather than to the start: the box

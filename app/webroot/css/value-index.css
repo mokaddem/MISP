@@ -324,19 +324,10 @@
     border-bottom: 1px solid var(--bs-border-color);
 }
 
-/*
- * Focus is drawn on the whole row rather than on the textarea: the
- * field has no border of its own, so a ring around it alone would
- * outline a shape nothing else on the page has.
- */
-.vi-prompt:focus-within {
-    box-shadow: inset 0 0 0 2px var(--primary);
-}
-
 .vi-prompt__caret {
     flex: 0 0 auto;
     width: 28px;
-    padding-top: 11px;
+    padding-top: 19px;
     text-align: center;
     line-height: 1;
     font-size: 12px;
@@ -346,14 +337,26 @@
 .vi-prompt__field {
     flex: 1 1 260px;
     min-width: 0;
+    padding: 8px 12px 8px 0;
 }
 
+/*
+ * **The box carries the page's ground and the row around it does
+ * not.** The prompt band is the card's head and shares its grey with
+ * the conditions strip above it, which left the one control the page
+ * exists for as a patch of the same grey — readable as a caption
+ * rather than as something to type into. Lit from `--bs-body-bg` it is
+ * the lightest thing in the band under a light theme and the darkest
+ * under a dark one, which is the same instruction either way: this is
+ * the field.
+ */
 .vi-ta {
     display: block;
     width: 100%;
-    padding: 10px 12px 10px 0;
-    border: 0;
-    background: transparent;
+    padding: 9px 11px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    background: var(--bs-body-bg);
     color: var(--bs-body-color);
     font-family: var(--bs-font-monospace);
     font-size: 0.85rem;
@@ -361,8 +364,17 @@
     resize: vertical;
 }
 
+/*
+ * Focus is drawn on the box rather than on the whole row, now that the
+ * box has an edge of its own to draw it on. A ring around the row
+ * fired for the run button too, which draws its own.
+ */
 .vi-ta:focus {
     outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(
+        in srgb, var(--primary) 28%, transparent
+    );
 }
 
 .vi-ta::placeholder {
@@ -417,11 +429,39 @@
 }
 
 /* Inside the button it is the button's own ink, not the page's. */
-.vi-run .vi-kbd {
+.vi-run .vi-kbd,
+.vi-wipe .vi-kbd {
     border-color: currentColor;
     background: transparent;
     color: inherit;
     opacity: 0.7;
+}
+
+/*
+ * Clear. It is `.vi-btn--quiet` because it is the third thing on a
+ * line whose second thing is a count and whose third is the page's
+ * one filled button: a second filled button here would make the
+ * reader choose between two, and only one of them does anything they
+ * came for.
+ */
+.vi-wipe {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/*
+ * The second press. A batch with rows already opened or cleared is
+ * work the page cannot hand back — it writes nothing — so clearing it
+ * asks once, in the button, rather than in a dialog the reader has to
+ * read somewhere else.
+ */
+.vi-wipe.is-asking {
+    border-color: var(--bs-body-color);
+    color: var(--bs-body-color);
+    font-weight: 600;
 }
 
 .vi-run:focus-visible,
@@ -2122,10 +2162,6 @@
         border-left: 0;
         border-top: 1px solid var(--bs-border-color);
         justify-content: space-between;
-    }
-
-    .vi-ta {
-        padding-right: 8px;
     }
 
     .vi-invite,
