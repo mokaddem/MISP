@@ -1262,6 +1262,18 @@ input.num[type="number"]::-webkit-inner-spin-button {
     line-height: 1.5;
     color: var(--bs-secondary-color);
 }
+/* What a map costs as a whole, where no row of it can say so. Advisory
+ * — the warning colour, not the danger one: nothing here is refused. */
+.ap-map-note {
+    margin: .25rem 0 0;
+    padding: .35rem .6rem;
+    border-left: 3px solid var(--bs-warning);
+    border-radius: 0 4px 4px 0;
+    background: var(--bs-tertiary-bg);
+    font-size: .6875rem;
+    line-height: 1.5;
+    color: var(--bs-body-color);
+}
 /* The pane is narrow under a bench; one column reads better than two
  * with nine characters in the first. */
 @container wb (max-width: 900px) {

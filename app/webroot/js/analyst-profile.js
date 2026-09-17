@@ -828,6 +828,50 @@ function boot() {
     }
 
     /*
+     * Filling a map from a list written elsewhere in the same document.
+     *
+     * One press, one row per key, and each row is the row the picker
+     * would have drawn — so what the analyst is about to store is on
+     * screen before they store it, and a key the map already carries is
+     * skipped rather than doubled (`addRow` returns null for it).
+     */
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest
+            ? event.target.closest('[data-ap-copy]')
+            : null;
+        if (!button) {
+            return;
+        }
+        var map = button.closest('.ap-map');
+        var add = map ? map.querySelector('[data-ap-add]') : null;
+        if (!add) {
+            return;
+        }
+        var keys;
+        try {
+            keys = JSON.parse(button.getAttribute('data-ap-copy'));
+        } catch (error) {
+            return;
+        }
+        if (!Array.isArray(keys)) {
+            return;
+        }
+        var value = button.getAttribute('data-ap-copy-value') || '';
+        keys.forEach(function (key) {
+            var control = addRow(add, String(key), '');
+            if (control && value !== '') {
+                var field = control.matches
+                    && control.matches('select, input')
+                    ? control
+                    : control.querySelector('select, input');
+                if (field) {
+                    field.value = value;
+                }
+            }
+        });
+    });
+
+    /*
      * `CSS.escape` where it exists, and a key that cannot carry a
      * quote otherwise. Every key a map takes is a uuid, an attribute
      * type or a warninglist name, so this only has to be safe rather

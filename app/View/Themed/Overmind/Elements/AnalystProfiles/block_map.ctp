@@ -161,6 +161,20 @@ $factorName = isset($block['value_factor_path'])
     </p>
 <?php endif; ?>
 
+<?php
+/*
+ * What this map currently costs, where the cost is a property of the
+ * map as a whole rather than of any row in it. The pinned tier is the
+ * case: each pin draws a row on every value carrying none of it, so the
+ * price is the number of them and no single row can say so. Advisory,
+ * never a refusal — an analyst with a reason to pin six is spending
+ * something, and the editor's job is to say what.
+ */
+?>
+<?php if (!empty($block['note'])): ?>
+    <p class="ap-map-note"><?= h($block['note']) ?></p>
+<?php endif; ?>
+
 <?php if ($editable): ?>
     <input type="hidden"
            name="<?= h(AnalystProfileFormTool::fieldName($block['path'],
@@ -477,6 +491,30 @@ $rowFilter = !empty($block['row_filter'])
                    <?= $valueRows === null ? '' :
                        'data-ap-add-rows="' . h($valueRows) . '"' ?>
                    placeholder="<?= h(__('search…')) ?>">
+        <?php endif; ?>
+        <?php
+        /*
+         * Filling a map from a list the analyst just wrote elsewhere.
+         * The attribution galaxies are the case: they overlap heavily
+         * with the ranked ones by design, and retyping a list you just
+         * wrote is how two lists that should agree drift apart.
+         *
+         * It adds rows and saves nothing by itself — the rows it draws
+         * are the same ones the picker draws, so the save path is
+         * unchanged and the analyst still sees what they are about to
+         * store before they store it.
+         */
+        ?>
+        <?php if (!empty($block['add']['copy_from']['keys'])): ?>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    data-ap-copy="<?= h(json_encode(array_values(
+                        $block['add']['copy_from']['keys']))) ?>"
+                    data-ap-copy-value="<?= h(
+                        isset($block['add']['copy_from']['value'])
+                            ? $block['add']['copy_from']['value']
+                            : '') ?>">
+                <?= h($block['add']['copy_from']['label']) ?>
+            </button>
         <?php endif; ?>
         <span class="wb-sub"><?= h(__('added rows are saved with the'
             . ' section')) ?></span>

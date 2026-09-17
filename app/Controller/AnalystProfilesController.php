@@ -1404,7 +1404,67 @@ class AnalystProfilesController extends AppController
             'orgs' => $this->__gradedOrgs($parameters),
             'warninglists' => $this->__warninglistNames(),
             'modules' => $this->__moduleCatalogue($user),
+            'taxonomies' => $this->__enabledTaxonomies(),
+            'galaxies' => $this->__enabledGalaxies(),
         );
+    }
+
+    /**
+     * The taxonomies this instance uses, for the priority lists.
+     *
+     * **Enabled only** (D41): `enabled = 0` says the instance does not
+     * use this taxonomy, and an editor offering it would be offering to
+     * rank something nobody here can tag. A profile that already ranks
+     * one which was later disabled keeps its entry — the form marks the
+     * row rather than dropping it, which is D23's rule that the editor
+     * offers what is implemented and the document keeps what is
+     * storable.
+     *
+     * @return array namespace => namespace
+     */
+    private function __enabledTaxonomies()
+    {
+        $this->loadModel('Taxonomy');
+        $rows = $this->Taxonomy->find('all', array(
+            'conditions' => array('Taxonomy.enabled' => 1),
+            'fields' => array('Taxonomy.namespace'),
+            'recursive' => -1,
+            'order' => array('Taxonomy.namespace ASC'),
+        ));
+        $out = array();
+        foreach ($rows as $row) {
+            $namespace = mb_strtolower($row['Taxonomy']['namespace']);
+            $out[$namespace] = $namespace;
+        }
+        return $out;
+    }
+
+    /**
+     * The galaxies this instance uses, keyed by `type`.
+     *
+     * `type` rather than name, because that is the string inside every
+     * tag and the one a priority list holds; the name is how this
+     * instance spells it, and it is what the row shows.
+     *
+     * @return array type => name
+     */
+    private function __enabledGalaxies()
+    {
+        $this->loadModel('Galaxy');
+        $rows = $this->Galaxy->find('all', array(
+            'conditions' => array('Galaxy.enabled' => 1),
+            'fields' => array('Galaxy.type', 'Galaxy.name'),
+            'recursive' => -1,
+            'order' => array('Galaxy.name ASC'),
+        ));
+        $out = array();
+        foreach ($rows as $row) {
+            $type = mb_strtolower($row['Galaxy']['type']);
+            $out[$type] = empty($row['Galaxy']['name'])
+                ? $type
+                : $row['Galaxy']['name'];
+        }
+        return $out;
     }
 
     /**

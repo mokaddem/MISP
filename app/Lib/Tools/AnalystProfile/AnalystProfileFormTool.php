@@ -7,6 +7,7 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 App::uses('ValueTrustTool', 'Tools/ValueProfile');
 App::uses('ValueVerdictTool', 'Tools/ValueProfile');
 App::uses('ValueLeanTool', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 
@@ -87,6 +88,17 @@ class AnalystProfileFormTool
      * judgement, and an editor offering to change it offers to make the
      * document unreadable.
      */
+    /**
+     * The one value an attribution row can carry.
+     *
+     * The list stores keys and nothing else, so the column exists to
+     * let a row be *there* and removable in the same control every
+     * other map uses. Naming it rather than spelling `'counts'` in
+     * three places is how the transpose and the form stay the same
+     * answer.
+     */
+    const ATTRIBUTION_COUNTS = 'counts';
+
     const SECTION_ORDER = array(
         'signals',
         'thresholds',
@@ -95,6 +107,8 @@ class AnalystProfileFormTool
         'relevance',
         'reference',
         'enrichment',
+        'context',
+        'galaxies',
     );
 
     /**
@@ -135,6 +149,17 @@ class AnalystProfileFormTool
         'relevance' => 'relevance',
         'reference' => 'quality — trust weighting',
         'enrichment' => 'no axis — context',
+        /*
+         * `context` reaches no axis at all: it decides which labels a
+         * surface draws first and which it draws when they are absent,
+         * and nothing it says reaches a ledger row. `galaxies` does
+         * reach one — it is the eligibility filter `attribution.galaxy`
+         * reads — and the two are separate sections for exactly that
+         * reason (D43): a CERT demoting `firearms` down the card must
+         * not change anybody's score.
+         */
+        'context' => 'no axis — display order',
+        'galaxies' => 'lean + quality',
     );
 
     /**
@@ -176,6 +201,7 @@ class AnalystProfileFormTool
             'relevance' => __('relevance'),
             'quality — trust weighting' => __('quality — trust weighting'),
             'no axis — context' => __('no axis — context'),
+            'no axis — display order' => __('no axis — display order'),
         );
         $key = self::SECTION_AXIS[$id];
         return isset($labels[$key]) ? $labels[$key] : $key;
@@ -3093,7 +3119,132 @@ class AnalystProfileFormTool
         foreach ($this->enrichmentErrors($parameters) as $error) {
             $errors[] = $error;
         }
+        foreach ($this->contextErrors($parameters) as $error) {
+            $errors[] = $error;
+        }
+        foreach ($this->contextWarnings($parameters) as $warning) {
+            $warnings[] = $warning;
+        }
         return array('errors' => $errors, 'warnings' => $warnings);
+    }
+
+    /**
+     * What a hand-written `context` or `galaxies` section can get wrong
+     * badly enough to refuse.
+     *
+     * Only the shape, and deliberately: a tier naming a taxonomy this
+     * instance does not have is a document written elsewhere, which is
+     * what import exists for, and `planFor()` reads it without
+     * complaint. What cannot be read at all is a tier that is not a
+     * list of names.
+     *
+     * @param array $parameters
+     * @return array
+     */
+    private function contextErrors(array $parameters)
+    {
+        $errors = array();
+        $context = $this->section($parameters, 'context');
+        foreach (array(ValueLabelPriority::TAXONOMIES,
+            ValueLabelPriority::GALAXIES) as $scope
+        ) {
+            if (!isset($context[$scope])) {
+                continue;
+            }
+            if (!is_array($context[$scope])) {
+                $errors[] = sprintf(
+                    __('`context.%s` must hold the three tiers.'),
+                    $scope
+                );
+                continue;
+            }
+            foreach ($context[$scope] as $tier => $names) {
+                if (!in_array($tier, ValueLabelPriority::TIERS, true)) {
+                    continue;
+                }
+                if (!$this->isList($names)) {
+                    $errors[] = sprintf(
+                        __('`context.%1$s.%2$s` must be a list of'
+                            . ' names.'),
+                        $scope,
+                        $tier
+                    );
+                }
+            }
+        }
+        $galaxies = $this->section($parameters, 'galaxies');
+        if (isset($galaxies['attribution'])
+            && !$this->isList($galaxies['attribution'])
+        ) {
+            $errors[] = __('`galaxies.attribution` must be a list of'
+                . ' galaxy types.');
+        }
+        return $errors;
+    }
+
+    /**
+     * What is saveable and worth saying out loud.
+     *
+     * A name in two tiers is the one an editor cannot produce and a
+     * hand-written document can: `planFor()` resolves it to the first
+     * tier in precedence order, and an analyst who wrote both should
+     * hear which half is being ignored rather than discover it from a
+     * card.
+     *
+     * @param array $parameters
+     * @return array
+     */
+    private function contextWarnings(array $parameters)
+    {
+        $warnings = array();
+        $context = $this->section($parameters, 'context');
+        foreach (array(ValueLabelPriority::TAXONOMIES,
+            ValueLabelPriority::GALAXIES) as $scope
+        ) {
+            if (empty($context[$scope]) || !is_array($context[$scope])) {
+                continue;
+            }
+            $seen = array();
+            foreach (ValueLabelPriority::TIERS as $tier) {
+                if (empty($context[$scope][$tier])
+                    || !is_array($context[$scope][$tier])
+                ) {
+                    continue;
+                }
+                foreach ($context[$scope][$tier] as $name) {
+                    if (!is_string($name) && !is_numeric($name)) {
+                        continue;
+                    }
+                    $name = mb_strtolower(trim((string)$name));
+                    if ($name === '') {
+                        continue;
+                    }
+                    if (isset($seen[$name])) {
+                        $warnings[] = sprintf(
+                            __('`%1$s` is in both `%2$s` and `%3$s`'
+                                . ' under `context.%4$s`. It is read as'
+                                . ' `%2$s`.'),
+                            $name,
+                            $seen[$name],
+                            $tier,
+                            $scope
+                        );
+                        continue;
+                    }
+                    $seen[$name] = $tier;
+                }
+            }
+        }
+        $plan = ValueLabelPriority::planFor($parameters);
+        foreach (array(ValueLabelPriority::TAXONOMIES,
+            ValueLabelPriority::GALAXIES) as $scope
+        ) {
+            $note = $this->pinNote($plan, $scope);
+            if ($note !== null) {
+                $warnings[] = $note;
+            }
+        }
+        return $warnings;
     }
 
     /**
@@ -3792,6 +3943,111 @@ class AnalystProfileFormTool
             );
         }
         $merged = $this->transposeModules($merged, $posted);
+        $merged = $this->transposeTiers($merged, $posted);
+        $merged = $this->transposeAttribution($merged, $posted);
+        return $merged;
+    }
+
+    /**
+     * The tier-per-name map the form posts, written back as the three
+     * ordered lists the document stores.
+     *
+     * `transposeModules()`'s twin and for its reason: the editor asks
+     * *what is this taxonomy to me* once per name, and every reader —
+     * `ValueLabelPriority`, the shipped profiles, a document written by
+     * hand — speaks three lists. The row order inside the map is the
+     * order within a tier, which is how an analyst says
+     * `threat-actor` before `malpedia`.
+     *
+     * A blank tier is *not ranked* and writes nothing, so a name every
+     * row left blank leaves the lists entirely — the same rule the
+     * module states follow, and the one that lets a profile go back to
+     * having no opinion.
+     *
+     * Only on a post that carried the block, for the same reason: the
+     * map's `__present` marker is what says it was on screen, and
+     * without that check a save of some other section would read the
+     * map's absence as *every ranking cleared*.
+     *
+     * @param array $merged The document so far
+     * @param array $posted The `parameters` sub-array of the request
+     * @return array
+     */
+    private function transposeTiers(array $merged, array $posted)
+    {
+        if (!isset($merged['context']) || !is_array($merged['context'])) {
+            return $merged;
+        }
+        foreach (array(ValueLabelPriority::TAXONOMIES,
+            ValueLabelPriority::GALAXIES) as $scope
+        ) {
+            $field = $scope . '_tier';
+            if (!isset($posted['context'][$field])) {
+                unset($merged['context'][$field]);
+                continue;
+            }
+            $byName = isset($merged['context'][$field])
+                && is_array($merged['context'][$field])
+                ? $merged['context'][$field]
+                : array();
+            unset($merged['context'][$field]);
+            $lists = array();
+            foreach (ValueLabelPriority::TIERS as $tier) {
+                $lists[$tier] = array();
+            }
+            foreach ($byName as $name => $tier) {
+                if ($name === '__present' || $tier === ''
+                    || $tier === null
+                    || !isset($lists[$tier])
+                ) {
+                    continue;
+                }
+                $lists[$tier][] = (string)$name;
+            }
+            $merged['context'][$scope] = $lists;
+        }
+        if ($merged['context'] === array()) {
+            unset($merged['context']);
+        }
+        return $merged;
+    }
+
+    /**
+     * The attribution map the form posts, written back as the list the
+     * document stores.
+     *
+     * The value column carries one option and exists so a row can be
+     * removed by the control every other map uses; what is stored is
+     * the keys. An empty map is a declared *no filter*, which is what
+     * removing the last row means and what the signal read before the
+     * list existed.
+     *
+     * @param array $merged
+     * @param array $posted
+     * @return array
+     */
+    private function transposeAttribution(array $merged, array $posted)
+    {
+        if (!isset($merged['galaxies']) || !is_array($merged['galaxies'])) {
+            return $merged;
+        }
+        if (!isset($posted['galaxies']['attribution_map'])) {
+            unset($merged['galaxies']['attribution_map']);
+            return $merged;
+        }
+        $map = isset($merged['galaxies']['attribution_map'])
+            && is_array($merged['galaxies']['attribution_map'])
+            ? $merged['galaxies']['attribution_map']
+            : array();
+        unset($merged['galaxies']['attribution_map']);
+        $types = array();
+        foreach ($map as $type => $state) {
+            if ($type === '__present' || $state === '' || $state === null) {
+                continue;
+            }
+            $types[] = (string)$type;
+        }
+        $merged['galaxies']['attribution'] = $types;
         return $merged;
     }
 
@@ -4038,6 +4294,323 @@ class AnalystProfileFormTool
         return isset($parameters[$name]) && is_array($parameters[$name])
             ? $parameters[$name]
             : array();
+    }
+
+    /**
+     * `context` — which labels a surface draws first, and which it
+     * draws when the value carries none of them.
+     *
+     * **Edited as one map per dimension rather than as three lists**,
+     * because the question an analyst is answering is *what is
+     * `attck4fraud` to me*, once, and three lists ask it three times
+     * and let them answer twice. The document stores the three lists —
+     * that is what every reader speaks — and `transposeTiers()` is the
+     * one place that knows the editor's axis is not the document's, as
+     * `transposeModules()` does for the enrichment mapping.
+     *
+     * The rows' order in the map is the order within a tier, so an
+     * analyst who wants `threat-actor` ahead of `malpedia` puts it
+     * ahead of it here.
+     *
+     * @param array $parameters
+     * @param array $sources
+     * @return array
+     */
+    private function sectionContext(array $parameters, array $sources)
+    {
+        $plan = ValueLabelPriority::planFor($parameters);
+        $offered = array(
+            ValueLabelPriority::TAXONOMIES => isset($sources['taxonomies'])
+                ? $sources['taxonomies']
+                : array(),
+            ValueLabelPriority::GALAXIES => isset($sources['galaxies'])
+                ? $sources['galaxies']
+                : array(),
+        );
+        $blocks = array();
+        foreach ($offered as $scope => $available) {
+            $entries = array();
+            $tiers = array();
+            foreach (ValueLabelPriority::TIERS as $tier) {
+                foreach ($plan[$scope][$tier] as $key) {
+                    $tiers[$key] = $tier;
+                    $entries[] = array(
+                        'key' => $key,
+                        'label' => isset($available[$key])
+                            ? $available[$key]
+                            : $key,
+                        'sub_label' => isset($available[$key])
+                            && $available[$key] !== $key
+                            ? $key
+                            : null,
+                        /*
+                         * A site admin who disables a taxonomy for a
+                         * week must not silently erase every profile's
+                         * pin on it (D41, D23): the row is kept and
+                         * marked, the document keeps the entry, and
+                         * re-enabling brings the pin back. What the
+                         * floor does instead is refuse to *draw* the
+                         * absence, which is the page's decision rather
+                         * than the editor's.
+                         */
+                        'missing' => !empty($available)
+                            && !isset($available[$key]),
+                        'value' => $tier,
+                        'type' => 'select',
+                        'options' => $this->tierOptions(),
+                        'path' => array('context', $scope . '_tier', $key),
+                    );
+                }
+            }
+            $blocks[] = array(
+                'kind' => 'map',
+                'id' => $scope . '_tier',
+                'title' => $scope === ValueLabelPriority::TAXONOMIES
+                    ? __('Taxonomies')
+                    : __('Galaxies'),
+                'blurb' => $scope === ValueLabelPriority::TAXONOMIES
+                    ? __(
+                        'Pinned taxonomies are drawn first and are the'
+                        . ' only ones drawn when this value carries'
+                        . ' none of them, so keep that list short —'
+                        . ' a card listing eight absences has taught'
+                        . ' you to skip that part of the page.'
+                        . ' Everything you name nothing about keeps the'
+                        . ' order it has today, and nothing here can'
+                        . ' hide a label.'
+                    )
+                    : __(
+                        'The same three tiers over the galaxies. This'
+                        . ' is what a compact surface reads when it has'
+                        . ' room for one cluster out of twenty-six —'
+                        . ' the hover card names one and counts the'
+                        . ' rest. It is not what counts as an'
+                        . ' attribution; that is the section below.'
+                    ),
+                'key_label' => $scope === ValueLabelPriority::TAXONOMIES
+                    ? __('Taxonomy')
+                    : __('Galaxy'),
+                'value_label' => __('Tier'),
+                'empty_label' => __('No opinion — every label keeps the'
+                    . ' order it has today'),
+                'value_type' => 'select',
+                'value_options' => $this->tierOptions(),
+                'path' => array('context', $scope . '_tier'),
+                'entries' => $entries,
+                'note' => $this->pinNote($plan, $scope),
+                'add' => array(
+                    'label' => $scope === ValueLabelPriority::TAXONOMIES
+                        ? __('Rank a taxonomy')
+                        : __('Rank a galaxy'),
+                    'source' => $scope,
+                    /*
+                     * 182 taxonomies and 130 galaxies: the whole roster
+                     * fits in the page and nobody reads to the bottom
+                     * of it, which is the warninglists' case exactly.
+                     */
+                    'search' => true,
+                    'placeholder' => $scope
+                        === ValueLabelPriority::TAXONOMIES
+                        ? __('filter taxonomies…')
+                        : __('filter galaxies…'),
+                    'options' => $this->unusedKeys(
+                        array_keys($available),
+                        $tiers
+                    ),
+                ),
+            );
+        }
+        return array(
+            'id' => 'context',
+            'title' => __('What you look at first'),
+            'blurb' => __(
+                'MISP ships 182 taxonomies and 130 galaxies, and to a'
+                . ' card with room for five of them they are one'
+                . ' undifferentiated set. This is where you say which'
+                . ' ones are your job. Nothing here hides anything:'
+                . ' demoting a taxonomy pushes it down, and the'
+                . ' instance decides what exists at all.'
+            ),
+            'blocks' => $blocks,
+        );
+    }
+
+    /**
+     * `galaxies` — which galaxies count as an attribution.
+     *
+     * **Not the display priority, and separate on purpose** (D43).
+     * `attribution.galaxy` reads a value's clusters and consults no
+     * category table, so every galaxy that is not ATT&CK-shaped counts
+     * — sectors, countries and countermeasures included. This list is
+     * the filter it never had, and it is not the section above because
+     * the wrong answers differ: demoting `firearms` down a card must
+     * not change anybody's score, and preferring a typology on a card
+     * must not have it scored as an attribution.
+     *
+     * @param array $parameters
+     * @param array $sources
+     * @return array
+     */
+    private function sectionGalaxies(array $parameters, array $sources)
+    {
+        $declared = ValueLabelPriority::attribution($parameters);
+        $available = isset($sources['galaxies'])
+            ? $sources['galaxies']
+            : array();
+        $entries = array();
+        $used = array();
+        foreach ((array)$declared as $type) {
+            $used[$type] = true;
+            $entries[] = array(
+                'key' => $type,
+                'label' => isset($available[$type])
+                    ? $available[$type]
+                    : $type,
+                'sub_label' => isset($available[$type])
+                    && $available[$type] !== $type
+                    ? $type
+                    : null,
+                'missing' => !empty($available) && !isset($available[$type]),
+                'value' => self::ATTRIBUTION_COUNTS,
+                'type' => 'select',
+                'options' => $this->attributionOptions(),
+                'path' => array('galaxies', 'attribution_map', $type),
+            );
+        }
+        return array(
+            'id' => 'galaxies',
+            'title' => __('What counts as an attribution'),
+            'blurb' => __(
+                'A galaxy cluster on an occurrence is the strongest'
+                . ' editorial statement MISP carries, and the'
+                . ' attribution signal pays for one. These are the'
+                . ' galaxies whose clusters name a threat rather than'
+                . ' classify one: an actor, a campaign, a family, a'
+                . ' tool. An empty list switches the filter off and'
+                . ' every cluster counts, which is what the signal did'
+                . ' before this list existed.'
+            ),
+            'blocks' => array(
+                array(
+                    'kind' => 'map',
+                    'id' => 'attribution_map',
+                    'title' => __('Attribution galaxies'),
+                    'blurb' => __(
+                        'Remove a row to stop counting it. A sector, a'
+                        . ' country, a countermeasure and a typology'
+                        . ' are all clusters and none of them is an'
+                        . ' attribution — state-sponsored is a type,'
+                        . ' not a name. This list and the galaxy tiers'
+                        . ' above will overlap heavily, and they are'
+                        . ' two lists because a card\'s order is not a'
+                        . ' score.'
+                    ),
+                    'key_label' => __('Galaxy'),
+                    'value_label' => __('Counts as'),
+                    'empty_label' => __('No filter — every cluster that'
+                        . ' is not an attack pattern counts'),
+                    'value_type' => 'select',
+                    'value_options' => $this->attributionOptions(),
+                    'path' => array('galaxies', 'attribution_map'),
+                    'entries' => $entries,
+                    'add' => array(
+                        'label' => __('Count a galaxy'),
+                        'source' => 'galaxies',
+                        'search' => true,
+                        'placeholder' => __('filter galaxies…'),
+                        'options' => $this->unusedKeys(
+                            array_keys($available),
+                            $used
+                        ),
+                        /*
+                         * **Retyping a list you just wrote is how the
+                         * two drift apart**, and they are meant to
+                         * overlap. The action fills this list from the
+                         * galaxies ranked above, which is the starting
+                         * point an analyst who has just ranked them
+                         * actually wants.
+                         */
+                        'copy_from' => array(
+                            'label' => __('Copy from the ranked'
+                                . ' galaxies'),
+                            'keys' => ValueLabelPriority::keys(
+                                $parameters,
+                                ValueLabelPriority::GALAXIES,
+                                ValueLabelPriority::PREFERRED
+                            ),
+                            'value' => self::ATTRIBUTION_COUNTS,
+                        ),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The three tiers, each saying what it does rather than what it is
+     * called.
+     *
+     * @return array `value`/`label` pairs
+     */
+    private function tierOptions()
+    {
+        return array(
+            array(
+                'value' => ValueLabelPriority::PINNED,
+                'label' => __('pinned — always shown, and shown as'
+                    . ' missing when it is'),
+            ),
+            array(
+                'value' => ValueLabelPriority::PREFERRED,
+                'label' => __('preferred — shown before anything'
+                    . ' unranked'),
+            ),
+            array(
+                'value' => ValueLabelPriority::DEMOTED,
+                'label' => __('demoted — shown after anything unranked,'
+                    . ' never hidden'),
+            ),
+        );
+    }
+
+    /**
+     * @return array `value`/`label` pairs
+     */
+    private function attributionOptions()
+    {
+        return array(
+            array(
+                'value' => self::ATTRIBUTION_COUNTS,
+                'label' => __('an attribution'),
+            ),
+        );
+    }
+
+    /**
+     * The warning that keeps the pinned tier worth having.
+     *
+     * A pin buys attention by being rare: the tier renders absence, and
+     * a reader shown eight absences learns to skip the region. So the
+     * editor says so at five rather than refusing at five — an analyst
+     * with a reason to pin six is not wrong, they are spending
+     * something, and the editor's job is to say what.
+     *
+     * @param array $plan
+     * @param string $scope
+     * @return string|null
+     */
+    private function pinNote(array $plan, $scope)
+    {
+        $pinned = count($plan[$scope][ValueLabelPriority::PINNED]);
+        if ($pinned <= ValueLabelPriority::PIN_WARN_AT) {
+            return null;
+        }
+        return sprintf(
+            __('%d pinned. Each one draws a row on every value that'
+                . ' carries none of it, and a card listing that many'
+                . ' absences is a card readers learn to skip.'),
+            $pinned
+        );
     }
 
     /**
