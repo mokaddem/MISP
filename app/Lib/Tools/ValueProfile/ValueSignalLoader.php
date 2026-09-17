@@ -48,6 +48,8 @@ class ValueSignalLoader
 
     const SUBJECT_ESCALATION = 'escalation';
 
+    const SUBJECT_RENDERER = 'renderer';
+
     /**
      * Subjects, each a pair of roots and the base class its files must
      * extend. Paths are relative to `APP` and resolved at scan time,
@@ -75,6 +77,22 @@ class ValueSignalLoader
             'custom' => 'Lib/ValueEscalations/',
             'base' => 'ValueEscalationBase',
             'skip' => array('ValueEscalationBase.php'),
+        ),
+        /*
+         * The third subject, and the first with a second thing to keep
+         * unique. A renderer is chosen by the object template its
+         * answer carries, so two renderers claiming one template would
+         * mean the same answer drawn differently depending on which
+         * file the filesystem listed first — rule 2's failure mode
+         * with the id check passing. `claims` names the property the
+         * refusal also covers.
+         */
+        self::SUBJECT_RENDERER => array(
+            'shipped' => 'Model/ValueRenderers/',
+            'custom' => 'Lib/ValueRenderers/',
+            'base' => 'ValueRendererBase',
+            'skip' => array('ValueRendererBase.php'),
+            'claims' => 'templates',
         ),
     );
 
@@ -211,13 +229,17 @@ class ValueSignalLoader
             }
         }
         $loaded = array();
+        /* What each accepted file took, where the subject names a
+         * second uniqueness key: claim => the id holding it. */
+        $claimed = array();
         foreach (array('shipped', 'custom') as $origin) {
             if (empty($spec[$origin])) {
                 continue;
             }
             $root = APP . $spec[$origin];
             foreach (self::listFiles($root, $spec) as $path) {
-                self::take($subject, $spec, $path, $origin, $loaded);
+                self::take($subject, $spec, $path, $origin, $loaded,
+                    $claimed);
             }
         }
         return $loaded;
@@ -262,10 +284,11 @@ class ValueSignalLoader
      * @param string $path
      * @param string $origin `shipped` or `custom`
      * @param array $loaded By reference — the set being built
+     * @param array $claimed By reference — claim => the id holding it
      * @return void
      */
     private static function take($subject, array $spec, $path, $origin,
-        array &$loaded
+        array &$loaded, array &$claimed
     ) {
         $instance = self::instantiate($spec, $path);
         if (is_string($instance)) {
@@ -301,8 +324,67 @@ class ValueSignalLoader
             );
             return;
         }
+        /*
+         * Rule 2 again, on whatever else the subject has to keep
+         * unique. Refused whole rather than per claim: a renderer that
+         * kept the two templates nobody else had wanted and lost the
+         * third would draw some answers and not others, which is a
+         * harder state to diagnose than a file that plainly did not
+         * load.
+         */
+        if (!empty($spec['claims'])) {
+            $taken = self::claimsOf($instance, $spec['claims']);
+            foreach ($taken as $claim) {
+                if (!isset($claimed[$claim])) {
+                    continue;
+                }
+                self::fail(
+                    $subject,
+                    $path,
+                    sprintf(
+                        __('`%1$s` is already drawn by `%2$s`; this'
+                            . ' file is ignored and the existing'
+                            . ' implementation keeps it.'),
+                        $claim,
+                        $claimed[$claim]
+                    )
+                );
+                return;
+            }
+            foreach ($taken as $claim) {
+                $claimed[$claim] = $id;
+            }
+        }
         $instance->is_custom = ($origin === 'custom');
         $loaded[$id] = $instance;
+    }
+
+    /**
+     * The values one instance claims under the subject's claim
+     * property, as strings and without repeats.
+     *
+     * A property that is missing or is not a list claims nothing,
+     * which is how a subject without a second key costs nothing here.
+     *
+     * @param object $instance
+     * @param string $property
+     * @return array
+     */
+    private static function claimsOf($instance, $property)
+    {
+        if (!isset($instance->$property)
+            || !is_array($instance->$property)
+        ) {
+            return array();
+        }
+        $out = array();
+        foreach ($instance->$property as $claim) {
+            $claim = trim((string)$claim);
+            if ($claim !== '' && !in_array($claim, $out, true)) {
+                $out[] = $claim;
+            }
+        }
+        return $out;
     }
 
     /**
