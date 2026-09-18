@@ -11,22 +11,39 @@
  * are, to any consumer, one undifferentiated set in which Threat Actor
  * sits beside UKHSA Culture Collections, Firearms and Cancer.
  *
- * **Where this belongs, and it is not here.** The right home for this
- * is a `category` field on each galaxy in the misp-galaxy repository,
- * ingested by `Galaxy::__load_galaxies` into a column and editable per
- * galaxy in the UI, so an administrator can classify the galaxies they
- * created themselves. This file is the interim table for the consumers
- * that need the answer now, and it should be deleted in favour of that
- * field rather than grown. Until then a galaxy absent from the table
- * is *unrecognised*, not judged harmless, and the two callers below
- * skip it — including every locally created galaxy, whose `type` is a
- * bare UUID no shipped table can predict.
+ * **The answer now lives on the galaxy, and this is what stands behind
+ * it.** `galaxies.category` and `galaxies.kind` were added by migration
+ * 164 and are ingested straight from the definition files, because
+ * `__load_galaxies` saves whatever a definition carries. `merged()`
+ * reads the column over this table, so an instance whose misp-galaxy
+ * copy carries the field gets upstream's answer and an instance still
+ * on an older copy gets this one, rather than losing every
+ * classification at once on the day the code lands.
+ *
+ * **So this table is not deleted yet, and the condition for deleting
+ * it is a comparison rather than a count.** Measured on the
+ * development instance 2026-09-18: 70 galaxy types carry clusters on
+ * real events, the table and upstream classify exactly the same 49 of
+ * them, and neither answers for the other 21. The table can go when no
+ * type it answers for is one the column leaves unanswered — which
+ * reads zero today, and needs the ingestion to have actually run
+ * somewhere before anybody acts on it. *No galaxy carrying clusters is
+ * left without a category* is the condition this was first given and
+ * it can never be met: 14 of those 21 types have no galaxy row at all
+ * — legacy and STIX tag strings whose galaxy no longer exists — so
+ * there is nothing to carry a field.
+ *
+ * A galaxy absent from both is *unrecognised*, not judged harmless,
+ * and every caller skips it. That is still the answer for a locally
+ * created galaxy, whose `type` is a bare UUID no shipped table can
+ * predict — four of them on the development instance — until an
+ * administrator classifies it on the galaxy itself.
  *
  * **Proposed upstream 2026-09-18**, with this table as its starting
  * content: misp-galaxy `prd/2026-09-18-galaxy-category.md`, which asks
  * for `category` and `kind` on the galaxy definition and carries the 94
- * mappings below as a map file. Not filed, and nothing here changes
- * until it lands.
+ * mappings below as a map file. Written and pushed as a branch, not
+ * merged, and 99 of the 135 shipped galaxies are classified there.
  *
  * **Why a named threat is a galaxy cluster and nothing else.** Measured
  * on the development instance, 2026-09-03:
@@ -56,8 +73,14 @@
  * galaxy on most values (21 of `8.8.8.8`'s 26 event clusters), so
  * folding it in would bury the names it sits beside.
  *
- * Pure and static, and it takes no `$user`:
- * prd/value-profile-live/00-contract.md §14.5.
+ * **It takes no `$user`, and it stopped being pure when the column
+ * landed**: prd/value-profile-live/00-contract.md §14.5 allows both
+ * shapes and this is now the second, a tool that issues its own read
+ * and holds the result. No `$user` is needed and none would help — a
+ * galaxy's category is a property of the definition, the same for
+ * every viewer, and a caller only ever asks about a type it is already
+ * holding from a label it is already allowed to see. What is read here
+ * could not be used to widen what a reader sees.
  * prd/value-profile-live/24b-relationships.md §10.
  */
 class GalaxyCategory
@@ -93,6 +116,19 @@ class GalaxyCategory
      * published the intelligence, the second is a directory.
      */
     const CONTEXT = 'context';
+
+    /**
+     * The one category the interim table never needed and the ingested
+     * field does. The table answers *is this a threat* by omission, so
+     * Firearms and Cancer could simply be left out; a field on the
+     * galaxy cannot work that way, because absent there has to mean
+     * *undecided*. So the non-security galaxies say what they are.
+     *
+     * Nothing here asks for it. It is declared so the vocabulary in
+     * code is the vocabulary upstream validates against, and so a
+     * reader meeting `reference` in the column can find it.
+     */
+    const REFERENCE = 'reference';
 
     const ACTOR = 'actor';
     const CAMPAIGN = 'campaign';
@@ -281,18 +317,112 @@ class GalaxyCategory
     );
 
     /**
+     * The table and the ingested column as one map, the column winning.
+     *
+     * Every reader goes through here, including the two that enumerate
+     * for SQL, so the fallback is one mechanism rather than a second
+     * one bolted beside the first — a galaxy answered by the column in
+     * `of()` and by the table in `typesIn()` would be a galaxy that
+     * changes category depending on who asked.
+     *
+     * @var array|null type => array(category, kind)
+     */
+    private static $merged = null;
+
+    /**
+     * The categories ingested from the galaxy definitions.
+     *
+     * **Null until something asks**, and empty whenever the answer
+     * cannot be had: outside CakePHP, where this class is a plain
+     * `require` in a harness, and before migration 164, where the
+     * columns do not exist. Both degrade to the table, which is the
+     * state every instance was in before the field landed.
+     *
+     * @var array|null type => array(category, kind)
+     */
+    private static $ingested = null;
+
+    /**
+     * @return array type => array(category, kind)
+     */
+    private static function ingested()
+    {
+        if (self::$ingested !== null) {
+            return self::$ingested;
+        }
+        self::$ingested = array();
+        if (!class_exists('ClassRegistry')) {
+            return self::$ingested;
+        }
+        $model = ClassRegistry::init('Galaxy');
+        $schema = $model->schema();
+        /*
+         * Asked of the schema rather than attempted and caught: an
+         * instance that has not run the update is the normal state
+         * during an upgrade, not an error worth a stack trace in the
+         * log every time a value page is drawn.
+         */
+        if (!isset($schema['category']) || !isset($schema['kind'])) {
+            return self::$ingested;
+        }
+        $rows = $model->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Galaxy.type', 'Galaxy.category',
+                'Galaxy.kind'),
+            'conditions' => array('Galaxy.category !=' => ''),
+        ));
+        foreach ($rows as $row) {
+            $row = $row['Galaxy'];
+            if (empty($row['type']) || empty($row['category'])) {
+                continue;
+            }
+            self::$ingested[$row['type']] = array(
+                $row['category'],
+                empty($row['kind']) ? null : $row['kind'],
+            );
+        }
+        return self::$ingested;
+    }
+
+    /**
+     * @return array type => array(category, kind)
+     */
+    private static function merged()
+    {
+        if (self::$merged === null) {
+            self::$merged = array_merge(self::$table, self::ingested());
+        }
+        return self::$merged;
+    }
+
+    /**
+     * Drop what was read, so the next call reads again.
+     *
+     * For a shell that ingests galaxies and then asks about them in
+     * the same process, and for a test that wants the table alone.
+     *
+     * @return void
+     */
+    public static function forget()
+    {
+        self::$merged = null;
+        self::$ingested = null;
+    }
+
+    /**
      * @param string $galaxyType `galaxies.type`
      * @return array|null category and kind, or null if unrecognised
      */
     public static function of($galaxyType)
     {
         $galaxyType = (string)$galaxyType;
-        if (!isset(self::$table[$galaxyType])) {
+        $merged = self::merged();
+        if (!isset($merged[$galaxyType])) {
             return null;
         }
         return array(
-            'category' => self::$table[$galaxyType][0],
-            'kind' => self::$table[$galaxyType][1],
+            'category' => $merged[$galaxyType][0],
+            'kind' => $merged[$galaxyType][1],
         );
     }
 
@@ -352,7 +482,7 @@ class GalaxyCategory
     public static function typesOfKind($kind)
     {
         $types = array();
-        foreach (self::$table as $type => $pair) {
+        foreach (self::merged() as $type => $pair) {
             if ($pair[1] === $kind) {
                 $types[] = $type;
             }
@@ -370,7 +500,7 @@ class GalaxyCategory
     public static function typesIn($category)
     {
         $types = array();
-        foreach (self::$table as $type => $pair) {
+        foreach (self::merged() as $type => $pair) {
             if ($pair[0] === $category) {
                 $types[] = $type;
             }

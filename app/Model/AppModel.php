@@ -99,7 +99,7 @@ class AppModel extends Model
         141 => false, 142 => false, 143 => false, 144 => false, 145 => false, 146 => false,
         147 => false, 148 => false, 149 => false, 150 => false, 151 => false, 152 => false,
         153 => false, 154 => false, 157 => false, 158 => false, 159 => false,
-        160 => false, 161 => false, 162 => false, 163 => false
+        160 => false, 161 => false, 162 => false, 163 => false, 164 => false
     );
 
     const ADVANCED_UPDATES_DESCRIPTION = array(
@@ -2835,6 +2835,34 @@ class AppModel extends Model
   UNIQUE KEY `org_id` (`org_id`),
   KEY `uuid` (`uuid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+                break;
+            case 164:
+                // What a galaxy's clusters represent, ingested from the
+                // galaxy definition (prd/personas/02-context-priority.md
+                // §8, piece 1).
+                //
+                // A definition says who published it and what it is
+                // called, but not what kind of thing its clusters are:
+                // `namespace` groups by publisher and `type` is an
+                // identifier, so a consumer asking "do these name a
+                // threat?" has had to hardcode a list of galaxy names.
+                // `kill_chain_order` is the field that looks like it
+                // answers and does not — it is carried by two
+                // self-assessment matrices and an actor typology, and
+                // not by four unambiguous attack-pattern galaxies.
+                //
+                // Both nullable, because upstream made them optional:
+                // absent means *nobody has classified this galaxy*,
+                // which is the honest answer for a locally created one
+                // and for the frameworks upstream left as questions.
+                // `__load_galaxies` saves whatever the definition
+                // carries, so ingestion needs no further code.
+                //
+                // No index: `galaxies` is 135 rows on a stock instance
+                // and every caller either holds a `type` already or
+                // reads the whole table once.
+                $sqlArray[] = "ALTER TABLE `galaxies` ADD `category` varchar(255) DEFAULT NULL AFTER `namespace`;";
+                $sqlArray[] = "ALTER TABLE `galaxies` ADD `kind` varchar(255) DEFAULT NULL AFTER `category`;";
                 break;
             case 'fixNonEmptySharingGroupID':
                 $sqlArray[] = 'UPDATE `events` SET `sharing_group_id` = 0 WHERE `distribution` != 4;';
