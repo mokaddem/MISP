@@ -11,42 +11,44 @@
  * are, to any consumer, one undifferentiated set in which Threat Actor
  * sits beside UKHSA Culture Collections, Firearms and Cancer.
  *
- * **The answer now lives on the galaxy, and this is what stands behind
- * it.** `galaxies.category` and `galaxies.kind` were added by migration
- * 164 and are ingested straight from the definition files, because
- * `__load_galaxies` saves whatever a definition carries. `merged()`
- * reads the column over this table, so an instance whose misp-galaxy
- * copy carries the field gets upstream's answer and an instance still
- * on an older copy gets this one, rather than losing every
- * classification at once on the day the code lands.
+ * **The answer lives on the galaxy.** `galaxies.category` and
+ * `galaxies.kind` were added by migration 164 and are ingested straight
+ * from the definition files, because `__load_galaxies` saves whatever a
+ * definition carries. This class reads that column and holds the
+ * vocabulary the column is written against.
  *
- * **So this table is not deleted yet, and the condition for deleting
- * it is a comparison rather than a count.** Measured on the
- * development instance 2026-09-18: 70 galaxy types carry clusters on
- * real events, the table and upstream classify exactly the same 49 of
- * them, and neither answers for the other 21. The table can go when no
- * type it answers for is one the column leaves unanswered — which
- * reads zero today, and needs the ingestion to have actually run
- * somewhere before anybody acts on it. *No galaxy carrying clusters is
- * left without a category* is the condition this was first given and
- * it can never be met: 14 of those 21 types have no galaxy row at all
- * — legacy and STIX tag strings whose galaxy no longer exists — so
- * there is nothing to carry a field.
+ * **It used to carry an interim table of 94 galaxy types, and that
+ * table is gone.** It was the answer before the field existed and the
+ * fallback while instances took the release carrying it; it was deleted
+ * once the column answered for every type it did. The condition was a
+ * comparison rather than a count — *no type the table answers for is
+ * one the column leaves unanswered* — because the count version, *no
+ * galaxy carrying clusters is left without a category*, can never be
+ * met: measured on the development instance, 14 of the 21 unclassified
+ * types in use have no galaxy row at all, being legacy and STIX tag
+ * strings whose galaxy no longer exists, so there is nothing to carry
+ * a field for them. `prd/personas/07-category-live-probe.php`'s
+ * `coverage` is what reports the comparison.
  *
- * A galaxy absent from both is *unrecognised*, not judged harmless,
- * and every caller skips it. That is the answer for a locally created
- * galaxy, whose `type` is a bare UUID no shipped table can predict —
- * four of them on the development instance — until an administrator
- * classifies it on `galaxies/add` or `galaxies/edit`, which offer the
- * vocabulary below and reach locally created galaxies only:
- * `edit()` refuses a default galaxy and `add()` forces
+ * **So an unclassified galaxy now reads as unclassified everywhere**,
+ * including on an instance whose misp-galaxy copy predates the field
+ * and inside a harness with no CakePHP, where the read cannot happen at
+ * all. Both used to fall back to the table and now answer nothing. A
+ * galaxy this class does not answer for is *unrecognised*, not judged
+ * harmless, and every caller skips it — which is the same behaviour an
+ * unlisted galaxy always had, reached by a different route.
+ *
+ * That is also the answer for a locally created galaxy, whose `type` is
+ * a bare UUID no shipped classification can predict, until an
+ * administrator classifies it on `galaxies/add` or `galaxies/edit`.
+ * Those offer the vocabulary below and reach locally created galaxies
+ * only: `edit()` refuses a default galaxy and `add()` forces
  * `default = false`, so a re-ingest cannot overwrite the answer.
  *
- * **Proposed upstream 2026-09-18**, with this table as its starting
- * content: misp-galaxy `prd/2026-09-18-galaxy-category.md`, which asks
- * for `category` and `kind` on the galaxy definition and carries the 94
- * mappings below as a map file. Written and pushed as a branch, not
- * merged, and 99 of the 135 shipped galaxies are classified there.
+ * **Proposed upstream 2026-09-18**, with the deleted table as its
+ * starting content: misp-galaxy `prd/2026-09-18-galaxy-category.md`,
+ * which asks for `category` and `kind` on the galaxy definition, and
+ * classifies 99 of the 135 shipped galaxies.
  *
  * **Why a named threat is a galaxy cluster and nothing else.** Measured
  * on the development instance, 2026-09-03:
@@ -113,18 +115,18 @@ class GalaxyCategory
     const TARGETING = 'targeting';
 
     /**
-     * Present so the table records the near-misses rather than staying
-     * silent about them. `producer` and `intelligence-agency` are the
-     * two that read like threats and are not: the first names who
-     * published the intelligence, the second is a directory.
+     * The near-misses, named so they are not mistaken for oversights.
+     * `producer` and `intelligence-agency` are the two that read like
+     * threats and are not: the first names who published the
+     * intelligence, the second is a directory.
      */
     const CONTEXT = 'context';
 
     /**
-     * The one category the interim table never needed and the ingested
-     * field does. The table answers *is this a threat* by omission, so
-     * Firearms and Cancer could simply be left out; a field on the
-     * galaxy cannot work that way, because absent there has to mean
+     * The one category the deleted table never needed and the field
+     * does. A table answers *is this a threat* by omission, so Firearms
+     * and Cancer could simply be left out of it; a field on the galaxy
+     * cannot work that way, because absent there has to mean
      * *undecided*. So the non-security galaxies say what they are.
      *
      * Nothing here asks for it. It is declared so the vocabulary in
@@ -204,200 +206,14 @@ class GalaxyCategory
     );
 
     /**
-     * Galaxy `type` => array(category, kind).
-     *
-     * Keyed on `type` because that is the string inside every tag name
-     * (`misp-galaxy:<type>="<cluster>"`) and the value of
-     * `galaxy_clusters.type`, so a caller holding either matches
-     * without a join.
-     *
-     * The `deprecated`-namespace MITRE galaxies are listed alongside
-     * their replacements: they still carry historical event tags — 44
-     * events on `mitre-enterprise-attack-intrusion-set` here — and a
-     * value's events are frequently years old.
-     *
-     * Unlisted on purpose: the non-security galaxies (firearms,
-     * disease, ammunitions, uavs, ukhsa-culture-collections, naics,
-     * NACE, nato, handicap, nice-framework-*), the maturity and
-     * self-assessment frameworks (cti-cmm-1-3, bitns, plot4ai,
-     * sod-matrix, tea-matrix, veris-framework, rsit, scor-*), and the
-     * typologies that classify rather than name (disarm-actortypes).
-     */
-    private static $table = array(
-        // Actors.
-        'threat-actor' => array(self::NAMED_THREAT, self::ACTOR),
-        'mitre-intrusion-set' => array(self::NAMED_THREAT, self::ACTOR),
-        'mitre-enterprise-attack-intrusion-set' =>
-            array(self::NAMED_THREAT, self::ACTOR),
-        'mitre-mobile-attack-intrusion-set' =>
-            array(self::NAMED_THREAT, self::ACTOR),
-        'mitre-pre-attack-intrusion-set' =>
-            array(self::NAMED_THREAT, self::ACTOR),
-        'mitre-ics-groups' => array(self::NAMED_THREAT, self::ACTOR),
-        'groups' => array(self::NAMED_THREAT, self::ACTOR),
-        'microsoft-activity-group' =>
-            array(self::NAMED_THREAT, self::ACTOR),
-        '360net-threat-actor' => array(self::NAMED_THREAT, self::ACTOR),
-        'surveillance-vendor' => array(self::NAMED_THREAT, self::ACTOR),
-        'canada-listed-terrorist-entities' =>
-            array(self::NAMED_THREAT, self::ACTOR),
-
-        // Campaigns.
-        'campaigns' => array(self::NAMED_THREAT, self::CAMPAIGN),
-
-        // Malware.
-        'malpedia' => array(self::NAMED_THREAT, self::MALWARE),
-        'ransomware' => array(self::NAMED_THREAT, self::MALWARE),
-        'backdoor' => array(self::NAMED_THREAT, self::MALWARE),
-        'banker' => array(self::NAMED_THREAT, self::MALWARE),
-        'stealer' => array(self::NAMED_THREAT, self::MALWARE),
-        'wiper' => array(self::NAMED_THREAT, self::MALWARE),
-        'rat' => array(self::NAMED_THREAT, self::MALWARE),
-        'botnet' => array(self::NAMED_THREAT, self::MALWARE),
-        'cryptominers' => array(self::NAMED_THREAT, self::MALWARE),
-        'android' => array(self::NAMED_THREAT, self::MALWARE),
-        'stalkerware' => array(self::NAMED_THREAT, self::MALWARE),
-        'mitre-malware' => array(self::NAMED_THREAT, self::MALWARE),
-        'mitre-enterprise-attack-malware' =>
-            array(self::NAMED_THREAT, self::MALWARE),
-        'mitre-mobile-attack-malware' =>
-            array(self::NAMED_THREAT, self::MALWARE),
-        'mitre-ics-software' => array(self::NAMED_THREAT, self::MALWARE),
-
-        // Tooling, including the dual-use families whose own
-        // descriptions say they are abused rather than authored for it.
-        'tool' => array(self::NAMED_THREAT, self::TOOL),
-        'mitre-tool' => array(self::NAMED_THREAT, self::TOOL),
-        'mitre-enterprise-attack-tool' =>
-            array(self::NAMED_THREAT, self::TOOL),
-        'mitre-mobile-attack-tool' =>
-            array(self::NAMED_THREAT, self::TOOL),
-        'exploit-kit' => array(self::NAMED_THREAT, self::TOOL),
-        'tds' => array(self::NAMED_THREAT, self::TOOL),
-        'rmm-tool' => array(self::NAMED_THREAT, self::TOOL),
-        'software' => array(self::NAMED_THREAT, self::TOOL),
-
-        // Behaviour. `attack-pattern` is the ATT&CK-shaped kind whose
-        // galaxy carries `kill_chain_order`, which is what a tactic
-        // roll-up reads; `technique` is every other framework's own
-        // technique list; `tactic` names a phase directly.
-        'mitre-attack-pattern' =>
-            array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'mitre-enterprise-attack-attack-pattern' =>
-            array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'mitre-mobile-attack-attack-pattern' =>
-            array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'mitre-pre-attack-attack-pattern' =>
-            array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'mitre-atlas-attack-pattern' =>
-            array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'mitre-ics-techniques' =>
-            array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'cmtmf-attack-pattern' =>
-            array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'financial-fraud' => array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'gsma-motif' => array(self::TECHNIQUE, self::ATTACK_PATTERN),
-        'amitt-misinformation-pattern' =>
-            array(self::TECHNIQUE, 'technique'),
-        'disarm-techniques' => array(self::TECHNIQUE, 'technique'),
-        'dima-techniques' => array(self::TECHNIQUE, 'technique'),
-        'technique' => array(self::TECHNIQUE, 'technique'),
-        'atrm' => array(self::TECHNIQUE, 'technique'),
-        'cloud-security' => array(self::TECHNIQUE, 'technique'),
-        'first-dns' => array(self::TECHNIQUE, 'technique'),
-        'sparta-techniques' => array(self::TECHNIQUE, 'technique'),
-        'tmss' => array(self::TECHNIQUE, 'technique'),
-        'mitre-fraud-framework' => array(self::TECHNIQUE, 'technique'),
-        'bhadra-framework' => array(self::TECHNIQUE, 'technique'),
-        'mitre-ics-tactics' => array(self::TECHNIQUE, 'tactic'),
-        'sparta-tactics' => array(self::TECHNIQUE, 'tactic'),
-        'tactic' => array(self::TECHNIQUE, 'tactic'),
-        'human-layer-kill-chain' => array(self::TECHNIQUE, 'tactic'),
-
-        // Who was hit.
-        'sector' => array(self::VICTIM, 'sector'),
-        'cert-eu-govsector' => array(self::VICTIM, 'sector'),
-        'country' => array(self::VICTIM, 'location'),
-        'region' => array(self::VICTIM, 'location'),
-        'target-information' => array(self::VICTIM, 'target'),
-
-        // What to do about it.
-        'mitre-course-of-action' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'mitre-enterprise-attack-course-of-action' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'mitre-mobile-attack-course-of-action' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'mitre-atlas-course-of-action' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'disarm-countermeasures' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'preventive-measure' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'mitre-d3fend' => array(self::DEFENSIVE, 'course-of-action'),
-        'engage-framework' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'sparta-mitigations' =>
-            array(self::DEFENSIVE, 'course-of-action'),
-        'cyfun-control-catalogue-2023' =>
-            array(self::DEFENSIVE, 'control'),
-        'cyfun-assurance-requirements-2023' =>
-            array(self::DEFENSIVE, 'control'),
-
-        // How it would be caught.
-        'sigma-rules' => array(self::DETECTION, 'rule'),
-        'agent-threat-rules' => array(self::DETECTION, 'rule'),
-        'disarm-detections' => array(self::DETECTION, 'strategy'),
-        'x-mitre-detection-strategy' =>
-            array(self::DETECTION, 'strategy'),
-        'x-mitre-analytic' => array(self::DETECTION, 'strategy'),
-        'mitre-data-source' => array(self::DETECTION, 'data-source'),
-        'mitre-data-component' =>
-            array(self::DETECTION, 'data-source'),
-
-        // What is exposed.
-        'mitre-ics-assets' => array(self::TARGETING, 'asset'),
-        'mitre-ics-levels' => array(self::TARGETING, 'asset'),
-        'it-infrastructure-equipment' =>
-            array(self::TARGETING, 'asset'),
-        'operating-system' => array(self::TARGETING, 'platform'),
-        'online-service' => array(self::TARGETING, 'service'),
-
-        // Near-misses, recorded so they are not mistaken for
-        // oversights.
-        'producer' => array(self::CONTEXT, 'producer'),
-        'intelligence-agency' =>
-            array(self::CONTEXT, 'organisation'),
-        'software-vendor' => array(self::CONTEXT, 'organisation'),
-        'china-defence-universities' =>
-            array(self::CONTEXT, 'organisation'),
-        'entity' => array(self::CONTEXT, 'organisation'),
-        'branded-vulnerability' =>
-            array(self::CONTEXT, 'vulnerability'),
-        'references' => array(self::CONTEXT, 'reference'),
-    );
-
-    /**
-     * The table and the ingested column as one map, the column winning.
-     *
-     * Every reader goes through here, including the two that enumerate
-     * for SQL, so the fallback is one mechanism rather than a second
-     * one bolted beside the first — a galaxy answered by the column in
-     * `of()` and by the table in `typesIn()` would be a galaxy that
-     * changes category depending on who asked.
-     *
-     * @var array|null type => array(category, kind)
-     */
-    private static $merged = null;
-
-    /**
      * The categories ingested from the galaxy definitions.
      *
      * **Null until something asks**, and empty whenever the answer
      * cannot be had: outside CakePHP, where this class is a plain
      * `require` in a harness, and before migration 164, where the
-     * columns do not exist. Both degrade to the table, which is the
-     * state every instance was in before the field landed.
+     * columns do not exist. Both used to fall back to the interim
+     * table; with it deleted they answer nothing, so every galaxy reads
+     * as unclassified rather than as some other category.
      *
      * @var array|null type => array(category, kind)
      */
@@ -446,27 +262,16 @@ class GalaxyCategory
     }
 
     /**
-     * @return array type => array(category, kind)
-     */
-    private static function merged()
-    {
-        if (self::$merged === null) {
-            self::$merged = array_merge(self::$table, self::ingested());
-        }
-        return self::$merged;
-    }
-
-    /**
      * Drop what was read, so the next call reads again.
      *
      * For a shell that ingests galaxies and then asks about them in
-     * the same process, and for a test that wants the table alone.
+     * the same process, and for a test that changes a row and wants the
+     * next call to see it.
      *
      * @return void
      */
     public static function forget()
     {
-        self::$merged = null;
         self::$ingested = null;
     }
 
@@ -477,13 +282,13 @@ class GalaxyCategory
     public static function of($galaxyType)
     {
         $galaxyType = (string)$galaxyType;
-        $merged = self::merged();
-        if (!isset($merged[$galaxyType])) {
+        $known = self::ingested();
+        if (!isset($known[$galaxyType])) {
             return null;
         }
         return array(
-            'category' => $merged[$galaxyType][0],
-            'kind' => $merged[$galaxyType][1],
+            'category' => $known[$galaxyType][0],
+            'kind' => $known[$galaxyType][1],
         );
     }
 
@@ -537,13 +342,13 @@ class GalaxyCategory
      * Every galaxy type of one kind, for a caller that has to ask in
      * SQL rather than over rows already read.
      *
-     * @param string $kind The second half of a `$table` pair
+     * @param string $kind One of the `kinds` in the vocabulary above
      * @return array Galaxy types
      */
     public static function typesOfKind($kind)
     {
         $types = array();
-        foreach (self::merged() as $type => $pair) {
+        foreach (self::ingested() as $type => $pair) {
             if ($pair[1] === $kind) {
                 $types[] = $type;
             }
@@ -561,7 +366,7 @@ class GalaxyCategory
     public static function typesIn($category)
     {
         $types = array();
-        foreach (self::merged() as $type => $pair) {
+        foreach (self::ingested() as $type => $pair) {
             if ($pair[0] === $category) {
                 $types[] = $type;
             }
