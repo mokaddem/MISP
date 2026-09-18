@@ -3,10 +3,18 @@
 /**
  * Where an identifier has an account.
  *
- * **Nothing emits this today.** The module that checks a username
- * across platforms knows the platform and whether it found anything
- * and prints a line per hit; one `user-account` per hit, with the
- * platform as the account type, is every field it holds.
+ * **`socialscan` emits this, free and unauthenticated.** It returns
+ * one `user-account` per platform the identifier was found on, with
+ * the platform as `account-type` and the identifier itself as the
+ * handle — `username` where it was asked for a name, `email` and
+ * `user-id` where it was asked for an address. A platform that
+ * answered *available*, or that failed, produces no object, so the
+ * objects are the hits and nothing else.
+ *
+ * No `link` is emitted: the module knows a platform holds the account
+ * and not where it lives, and a URL guessed from a platform name is a
+ * link that sometimes 404s. `accountOf()` reads one where a richer
+ * producer sends it.
  *
  * **One object is one platform.** The set is the answer — *found on
  * six of the eleven checked* — so the count is the headline and the
@@ -22,14 +30,10 @@ class AccountPresenceRenderer extends ValueRendererBase
 
     public $full = 'Values/Renderers/account_presence_full';
 
-    public $producer = self::PRODUCER_CONVERSION;
-
     public function __construct()
     {
         $this->description = __('The platforms an identifier has an'
             . ' account on.');
-        $this->producer_note = __('The module that answers this prints'
-            . ' a line per platform; it emits no object yet.');
     }
 
     public function matches(array $objects, array $attributes)

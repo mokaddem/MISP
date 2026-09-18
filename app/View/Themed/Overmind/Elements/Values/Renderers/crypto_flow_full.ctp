@@ -4,7 +4,9 @@
  *
  * The counterparty column is what makes this a pivot rather than a
  * statement: the address on the other side of a transaction is itself
- * a value this page can be opened for.
+ * a value this page can be opened for. A transaction often has several,
+ * so the cell shows the first and counts the rest rather than widening
+ * to fit a set whose size nothing bounds.
  *
  * Fiat values are shown where the source carried them and never
  * computed here — a converted amount needs a rate and a date, and a
@@ -71,7 +73,12 @@ $wallet = $data['wallet'];
                             ? '—' : date('Y-m-d H:i', $tx['at'])) ?></td>
                         <td class="font-monospace"><?=
                             h($tx['counterparty'] === null
-                                ? '—' : $tx['counterparty']) ?></td>
+                                ? '—' : $tx['counterparty']) ?><?php
+                            $more = count($tx['counterparties']) - 1;
+                            if ($more > 0): ?><span
+                                class="vp-rf-dim"><?= h(sprintf(
+                                    ' +%d', $more
+                                )) ?></span><?php endif; ?></td>
                         <td class="text-end font-monospace"><?=
                             h($tx['value'] === null ? '—'
                                 : rtrim(rtrim(number_format(
