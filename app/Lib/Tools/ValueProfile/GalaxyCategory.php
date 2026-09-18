@@ -22,6 +22,12 @@
  * skip it — including every locally created galaxy, whose `type` is a
  * bare UUID no shipped table can predict.
  *
+ * **Proposed upstream 2026-09-18**, with this table as its starting
+ * content: misp-galaxy `prd/2026-09-18-galaxy-category.md`, which asks
+ * for `category` and `kind` on the galaxy definition and carries the 94
+ * mappings below as a map file. Not filed, and nothing here changes
+ * until it lands.
+ *
  * **Why a named threat is a galaxy cluster and nothing else.** Measured
  * on the development instance, 2026-09-03:
  *
