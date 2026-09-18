@@ -274,27 +274,6 @@ class ReputationRenderer extends ValueRendererBase
     }
 
     /**
-     * A boolean a module sent, whatever it sent it as.
-     *
-     * Modules send `true`, `"true"`, `1` and `"True"` for the same
-     * fact, and `"false"` is a non-empty string — so the naive test
-     * reads every explicit denial as an assertion.
-     *
-     * @param array $object
-     * @param string $relation
-     * @return bool
-     */
-    private function flag(array $object, $relation)
-    {
-        $value = $this->value($object, $relation);
-        if ($value === null) {
-            return false;
-        }
-        $value = strtolower(trim($value));
-        return in_array($value, array('1', 'true', 'yes'), true);
-    }
-
-    /**
      * The relations worth showing under the verdict, as they came.
      *
      * @param array $object
