@@ -34,10 +34,13 @@
  * there is nothing to carry a field.
  *
  * A galaxy absent from both is *unrecognised*, not judged harmless,
- * and every caller skips it. That is still the answer for a locally
- * created galaxy, whose `type` is a bare UUID no shipped table can
- * predict — four of them on the development instance — until an
- * administrator classifies it on the galaxy itself.
+ * and every caller skips it. That is the answer for a locally created
+ * galaxy, whose `type` is a bare UUID no shipped table can predict —
+ * four of them on the development instance — until an administrator
+ * classifies it on `galaxies/add` or `galaxies/edit`, which offer the
+ * vocabulary below and reach locally created galaxies only:
+ * `edit()` refuses a default galaxy and `add()` forces
+ * `default = false`, so a re-ingest cannot overwrite the answer.
  *
  * **Proposed upstream 2026-09-18**, with this table as its starting
  * content: misp-galaxy `prd/2026-09-18-galaxy-category.md`, which asks
@@ -141,6 +144,64 @@ class GalaxyCategory
      * ask for it now — `isAttackPattern` and the tactic chain.
      */
     const ATTACK_PATTERN = 'attack-pattern';
+
+    /**
+     * The vocabulary itself: category => definition and the kinds in
+     * use under it.
+     *
+     * This is what `galaxies/add` and `galaxies/edit` offer, and it is
+     * the same eight values as misp-galaxy's proposed
+     * `vocabularies/common/galaxy-category.json` — the definitions are
+     * that file's, shortened to a line a form can carry. A galaxy
+     * classified here has to mean the same thing as one classified
+     * upstream, so the two lists cannot be allowed to drift.
+     *
+     * The kinds are *the kinds in use*, not a closed set: upstream's
+     * schema does not constrain `kind` to its category, and `reference`
+     * has none at all because the non-security galaxies are one
+     * undifferentiated group. The form narrows to this map because
+     * offering `actor` under `detection` would be offering nonsense,
+     * not because a stored value outside it is invalid.
+     *
+     * @var array category => array('description' => string,
+     *     'kinds' => array)
+     */
+    private static $vocabulary = array(
+        self::NAMED_THREAT => array(
+            'description' => 'The clusters name something conducting or constituting an intrusion. The dividing line is curation rather than menace: a curated list of firms selling intrusion capability belongs here, a directory of every agency that exists does not.',
+            'kinds' => array(self::ACTOR, self::CAMPAIGN, self::MALWARE,
+                self::TOOL),
+        ),
+        self::TECHNIQUE => array(
+            'description' => 'The clusters describe adversary behaviour - where in an intrusion, and how. Attack patterns, techniques and tactics.',
+            'kinds' => array(self::ATTACK_PATTERN, 'technique', 'tactic'),
+        ),
+        self::VICTIM => array(
+            'description' => 'The clusters describe who was hit: a sector, a place, a target description.',
+            'kinds' => array('sector', 'location', 'target'),
+        ),
+        self::DEFENSIVE => array(
+            'description' => 'The clusters describe what to do about it: courses of action, mitigations, countermeasures, controls.',
+            'kinds' => array('course-of-action', 'control'),
+        ),
+        self::DETECTION => array(
+            'description' => 'The clusters describe how something would be caught: detection rules, analytics, detection strategies, data sources.',
+            'kinds' => array('rule', 'strategy', 'data-source'),
+        ),
+        self::TARGETING => array(
+            'description' => 'The clusters describe what is exposed: assets, platforms, services.',
+            'kinds' => array('asset', 'platform', 'service'),
+        ),
+        self::CONTEXT => array(
+            'description' => 'The clusters name entities that appear alongside threat intelligence without being a threat themselves - who published a report, a vendor, a branded vulnerability, a reference list of sources.',
+            'kinds' => array('producer', 'organisation', 'vulnerability',
+                'reference'),
+        ),
+        self::REFERENCE => array(
+            'description' => 'The clusters are a reference list from another domain, carried in MISP for sharing rather than to describe an intrusion - an industry classification, a species list, an equipment catalogue.',
+            'kinds' => array(),
+        ),
+    );
 
     /**
      * Galaxy `type` => array(category, kind).
@@ -506,5 +567,44 @@ class GalaxyCategory
             }
         }
         return $types;
+    }
+
+    /**
+     * The eight categories, in the order the vocabulary states them.
+     *
+     * @return array
+     */
+    public static function categories()
+    {
+        return array_keys(self::$vocabulary);
+    }
+
+    /**
+     * The kinds in use under one category.
+     *
+     * @param string $category
+     * @return array Empty both for `reference`, which has none, and for
+     *     a category outside the vocabulary
+     */
+    public static function kindsIn($category)
+    {
+        if (!isset(self::$vocabulary[$category])) {
+            return array();
+        }
+        return self::$vocabulary[$category]['kinds'];
+    }
+
+    /**
+     * What a category means, in one line, for a reader choosing one.
+     *
+     * @param string $category
+     * @return string|null
+     */
+    public static function describe($category)
+    {
+        if (!isset(self::$vocabulary[$category])) {
+            return null;
+        }
+        return self::$vocabulary[$category]['description'];
     }
 }

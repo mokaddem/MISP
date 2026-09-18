@@ -18,7 +18,7 @@ App::uses('ValueFactsTool', 'Tools/ValueProfile');
 App::uses('ValueContextTool', 'Tools/ValueProfile');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
-App::uses('GalaxyCategory', 'Tools/ValueProfile');
+App::uses('GalaxyCategory', 'Tools');
 App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 App::uses('DomainPermutationTool', 'Tools/ValueProfile');
 App::uses('AuditActionMeta', 'Tools/ValueProfile');

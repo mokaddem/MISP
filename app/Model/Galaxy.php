@@ -117,6 +117,20 @@ class Galaxy extends AppModel
         if (!isset($this->data['Galaxy']['description'])) {
             $this->data['Galaxy']['description'] = '';
         }
+        /*
+         * Absent means nobody has classified this galaxy, which is why
+         * migration 164 made both columns nullable. A form clearing the
+         * select posts an empty string, so it is restored to the null
+         * ingestion writes rather than becoming a second spelling of
+         * unclassified that an `IS NULL` would miss.
+         */
+        foreach (['category', 'kind'] as $classification) {
+            if (isset($this->data['Galaxy'][$classification])
+                && $this->data['Galaxy'][$classification] === ''
+            ) {
+                $this->data['Galaxy'][$classification] = null;
+            }
+        }
         return true;
     }
 
@@ -827,7 +841,7 @@ class Galaxy extends AppModel
                 $date = new DateTime();
                 $galaxy['Galaxy']['version'] = $date->getTimestamp();
                 if (empty($fieldList)) {
-                    $fieldList = ['name', 'namespace', 'description', 'version', 'distribution', 'icon', 'enabled', 'kill_chain_order'];
+                    $fieldList = ['name', 'namespace', 'description', 'version', 'distribution', 'icon', 'enabled', 'kill_chain_order', 'category', 'kind'];
                 }
                 $saveSuccess = $this->save($galaxy, ['fieldList' => $fieldList]);
                 if (!$saveSuccess) {

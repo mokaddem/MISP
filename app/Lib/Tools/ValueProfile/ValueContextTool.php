@@ -1,5 +1,5 @@
 <?php
-App::uses('GalaxyCategory', 'Tools/ValueProfile');
+App::uses('GalaxyCategory', 'Tools');
 
 /**
  * What the community has labelled this value, folded for the Overview.
