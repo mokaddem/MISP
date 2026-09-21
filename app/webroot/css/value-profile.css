@@ -11387,11 +11387,11 @@ a.vp-lane-tag:focus-visible {
 /* ==================================================================
  * The strip
  * ------------------------------------------------------------------
- * One row of promoted widgets above the module rows. The budget is
- * 200px for the whole row and about 190px per cell, and both are
- * enforced here rather than trusted: a cell that grows does not make
- * its own row taller, it makes the panel taller, and this panel was
- * argued on to the Overview at ~180px.
+ * One row of promoted widgets above the module rows. The cells divide
+ * the row's width between them; its height is a 200px budget, enforced
+ * here rather than trusted: a cell that grows does not make its own row
+ * taller, it makes the panel taller, and this panel was argued on to
+ * the Overview at ~180px.
  *
  * **It scrolls sideways rather than wrapping.** A second line of
  * widgets is a stack, and a stack of five is the 500-1000px the row
@@ -11410,12 +11410,13 @@ a.vp-lane-tag:focus-visible {
     border-bottom: 1px solid var(--bs-border-color);
 }
 
-/* `flex: 0 1 190px` and not a fixed width: the ideal cell is 190 and
-   the floor is 130, which is where the compact templates were measured
-   and still read. Below that the row scrolls instead. */
+/* `flex: 1 1 0` and not a width: the cells share the row equally,
+   however many the profile promoted, so the strip never ends in dead
+   space. The floor is 130, which is where the compact templates were
+   measured and still read. Below that the row scrolls instead. */
 .vp-eb-cell {
     display: flex;
-    flex: 0 1 190px;
+    flex: 1 1 0;
     flex-direction: column;
     gap: 3px;
     min-width: 130px;

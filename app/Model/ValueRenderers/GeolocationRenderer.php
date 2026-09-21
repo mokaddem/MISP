@@ -8,18 +8,15 @@
  * `country-code` on the other — so both are claimed here and every
  * read asks for the spellings in turn.
  *
- * **The map is not always drawn, and the text form is not a degraded
- * state.** Tiles are fetched by the reader's browser from the
- * instance's configured tile server, and that server is behind a
- * setting which is off by default — the same setting that gates the
- * event view's existing map icon. A value page is not the place to
- * quietly overrule an administrator who left maps off, so where the
- * setting is off this draws the country, the city and the source,
- * which is what a 190px cell says when the instance has not opted in
- * to tiles. It carries the same facts.
- *
- * The decision is made here rather than in the template, because a
- * template that reads a setting is a template that computes.
+ * **The map costs nothing to draw, so it is always drawn.** The
+ * outline both templates plot on ships as markup — the same Natural
+ * Earth geometry the dashboard's map widgets use, baked to an SVG
+ * path by `app/files/scripts/build_world_outline.py`. Nothing here is
+ * behind `Plugin.Geolocation_enabled`: that setting gates fetching
+ * tiles from a server outside the instance, which is a question about
+ * a network round trip rather than about whether a reader may see
+ * where an address is. A place name with no map beside it was the
+ * older answer to that question and it is not needed now.
  */
 class GeolocationRenderer extends ValueRendererBase
 {
@@ -109,8 +106,6 @@ class GeolocationRenderer extends ValueRendererBase
                 'region' => $this->firstValue($newest, self::REGION),
             ),
             'sources' => $this->sources($objects),
-            'map' => $this->mapAllowed() && !empty($points),
-            'tiles' => $this->tileUrl(),
             'agreed' => count($places) < 2,
         );
     }
@@ -158,28 +153,5 @@ class GeolocationRenderer extends ValueRendererBase
             return null;
         }
         return array($lat, $lon);
-    }
-
-    /**
-     * @return bool
-     */
-    private function mapAllowed()
-    {
-        if (!class_exists('Configure')) {
-            return false;
-        }
-        return (bool)Configure::read('Plugin.Geolocation_enabled');
-    }
-
-    /**
-     * @return string|null
-     */
-    private function tileUrl()
-    {
-        if (!class_exists('Configure')) {
-            return null;
-        }
-        $url = Configure::read('Plugin.Geolocation_url');
-        return empty($url) ? 'https://geo.circl.lu' : $url;
     }
 }

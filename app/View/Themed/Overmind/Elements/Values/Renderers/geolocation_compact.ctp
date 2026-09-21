@@ -10,11 +10,10 @@
  * speed of a database read. The real map is the full rendering on the
  * Enrichment pane, where there is one of it and room for it.
  *
- * So this draws a graticule and the points on it. It is a map in the
- * sense that it says *where*, and it says so with no request at all —
- * which is also why it does not change when the instance has tiles
- * turned off. What that setting decides here is only whether the plot
- * is drawn beside the place name or the place name stands alone.
+ * So this draws a world outline and the points on it, from geometry
+ * that ships as markup. It is a map in the sense that it says *where*,
+ * and it says so with no request at all — which is also why it does
+ * not change when the instance has tiles turned off.
  *
  * Pure: everything drawn comes from `prepare()`.
  *
@@ -54,28 +53,29 @@ $sub = $city !== null && $country !== null ? $country : null;
         <?php
         /*
          * Equirectangular, which is the projection a rectangle already
-         * is: x is longitude and y is latitude, both linear. Anything
-         * truer would need a world outline to be true *against*, and
-         * there is none here on purpose.
+         * is: x is longitude and y is latitude, both linear. The
+         * outline it is true against is the same Natural Earth
+         * geometry the dashboard's map widgets draw, baked to a path
+         * so that a coastline costs markup rather than a map library
+         * and a 437 KB fetch — see `world_outline.ctp`.
+         *
+         * The viewBox crops the symbol's full 0..180 of latitude to
+         * 84N..58S: the polar thirds are empty of addresses and, at a
+         * height of about 74px, they are the difference between a
+         * world a reader recognises and a band they do not.
          */
         ?>
-        <svg class="vp-rw-plot" viewBox="0 0 180 90"
-             preserveAspectRatio="none" aria-hidden="true">
-            <rect x="0" y="0" width="180" height="90"
+        <?= $this->element('Values/Renderers/world_outline') ?>
+        <svg class="vp-rw-plot" viewBox="0 6 360 142"
+             preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <rect x="0" y="6" width="360" height="142"
                   class="vp-rw-plot-bg"/>
-            <line x1="0" y1="45" x2="180" y2="45"
-                  class="vp-rw-plot-grid"/>
-            <line x1="90" y1="0" x2="90" y2="90"
-                  class="vp-rw-plot-grid"/>
-            <line x1="0" y1="22.5" x2="180" y2="22.5"
-                  class="vp-rw-plot-grid vp-rw-plot-faint"/>
-            <line x1="0" y1="67.5" x2="180" y2="67.5"
-                  class="vp-rw-plot-grid vp-rw-plot-faint"/>
+            <use href="#vp-world" x="0" y="0" width="360" height="180"/>
             <?php foreach ($points as $point): ?>
                 <circle
-                    cx="<?= h(round(($point['lon'] + 180) / 2, 2)) ?>"
-                    cy="<?= h(round((90 - $point['lat']) / 2, 2)) ?>"
-                    r="3" class="vp-rw-plot-dot"/>
+                    cx="<?= h(round($point['lon'] + 180, 2)) ?>"
+                    cy="<?= h(round(90 - $point['lat'], 2)) ?>"
+                    r="5" class="vp-rw-plot-dot"/>
             <?php endforeach; ?>
         </svg>
     <?php endif; ?>

@@ -7,11 +7,13 @@
  * address in three cities is a finding about the databases, and the
  * only place it can be read is a table with a source column.
  *
- * **The map is a container and not a fetch.** Where the instance has
- * tiles turned on, the points travel on the element as data and the
- * page's script upgrades it; where they are off, the plot and the
- * table are the whole rendering and carry the same facts. Either way
- * this template asks nobody for anything.
+ * **The map asks nobody for anything.** It is the same baked Natural
+ * Earth outline the compact widget draws, at the size a pane affords —
+ * so it is the rendering on every instance rather than the one an
+ * administrator has opted in to, and the table below it carries the
+ * sources either way. A tile fetch would say no more about *where*
+ * than this does; what it would add is a network round trip per
+ * reader and a dependency on a server outside the instance.
  *
  * @var array $data
  */
@@ -19,36 +21,17 @@ $points = $data['points'];
 $places = $data['places'];
 ?>
 <div class="vp-rf vp-rf-geo">
-    <?php if ($data['map'] && !empty($points)): ?>
-        <div class="vp-rf-map" data-vp-rmap="<?= h(json_encode(
-            array_map(function ($point) {
-                return array(
-                    'lat' => $point['lat'],
-                    'lon' => $point['lon'],
-                    'label' => trim(
-                        ($point['city'] === null ? '' : $point['city'])
-                        . ' '
-                        . ($point['country'] === null
-                            ? '' : $point['country'])
-                    ),
-                    'source' => $point['module'],
-                );
-            }, $points)
-        )) ?>" data-vp-rmap-tiles="<?= h((string)$data['tiles']) ?>">
-        </div>
-    <?php elseif (!empty($points)): ?>
-        <svg class="vp-rf-plot" viewBox="0 0 360 180"
+    <?php if (!empty($points)): ?>
+        <?= $this->element('Values/Renderers/world_outline') ?>
+        <svg class="vp-rf-plot" viewBox="0 6 360 142"
              preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-            <rect x="0" y="0" width="360" height="180"
+            <rect x="0" y="6" width="360" height="142"
                   class="vp-rw-plot-bg"/>
-            <line x1="0" y1="90" x2="360" y2="90"
-                  class="vp-rw-plot-grid"/>
-            <line x1="180" y1="0" x2="180" y2="180"
-                  class="vp-rw-plot-grid"/>
+            <use href="#vp-world" x="0" y="0" width="360" height="180"/>
             <?php foreach ($points as $point): ?>
                 <circle cx="<?= h(round($point['lon'] + 180, 2)) ?>"
                         cy="<?= h(round(90 - $point['lat'], 2)) ?>"
-                        r="4" class="vp-rw-plot-dot"/>
+                        r="3" class="vp-rw-plot-dot"/>
             <?php endforeach; ?>
         </svg>
     <?php endif; ?>
