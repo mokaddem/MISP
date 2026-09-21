@@ -42,23 +42,69 @@ echo $this->element('genericElements/assetLoader', array(
     'js' => array('analyst-profile'),
 ));
 
+/*
+ * What each scope answers with.
+ *
+ * The rail used to count the rows a scope *owns*, which is a different
+ * question and gives a different number: MISP's six shipped profiles
+ * carry no `user_id` and no `org_id`, so an organisation that has
+ * *chosen* one owns nothing, counted zero, and read as having no answer
+ * on the very page whose winning row said *Your organisation chose it*.
+ * Ownership is one of the two ways a scope answers (D45) and the rail
+ * is headed *resolution order*, so it reports the answer itself.
+ *
+ * The order here is `resolutionFor()`'s: an owned enabled profile
+ * first, then the uuid the scope declared, and a declaration that did
+ * not resolve is a reason rather than a name. The instance owns
+ * nothing ever — it names one.
+ */
 $default = null;
-$scopes = array(
-    3 => array('label' => __('Yours'), 'count' => 0),
-    2 => array('label' => __('Your organisation'), 'count' => 0),
-    0 => array('label' => __('Instance default'), 'count' => 0),
-);
+$byUuid = array();
+$ownedBy = array('user' => null, 'org' => null, 'instance' => null);
 $others = 0;
 foreach ($profiles as $profile) {
-    if (isset($scopes[$profile['scope_rank']])) {
-        $scopes[$profile['scope_rank']]['count']++;
-    } else {
+    $byUuid[$profile['uuid']] = $profile;
+    if ($profile['scope_rank'] === 1) {
         $others++;
+    }
+    if (!empty($profile['enabled'])) {
+        if ($profile['scope_rank'] === 3 && $ownedBy['user'] === null) {
+            $ownedBy['user'] = $profile;
+        } elseif ($profile['scope_rank'] === 2 && $ownedBy['org'] === null) {
+            $ownedBy['org'] = $profile;
+        }
     }
     if (!empty($profile['default'])) {
         $default = $profile;
     }
 }
+
+$scopes = array(
+    'user' => __('Yours'),
+    'org' => __('Your organisation'),
+    'instance' => __('Instance default'),
+);
+// `via` is `user`, `org`, `instance`, or one of the `_selection` pair.
+$wonBy = $via === null ? null : preg_replace('/_selection$/', '', $via);
+$answers = array();
+foreach ($scopes as $scope => $label) {
+    $answer = array('profile' => null, 'reason' => null);
+    if ($ownedBy[$scope] !== null) {
+        $answer['profile'] = $ownedBy[$scope];
+    } elseif (isset($unresolved[$scope])) {
+        $answer['reason'] = $unresolved[$scope]['reason'];
+    } elseif (!empty($selections[$scope])
+        && isset($byUuid[$selections[$scope]])
+    ) {
+        $answer['profile'] = $byUuid[$selections[$scope]];
+    }
+    $answers[$scope] = $answer;
+}
+$railReason = array(
+    'missing' => __('the profile it named is gone'),
+    'disabled' => __('the profile it named is switched off'),
+    'unreadable' => __('it may not use the profile it named'),
+);
 
 $canForkForOrg = !empty($me['Role']['perm_admin'])
     || !empty($me['Role']['perm_site_admin']);
@@ -87,9 +133,16 @@ $create[] = array(
 $this->set('headerTitle', __('Analyst Profiles'));
 $this->set('headerBreadcrumb', __('Analyst Profiles'));
 $this->set('headerCount', count($profiles));
-$this->set('headerDescription', __('A profile decides how MISP scores a'
-    . ' value: which evidence counts, and for how long. One is in force'
-    . ' for you at a time.'));
+/*
+ * All three of a document's jobs, because naming only the first sends
+ * a reader looking for the label order and the module list somewhere
+ * else: `signals`/`thresholds`/`relevance` weigh, `context` orders what
+ * the page shows first, and `enrichment` says what may run.
+ */
+$this->set('headerDescription', __('A profile decides what MISP makes of'
+    . ' a value: which evidence counts and for how long, which labels'
+    . ' come first, and which enrichment modules may run. One is in'
+    . ' force for you at a time.'));
 $this->set('headerActions', array(array(
     'type' => 'dropdown',
     'label' => __('New profile'),
@@ -117,25 +170,49 @@ $this->set('headerActions', array(array(
             <nav class="wb-rail">
                 <div class="wb-rail-title"><?= h(__('Resolution order')) ?></div>
                 <?php $step = 1; ?>
-                <?php foreach ($scopes as $scope): ?>
-                    <button type="button" class="wb-rail-item" disabled>
-                        <span><?= h($step++) ?>&nbsp;&nbsp;<?= h($scope['label']) ?></span>
-                        <span class="c"><?= h($scope['count']) ?></span>
-                    </button>
+                <?php foreach ($scopes as $scope => $label): ?>
+                    <?php $answer = $answers[$scope]; ?>
+                    <div class="wb-rail-item wb-rail-step<?=
+                        $wonBy === $scope ? ' is-open' : '' ?>">
+                        <span class="s"><?= h($step++) ?></span>
+                        <span class="t">
+                            <span class="l"><?= h($label) ?></span>
+                            <?php if ($answer['profile'] !== null): ?>
+                                <span class="a"><a href="<?= h(
+                                    $this->Html->url(array('action' => 'view',
+                                        $answer['profile']['id']))) ?>"><?= h(
+                                    $answer['profile']['name']) ?></a></span>
+                            <?php elseif ($answer['reason'] !== null): ?>
+                                <span class="a warn"><?= h(
+                                    isset($railReason[$answer['reason']])
+                                        ? $railReason[$answer['reason']]
+                                        : $answer['reason']) ?></span>
+                            <?php else: ?>
+                                <span class="a none"><?= h(
+                                    __('no answer')) ?></span>
+                            <?php endif; ?>
+                        </span>
+                    </div>
                 <?php endforeach; ?>
                 <?php if ($others > 0): ?>
-                    <button type="button" class="wb-rail-item" disabled>
+                    <?php
+                    /*
+                     * Not a step: rows belonging to somebody a site
+                     * admin can see and no scope of theirs can resolve.
+                     * A count is all it is, so it keeps one.
+                     */
+                    ?>
+                    <div class="wb-rail-item wb-rail-aside">
                         <span><?= h(__('Other owners')) ?></span>
                         <span class="c"><?= h($others) ?></span>
-                    </button>
+                    </div>
                 <?php endif; ?>
                 <p class="wb-rail-note">
                     <?= $scoring_off
                         ? h(__('None of the three answers, so nothing on'
                             . ' this instance is scored for you.'))
                         : h(__('MISP asks these three in order and takes the'
-                            . ' first answer. A profile further down does'
-                            . ' nothing while a nearer one answers.')) ?>
+                            . ' first answer, marked above.')) ?>
                 </p>
                 <?php
                 /*

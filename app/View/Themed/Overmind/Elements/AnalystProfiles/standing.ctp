@@ -69,7 +69,20 @@ $selectedBy = isset($profile['selected_by'])
          * stops scoring for everybody who has chosen nothing.
          */
         ?>
-        <?= h(__('MISP\'s own. Nothing is scored while it is off.')) ?>
+        <?php
+        /*
+         * The consequence holds only where this row is the one the
+         * instance names. A shipped profile nobody named can be off
+         * and cost nothing, and *nothing is scored while it is off* is
+         * simply false beside an organisation that chose another.
+         */
+        ?>
+        <?php if (in_array('instance', $selectedBy, true)): ?>
+            <?= h(__('The one this instance names, switched off. A reader'
+                . ' with no other answer is scored by nothing.')) ?>
+        <?php else: ?>
+            <?= h(__('MISP\'s own, and switched off.')) ?>
+        <?php endif; ?>
     <?php elseif ($state === 'disabled' && $profile['editable']): ?>
         <?= h(__('Yours, weighting nothing.')) ?>
     <?php elseif ($state === 'disabled'): ?>

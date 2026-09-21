@@ -695,6 +695,40 @@ input.num[type="number"]::-webkit-inner-spin-button {
     border-bottom: 1px solid var(--bs-border-color);
 }
 
+/*
+ * A resolution step is a scope and its answer, stacked. The scope name
+ * is the question and the profile under it is the answer, so they are
+ * not the same size — and the answering scope is the one the reader is
+ * looking for, so it is the one that reads as solid.
+ */
+.wb-rail-step {
+    align-items: flex-start;
+    gap: .45rem;
+}
+.wb-rail-step:hover { background: none; }
+.wb-rail-step.is-open:hover { background: var(--bs-secondary-bg); }
+.wb-rail-step .s {
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+}
+.wb-rail-step .t {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.wb-rail-step .a {
+    font-size: .6875rem;
+    line-height: 1.4;
+    color: var(--bs-secondary-color);
+    overflow-wrap: anywhere;
+}
+.wb-rail-step.is-open .a { color: var(--bs-body-color); }
+.wb-rail-step .a a { color: inherit; text-decoration: none; }
+.wb-rail-step .a a:hover { text-decoration: underline; }
+.wb-rail-step .a.none { font-style: italic; }
+.wb-rail-step .a.warn { color: var(--vp-conflict-ink, var(--vp-conflict)); }
+.wb-rail-aside:hover { background: none; }
+
 /* The name is the way into a profile, so `View` is not a button.
  * Underline on hover only: six underlined names down a column read as
  * a list of links rather than a list of profiles. */
@@ -807,6 +841,28 @@ input.num[type="number"]::-webkit-inner-spin-button {
         display: block;
         flex: 1 0 100%;
         padding: .2rem .15rem 0;
+    }
+    /*
+     * A step becomes a pill, so its two lines become one: *Your
+     * organisation · Incident Response & Investigation*, clipped rather
+     * than wrapped, because a two-line pill in a row of one-line pills
+     * reads as a different kind of thing.
+     */
+    .wb-index .wb-rail-step .t {
+        flex-direction: row;
+        align-items: baseline;
+        gap: .35rem;
+    }
+    .wb-index .wb-rail-step .a {
+        max-width: 15rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .wb-index .wb-rail-step .a::before {
+        content: "·";
+        margin-right: .35rem;
+        color: var(--bs-secondary-color);
     }
     .wb-rail-item {
         width: auto;
