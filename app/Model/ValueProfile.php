@@ -16558,6 +16558,8 @@ class ValueProfile extends AppModel
                 'techniques' => array(),
                 'types' => array(),
                 'attribution' => ValueLabelPriority::attribution($profile),
+                'on_events' => array(),
+                'event_types' => array(),
             ),
             'budget' => $budget,
             /*
@@ -17287,6 +17289,8 @@ class ValueProfile extends AppModel
                 'techniques' => $techniques,
                 'types' => $types,
                 'attribution' => $eligible,
+                'on_events' => array(),
+                'event_types' => array(),
             );
         }
         $tags = $this->model('Value')->ownTagsFor(
@@ -17331,12 +17335,131 @@ class ValueProfile extends AppModel
         foreach ($types as $key => $set) {
             $types[$key] = array_keys($set);
         }
+        /*
+         * **Only when the occurrences carry nothing**, which is the
+         * only case the reading of it can reach: `attribution.galaxy`
+         * words its absence from this, and a value with a cluster of
+         * its own never asks. So a scored value pays for none of it,
+         * and the one that does pays a single `IN` against
+         * `event_tags`' own index over the ids already resolved above.
+         */
+        $onEvents = array('clusters' => array(), 'types' => array());
+        if (empty($clusters)) {
+            $onEvents = $this->verdictEventGalaxies($user, $events);
+        }
         return array(
             'clusters' => $clusters,
             'techniques' => $techniques,
             'types' => $types,
             'attribution' => $eligible,
+            'on_events' => $onEvents['clusters'],
+            'event_types' => $onEvents['types'],
         );
+    }
+
+    /**
+     * The clusters named by the events this value occurs in, which are
+     * **not** an attribution of the value and are never scored.
+     *
+     * A reader who has just seen *APT29* on the Overview's context card
+     * and reads *"no galaxy on any occurrence"* two panels away is
+     * being told two true things that sound like a contradiction. They
+     * are not: the event tag says *this report is about APT29*, the
+     * occurrence tag would say *this indicator is APT29's*, and only
+     * the second is an attribution. `Value::ownTagsFor`'s docblock
+     * draws the same line, with the same example.
+     *
+     * The distinction is worth keeping rather than softening. A report
+     * on an actor cites sandbox artefacts, public infrastructure the
+     * malware touched and services it abused — `8.8.8.8` reaches an
+     * APT29 event because something resolved a name, not because APT29
+     * runs it. Counting event tags as attribution would pay every
+     * indicator in that report for one analyst's judgement about the
+     * report, which is how a verdict engine ends up calling Google's
+     * resolver an actor's asset.
+     *
+     * So this exists to let the ledger *say* the events are labelled,
+     * and for nothing else. It returns counts, the caller hands them to
+     * the signal's own eligibility filter, and no points ride on any of
+     * it.
+     *
+     * **The cluster ACL still applies.** A galaxy tag names a cluster
+     * the reader may not be allowed to know exists, so the names go
+     * through `galaxyClusters()` exactly as the context card's do, and
+     * a tag with no row behind it is dropped rather than counted. The
+     * events themselves need no test: they came from
+     * `occurrenceEventsFor`, so each one holds an occurrence this
+     * reader may already see — `taggableEventIdsFor` makes the same
+     * argument for the context card.
+     *
+     * ATT&CK-shaped clusters are dropped on `verdictGalaxies`' own
+     * rule: a technique on the carrying event is not a near-miss
+     * attribution, and counting one would put *T1071.001* behind a
+     * sentence about actors, families and campaigns.
+     *
+     * @param array $user
+     * @param array $events The windowed event set, keyed by id
+     * @return array `clusters` (name => events) and `types`
+     *               (name => galaxy types), the shape
+     *               `AttributionGalaxy::eligible()` reads
+     */
+    private function verdictEventGalaxies(array $user, array $events)
+    {
+        $empty = array('clusters' => array(), 'types' => array());
+        if (empty($events)) {
+            return $empty;
+        }
+        $rows = ClassRegistry::init('EventTag')->find('all', array(
+            'fields' => array(
+                'Tag.name',
+                'COUNT(DISTINCT EventTag.event_id) AS events',
+            ),
+            'conditions' => array(
+                'EventTag.event_id' => array_keys($events),
+                'Tag.is_galaxy' => 1,
+            ),
+            'recursive' => -1,
+            'joins' => array(
+                array(
+                    'table' => 'tags',
+                    'alias' => 'Tag',
+                    'type' => 'INNER',
+                    'conditions' => array('Tag.id = EventTag.tag_id'),
+                ),
+            ),
+            'group' => array('Tag.name'),
+        ));
+        if (empty($rows)) {
+            return $empty;
+        }
+        $tags = array();
+        foreach ($rows as $row) {
+            $tags[$row['Tag']['name']] = array(
+                'tag' => array('is_galaxy' => true),
+                'count' => (int)$row[0]['events'],
+            );
+        }
+        $permitted = $this->galaxyClusters($user, $tags);
+        $clusters = array();
+        $types = array();
+        foreach ($tags as $name => $tag) {
+            if (!isset($permitted[$name])) {
+                continue;
+            }
+            $parsed = $this->galaxyTagParts($name);
+            if ($parsed === null
+                || GalaxyCategory::isAttackPattern($parsed['type'])
+            ) {
+                continue;
+            }
+            $key = $parsed['cluster'];
+            $clusters[$key] = ($clusters[$key] ?? 0) + $tag['count'];
+            $types[$key][$parsed['type']] = true;
+        }
+        foreach ($types as $key => $set) {
+            $types[$key] = array_keys($set);
+        }
+        return array('clusters' => $clusters, 'types' => $types);
     }
 
     /**

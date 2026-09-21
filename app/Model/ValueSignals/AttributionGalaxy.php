@@ -16,6 +16,17 @@
  * an `absent` key and only on genuine absence — a cluster set an
  * exclusion emptied leaves the row silent.
  *
+ * **An absence says where it looked.** *Occurrence* is the whole of
+ * the distinction this signal rests on, and a row that leans on the
+ * word silently reads as a contradiction of the context card: the
+ * Overview heads a *Threat Actor* group with *APT29*, this says nobody
+ * attributed the value, and a reader is left to reconcile two true
+ * sentences. So where the carrying events name a threat the count is
+ * put in the row and the reason under it. **Nothing about the score
+ * changes** — the event labels are not an attribution of the value and
+ * are not paid for, which is the point the wording now makes out loud
+ * rather than by omission.
+ *
  * **One point per cluster, not per occurrence.** The same actor tag on
  * a hundred occurrences is one attribution repeated; the fixture's
  * flux value shows the trap plainly with *"QakBot, on 107
@@ -89,16 +100,59 @@ class AttributionGalaxy extends ValueSignalBase
                 return null;
             }
             /*
-             * Two absences, and they are not the same finding. Nobody
-             * labelled this at all, or somebody labelled it with
-             * galaxies that name no threat — and a signal that said
-             * *no galaxy on any occurrence* over a value carrying
-             * `sector:banking` would be contradicted by the context
-             * card two panels away.
+             * Three absences, and they are not the same finding.
+             * Nobody labelled this at all, somebody labelled it with
+             * galaxies that name no threat, or the labels naming one
+             * are on the events rather than on this value — and a
+             * signal that said *no galaxy on any occurrence* over a
+             * value carrying `sector:banking` would be contradicted by
+             * the context card two panels away.
+             *
+             * **The third is the same objection at event scope**, and
+             * it is the one a reader actually meets: the context card
+             * heads a *Threat Actor* group with *APT29*, this row says
+             * nobody attributed it, and both are true. The word doing
+             * the work is *occurrence*, and it was doing it silently.
+             * So the count is said out loud and the evidence line says
+             * why it is not an attribution, which is the distinction
+             * `ValueProfile::verdictEventGalaxies` exists to keep
+             * rather than to soften.
+             *
+             * `eligible()` runs over the event set too, so the two
+             * halves of the sentence count the same kind of thing: a
+             * value whose events carry only `producer` and a typology
+             * says *no galaxy* with nothing in brackets, rather than
+             * sending its reader to look for an attribution that is
+             * not there.
              */
             $ruled = count($carried);
+            $evidence = __('Nobody has attributed this value to an'
+                . ' actor, family or campaign');
             if ($ruled === 0) {
-                $signal = __('No galaxy on any occurrence');
+                $onEvents = $this->eligible(
+                    $galaxies,
+                    isset($galaxies['on_events'])
+                        && is_array($galaxies['on_events'])
+                        ? $galaxies['on_events']
+                        : array(),
+                    isset($galaxies['event_types'])
+                        && is_array($galaxies['event_types'])
+                        ? $galaxies['event_types']
+                        : array()
+                );
+                if (empty($onEvents)) {
+                    $signal = __('No galaxy on any occurrence');
+                } else {
+                    $signal = sprintf(
+                        __('No galaxy on any occurrence (%d on the'
+                            . ' events it appears in)'),
+                        count($onEvents)
+                    );
+                    $evidence = __('Those events name a threat and this'
+                        . ' value is not labelled with it — a report'
+                        . ' about an actor does not attribute every'
+                        . ' indicator in it');
+                }
             } elseif ($ruled === 1) {
                 $signal = __('One galaxy on the occurrences, and it'
                     . ' names no threat');
@@ -112,8 +166,7 @@ class AttributionGalaxy extends ValueSignalBase
             return $this->row(
                 $this->points($config, 'absent'),
                 $signal,
-                __('Nobody has attributed this value to an actor,'
-                    . ' family or campaign'),
+                $evidence,
                 $context
             );
         }
@@ -162,12 +215,21 @@ class AttributionGalaxy extends ValueSignalBase
      * it — *Lazarus Group* is a `threat-actor` and an
      * `mitre-intrusion-set` — so one eligible galaxy is enough.
      *
+     * The types map is a parameter rather than a lookup because the
+     * absence wording asks the same question of a second set — the
+     * clusters on the carrying events — and one rule applied to both
+     * is what keeps the ledger from calling a galaxy an attribution in
+     * brackets and not in the row above.
+     *
      * @param array $galaxies The context's galaxy half
      * @param array $clusters Cluster name => occurrences
+     * @param array|null $types Cluster name => galaxy types; the
+     *                          occurrence set's own map when omitted
      * @return array The subset that attributes
      */
-    private function eligible(array $galaxies, array $clusters)
-    {
+    private function eligible(array $galaxies, array $clusters,
+        array $types = null
+    ) {
         if (empty($galaxies['attribution'])
             || !is_array($galaxies['attribution'])
             || empty($clusters)
@@ -175,9 +237,12 @@ class AttributionGalaxy extends ValueSignalBase
             return $clusters;
         }
         $allowed = array_flip($galaxies['attribution']);
-        $types = isset($galaxies['types']) && is_array($galaxies['types'])
-            ? $galaxies['types']
-            : array();
+        if ($types === null) {
+            $types = isset($galaxies['types'])
+                && is_array($galaxies['types'])
+                ? $galaxies['types']
+                : array();
+        }
         $kept = array();
         foreach ($clusters as $name => $occurrences) {
             if (!isset($types[$name]) || !is_array($types[$name])) {
