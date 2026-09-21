@@ -58,7 +58,6 @@ echo $this->element('genericElements/assetLoader', array(
  * not resolve is a reason rather than a name. The instance owns
  * nothing ever — it names one.
  */
-$default = null;
 $byUuid = array();
 $ownedBy = array('user' => null, 'org' => null, 'instance' => null);
 $others = 0;
@@ -74,10 +73,26 @@ foreach ($profiles as $profile) {
             $ownedBy['org'] = $profile;
         }
     }
-    if (!empty($profile['default'])) {
-        $default = $profile;
-    }
 }
+
+/*
+ * The instance default: the one row the site setting names.
+ *
+ * This used to be *the last row in the list carrying `default = 1`*,
+ * which was a single row until MISP shipped six of them and is now an
+ * arbitrary one. It put the wrong name in *Fork the instance default*
+ * and pointed *Enable the instance default* — the one button offered
+ * when nothing is in force — at a profile whose being enabled would fix
+ * nothing.
+ *
+ * Read whether or not it resolved, because the state that most needs it
+ * is the one where it did not: the named row is switched off, and
+ * enabling *that* row is the repair.
+ */
+$default = !empty($selections['instance'])
+    && isset($byUuid[$selections['instance']])
+        ? $byUuid[$selections['instance']]
+        : null;
 
 $scopes = array(
     'user' => __('Yours'),
@@ -100,6 +115,20 @@ foreach ($scopes as $scope => $label) {
     }
     $answers[$scope] = $answer;
 }
+/*
+ * The rail's relation, seen from the row: *which scopes point here?*
+ *
+ * The rail answers scope → profile and a reader arriving at a row has
+ * the opposite question. It cannot be read off the standing, which
+ * reports only the winner: with an organisation's choice in force, the
+ * instance default is merely *overridden*, and which of the five other
+ * shipped profiles it is is not on the row at all.
+ */
+$pointWord = array(
+    'user' => __('your choice'),
+    'org' => __('your organisation\'s'),
+    'instance' => __('instance default'),
+);
 $railReason = array(
     'missing' => __('the profile it named is gone'),
     'disabled' => __('the profile it named is switched off'),
@@ -292,6 +321,15 @@ $this->set('headerActions', array(array(
                                                 'action' => 'view',
                                                 $profile['id']))) ?>"><?= h(
                                             $profile['name']) ?></a>
+                                        <?php foreach ($pointWord
+                                            as $scope => $word): ?>
+                                            <?php if (in_array($scope,
+                                                $profile['selected_by'],
+                                                true)): ?>
+                                                <span class="ap-point"><?= h(
+                                                    $word) ?></span>
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
                                     </div>
                                     <div class="wb-sub">
                                         <?= h($profile['owner']) ?> &middot;
@@ -446,9 +484,21 @@ $this->set('headerActions', array(array(
                                     . ' still show their evidence; none of them'
                                     . ' shows a quality.')) ?>
                             </p>
-                            <?php if ($default !== null): ?>
+                            <?php if ($default !== null && !$default['enabled']): ?>
+                                <?php
+                                /*
+                                 * Named, because this button is the
+                                 * repair and a reader about to press it
+                                 * should see which profile it switches
+                                 * on. Offered only where that row is
+                                 * the one switched off — enabling an
+                                 * already-enabled instance default
+                                 * fixes nothing and is not the reason
+                                 * scoring is off.
+                                 */
+                                ?>
                                 <?= $this->Form->postLink(
-                                    __('Enable the instance default'),
+                                    sprintf(__('Enable %s'), $default['name']),
                                     array('action' => 'enable', $default['id']),
                                     array('class' => 'btn btn-sm'
                                         . ' btn-outline-primary py-0 px-2 mt-1')

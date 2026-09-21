@@ -1256,7 +1256,18 @@ class AnalystProfile extends AppModel
     private function __ownerLabel(array $user, array $row)
     {
         if (!empty($row['default'])) {
-            return __('Instance default');
+            /*
+             * `default` is written in one place only —
+             * `updateDefaults()`, once per shipped file — and import
+             * always creates a user- or organisation-owned row, so the
+             * column means *MISP ships this* and nothing else.
+             *
+             * It used to read *Instance default*, which is the name of
+             * the third resolution scope, and MISP ships six of these:
+             * six rows each claiming to be the instance default, beside
+             * a rail whose third step names the one that actually is.
+             */
+            return __('Shipped by MISP');
         }
         if (!empty($row['user_id'])) {
             if ($row['user_id'] == $user['id']) {

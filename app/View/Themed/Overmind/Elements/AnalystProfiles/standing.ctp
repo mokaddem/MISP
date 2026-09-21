@@ -46,6 +46,16 @@ $selectedBy = isset($profile['selected_by'])
 <span class="pill <?= h(isset($tone[$state]) ? $tone[$state] : 't-plain') ?>">
     <?= h(isset($label[$state]) ? $label[$state] : $state) ?>
 </span>
+<?php
+/*
+ * `not_selected` gets the pill and nothing else. It is the standing of
+ * five of the six rows MISP ships, so any sentence here is printed five
+ * times — and every word it could carry is already on the row: the
+ * owner column says *Shipped by MISP*, the pill says *not chosen*, and
+ * the button beside it says *Use this*.
+ */
+?>
+<?php if ($state !== 'not_selected'): ?>
 <div class="wb-sub mt-1">
     <?php if ($state === 'in_force'): ?>
         <?php if (in_array('user', $selectedBy, true)): ?>
@@ -57,8 +67,6 @@ $selectedBy = isset($profile['selected_by'])
         <?php else: ?>
             <?= h(__('Yours, and switched on.')) ?>
         <?php endif; ?>
-    <?php elseif ($state === 'not_selected'): ?>
-        <?= h(__('Shipped by MISP, chosen by nobody.')) ?>
     <?php elseif ($state === 'disabled' && !empty($profile['default'])): ?>
         <?php
         /*
@@ -110,3 +118,4 @@ $selectedBy = isset($profile['selected_by'])
             . ' explained away.')) ?>
     <?php endif; ?>
 </div>
+<?php endif; ?>

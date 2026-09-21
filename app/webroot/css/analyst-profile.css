@@ -736,6 +736,24 @@ input.num[type="number"]::-webkit-inner-spin-button {
 .ap-name:hover { text-decoration: underline; }
 
 /*
+ * Which scopes point at this row. Outline and secondary ink, because
+ * the standing column beside it is where colour means something — a
+ * scope pointing here is a fact about the instance, not a verdict on
+ * the profile.
+ */
+.ap-point {
+    display: inline-block;
+    margin-left: .3rem;
+    padding: 0 .4rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    font: 500 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+    vertical-align: 1px;
+}
+
+/*
  * One decision in the open, the rest behind the dots.
  *
  * `nowrap` is the whole point: nine buttons in this cell wrapped to
