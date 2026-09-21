@@ -144,7 +144,12 @@ $headerActions = array(
 );
 
 $this->set('headerTitleHtml', $titleHtml);
-$this->set('headerBreadcrumb', __('Data points') . ' > ' . __('Value Profile'));
+$this->set('headerBreadcrumb', array(
+    __('Data points'),
+    array('label' => __('Values'),
+        'url' => array('controller' => 'values', 'action' => 'index')),
+    __('Value Profile'),
+));
 $this->set('headerDescription', $description);
 $this->set('headerActions', $headerActions);
 $this->set('headerActionGroups', array('navigate' => array('mode' => 'none')));

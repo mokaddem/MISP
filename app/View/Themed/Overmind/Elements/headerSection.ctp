@@ -30,10 +30,34 @@ if (!empty($currentController)) {
 }
 
 // `headerBreadcrumb` lets a page state its own crumb, for pages whose
-// controller/action pair does not name what the page is about. Plain text:
-// unlike the derived crumb, it points at no single index page.
+// controller/action pair does not name what the page is about. A string is
+// plain text and points nowhere; an array is one segment per trail step,
+// either a bare label or `['label' => ..., 'url' => ...]`, and a segment
+// carrying a url becomes the way back to it.
+$renderBreadcrumbSegment = function ($segment) {
+    if (!is_array($segment)) {
+        return h($segment);
+    }
+    $label = h(isset($segment['label']) ? $segment['label'] : '');
+    if ($label === '' || empty($segment['url'])) {
+        return $label;
+    }
+    return '<a href="' . h($this->Html->url($segment['url'])) . '" '
+        . 'class="text-muted text-decoration-none breadcrumb-controller-link">'
+        . $label . '</a>';
+};
 if (!empty($headerBreadcrumb)) {
-    $breadcrumb = h($headerBreadcrumb);
+    if (is_array($headerBreadcrumb)) {
+        $segments = array_filter(
+            array_map($renderBreadcrumbSegment, $headerBreadcrumb),
+            function ($rendered) {
+                return $rendered !== '';
+            }
+        );
+        $breadcrumb = implode(' > ', $segments);
+    } else {
+        $breadcrumb = h($headerBreadcrumb);
+    }
 }
 
 // `headerTitleHtml` lets a view supply pre-built, already-escaped title markup

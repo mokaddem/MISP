@@ -16,7 +16,11 @@ echo $this->element('genericElements/assetLoader', array(
 ));
 
 $this->set('headerTitle', __('Import a profile'));
-$this->set('headerBreadcrumb', __('Analyst Profiles') . ' > ' . __('Import'));
+$this->set('headerBreadcrumb', array(
+    array('label' => __('Analyst Profiles'),
+        'url' => array('action' => 'index')),
+    __('Import'),
+));
 $this->set('headerDescription', __('One JSON document, exported from an'
     . ' instance that already scores something.'));
 ?>

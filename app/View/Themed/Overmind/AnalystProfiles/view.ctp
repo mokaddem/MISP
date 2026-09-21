@@ -78,7 +78,11 @@ if (!$editable) {
 }
 
 $this->set('headerTitle', $profile['name']);
-$this->set('headerBreadcrumb', __('Analyst Profiles') . ' > ' . $profile['name']);
+$this->set('headerBreadcrumb', array(
+    array('label' => __('Analyst Profiles'),
+        'url' => array('action' => 'index')),
+    $profile['name'],
+));
 $this->set('headerCountText', sprintf(__('rev %s'), $profile['revision']));
 $this->set('headerCount', $profile['revision']);
 $this->set('headerDescription', $profile['description']);

@@ -18,7 +18,11 @@ echo $this->element('genericElements/assetLoader', array(
 ));
 
 $this->set('headerTitle', $form['title']);
-$this->set('headerBreadcrumb', __('Analyst Profiles') . ' > ' . $form['title']);
+$this->set('headerBreadcrumb', array(
+    array('label' => __('Analyst Profiles'),
+        'url' => array('action' => 'index')),
+    $form['title'],
+));
 $this->set('headerDescription', __('Nothing has been written yet.'));
 ?>
 <div class="ap-page">

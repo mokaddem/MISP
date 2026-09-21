@@ -32,8 +32,13 @@ $query = $focus === null
     : array('value' => ValueUrlTool::encode($focus));
 
 $this->set('headerTitle', __('The bench, expanded'));
-$this->set('headerBreadcrumb', __('Analyst Profiles') . ' > ' . $base['name']
-    . ' > ' . __('The bench'));
+$this->set('headerBreadcrumb', array(
+    array('label' => __('Analyst Profiles'),
+        'url' => array('action' => 'index')),
+    array('label' => $base['name'],
+        'url' => array('action' => 'view', $base['id'])),
+    __('The bench'),
+));
 $this->set('headerCountText', $focus === null ? __('no value') : $focus);
 $this->set('headerCount', count($values));
 $this->set('headerDescription', __('Every ledger row, both columns, and the'

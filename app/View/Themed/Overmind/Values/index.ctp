@@ -62,7 +62,10 @@ echo $this->element('genericElements/assetLoader', array(
 ));
 
 $this->set('headerTitle', __('Values'));
-$this->set('headerBreadcrumb', __('Data points') . ' > ' . __('Values'));
+$this->set('headerBreadcrumb', array(
+    __('Data points'),
+    __('Values'),
+));
 $this->set('headerDescription', __(
     'Resolve an indicator to its Value Profile.'
 ));
