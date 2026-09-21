@@ -430,7 +430,7 @@ class AnalystProfilesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Forking creates a profile, so it is a POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $user = $this->Auth->user();
@@ -607,7 +607,7 @@ class AnalystProfilesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Choosing a profile is a POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $user = $this->Auth->user();
@@ -668,7 +668,7 @@ class AnalystProfilesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Clearing a selection is a POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $user = $this->Auth->user();
@@ -785,7 +785,7 @@ class AnalystProfilesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Changing what is in force is a POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $user = $this->Auth->user();
@@ -867,7 +867,7 @@ class AnalystProfilesController extends AppController
     {
         if (!$this->request->is(array('post', 'delete'))) {
             throw new MethodNotAllowedException(__(
-                'Deleting a profile is a POST.'
+                'This endpoint only accepts POST or DELETE requests.'
             ));
         }
         $user = $this->Auth->user();
@@ -947,7 +947,7 @@ class AnalystProfilesController extends AppController
              */
             if ($this->_isRest()) {
                 throw new MethodNotAllowedException(__(
-                    'Importing a profile is a POST.'
+                    'This endpoint only accepts POST requests.'
                 ));
             }
             return $this->__payload(array(
@@ -1081,7 +1081,7 @@ class AnalystProfilesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Updating the shipped defaults is a POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $outcome = $this->AnalystProfile->updateDefaults(
@@ -1295,7 +1295,7 @@ class AnalystProfilesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Changing the comparison set is a POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $user = $this->Auth->user();

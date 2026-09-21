@@ -271,9 +271,7 @@ class ValuesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Resolving a value is a POST: a value in a query'
-                . ' string would reach the access log and the browser'
-                . ' history.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $raw = $this->__pasted();
@@ -379,9 +377,7 @@ class ValuesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Triaging a list is a POST: a hundred indicators in a'
-                . ' query string would reach the access log one line'
-                . ' at a time.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         $many = ValueInputTool::normaliseMany($this->__pasted());
@@ -440,9 +436,7 @@ class ValuesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Assessing a value is a POST: a worklist of a hundred'
-                . ' would otherwise reach the access log one line at a'
-                . ' time.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         /*
@@ -1209,8 +1203,7 @@ class ValuesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Running a module queries a third party, so it is a'
-                . ' POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         /*
@@ -1311,8 +1304,7 @@ class ValuesController extends AppController
     {
         if (!$this->request->is('post')) {
             throw new MethodNotAllowedException(__(
-                'Running a module queries a third party, so it is a'
-                . ' POST.'
+                'This endpoint only accepts POST requests.'
             ));
         }
         @session_write_close();
