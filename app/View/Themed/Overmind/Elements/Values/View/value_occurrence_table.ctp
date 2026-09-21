@@ -25,6 +25,15 @@ $profile = $valueProfile;
 $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
 $facets = $profile['occurrence_facets'];
+/*
+ * The same plan the rail beside this table was folded with, so the
+ * two cannot rank one taxonomy two ways. Defaulted rather than
+ * required: a fixture-driven render predates the key, and an absent
+ * plan means every column draws what it was handed.
+ */
+$labelPlan = isset($profile['label_plan'])
+    ? $profile['label_plan']
+    : null;
 
 $noWrites = __(
     'Disabled in this pass — the Value Profile page does not write to'
@@ -552,6 +561,7 @@ $columns = array(
             'element' => 'value_tag_list',
             'data_path' => 'AttributeTag',
             'event_data_path' => 'EventTag',
+            'plan' => $labelPlan,
         ),
     ),
     /*
@@ -574,6 +584,7 @@ $columns = array(
             'element' => 'value_cluster_list',
             'data_path' => 'Cluster',
             'max_visible' => 3,
+            'plan' => $labelPlan,
         ),
     ),
 );

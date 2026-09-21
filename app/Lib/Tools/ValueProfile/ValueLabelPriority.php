@@ -300,11 +300,14 @@ class ValueLabelPriority
      * The same tiers, over a list of individual labels.
      *
      * `order()`'s twin for the surfaces that hand out a chip or a row
-     * per label rather than a group per dimension — the claim target
-     * card, the occurrence facet rail and the event view's tag column.
-     * One table of tiers, two entry points: the precedence, the
-     * lowercasing and the *declares nothing changes nothing* rule are
-     * `order()`'s and are not restated here.
+     * per label rather than a group per dimension — a facet rail, a
+     * chip run, a table column. One table of tiers, three entry
+     * points: the precedence, the lowercasing and the *declares
+     * nothing changes nothing* rule are `order()`'s and are not
+     * restated here.
+     *
+     * This one is for a list that is all of one dimension; `across()`
+     * takes a list holding both.
      *
      * **It differs in exactly one thing**, and the difference is
      * §4's handling rule at a granularity it was not written for. A
@@ -343,29 +346,139 @@ class ValueLabelPriority
         if (empty($labels) || !self::declares($plan, $scope)) {
             return $labels;
         }
-        $places = self::places($plan, $scope);
+        return self::ranked(
+            $labels,
+            array($scope => self::places($plan, $scope)),
+            $scope
+        );
+    }
+
+    /**
+     * The same tiers again, over a list that holds both dimensions at
+     * once.
+     *
+     * `labels()` ranks a list that is all taxonomy tags or all galaxy
+     * clusters, and every surface that came before this one was one or
+     * the other. The neighbourhood label table is neither: it is a
+     * single list ranked by shared events in which a cluster row sits
+     * beside a tag row, with a cut partway down it, and both dimensions
+     * have to compete for the rows above the cut. Ranking the tags and
+     * ranking the clusters separately produces two ordered lists and no
+     * answer about how to interleave them.
+     *
+     * So each item names its own dimension in `scope`, and one pass
+     * ranks the lot. Everything else is `labels()`: the tiers, the
+     * lowercasing, the handling severity inside a listed namespace, and
+     * the rule that ties keep arrival order — which here is the
+     * incoming rank, so a neighbourhood the profile has no opinion
+     * about still reads by shared events.
+     *
+     * **An item whose `scope` names neither dimension is unlisted**,
+     * like an item with no `key`, and keeps its place. A caller that
+     * has not been taught to say which dimension a row belongs to
+     * therefore gets today's order rather than a wrong one.
+     *
+     * A profile declaring one dimension and not the other is the
+     * ordinary case rather than a special one: the undeclared
+     * dimension's items are unlisted, tie with each other, and keep
+     * the order they arrived in among themselves.
+     *
+     * @param array $labels Items, each carrying `key` and `scope`
+     * @param array|null $plan A plan, a profile, or its parameters
+     * @return array The same items, ordered and marked
+     */
+    public static function across(array $labels, $plan)
+    {
+        $plan = self::planFor($plan);
+        if (empty($labels) || !self::declares($plan)) {
+            return $labels;
+        }
+        $places = array();
+        foreach (array(self::TAXONOMIES, self::GALAXIES) as $one) {
+            $places[$one] = self::places($plan, $one);
+        }
+        return self::ranked($labels, $places, null);
+    }
+
+    /**
+     * One ranking pass, for both per-item entry points.
+     *
+     * @param array $labels
+     * @param array $places Dimension => `places()`
+     * @param string|null $scope The one dimension every item is in, or
+     *     null to read each item's own `scope`
+     * @return array
+     */
+    private static function ranked(array $labels, array $places, $scope)
+    {
         $ranked = array();
+        $first = array();
         foreach ($labels as $at => $label) {
+            $dimension = $scope === null
+                ? self::scopeOf($label)
+                : $scope;
             $key = self::keyOf($label);
-            $place = $key !== null && isset($places[$key])
-                ? $places[$key]
+            $place = $dimension !== null && $key !== null
+                && isset($places[$dimension][$key])
+                ? $places[$dimension][$key]
                 : array('rank' => 2, 'within' => 0, 'tier' => null);
             $label['priority'] = $place['tier'];
             /*
              * Constant for everything the profile did not list, so
              * those items tie and `at` keeps them where they were.
+             *
+             * Severity is a taxonomy's, and the dimension is tested
+             * rather than the key alone: `HANDLING` is keyed by
+             * namespace, and a galaxy whose `type` happened to spell
+             * one of them would otherwise be ranked by a table written
+             * about handling markings.
              */
             $severity = 0;
-            if ($place['tier'] !== null && isset(self::HANDLING[$key])) {
+            if ($place['tier'] !== null
+                && $dimension === self::TAXONOMIES
+                && isset(self::HANDLING[$key])
+            ) {
                 $severity = self::severity(
                     $label,
                     $key,
                     self::HANDLING[$key]
                 );
             }
+            /*
+             * Where this key's first item arrived, which decides the
+             * order of two **listed** keys the profile ranked equally.
+             *
+             * Within one dimension that cannot happen — a tier's keys
+             * hold distinct positions, so `within` has already
+             * separated them — and the group is inert. Across two
+             * dimensions it happens constantly: a profile's taxonomy
+             * list and its galaxy list are independent, so the first
+             * pinned taxonomy and the first pinned galaxy both sit at
+             * position zero and the profile has said nothing about
+             * which of the two leads.
+             *
+             * Arrival order answers that, and grouping by key rather
+             * than interleaving by it is what keeps `severity`
+             * meaningful: severity is an order *inside* a handling
+             * namespace, and comparing a cluster's zero against
+             * `tlp:clear`'s four is comparing two different scales.
+             *
+             * Zero for everything unlisted, whose severity is zero
+             * too, so `at` alone decides among them and their arrival
+             * order survives.
+             */
+            $group = 0;
+            if ($place['tier'] !== null && $key !== null) {
+                $id = $dimension . '|' . $key;
+                if (!isset($first[$id])) {
+                    $first[$id] = $at;
+                }
+                $group = $first[$id];
+            }
             $ranked[] = array(
                 'rank' => $place['rank'],
                 'within' => $place['within'],
+                'group' => $group,
                 'severity' => $severity,
                 'at' => $at,
                 'label' => $label,
@@ -378,6 +491,9 @@ class ValueLabelPriority
             if ($a['within'] !== $b['within']) {
                 return $a['within'] - $b['within'];
             }
+            if ($a['group'] !== $b['group']) {
+                return $a['group'] - $b['group'];
+            }
             if ($a['severity'] !== $b['severity']) {
                 return $a['severity'] < $b['severity'] ? -1 : 1;
             }
@@ -388,6 +504,24 @@ class ValueLabelPriority
             $out[] = $row['label'];
         }
         return $out;
+    }
+
+    /**
+     * The dimension an item says it belongs to.
+     *
+     * @param array $label
+     * @return string|null Null for an item naming neither dimension,
+     *     which is unlisted by definition
+     */
+    private static function scopeOf(array $label)
+    {
+        if (!isset($label['scope'])) {
+            return null;
+        }
+        $scope = mb_strtolower(trim((string)$label['scope']));
+        return $scope === self::TAXONOMIES || $scope === self::GALAXIES
+            ? $scope
+            : null;
     }
 
     /**

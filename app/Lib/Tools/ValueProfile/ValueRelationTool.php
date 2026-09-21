@@ -1,6 +1,7 @@
 <?php
 App::uses('ValueStatsTool', 'Tools/ValueProfile');
 App::uses('ValueFieldKind', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 
 /**
  * The Relationships tab's aggregates.
@@ -1034,6 +1035,21 @@ class ValueRelationTool
                                 : '')
                             : $record['Galaxy']['name'])
                         : self::namespaceOf($name),
+                    /*
+                     * The same two dimensions the display name above
+                     * collapses into one column, kept apart: the
+                     * galaxy `type` for a cluster and the lowercased
+                     * namespace for a tag. Read through
+                     * `ValueLabelPriority` rather than the local
+                     * splitter, because the key has to match a
+                     * profile's list exactly and `family` only has to
+                     * read well.
+                     */
+                    'key' => $kind === self::KIND_CLUSTER
+                        ? (isset($record['type'])
+                            ? mb_strtolower($record['type'])
+                            : null)
+                        : ValueLabelPriority::namespaceOf($name),
                     'tag' => isset($seen['tag']) ? $seen['tag'] : null,
                     'cluster' => $cluster,
                     'attachment' => $seen['attachment'],
@@ -1236,6 +1252,13 @@ class ValueRelationTool
              * a value row, which answers with `types` instead.
              */
             'family' => '',
+            /*
+             * What a profile lists this label by, which `family` is
+             * not: the lists hold `threat-actor` and `tlp`, and
+             * `family` prints *Threat Actor*. Null on a value
+             * neighbour, which belongs to neither dimension.
+             */
+            'key' => null,
             'tag' => null,
             'cluster' => null,
             /*
@@ -1313,6 +1336,7 @@ class ValueRelationTool
                 'value' => $group['value'],
                 'label' => $group['label'],
                 'family' => $group['family'],
+                'key' => $group['key'],
                 'tag' => $group['tag'],
                 'cluster' => $group['cluster'],
                 'attachment' => $group['attachment'],

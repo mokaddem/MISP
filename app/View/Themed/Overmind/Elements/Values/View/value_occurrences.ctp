@@ -28,6 +28,15 @@
 $profile = $valueProfile;
 $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
+/*
+ * Which taxonomies this reader asked to see first. The Tags column
+ * draws one chip, so the plan decides what that chip is; defaulted
+ * rather than required, because a fixture-driven render predates the
+ * key and an absent plan is *draw them as they were merged*.
+ */
+$labelPlan = isset($profile['label_plan'])
+    ? $profile['label_plan']
+    : null;
 
 /*
  * Two things the page filters rows by, both stated on the <tr> because
@@ -135,6 +144,7 @@ $fields = array(
         // One, not the tab's four — the element says what the tab's
         // number cost this card.
         'max_visible' => 1,
+        'plan' => $labelPlan,
     ),
 );
 

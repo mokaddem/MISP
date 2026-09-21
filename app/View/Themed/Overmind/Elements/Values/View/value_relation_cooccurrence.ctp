@@ -1,6 +1,7 @@
 <?php
 App::uses('ValueFieldKind', 'Tools/ValueProfile');
 App::uses('ValueRelationTool', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 App::uses('GalaxyColour', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine
@@ -667,9 +668,51 @@ $labels = isset($co['labels']) ? $co['labels'] : array(
  * says so — the no-silent-caps rule, and the reason `cap` travels with
  * the rows rather than being spelled here.
  */
+/*
+ * The reader's own order over the fold's, and it runs **before** the
+ * cut below. The table lists a page of a neighbourhood that can hold
+ * hundreds, ranked by shared events, so the question the profile
+ * answers here is which labels are listed at all — a desk that pins
+ * `tlp` and prefers `threat-actor` was seeing neither on a value whose
+ * top rows are `type:OSINT` and a dozen pieces of tooling.
+ *
+ * **One pass over both dimensions**, because this is one list: a
+ * cluster row and a tag row compete for the same rows above the cut,
+ * and ranking them in two passes gives two lists and no way to
+ * interleave them. Each row says which dimension it is in and
+ * `across()` does the rest, keeping the shared-event order among
+ * everything the profile has no opinion about.
+ *
+ * The plan is defaulted for the same reason `$labels` is: a payload
+ * written before this deploy carries no plan, and no plan means the
+ * rows are listed exactly as the fold ranked them.
+ */
+$labelPlan = ValueLabelPriority::planFor(
+    isset($profile['label_plan']) ? $profile['label_plan'] : null
+);
+$labelOrdered = $labels['rows'];
+if (ValueLabelPriority::declares($labelPlan)) {
+    foreach ($labelOrdered as $labelAt => $labelRow) {
+        $kind = $labelRow['kind'];
+        if ($kind === ValueRelationTool::KIND_CLUSTER) {
+            $labelOrdered[$labelAt]['scope'] = ValueLabelPriority::GALAXIES;
+        } elseif ($kind === ValueRelationTool::KIND_TAG) {
+            $labelOrdered[$labelAt]['scope']
+                = ValueLabelPriority::TAXONOMIES;
+            /*
+             * The tag string, which is where the handling order inside
+             * `tlp` and `pap` is read from — `label` prints a
+             * cluster's name and `value` is the tag either way.
+             */
+            $labelOrdered[$labelAt]['name'] = $labelRow['value'];
+        }
+    }
+    unset($labelAt, $labelRow, $kind);
+    $labelOrdered = ValueLabelPriority::across($labelOrdered, $labelPlan);
+}
 $labelRows = empty($labels['cap'])
-    ? $labels['rows']
-    : array_slice($labels['rows'], 0, (int)$labels['cap']);
+    ? $labelOrdered
+    : array_slice($labelOrdered, 0, (int)$labels['cap']);
 $labelCapped = count($labelRows) < (int)$labels['total'];
 $labelFacets = isset($labels['facets']) ? $labels['facets'] : array();
 $labelByKind = isset($labels['by_kind'])

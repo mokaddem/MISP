@@ -1,4 +1,5 @@
 <?php
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 /**
  * The galaxy clusters an occurrence is attributed to.
  *
@@ -25,9 +26,22 @@
  * `attachClusters` still orders by galaxy, so a cell holding several
  * reads in the card's order.
  *
+ * **The reader's order runs before the fold.** Three clusters are
+ * drawn and the rest fold, so which galaxy leads decides what is on
+ * the page — a cell showing two pieces of tooling and folding the
+ * threat actor behind a `+2` is the case the tiers exist for. The
+ * ranking key is the galaxy `type`, which `attachClusters` carries
+ * beside the display name for exactly this; ties keep the galaxy-then-
+ * cluster order that method sorted into, so a profile with no opinion
+ * changes nothing.
+ *
  * Expected:
- *   $field['data_path']    `Cluster` — `name`, `galaxy`, `tag_name`
+ *   $field['data_path']    `Cluster` — `name`, `galaxy`, `type`,
+ *                          `tag_name`
  *   $field['max_visible']  clusters drawn before the `+N` fold; 3
+ *   $field['plan']         the reader's label priority, optional —
+ *                          absent, or declaring no galaxy, and the
+ *                          clusters are drawn as they arrived
  */
 $maxVisible = isset($field['max_visible'])
     ? (int)$field['max_visible']
@@ -36,6 +50,22 @@ $maxVisible = isset($field['max_visible'])
 $clusters = Hash::extract($row, $field['data_path']);
 if (empty($clusters) || !is_array($clusters)) {
     return;
+}
+
+$plan = ValueLabelPriority::planFor(
+    isset($field['plan']) ? $field['plan'] : null
+);
+if (ValueLabelPriority::declares($plan, ValueLabelPriority::GALAXIES)) {
+    foreach ($clusters as $at => $cluster) {
+        $clusters[$at]['key'] = isset($cluster['type'])
+            ? $cluster['type']
+            : null;
+    }
+    $clusters = ValueLabelPriority::labels(
+        $clusters,
+        $plan,
+        ValueLabelPriority::GALAXIES
+    );
 }
 
 $hiddenCount = max(0, count($clusters) - $maxVisible);

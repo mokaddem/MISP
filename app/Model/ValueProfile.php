@@ -436,7 +436,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 11;
+    const CACHE_SHAPE = 12;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1908,6 +1908,23 @@ class ValueProfile extends AppModel
             'value' => $value,
             'occurrences' => $rows,
             'occurrence_stats' => $stats,
+            /*
+             * The card's Tags column draws **one** chip and folds the
+             * rest, so which taxonomy leads is the whole of what a
+             * reader sees of an occurrence's labelling. The column is
+             * ordered where it is rendered rather than here — the two
+             * scopes are merged and deduplicated in the element — so
+             * what this carries is the plan and not an order.
+             *
+             * `resolveFor()` memoises per request, and this card is
+             * its own request, so the cost is the one statement.
+             */
+            'label_plan' => ValueLabelPriority::planFor(
+                array_key_exists('profile', $options)
+                    ? $options['profile']
+                    : ClassRegistry::init('AnalystProfile')
+                        ->resolveFor($user)
+            ),
         );
     }
 
@@ -2558,10 +2575,26 @@ class ValueProfile extends AppModel
         $stats['events'] = $summary['events'];
         $stats['orgs'] = $summary['orgs'];
 
+        /*
+         * One plan for the whole tab. The rail folds at ten and the
+         * table's two label columns fold at four and three, so the
+         * profile has to reach all three before their folds rather
+         * than after; built once here so the rail cannot rank a
+         * taxonomy the column beside it ranks differently.
+         * `resolveFor()` memoises, so this tab pays nothing for it.
+         */
+        $plan = ValueLabelPriority::planFor(
+            array_key_exists('profile', $options)
+                ? $options['profile']
+                : ClassRegistry::init('AnalystProfile')
+                    ->resolveFor($user)
+        );
+
         return array(
             'value' => $value,
             'occurrences' => $rows,
             'occurrence_stats' => $stats,
+            'label_plan' => $plan,
             /*
              * Null rather than a set of zero groups on a value with no
              * occurrence the viewer may see: a rail of zeroes is a lie
@@ -2570,22 +2603,7 @@ class ValueProfile extends AppModel
              */
             'occurrence_facets' => empty($rows)
                 ? null
-                : ValueStatsTool::occurrenceFacets(
-                    $rows,
-                    $total,
-                    /*
-                     * The rail folds at ten, so the profile has to
-                     * reach it before the fold rather than after
-                     * (`04-label-surfaces.md` §1.4). `resolveFor()`
-                     * memoises, so this tab pays nothing for it.
-                     */
-                    ValueLabelPriority::planFor(
-                        array_key_exists('profile', $options)
-                            ? $options['profile']
-                            : ClassRegistry::init('AnalystProfile')
-                                ->resolveFor($user)
-                    )
-                ),
+                : ValueStatsTool::occurrenceFacets($rows, $total, $plan),
             'occurrence_cap' => $total > $stats['shown']
                 ? array('shown' => $stats['shown'], 'total' => $total)
                 : null,
@@ -3901,6 +3919,24 @@ class ValueProfile extends AppModel
             $filters);
         return array(
             'value' => $value,
+            /*
+             * Beside the fold rather than inside it. The fold is
+             * cached and shared between everybody who may read the
+             * same rows; a reader's own priorities are not a property
+             * of the neighbourhood, and folding them in would make one
+             * analyst's cache entry another's wrong order.
+             *
+             * So the panel carries the plan and the label table orders
+             * its rows on the way to the page — before its own cut, so
+             * the profile decides which labels are listed rather than
+             * how the listed ones read.
+             */
+            'label_plan' => ValueLabelPriority::planFor(
+                array_key_exists('profile', $options)
+                    ? $options['profile']
+                    : ClassRegistry::init('AnalystProfile')
+                        ->resolveFor($user)
+            ),
             'relationships' => array(
                 'summary' => $this->relationSummary(
                     $user,

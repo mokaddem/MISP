@@ -1,4 +1,5 @@
 <?php
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 /**
  * The labels on an occurrence — the ones on the attribute and the ones
  * on the event carrying it, as one list.
@@ -42,12 +43,29 @@
  * a `+N` is a summary; eight rows of four-line cells is the table
  * again.
  *
+ * **The reader's own order runs before the fold, not after it.** At
+ * four chips and at the Overview's one, which taxonomy sits first
+ * decides what is on the page rather than merely what is read first —
+ * a column showing `type:OSINT` and folding `tlp:red` behind a `+7` is
+ * the case the tiers exist to prevent. So the profile is applied to
+ * the merged list and `max_visible` cuts what it produced.
+ *
+ * **Inside a tier the two scopes keep their order**, because ties keep
+ * arrival order and the merge above put the attribute's tags first. A
+ * profile with no opinion about a namespace therefore leaves the
+ * strength-of-claim order exactly as it was, and one with an opinion
+ * overrides it for the namespaces it named and for no others.
+ *
  * Expected:
  *   $field['data_path']        attribute tags (AttributeTag)
  *   $field['event_data_path']  event tags (EventTag), optional — with
  *                              it absent this renders the attribute
  *                              scope alone
  *   $field['max_visible']      chips drawn before the `+N` fold; 4
+ *   $field['plan']             the reader's label priority, optional —
+ *                              absent, or declaring no taxonomy, and
+ *                              the chips are drawn in the order they
+ *                              were merged in
  */
 $maxVisible = isset($field['max_visible'])
     ? (int)$field['max_visible']
@@ -110,6 +128,29 @@ if (!empty($field['event_data_path'])) {
 
 if (empty($chips)) {
     return;
+}
+
+/*
+ * `namespaceOf` is the key a profile lists a taxonomy by, and the full
+ * tag name is what the handling order inside `tlp` and `pap` is read
+ * from. A galaxy tag never reaches here, so no chip is ranked under
+ * the wrong dimension.
+ */
+$plan = ValueLabelPriority::planFor(
+    isset($field['plan']) ? $field['plan'] : null
+);
+if (ValueLabelPriority::declares($plan, ValueLabelPriority::TAXONOMIES)) {
+    foreach ($chips as $at => $chip) {
+        $chips[$at]['key'] = ValueLabelPriority::namespaceOf(
+            $chip['tag']['name']
+        );
+        $chips[$at]['name'] = $chip['tag']['name'];
+    }
+    $chips = ValueLabelPriority::labels(
+        $chips,
+        $plan,
+        ValueLabelPriority::TAXONOMIES
+    );
 }
 
 $hiddenCount = max(0, count($chips) - $maxVisible);
