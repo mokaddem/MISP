@@ -121,16 +121,17 @@ class ResolutionTimelineRenderer extends ValueRendererBase
             $last = $this->later($last, $row['last']);
             /*
              * One tick per month a resolution was live in, not one per
-             * observation: the sparkline is *how many distinct
-             * resolutions were current then*, which is the shape an
-             * analyst reads a hosting change out of. An observation
-             * count would draw one spike wherever a sensor was busy.
+             * observation: the strip is *how many distinct resolutions
+             * were current then*, which is the shape an analyst reads
+             * a hosting change out of. An observation count would draw
+             * one spike wherever a sensor was busy.
              */
             foreach ($this->monthsBetween($row) as $month) {
                 $months[$month] = ($months[$month] ?? 0) + 1;
             }
         }
         ksort($months);
+        $months = $this->denseMonths($months);
         usort($merged, function ($a, $b) {
             return ($b['last'] ?? 0) - ($a['last'] ?? 0);
         });
@@ -310,6 +311,46 @@ class ResolutionTimelineRenderer extends ValueRendererBase
             $months[] = date('Y-m', $end);
         }
         return $months;
+    }
+
+    /**
+     * Every calendar month from the first to the last, zero where
+     * nothing was current.
+     *
+     * A month with no resolution in it is a fact — a name that
+     * resolved, stopped, and resolved again two years later is the
+     * shape an analyst is looking for — and the counted months alone
+     * cannot carry it: a strip drawn from them puts the two live
+     * stretches side by side and reads as one continuous history.
+     * Between two adjacent keys the gap is drawn rather than closed.
+     *
+     * @param array $months `YYYY-MM => count`, ascending
+     * @return array The same, with the empty months filled in
+     */
+    private function denseMonths(array $months)
+    {
+        if (count($months) < 2) {
+            return $months;
+        }
+        $keys = array_keys($months);
+        $cursor = strtotime(reset($keys) . '-01');
+        $end = strtotime(end($keys) . '-01');
+        if ($cursor === false || $end === false) {
+            return $months;
+        }
+        $dense = array();
+        /*
+         * The same bound `monthsBetween()` puts on one row, for the
+         * same reason: a strip is read by its shape, and a span no
+         * cell can draw a bar of is not a shape. Past it the counted
+         * months stand on their own, which is what this drew before.
+         */
+        while ($cursor <= $end && count($dense) < 240) {
+            $month = date('Y-m', $cursor);
+            $dense[$month] = $months[$month] ?? 0;
+            $cursor = strtotime('+1 month', $cursor);
+        }
+        return $cursor <= $end ? $months : $dense;
     }
 
     /**

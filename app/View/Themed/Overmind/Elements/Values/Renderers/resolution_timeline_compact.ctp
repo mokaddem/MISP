@@ -3,15 +3,16 @@
  * What this name resolved to, as a shape over time or as a set.
  *
  * **Two widgets in one file, and the split is the data's.** A dated
- * answer gets a sparkline of how many resolutions were current per
- * month; an undated one gets the addresses themselves with a count.
- * Drawing a flat line for an undated answer would assert a history
- * nobody observed, and refusing to draw it at all would throw away the
- * only resolution answer a stock instance has.
+ * answer gets a month-by-month strip of how many resolutions were
+ * current; an undated one gets the addresses themselves with a count.
+ * Drawing a strip for an undated answer would assert a history nobody
+ * observed, and refusing to draw it at all would throw away the only
+ * resolution answer a stock instance has.
  *
- * The sparkline is built from `months`, which `prepare()` computed —
- * this template does no arithmetic beyond scaling the points into the
- * viewBox, which is drawing rather than deciding.
+ * The strip is built from `months`, which `prepare()` computed and
+ * filled — this template does no arithmetic beyond turning a count
+ * into a percentage of the peak, which is drawing rather than
+ * deciding.
  *
  * @var array $data
  */
@@ -29,37 +30,44 @@ $max = empty($months) ? 0 : max($months);
 
     <?php if ($data['dated'] && $max > 0 && count($months) > 1): ?>
         <?php
-        $width = 180;
-        $height = 44;
-        $step = $width / max(1, count($months) - 1);
-        $min = min($months);
-        $x = 0;
-        $line = array();
-        foreach ($months as $count) {
-            /*
-             * A history that never varied is drawn down the middle
-             * rather than at the top. Scaled against the maximum
-             * alone, every point of a flat series lands at the ceiling
-             * and the sparkline reads as a rule across the top of the
-             * cell — which is a drawing artefact rather than a fact
-             * about the value, and the honest shape of *one
-             * resolution, all along* is a level line.
-             */
-            $share = $max === $min
-                ? 0.5
-                : ($count - $min) / ($max - $min);
-            $line[] = round($x, 1) . ','
-                . round($height - 2 - $share * ($height - 6), 1);
-            $x += $step;
-        }
+        /*
+         * One bar per month, which is the strip the Reporting and
+         * Sightings cards draw their own months and buckets with. It
+         * replaced a polyline on 2026-09-21 and the reason is that a
+         * line between monthly counts draws a slope nobody measured:
+         * a month is a bucket, not a sample, and between two of them
+         * there is no path. Bars also survive the one case a line
+         * cannot — an empty month, which the strip draws as a stub
+         * and a line would step straight over.
+         *
+         * Scaled against the maximum alone, so a month with one
+         * resolution against a peak of forty is a stub rather than
+         * half the height. That is the opposite of what the polyline
+         * did, and deliberately: a line had to spend its whole height
+         * on the variation or read as flat, while a bar already has a
+         * floor to be near.
+         */
         $keys = array_keys($months);
         ?>
-        <svg class="vp-rw-spark" viewBox="0 0 <?= h($width) ?> <?=
-             h($height) ?>" preserveAspectRatio="none"
-             aria-hidden="true">
-            <polyline points="<?= h(implode(' ', $line)) ?>"
-                      class="vp-rw-spark-line"/>
-        </svg>
+        <div class="vp-rw-months" role="img" aria-label="<?= h(__(
+            'Distinct resolutions current per month, oldest first'
+        )) ?>">
+            <?php foreach ($months as $month => $count): ?>
+                <span class="vp-rw-month<?= $count === 0
+                    ? ' vp-rw-month-empty' : '' ?>"
+                      style="--vp-rw-month-h: <?=
+                          h(round(100 * $count / $max)) ?>%;"
+                      title="<?= h(sprintf(
+                          __n(
+                              '%2$s — %1$s resolution current',
+                              '%2$s — %1$s resolutions current',
+                              $count
+                          ),
+                          number_format($count),
+                          $month
+                      )) ?>"></span>
+            <?php endforeach; ?>
+        </div>
         <div class="vp-rw-sub"><?= h(sprintf(
             '%s — %s',
             reset($keys),

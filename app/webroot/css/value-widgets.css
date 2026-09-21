@@ -257,21 +257,44 @@
     stroke-width: 1;
 }
 
-/* The sparkline. No axis and no labels: at 180×44 a label is illegible
-   and an axis is a second line competing with the one line that
-   matters. The range is stated as text underneath instead. */
-.vp-rw-spark {
-    width: 100%;
-    max-height: 44px;
+/* ------------------------------------------------------------------
+ * The month strip
+ * ------------------------------------------------------------------
+ * One bar per bucket, the strip the Reporting, Sightings and
+ * Occurrence cards already draw their own counts with (`.vp-spark` in
+ * `value-profile.css`). Same geometry, same empty-bucket stub, same
+ * flex rules; a separate class because this file is the one a page
+ * that is not the value page can load on its own, and a widget
+ * reaching into `value-profile.css` would be a widget that draws a
+ * bar strip on one page and a row of nothing on another.
+ *
+ * No axis and no labels: at this width a label is illegible and an
+ * axis is a second line competing with the bars. The range is stated
+ * as text underneath instead.
+ * ------------------------------------------------------------------ */
+
+.vp-rw-months {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 44px;
     margin-top: 2px;
 }
 
-.vp-rw-spark-line {
-    fill: none;
-    stroke: var(--vp-e-accent, #6f5fb5);
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.5;
+.vp-rw-month {
+    flex: 1 1 0;
+    min-width: 1px;
+    min-height: 2px;
+    height: var(--vp-rw-month-h, 0%);
+    border-radius: 1px;
+    background: var(--vp-e-accent, #6f5fb5);
+}
+
+/* A month nothing was current in is drawn, not skipped: a gap in the
+   middle of a run is the hosting change the widget exists to show. */
+.vp-rw-month-empty {
+    height: 2px;
+    background: var(--bs-border-color, #dee2e6);
 }
 
 /* A proportion, where the proportion is the answer. Drawn only for the
