@@ -68,6 +68,17 @@ class AnalystProfilesController extends AppController
     const COMPARISON_SETTING = 'analyst_profile_comparison_set';
 
     /**
+     * The sections `ValueProfile::verdictContextFor()` reads off the
+     * profile, and so the ones a simulation may not share a context
+     * across: `exclusions` (the exclusion plan and the evidence
+     * window), `reference` (source grades, module grades, warninglist
+     * categories) and `galaxies` (the attribution priority).
+     */
+    const CONTEXT_SECTIONS = array(
+        'exclusions', 'reference', 'galaxies',
+    );
+
+    /**
      * The editor posts field names the form helper cannot produce.
      *
      * A signal id contains dots, an attribute type a pipe, an
@@ -1336,7 +1347,7 @@ class AnalystProfilesController extends AppController
 
     /**
      * Score one value under two profiles, building the context once per
-     * distinct exclusion plan.
+     * distinct context plan.
      *
      * **The candidate can change the context, not only the score.**
      * `exclusions` is applied by the context builder — `orgs.own` is a
@@ -1345,6 +1356,16 @@ class AnalystProfilesController extends AppController
      * and scoring both from one context would show a diff no saved
      * profile could reproduce. When the sections agree, which is the
      * common case of editing a weight, one build serves both.
+     *
+     * **And `exclusions` is not the only such section.** It was the
+     * only one when this was written; phase 6 then put the source
+     * grades in the context (`trust`), and `reference` and `galaxies`
+     * reach it too. Sharing the context on an `exclusions` match alone
+     * scored the candidate against the *saved* profile's trust block,
+     * so grading an organisation moved nothing on the bench until the
+     * edit was saved — the one state the simulator exists to show.
+     * `CONTEXT_SECTIONS` is the list, and it belongs beside
+     * `ValueProfile::verdictContextFor()`'s reads of `$profile`.
      *
      * @param ValueVerdictTool $engine
      * @param array $user
@@ -1358,8 +1379,8 @@ class AnalystProfilesController extends AppController
     private function __scorePair(ValueVerdictTool $engine, array $user, $value,
         $inForce, array $candidate, &$builds
     ) {
-        $shared = $this->__exclusionSignature($inForce)
-            === $this->__exclusionSignature($candidate);
+        $shared = $this->__contextSignature($inForce)
+            === $this->__contextSignature($candidate);
         $context = $this->ValueProfile->verdictContextFor($user, $value,
             $inForce);
         $builds++;
@@ -1376,20 +1397,28 @@ class AnalystProfilesController extends AppController
     }
 
     /**
-     * Two profiles' exclusion sections, canonically, so they can be
-     * compared for equality.
+     * A profile's context-affecting sections, canonically, so two
+     * profiles can be compared for whether one context serves both.
+     *
+     * Deliberately not the whole of `parameters`: a signal's points
+     * are read by `assess()` and never by the context builder, and
+     * editing a weight is what the bench does on almost every
+     * keystroke. Hashing everything would double the query cost of the
+     * common case to fix the uncommon one.
      *
      * @param array|null $profile
      * @return string
      */
-    private function __exclusionSignature($profile)
+    private function __contextSignature($profile)
     {
-        if (!is_array($profile)
-            || !isset($profile['parameters']['exclusions'])
-        ) {
-            return '[]';
+        $sections = array();
+        foreach (self::CONTEXT_SECTIONS as $section) {
+            $sections[$section] = is_array($profile)
+                && isset($profile['parameters'][$section])
+                ? $profile['parameters'][$section]
+                : null;
         }
-        return $this->__canonical($profile['parameters']['exclusions']);
+        return $this->__canonical($sections);
     }
 
     /**
