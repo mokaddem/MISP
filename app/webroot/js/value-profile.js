@@ -4674,28 +4674,20 @@
     function refreshEnrichTray(panel) {
         var boxes = panel.querySelectorAll('[data-vp-e-select]');
         var picked = 0;
-        var leaving = 0;
         boxes.forEach(function (box) {
-            if (!box.checked) {
-                return;
-            }
-            picked++;
-            if (box.dataset.vpEExternal !== '0') {
-                leaving++;
+            if (box.checked) {
+                picked++;
             }
         });
 
+        /*
+         * The tray's cost line went in 2026-09-21 — the panel header
+         * already says how many of the selection would leave the
+         * instance, and every rail row carries its own locality — so
+         * what is kept in step here is the two counts and the button.
+         */
         setText(panel, '[data-vp-e-picked]', picked);
         setText(panel, '[data-vp-e-runcount]', picked);
-        setText(panel, '[data-vp-e-ext-n]', leaving);
-        setText(panel, '[data-vp-e-loc-n]', picked);
-        showEnrich(panel, '[data-vp-e-cost-none]', picked === 0);
-        showEnrich(
-            panel,
-            '[data-vp-e-cost-local]',
-            picked > 0 && leaving === 0
-        );
-        showEnrich(panel, '[data-vp-e-cost-out]', leaving > 0);
 
         var run = panel.querySelector('[data-vp-e-run-selected]');
         if (run) {
@@ -4725,20 +4717,26 @@
     }
 
     /**
-     * Whether a card is still hiding something below its fold.
+     * Whether a merged-pane cell is still hiding something below its
+     * fold.
      *
      * The scrollbar is the only other signal there is, and on a
      * platform that hides scrollbars until they move there is none —
-     * so a card that clips says so with an edge, and stops saying it
+     * so a cell that clips says so with an edge, and stops saying it
      * once the reader reaches the bottom.
      *
-     * @param {Element} card
-     * @param {Element} body The scrolling part
+     * @param {Element} cell A cloned `.vp-e-shape`
      */
-    function markEnrichCardMore(card, body) {
-        var more = body.scrollTop + body.clientHeight
-            < body.scrollHeight - 2;
-        card.classList.toggle('vp-e-allcard-more', more);
+    function markEnrichCellMore(cell) {
+        var inner = cell.querySelector(
+            ':scope > :not(.vp-e-shape-head)'
+        );
+        if (!inner) {
+            return;
+        }
+        var more = inner.scrollTop + inner.clientHeight
+            < inner.scrollHeight - 2;
+        cell.classList.toggle('vp-e-allcell-more', more);
     }
 
     /**
@@ -4798,39 +4796,21 @@
             }
             groups++;
             /*
-             * **One card a module, and the card is what is capped.**
-             * A module's own pane draws its whole answer, which is
-             * what a reader who picked that module asked for; here
-             * they asked for all of them, and `circl_passivedns`
-             * alone measures 5,632px against `ipasn`'s 146. Uncapped,
-             * one module decides how tall this pane is and the others
-             * are below the fold of it.
+             * The module's name the way this pane has always said it —
+             * a heading over its answer, not a bar around it — with
+             * the way into its own pane at the end of the line.
              */
-            var card = document.createElement('section');
-            card.className = 'vp-e-allcard';
-            card.dataset.vpEAllcard = name;
-
-            var head = document.createElement('div');
-            head.className = 'vp-e-allcard-head';
-            var group = document.createElement('span');
+            var group = document.createElement('div');
             group.className = 'vp-e-group';
             group.textContent = name;
-            head.appendChild(group);
-            /*
-             * Where the rest of it is. The rail row does the same
-             * thing, and a card that clips its content owes the
-             * reader the way out of it from the card itself.
-             */
             var open = document.createElement('button');
             open.type = 'button';
-            open.className = 'vp-e-allcard-open';
+            open.className = 'vp-e-allopen';
             open.dataset.vpEPick = name;
             open.textContent = panel.dataset.vpEAOpen || 'Open';
-            head.appendChild(open);
-            card.appendChild(head);
+            group.appendChild(open);
+            body.appendChild(group);
 
-            var cardBody = document.createElement('div');
-            cardBody.className = 'vp-e-allcard-body';
             if (!shapes.length && !items.length) {
                 /*
                  * An answer nothing draws and nobody has opened. It is
@@ -4839,23 +4819,83 @@
                  * otherwise be short by exactly this one.
                  */
                 var note = document.createElement('div');
-                note.className = 'vp-e-cold-prose';
+                note.className = 'vp-e-cold-prose vp-e-allnote';
                 note.textContent = panel.dataset.vpEARows
                     || 'Answered in rows — open this module to read them.';
-                cardBody.appendChild(note);
+                body.appendChild(note);
             }
-            shapes.forEach(function (shape) {
-                cardBody.appendChild(shape.cloneNode(true));
-            });
+            if (shapes.length) {
+                /*
+                 * **The drawings side by side, and each one capped.**
+                 * A geolocation is 360px tall and 400 wide and a pane
+                 * is a thousand; stacking them spends a screen on two
+                 * answers that fit on one row. What the grid cannot
+                 * fix is a widget that is long rather than wide —
+                 * `circl_passivedns` draws 199 rows — so a cell keeps
+                 * its heading and scrolls its own content.
+                 */
+                var grid = document.createElement('div');
+                grid.className = 'vp-e-allgrid';
+                shapes.forEach(function (shape) {
+                    grid.appendChild(shape.cloneNode(true));
+                });
+                body.appendChild(grid);
+                /*
+                 * **A drawing that needs the width takes the row.**
+                 * Asked of the drawing rather than kept as a list of
+                 * shapes, so a renderer added tomorrow answers it
+                 * without being registered anywhere: a table of seven
+                 * columns is unreadable in a third of a pane and a map
+                 * is not.
+                 *
+                 * Columns rather than measured overflow, because a
+                 * table does not overflow — it squeezes, and seven
+                 * columns of squeezed text report that they fit.
+                 */
+                grid.querySelectorAll(':scope > .vp-e-shape')
+                    .forEach(function (cell) {
+                        var wide = false;
+                        cell.querySelectorAll('table').forEach(
+                            function (table) {
+                                var head = table.querySelector('tr');
+                                if (head && head.children.length >= 5) {
+                                    wide = true;
+                                }
+                            }
+                        );
+                        var inner = cell.querySelector(
+                            ':scope > :not(.vp-e-shape-head)'
+                        );
+                        if (inner
+                            && inner.scrollWidth > inner.clientWidth + 2
+                        ) {
+                            wide = true;
+                        }
+                        if (wide) {
+                            cell.classList.add('vp-e-allwide');
+                        }
+                    });
+                /*
+                 * Heights second, and after it is in the document: a
+                 * cell that has never been laid out reports no height
+                 * at all, so every one of them would claim to fit.
+                 */
+                grid.querySelectorAll(':scope > .vp-e-shape')
+                    .forEach(function (cell) {
+                        markEnrichCellMore(cell);
+                        var inner = cell.querySelector(
+                            ':scope > :not(.vp-e-shape-head)'
+                        );
+                        if (inner) {
+                            inner.addEventListener('scroll', function () {
+                                markEnrichCellMore(cell);
+                            });
+                        }
+                    });
+            }
             items.forEach(function (item) {
                 elements++;
-                cardBody.appendChild(item.cloneNode(true));
-            });
-            card.appendChild(cardBody);
-            body.appendChild(card);
-            markEnrichCardMore(card, cardBody);
-            cardBody.addEventListener('scroll', function () {
-                markEnrichCardMore(card, cardBody);
+                body.appendChild(item.cloneNode(true));
             });
         });
 
@@ -5075,8 +5115,51 @@
              * before the reader has touched anything.
              */
             rebuildEnrichAll(panel);
+            sizeEnrichPane(panel);
             enrichAutoFire(panel);
         });
+        if (panels.length && !window.__vpEnrichSized) {
+            window.__vpEnrichSized = true;
+            window.addEventListener('resize', function () {
+                document.querySelectorAll('[data-vp-enrich]')
+                    .forEach(sizeEnrichPane);
+            });
+        }
+    }
+
+    /**
+     * Fit the answer to what is left of the screen.
+     *
+     * **So that `Run n selected` is on it.** The rail pins that button
+     * to its own foot and the split stretches both columns to the
+     * taller of them, so an answer of any length used to push the
+     * button a page-scroll below the answer it applies to. The pane
+     * scrolls instead, and what it is capped at is whatever the
+     * viewport has left under it — which is a measurement and not a
+     * constant, because what sits above this tab on the page is a
+     * header, a fact strip and a profile block of no fixed height.
+     *
+     * The stylesheet carries a viewport-relative cap for the moment
+     * before this runs and for the case where it does not. Below the
+     * breakpoint the two columns stack and neither is capped: a
+     * scroller inside a scroller on a phone is two thumbs' worth of
+     * the same gesture.
+     *
+     * @param {Element} panel
+     */
+    function sizeEnrichPane(panel) {
+        var pane = panel.querySelector('.vp-e-pane');
+        if (!pane) {
+            return;
+        }
+        if (window.innerWidth < 992) {
+            pane.style.maxHeight = '';
+            return;
+        }
+        pane.style.maxHeight = '';
+        var top = pane.getBoundingClientRect().top;
+        var room = window.innerHeight - top - 16;
+        pane.style.maxHeight = Math.round(Math.max(416, room)) + 'px';
     }
 
     /**

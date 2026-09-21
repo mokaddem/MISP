@@ -7445,9 +7445,19 @@ th.vp-rel-num {
     overflow-y: auto;
 }
 
+/*
+ * **The answer scrolls inside the split, not the page.** The rail
+ * pins `Run n selected` to its own foot, and that is only useful
+ * while the foot is on the screen — an answer of any length used to
+ * push it a page-scroll down. Capped against the viewport rather than
+ * at a number, with a floor so a short pane keeps the rail's minimum,
+ * and lifted entirely where the two stack.
+ */
 .vp-e-pane {
     flex: 1 1 auto;
     min-width: 0;
+    max-height: max(26rem, calc(100vh - 22rem));
+    overflow-y: auto;
 }
 
 /* Under lg the two panes stack: a 17rem rail beside a pane is two
@@ -7456,6 +7466,13 @@ th.vp-rel-num {
     .vp-e-split {
         flex-direction: column;
         min-height: 0;
+    }
+
+    /* Stacked, the pane is the page: a scroller inside a scroller on
+       a phone is two thumbs' worth of the same gesture. */
+    .vp-e-pane {
+        max-height: none;
+        overflow-y: visible;
     }
 
     .vp-e-rail {
@@ -7991,77 +8008,68 @@ th.vp-rel-num {
  * ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------
- * The merged pane's cards
+ * The merged pane's grid
  * ------------------------------------------------------------------
- * One card a module, and the height cap is the decision. A module's
- * own pane draws its whole answer — that is what picking it asks for.
- * Here the reader asked for all of them, and on `8.8.8.8`
- * `circl_passivedns` is 5,632px against `ipasn`'s 146: uncapped, one
- * module sets the height of the pane and the rest are below the fold
- * of it.
+ * The drawings go side by side. A geolocation is ~360px tall and
+ * ~400 wide against a pane of a thousand, so stacking them spends a
+ * screen on two answers that fit on one row — `auto-fit` puts as many
+ * across as the pane can hold and collapses to one on a narrow one.
  *
- * 560px is measured rather than chosen. The tallest ordinary answer
- * on that value is `mmdb_lookup`'s two widgets, which come to 533px
- * of card body — so a card holding a whole answer does not scroll and
- * only an outlier does. 520 was the first try and clipped that one by
- * thirteen pixels, which is the worst of both: a card that looks
- * capped and hides nothing worth going after. Two cards still fit a
- * 1200px viewport, which is what makes the pane read as a set of
- * answers rather than as one long one.
+ * What a grid cannot fix is a drawing that is long rather than wide:
+ * `circl_passivedns` on `8.8.8.8` draws 199 rows, 5,632px of them,
+ * and uncapped it decides the height of everything. So a cell keeps
+ * its heading and scrolls its own content under it. 420px is the
+ * measure: the tallest ordinary drawing on that value is the
+ * geolocation at 361px, so an ordinary answer does not scroll and
+ * only the outlier does.
+ *
+ * The module's name stays the heading this pane always used — a line
+ * above its answer rather than a bar around it — with the way into
+ * its own pane at the end of that line.
  * ------------------------------------------------------------------ */
 
-.vp-e-allcard {
-    position: relative;
-    margin: 0 20px 14px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--bs-body-bg);
+.vp-e-allgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+    gap: 10px;
+    padding: 0 20px;
+    align-items: start;
 }
 
-.vp-e-allcard-head {
+/* A drawing wider than a column takes the row. `auto-fill` rather
+   than `auto-fit` is what makes that a choice: a lone small widget
+   keeps the column's width instead of stretching across a pane it has
+   nothing to fill, and the ones that need the width ask for it. */
+.vp-e-allwide {
+    grid-column: 1 / -1;
+}
+
+.vp-e-allgrid > .vp-e-shape {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 7px 12px;
-    border-bottom: 1px solid var(--bs-border-color);
-    background: color-mix(in srgb, var(--vp-e-accent, #6f5fb5) 5%,
-        var(--bs-body-bg));
+    position: relative;
+    flex-direction: column;
+    max-height: 420px;
+    margin: 0;
+    overflow: hidden;
 }
 
-/* The label is the shared group heading, without the padding it
-   carries when it separates sections of one long column. */
-.vp-e-allcard-head .vp-e-group {
-    padding: 0;
-}
-
-.vp-e-allcard-open {
+.vp-e-allgrid > .vp-e-shape > .vp-e-shape-head {
     flex: 0 0 auto;
-    padding: 1px 8px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
-    background: var(--bs-body-bg);
-    color: var(--bs-secondary-color);
-    font-size: 0.68rem;
 }
 
-.vp-e-allcard-open:hover {
-    border-color: var(--vp-e-accent, #6f5fb5);
-    color: var(--vp-e-accent, #6f5fb5);
+/* The renderer's own root, which is everything a shape holds under
+   its heading. It scrolls rather than the shape, so the heading of a
+   clipped drawing stays where the reader can read it. */
+.vp-e-allgrid > .vp-e-shape > :not(.vp-e-shape-head) {
+    min-height: 0;
+    overflow: auto;
 }
 
-.vp-e-allcard-body {
-    max-height: 560px;
-    overflow-y: auto;
-    padding: 0 12px;
-}
-
-/* Drawn straight onto the card rather than inside the scrolling part,
-   so it stays at the fold instead of travelling with the content —
-   and it goes as soon as the bottom is reached, because an edge that
-   never changes stops meaning anything. */
-.vp-e-allcard-more::after {
+/* Drawn on the cell rather than inside the scrolling part, so it
+   stays at the fold instead of travelling with the content — and it
+   goes as soon as the bottom is reached, because an edge that never
+   changes stops meaning anything. */
+.vp-e-allcell-more::after {
     content: "";
     position: absolute;
     right: 1px;
@@ -8069,8 +8077,32 @@ th.vp-rel-num {
     left: 1px;
     height: 26px;
     background: linear-gradient(to bottom, transparent,
-        var(--bs-body-bg));
+        color-mix(in srgb, var(--vp-e-accent, #6f5fb5) 3%,
+            var(--bs-body-bg)));
     pointer-events: none;
+}
+
+/* Quiet, and at the end of the heading line: it is the way out of a
+   summary, not a thing to press first. */
+.vp-e-allopen {
+    margin-left: auto;
+    padding: 0 8px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    font-size: 0.62rem;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.vp-e-allopen:hover {
+    border-color: var(--vp-e-accent, #6f5fb5);
+    color: var(--vp-e-accent, #6f5fb5);
+}
+
+.vp-e-allnote {
+    padding: 0 20px;
 }
 
 .vp-e-group {

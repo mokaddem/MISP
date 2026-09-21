@@ -50,26 +50,23 @@ if (!empty($enrichment['profile']['selected'])) {
 }
 
 /*
- * What a selection costs, in the one currency that has a source.
+ * Whether a module answers from inside, on the box that selects it.
  *
  * **Two states here, though `ModuleLocality` has three.** Its third —
  * *nobody has classified this module* — is a real distinction the
- * per-module chip keeps, but the tray cannot: an *at least 0 of 3* line
- * understates the presumption the whole design runs on, which is that
- * an enrichment module enriches from somewhere else unless it is
- * known not to. So a box reads `0` only for a module known to answer
- * from inside, and the sentence a reader gets is the one that was
- * already true of every module before this map existed.
+ * per-module chip keeps, but a flag cannot: it would understate the
+ * presumption the whole design runs on, which is that an enrichment
+ * module enriches from somewhere else unless it is known not to. So a
+ * box reads `0` only for a module known to answer from inside.
+ *
+ * The tray used to total these into a line above the run button. That
+ * line went in 2026-09-21: the panel header already says how many of
+ * the selection would leave the instance.
  */
 $flags = array();
-$leaving = 0;
 foreach ($modules as $module) {
-    $local = isset($module['locality'])
-        && $module['locality'] === 'local';
-    $flags[$module['name']] = $local ? '0' : '1';
-    if (!$local && isset($picked[$module['name']])) {
-        $leaving++;
-    }
+    $flags[$module['name']] = isset($module['locality'])
+        && $module['locality'] === 'local' ? '0' : '1';
 }
 $chosen = count($picked);
 ?>
@@ -298,37 +295,15 @@ $chosen = count($picked);
 
         <?php
         /*
-         * The run button for the selection. Phase 12 put two cost
-         * chips beside it — quota and third-party — and neither has
-         * any source in module introspection, so what stands here
-         * instead is the one cost that is knowable and is the same
-         * thing the reader is agreeing to: how many separate queries
-         * leave the building.
-         *
-         * Since phase 7 that number is per module rather than per
-         * selection. `ModuleLocality` knows which modules answer
-         * without anything leaving, so a selection of three local ones
-         * no longer claims three outbound queries.
+         * **The cost line is gone, 2026-09-21.** Three phrasings of
+         * how many queries a selection would send sat above this
+         * button, and the header already carries the same count as
+         * *N of these would leave the instance* — on a rail whose
+         * every row names its own locality. The button says what it
+         * will do and the row above it is quieter for not saying it
+         * a third time.
          */
         ?>
-        <div class="vp-e-tray-cost<?= $chosen > 0 ? ' d-none' : '' ?>"
-             data-vp-e-cost-none>
-            <?= h(__('Nothing selected.')) ?>
-        </div>
-        <div class="vp-e-tray-cost<?=
-                ($chosen > 0 && $leaving === 0) ? '' : ' d-none' ?>"
-             data-vp-e-cost-local>
-            <i class="fas fa-house-laptop"></i>
-            <span data-vp-e-loc-n><?= h($chosen) ?></span>
-            <?= h(__('queries, none of which leave this instance')) ?>
-        </div>
-        <div class="vp-e-tray-cost<?= $leaving > 0 ? '' : ' d-none' ?>"
-             data-vp-e-cost-out>
-            <i class="fas fa-arrow-up-right-from-square"></i>
-            <span data-vp-e-ext-n><?= h($leaving) ?></span>
-            <?= h(__('queries leave this instance, one at a time')) ?>
-        </div>
-
 <?php
         /*
          * Disabled on arrival whoever is reading, unless the reader's
@@ -365,10 +340,6 @@ $chosen = count($picked);
                 $service['timeout']
             )) ?>
         </div>
-        <div class="small text-muted mt-1">
-            <?= h(__('Nothing runs until you press Run.')) ?>
-        </div>
-
     </div>
 
 </div>
