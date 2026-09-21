@@ -1558,10 +1558,19 @@ class AnalystProfilesController extends AppController
                 $this->__contributionsFor($user, $focus, $row));
         }
         $checked = $form->validate($parameters);
+        /*
+         * Two different questions, and `view` needs the second one.
+         * `editable` is *is this page an editor* — false on `view` by
+         * construction, because `view` renders the inputs as what they
+         * hold. `may_edit` is *would this reader be allowed to*, which
+         * is what decides whether the header offers Edit or offers the
+         * fork that stands in for it.
+         */
+        $mayEdit = $this->AnalystProfile->isEditableByCurrentUser($user, $row);
         return array(
             'profile' => $this->AnalystProfile->summarise($row),
-            'editable' => $editable
-                && $this->AnalystProfile->isEditableByCurrentUser($user, $row),
+            'editable' => $editable && $mayEdit,
+            'may_edit' => $mayEdit,
             'sections' => $form->sections($parameters, $sources),
             'groups' => $form->groups(),
             'bands' => $form->bandStrip($parameters),

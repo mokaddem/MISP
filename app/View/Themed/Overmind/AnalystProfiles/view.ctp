@@ -12,7 +12,8 @@
  * than inventing a number.
  *
  * @var array $profile
- * @var bool $editable
+ * @var bool $editable Whether this page is an editor. Always false here.
+ * @var bool $may_edit Whether this reader would be allowed to edit it
  * @var array $bench
  */
 App::uses('ValueUrlTool', 'Tools/ValueProfile');
@@ -42,31 +43,17 @@ $actions = array(
         'url' => $this->Html->url(array('action' => 'export', $profile['id'])),
     ),
 );
-if (!$editable) {
-    /*
-     * The one way in. There is no blank form: an empty `parameters`
-     * names no signal and scores nothing, so a new profile is a copy
-     * of one that already works.
-     */
-    $actions[] = array(
-        'type' => 'action',
-        'label' => __('Fork to me'),
-        'icon' => 'code-branch',
-        'class' => 'btn btn-primary',
-        'url' => array('action' => 'fork', $profile['id']),
-    );
-    if (!empty($me['Role']['perm_admin'])
-        || !empty($me['Role']['perm_site_admin'])
-    ) {
-        $actions[] = array(
-            'type' => 'action',
-            'label' => __('Fork to my organisation'),
-            'icon' => 'users',
-            'url' => array('action' => 'fork', $profile['id'],
-                '?' => array('for_org' => 1)),
-        );
-    }
-} else {
+/*
+ * `may_edit`, not `editable`. The second is *is this page an editor*,
+ * which is false here by construction — so branching on it offered the
+ * fork to everybody, and a reader looking at their own profile had the
+ * browser's back button as the way to go and change it.
+ *
+ * The value travels with the link: a reader who arrived here to see
+ * what this profile makes of one value wants to edit it against that
+ * same value, not against a blank bench.
+ */
+if ($may_edit) {
     $actions[] = array(
         'type' => 'navigate',
         'label' => __('Edit'),
@@ -74,6 +61,40 @@ if (!$editable) {
         'class' => 'btn btn-primary',
         'url' => $this->Html->url(array(
             'action' => 'edit', $profile['id'], '?' => $query)),
+    );
+}
+/*
+ * Forking stays offered either way, as it is on every index row: it is
+ * how a variant of something that already works gets made, and wanting
+ * one does not mean you could not have edited the original.
+ *
+ * It is the primary button only when there is no Edit to be it. For a
+ * profile you cannot edit, forking is the one way in — there is no
+ * blank form, since an empty `parameters` names no signal and scores
+ * nothing.
+ */
+$fork = array(
+    'type' => 'action',
+    'label' => __('Fork to me'),
+    'icon' => 'code-branch',
+    'url' => array('action' => 'fork', $profile['id']),
+);
+if (!$may_edit) {
+    /* The key is absent rather than empty: the strip reads it with
+     * `??`, which an empty string satisfies, leaving the button with no
+     * class at all. */
+    $fork['class'] = 'btn btn-primary';
+}
+$actions[] = $fork;
+if (!empty($me['Role']['perm_admin'])
+    || !empty($me['Role']['perm_site_admin'])
+) {
+    $actions[] = array(
+        'type' => 'action',
+        'label' => __('Fork to my organisation'),
+        'icon' => 'users',
+        'url' => array('action' => 'fork', $profile['id'],
+            '?' => array('for_org' => 1)),
     );
 }
 
