@@ -29,8 +29,13 @@ $places = $data['places'];
                   class="vp-rw-plot-bg"/>
             <use href="#vp-world" x="0" y="0" width="360" height="180"/>
             <?php foreach ($points as $point): ?>
-                <circle cx="<?= h(round($point['lon'] + 180, 2)) ?>"
-                        cy="<?= h(round(90 - $point['lat'], 2)) ?>"
+                <?php
+                $cx = round($point['lon'] + 180, 2);
+                $cy = round(90 - $point['lat'], 2);
+                ?>
+                <circle cx="<?= h($cx) ?>" cy="<?= h($cy) ?>"
+                        r="7" class="vp-rw-plot-halo"/>
+                <circle cx="<?= h($cx) ?>" cy="<?= h($cy) ?>"
                         r="3" class="vp-rw-plot-dot"/>
             <?php endforeach; ?>
         </svg>

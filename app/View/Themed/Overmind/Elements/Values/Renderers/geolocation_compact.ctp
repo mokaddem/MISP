@@ -34,22 +34,31 @@ $headline = $city !== null ? $city : ($country !== null ? $country : null);
 $sub = $city !== null && $country !== null ? $country : null;
 ?>
 <div class="vp-rw-in vp-rw-geo">
-    <?php if ($headline !== null): ?>
-        <div class="vp-rw-head" title="<?= h(trim(
-            ($city === null ? '' : $city . ', ')
-            . ($country === null ? '' : $country)
-        )) ?>"><?= h($headline) ?></div>
-        <?php if ($sub !== null): ?>
-            <div class="vp-rw-sub"><?= h($sub) ?><?php
-                if ($code !== null && $code !== $sub): ?>
-                <span class="vp-rw-code"><?= h($code) ?></span>
-            <?php endif; ?></div>
+    <?php if (empty($points)): ?>
+        <?php
+        /*
+         * A module that resolved a country and no coordinates. There
+         * is nothing to draw and the place name is the whole answer,
+         * so it is a line of text rather than a caption with no map
+         * over it.
+         */
+        ?>
+        <?php if ($headline !== null): ?>
+            <div class="vp-rw-head" title="<?= h(trim(
+                ($city === null ? '' : $city . ', ')
+                . ($country === null ? '' : $country)
+            )) ?>"><?= h($headline) ?></div>
+            <?php if ($sub !== null): ?>
+                <div class="vp-rw-sub"><?= h($sub) ?><?php
+                    if ($code !== null && $code !== $sub): ?>
+                    <span class="vp-rw-code"><?= h($code) ?></span>
+                <?php endif; ?></div>
+            <?php endif; ?>
+        <?php else: ?>
+            <div class="vp-rw-head vp-rw-quiet"><?=
+                h(__('located')) ?></div>
         <?php endif; ?>
     <?php else: ?>
-        <div class="vp-rw-head vp-rw-quiet"><?= h(__('located')) ?></div>
-    <?php endif; ?>
-
-    <?php if (!empty($points)): ?>
         <?php
         /*
          * Equirectangular, which is the projection a rectangle already
@@ -59,25 +68,100 @@ $sub = $city !== null && $country !== null ? $country : null;
          * so that a coastline costs markup rather than a map library
          * and a 437 KB fetch — see `world_outline.ctp`.
          *
-         * The viewBox crops the symbol's full 0..180 of latitude to
-         * 84N..58S: the polar thirds are empty of addresses and, at a
-         * height of about 74px, they are the difference between a
-         * world a reader recognises and a band they do not.
+         * **The window is cropped to the points, and that is what buys
+         * the room.** A whole world is 2.5 times as wide as it is
+         * tall, so a cell 200px across can only ever give it 80px of
+         * height — which is the shape a reader called squished, and
+         * they were right: the continents were a third of the size the
+         * cell could have drawn them at. Showing 260 degrees of
+         * longitude instead of 360, centred on the points, is the same
+         * map an eighth again as large in a box half again as tall,
+         * and what falls off the edges is ocean either side of the
+         * answer.
+         *
+         * The window follows the points in both axes, and latitude is
+         * not the free choice longitude is: the caption sits over the
+         * bottom of the panel, so a point the window leaves low is a
+         * point under the words. Biasing it above centre is what keeps
+         * a southern placing out from under its own name.
+         *
+         * Fitting a window to the points is drawing rather than
+         * deciding — `prepare()` still owns every fact here, and the
+         * pane rendering draws the same points against the whole
+         * world, because there it fits.
          */
+        $VIEW_W = 260;
+        $VIEW_H = 142;
+        $xs = array();
+        $ys = array();
+        foreach ($points as $point) {
+            $xs[] = $point['lon'] + 180;
+            $ys[] = 90 - $point['lat'];
+        }
+        if ((max($xs) - min($xs)) > $VIEW_W - 30) {
+            /*
+             * Two placings an ocean apart. The disagreement is the
+             * answer and cropping would hide half of it, so the
+             * window opens to the whole world and the widget draws
+             * what the pane draws.
+             */
+            $VIEW_W = 360;
+            $left = 0;
+        } else {
+            $left = round(min(360 - $VIEW_W, max(
+                0,
+                (min($xs) + max($xs)) / 2 - $VIEW_W / 2
+            )), 1);
+        }
+        $top = round(min(180 - $VIEW_H, max(
+            0,
+            (min($ys) + max($ys)) / 2 - $VIEW_H * 0.56
+        )), 1);
         ?>
         <?= $this->element('Values/Renderers/world_outline') ?>
-        <svg class="vp-rw-plot" viewBox="0 6 360 142"
-             preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-            <rect x="0" y="6" width="360" height="142"
-                  class="vp-rw-plot-bg"/>
-            <use href="#vp-world" x="0" y="0" width="360" height="180"/>
-            <?php foreach ($points as $point): ?>
-                <circle
-                    cx="<?= h(round($point['lon'] + 180, 2)) ?>"
-                    cy="<?= h(round(90 - $point['lat'], 2)) ?>"
-                    r="5" class="vp-rw-plot-dot"/>
-            <?php endforeach; ?>
-        </svg>
+        <div class="vp-rw-geo-map">
+            <svg class="vp-rw-plot" viewBox="<?= h($left) ?> <?=
+                 h($top) ?> <?= h($VIEW_W) ?> <?= h($VIEW_H) ?>"
+                 preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <rect x="0" y="0" width="360" height="180"
+                      class="vp-rw-plot-bg"/>
+                <use href="#vp-world" x="0" y="0" width="360"
+                     height="180"/>
+                <?php foreach ($points as $point): ?>
+                    <?php
+                    $cx = round($point['lon'] + 180, 2);
+                    $cy = round(90 - $point['lat'], 2);
+                    ?>
+                    <circle cx="<?= h($cx) ?>" cy="<?= h($cy) ?>"
+                            r="8" class="vp-rw-plot-halo"/>
+                    <circle cx="<?= h($cx) ?>" cy="<?= h($cy) ?>"
+                            r="3.5" class="vp-rw-plot-dot"/>
+                <?php endforeach; ?>
+            </svg>
+            <?php if ($headline !== null): ?>
+                <?php
+                /*
+                 * On the map rather than above it. The name and the
+                 * map say the same thing and stacking them spends two
+                 * lines saying it twice; over the map the name is a
+                 * caption on a picture, which is what it is.
+                 */
+                ?>
+                <div class="vp-rw-geo-tag" title="<?= h(trim(
+                    ($city === null ? '' : $city . ', ')
+                    . ($country === null ? '' : $country)
+                )) ?>">
+                    <span class="vp-rw-geo-place"><?=
+                        h($headline) ?></span>
+                    <?php if ($sub !== null): ?>
+                        <span class="vp-rw-geo-in"><?= h($sub) ?></span>
+                    <?php elseif ($code !== null
+                        && $code !== $headline): ?>
+                        <span class="vp-rw-geo-in"><?= h($code) ?></span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
     <?php if (!$data['agreed']): ?>

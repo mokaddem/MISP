@@ -201,14 +201,97 @@
     font-weight: 600;
 }
 
-/* The position plot. Its aspect is fixed by the viewBox, so the cap
-   here is what stops a full-width map from eating the cell: at 2.5:1
-   a 190px cell draws it about 76px tall, and the cap only binds once
-   a cell is wider than that. */
-.vp-rw-plot {
-    width: 100%;
-    max-height: 84px;
+/* ------------------------------------------------------------------
+ * The map panel
+ * ------------------------------------------------------------------
+ * The compact map is drawn as a panel rather than as one more line in
+ * the stack: it runs to the cell's edges, and the place name sits on
+ * it instead of above it. Stacked, the name and the map spent two
+ * rows saying the same thing and left the map about 76px of a 150px
+ * budget - which read, correctly, as squished.
+ *
+ * **The bleed is asked for, not assumed.** A host that puts a widget
+ * in a padded box sets `--vp-eb-cell-pad` to that padding and the
+ * panel cancels it; a host that does not gets no negative margin at
+ * all. Hardcoding the strip's 8px here would draw a widget that fits
+ * one surface and hangs off every other.
+ *
+ * The panel carries the plot's own background so that the letterbox
+ * an unusually wide cell leaves either side of the map is the same
+ * colour as the map - `meet` rather than `slice`, because a cell wide
+ * enough to crop is a cell that would crop the answer out.
+ * ------------------------------------------------------------------ */
+
+/* The one widget that is allowed out of the content box, because the
+   panel below is the whole of it: `.vp-rw-in` clips so that a widget
+   cannot push its cell taller, and a bleed is the one overflow that
+   is horizontal and therefore costs the cell no height. The cell
+   itself still clips, which is what keeps the bleed flush. */
+.vp-rw-geo {
+    overflow: visible;
+}
+
+.vp-rw-geo-map {
+    position: relative;
+    margin-inline: calc(-1 * var(--vp-eb-cell-pad, 0px));
     margin-top: 2px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bs-body-color, #212529) 4%,
+        var(--bs-body-bg, #fff));
+}
+
+/* `height: auto` and not a height: the viewBox gives the element its
+   aspect, so the map is as tall as the cell is wide until the cap. */
+.vp-rw-plot {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 116px;
+}
+
+/* The name, over the bottom of the map it names. The scrim is the
+   panel's own colour faded upward rather than a tint or a box: a
+   label on a map has to stay legible over land and over water, and
+   anything with an edge to it reads as a second element on a widget
+   that has room for one. */
+.vp-rw-geo-tag {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    padding: 14px 8px 4px;
+    background: linear-gradient(
+        to top,
+        color-mix(in srgb, var(--bs-body-color, #212529) 4%,
+            var(--bs-body-bg, #fff)) 55%,
+        transparent);
+}
+
+.vp-rw-geo-place {
+    overflow: hidden;
+    color: var(--bs-body-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The country under a city, or the code under a country. It gives way
+   first: *Mountain View* with the country truncated still answers
+   where, and *Mountain Vi…* beside a full *United States* does not. */
+.vp-rw-geo-in {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--bs-secondary-color);
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* The world outline, defined once per page by `world_outline.ctp` and
@@ -255,6 +338,20 @@
     fill-opacity: 0.85;
     stroke: var(--bs-body-bg, #fff);
     stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+/* A ring around the point, which is what makes it findable rather
+   than merely present: a 3px dot on a map of the world is a speck
+   until something on the map is pointing at it. `non-scaling-stroke`
+   so it is a hairline at both the cell's scale and the pane's. */
+.vp-rw-plot-halo {
+    fill: var(--vp-e-accent, #6f5fb5);
+    fill-opacity: 0.12;
+    stroke: var(--vp-e-accent, #6f5fb5);
+    stroke-opacity: 0.45;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
 }
 
 /* ------------------------------------------------------------------

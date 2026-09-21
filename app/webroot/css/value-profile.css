@@ -11414,14 +11414,22 @@ a.vp-lane-tag:focus-visible {
    however many the profile promoted, so the strip never ends in dead
    space. The floor is 130, which is where the compact templates were
    measured and still read. Below that the row scrolls instead. */
+/* `--vp-eb-cell-pad` is the cell telling the widget inside it how far
+   its own edge is. A widget that wants to run to that edge - the
+   geolocation map does - cancels the padding with it, and a host that
+   does not publish one gets a widget that stays inside its box. The
+   alternative is `value-widgets.css` hardcoding this strip's 8px,
+   which is the strip's geometry leaking into the file that exists so
+   a widget can be drawn somewhere else. */
 .vp-eb-cell {
+    --vp-eb-cell-pad: 8px;
     display: flex;
     flex: 1 1 0;
     flex-direction: column;
     gap: 3px;
     min-width: 130px;
     max-height: 182px;
-    padding: 6px 8px;
+    padding: 6px var(--vp-eb-cell-pad);
     border: 1px solid var(--bs-border-color);
     border-radius: 6px;
     background: color-mix(in srgb, var(--vp-e-accent) 3%,
