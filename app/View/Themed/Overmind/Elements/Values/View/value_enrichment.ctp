@@ -44,6 +44,17 @@ $service = $enrichment['service'];
 $modules = $enrichment['modules'];
 $types = $enrichment['types'];
 $canRun = !empty($enrichment['can_run']);
+/*
+ * What the store already holds, drawn. A module with an entry here has
+ * answered before and its answer draws something, so its pane opens on
+ * the drawing rather than on *has not been asked* — the state this tab
+ * used to be in while the Overview drew five widgets off the same rows.
+ *
+ * The rows behind it are still a press away: a held answer's object
+ * table is up to 1.6 MB and the widget is the half that reads at a
+ * glance.
+ */
+$held = isset($profile['held']) ? $profile['held'] : array();
 
 /*
  * The CSRF token the run posts back. A fresh one per fragment: tokens
@@ -103,6 +114,29 @@ if ($service['reachable']) {
      data-vp-e-n-many="<?= h(__('%s elements')) ?>"
      data-vp-e-n-capped="<?= h(__('%1$s of %2$s')) ?>"
      data-vp-e-of="<?= h(__('%1$s of %2$s')) ?>"
+     <?php
+     /*
+      * The merged pane's two sentences for the state this tab can now
+      * open in: answers held and nothing opened. Built from a format
+      * string the server hands over, like the Overview panel's count,
+      * so the wording is translated once and the browser cannot
+      * invent a second phrasing of it.
+      */
+     ?>
+     data-vp-e-a-one="<?= h(__('%s answer')) ?>"
+     data-vp-e-a-many="<?= h(__('%s answers')) ?>"
+     data-vp-e-a-drawn-one="<?= h(__('%s answer, drawn here.')) ?>"
+     data-vp-e-a-drawn-many="<?= h(__('%s answers, drawn here.')) ?>"
+     <?php
+     /*
+      * And what a held answer nothing draws says in the merged pane.
+      * It is there so the count of answers in this pane is the count
+      * of answers in the store, rather than the count of the ones
+      * that happened to have a renderer.
+      */
+     ?>
+     data-vp-e-a-rows="<?= h(__('Answered in rows — open this module'
+        . ' to read them.')) ?>"
      <?php
      /*
       * **The plan travels with the panel that acts on it** (phase 11
@@ -256,6 +290,7 @@ if ($service['reachable']) {
                 'enrichment' => $enrichment,
                 'canRun' => $canRun,
                 'noRun' => $noRun,
+                'heldCount' => count($held),
             )) ?>
 
             <div class="vp-e-pane">
@@ -266,9 +301,18 @@ if ($service['reachable']) {
                  * the tab's opening claim and the reason nothing has
                  * been queried is stated here rather than implied by
                  * an empty column.
+                 *
+                 * **It is not the opening claim where answers are
+                 * held.** *Nothing has been queried* is false the
+                 * moment the store holds one, and the Overview has
+                 * been drawing those answers since phase 11 — so the
+                 * merged pane opens instead, with what is held already
+                 * in it. Decided server-side rather than switched by
+                 * the browser, so there is no cold pane to flash.
                  */
                 ?>
-                <div data-vp-e-pane="__none">
+                <div<?= empty($held) ? '' : ' class="d-none"' ?>
+                     data-vp-e-pane="__none">
                     <div class="vp-e-cold vp-e-cold-solo">
                         <div class="vp-e-cold-title">
                             <?= h(__('Nothing has been queried.')) ?>
@@ -285,10 +329,20 @@ if ($service['reachable']) {
                             )) ?>
                         </div>
                         <div class="vp-e-cold-prose mt-2">
+                            <?php
+                            /*
+                             * What this said until phase 11 — *nothing
+                             * a module returns is stored* — stopped
+                             * being true when the run store landed,
+                             * and the brief beside it was corrected
+                             * while this was missed.
+                             */
+                            ?>
                             <?= h(__(
-                                'Nothing a module returns is stored.'
-                                . ' The answer lives on this page'
-                                . ' until you leave it.'
+                                'An answer is kept for your'
+                                . ' organisation, so opening this'
+                                . ' value again does not ask the'
+                                . ' module again.'
                             )) ?>
                         </div>
                     </div>
@@ -302,13 +356,20 @@ if ($service['reachable']) {
                  *
                  * Filled on the client by cloning what the answered
                  * panes already hold, so it costs no request and
-                 * cannot disagree with them. It merges **this
-                 * visit's** runs, which is the only span a page with
-                 * no memory can merge over — and it says so, rather
-                 * than implying it has read everything.
+                 * cannot disagree with them.
+                 *
+                 * **Including the answers nobody opened.** Every held
+                 * answer is drawn into its own pane when this tab
+                 * renders, so the merge has something to clone before
+                 * a reader has pressed anything — which is what makes
+                 * this the pane the tab opens on where the store holds
+                 * something. What it merges is still exactly what the
+                 * panes hold: drawings for everything held, and rows
+                 * as well for whatever has been opened.
                  */
                 ?>
-                <div class="d-none" data-vp-e-pane="__all">
+                <div<?= empty($held) ? ' class="d-none"' : '' ?>
+                     data-vp-e-pane="__all">
                     <?php
                     /*
                      * The merged pane wears a result's head, because
@@ -337,11 +398,12 @@ if ($service['reachable']) {
                                  */
                                 ?>
                                 <?= h(__(
-                                    'This merges the answers open on'
-                                    . ' this page. Open a module that'
-                                    . ' was asked before and its answer'
-                                    . ' joins them, without asking'
-                                    . ' anybody anything.'
+                                    'Every answer your organisation'
+                                    . ' holds for this value, drawn.'
+                                    . ' Opening a module adds the rows'
+                                    . ' its drawing was made from,'
+                                    . ' without asking anybody'
+                                    . ' anything.'
                                 )) ?>
                             </div>
                         </div>
@@ -358,9 +420,51 @@ if ($service['reachable']) {
                  */
                 ?>
                 <?php foreach ($modules as $module): ?>
+                    <?php
+                    /*
+                     * `data-vp-e-held` marks a pane holding an answer,
+                     * whether or not anything draws it. The merged
+                     * pane counts those panes, and the tab's badge
+                     * counts rows in the store — so a module answering
+                     * in bare text has to be one of the things merged,
+                     * or the two numbers would disagree by it.
+                     */
+                    ?>
                     <div class="d-none"
+                         <?= isset($held[$module['name']])
+                            ? 'data-vp-e-held' : '' ?>
                          data-vp-e-pane="<?= h($module['name']) ?>">
                         <div data-vp-e-slot>
+                            <?php
+                            /*
+                             * What this module last said, drawn, above
+                             * the brief that says when it said it and
+                             * how to get the rows.
+                             *
+                             * **Inside the slot**, which is what a run
+                             * replaces: pressing *Show what came back*
+                             * swaps the whole thing for the full
+                             * result, so the widget cannot end up
+                             * drawn twice or drawn from two answers.
+                             */
+                            ?>
+                            <?php if (!empty(
+                                $held[$module['name']]['shapes']
+                            )): ?>
+                                <div class="vp-e-heldshapes"
+                                     data-vp-e-heldshapes>
+                                    <?php foreach (
+                                        $held[$module['name']]['shapes']
+                                        as $shape
+                                    ): ?>
+                                        <?= $this->element(
+                                            'Values/View/'
+                                            . 'value_enrichment_shape',
+                                            array('shape' => $shape)
+                                        ) ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                             <?= $this->element(
                                 'Values/View/value_enrichment_brief',
                                 array(

@@ -153,6 +153,43 @@ class ValueEnrichmentRun extends AppModel
     }
 
     /**
+     * How many answers this organisation holds about one value.
+     *
+     * The Enrichment tab's badge. **Answers, not runs**: a module that
+     * errored or was asked and had nothing to say is a row here and is
+     * not a result, and a badge counting those would send a reader to
+     * a tab to read failures.
+     *
+     * One statement over the unique key's two leading columns, no
+     * payload touched — which is what makes it a page-load price. The
+     * count phase 28 dropped was the *eligible-module* count, and it
+     * was dropped because computing it means asking the modules
+     * service on every page load; this asks nothing outside MISP.
+     *
+     * Scoped to the reader's organisation because the store is, so two
+     * organisations read two numbers off one tab bar — the same
+     * property the Occurrences and Sightings badges already have.
+     *
+     * @param array $user
+     * @param string $value
+     * @return int
+     */
+    public function heldCountFor(array $user, $value)
+    {
+        if (empty($user['org_id'])) {
+            return 0;
+        }
+        return (int)$this->find('count', array(
+            'recursive' => -1,
+            'conditions' => array(
+                'ValueEnrichmentRun.org_id' => (int)$user['org_id'],
+                'ValueEnrichmentRun.value_hash' => self::hashFor($value),
+                'ValueEnrichmentRun.state' => 'ok',
+            ),
+        ));
+    }
+
+    /**
      * Every stored run for one value, keyed `module|type`.
      *
      * One statement over the unique key's leading columns, which is

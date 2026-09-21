@@ -4740,6 +4740,12 @@
      * describes. Which of them was queried just now is the profile
      * strip's sentence, not this one's.
      *
+     * **And it runs once on load**, because the panes are no longer
+     * empty when they arrive: every held answer is drawn into its own
+     * pane server-side, so there is something to merge before a reader
+     * has pressed anything. That is what lets this be the pane the tab
+     * opens on rather than a pane that fills as they work.
+     *
      * @param {Element} panel
      */
     function rebuildEnrichAll(panel) {
@@ -4747,41 +4753,90 @@
         if (!body) {
             return;
         }
-        var answered = [...panel.querySelectorAll('[data-vp-e-result]')]
-            .filter(function (r) {
-                return r.dataset.vpEStateIs === 'ok';
-            });
-        var ran = panel.querySelectorAll('[data-vp-e-result]').length;
-
         body.innerHTML = '';
+        var groups = 0;
         var elements = 0;
-        answered.forEach(function (result) {
-            var name = result.dataset.vpEResult;
-            var head = document.createElement('div');
-            head.className = 'vp-e-group';
-            head.textContent = name;
-            body.appendChild(head);
-            result.querySelectorAll('[data-vp-e-item]')
-                .forEach(function (item) {
-                    elements++;
-                    var copy = item.cloneNode(true);
-                    body.appendChild(copy);
-                });
+        panel.querySelectorAll('[data-vp-e-pane]').forEach(function (pane) {
+            var name = pane.dataset.vpEPane;
+            if (name === '__none' || name === '__all') {
+                return;
+            }
+            /*
+             * A pane holds one of three things: a held answer's
+             * drawing, a run's full result, or a brief nobody has
+             * pressed. The first two are merged and the third has
+             * nothing to merge — and a result that did not answer is
+             * skipped here as it always was, because a failure in the
+             * column of answers competes with them.
+             */
+            var result = pane.querySelector('[data-vp-e-result]');
+            if (result && result.dataset.vpEStateIs !== 'ok') {
+                return;
+            }
+            var shapes = pane.querySelectorAll('[data-vp-e-shape]');
+            var items = pane.querySelectorAll('[data-vp-e-item]');
+            var held = pane.hasAttribute('data-vp-e-held');
+            if (!shapes.length && !items.length && !held) {
+                return;
+            }
+            groups++;
+            var group = document.createElement('div');
+            group.className = 'vp-e-group';
+            group.textContent = name;
+            body.appendChild(group);
+            if (!shapes.length && !items.length) {
+                /*
+                 * An answer nothing draws and nobody has opened. It is
+                 * named rather than dropped, because the tab's badge
+                 * counts answers in the store and this pane would
+                 * otherwise be short by exactly this one.
+                 */
+                var note = document.createElement('div');
+                note.className = 'vp-e-cold-prose';
+                note.textContent = panel.dataset.vpEARows
+                    || 'Answered in rows — open this module to read them.';
+                body.appendChild(note);
+            }
+            shapes.forEach(function (shape) {
+                body.appendChild(shape.cloneNode(true));
+            });
+            items.forEach(function (item) {
+                elements++;
+                body.appendChild(item.cloneNode(true));
+            });
         });
 
         var sub = panel.querySelector('[data-vp-e-allsub]');
         var head = panel.querySelector('[data-vp-e-allhead]');
-        if (ran === 0) {
+        if (groups === 0) {
             if (sub) { sub.textContent = 'Nothing open yet'; }
             if (head) {
                 head.textContent = 'Nothing has been opened here yet.';
             }
             return;
         }
+        /*
+         * Two sentences for two states, because they answer different
+         * questions. Before anything is opened this pane is every
+         * answer the store holds, drawn, and counting *0 elements*
+         * over five widgets would be counting the wrong thing. Once
+         * rows are open it is the cross-module reading the rail costs,
+         * which is what the element count is for.
+         */
+        if (elements === 0) {
+            var drawn = (groups === 1
+                ? panel.dataset.vpEADrawnOne
+                : panel.dataset.vpEADrawnMany) || '%s answers, drawn here.';
+            var label = (groups === 1
+                ? panel.dataset.vpEAOne
+                : panel.dataset.vpEAMany) || '%s answers';
+            if (sub) { sub.textContent = label.replace('%s', groups); }
+            if (head) { head.textContent = drawn.replace('%s', groups); }
+            return;
+        }
         var summary = elements + (elements === 1
             ? ' element across ' : ' elements across ')
-            + answered.length + (answered.length === 1
-                ? ' module' : ' modules');
+            + groups + (groups === 1 ? ' module' : ' modules');
         if (sub) {
             sub.textContent = summary;
         }
@@ -4960,6 +5015,13 @@
             : [];
         panels.forEach(function (panel) {
             refreshEnrichTray(panel);
+            /*
+             * The merged pane, built from the answers the server drew
+             * into the panes. No request and no state of its own — it
+             * is the same clone the tab has always done, run once
+             * before the reader has touched anything.
+             */
+            rebuildEnrichAll(panel);
             enrichAutoFire(panel);
         });
     }

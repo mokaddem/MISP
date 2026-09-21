@@ -29,6 +29,9 @@
  * @var array $enrichment
  * @var bool $canRun
  * @var string $noRun
+ * @var int $heldCount Answers the store already holds, drawn in the
+ *                     merged pane — which is the row this rail opens
+ *                     on when there are any
  */
 $modules = $enrichment['modules'];
 $service = $enrichment['service'];
@@ -110,17 +113,33 @@ $chosen = count($picked);
          * memory can merge over.
          */
         ?>
-        <div class="vp-e-railrow vp-e-railrow-all"
+        <?php $heldCount = isset($heldCount) ? (int)$heldCount : 0; ?>
+        <div class="vp-e-railrow vp-e-railrow-all<?=
+             $heldCount > 0 ? ' vp-e-railrow-on' : '' ?>"
              data-vp-e-row="__all">
             <button type="button"
                     class="vp-e-railbody"
                     data-vp-e-pick="__all"
-                    aria-pressed="false">
+                    aria-pressed="<?= $heldCount > 0
+                        ? 'true' : 'false' ?>">
                 <span class="vp-e-railrow-name">
                     <?= h(__('All results')) ?>
                 </span>
                 <span class="vp-e-railrow-sub" data-vp-e-allsub>
-                    <?= h(__('Nothing run yet')) ?>
+                    <?php
+                    /*
+                     * *Nothing run yet* was true of a tab with no
+                     * memory. Where the store holds answers this row
+                     * is the one the tab opens on, and it says how
+                     * many are in it.
+                     */
+                    ?>
+                    <?= h($heldCount > 0
+                        ? sprintf(
+                            __n('%s answer', '%s answers', $heldCount),
+                            number_format($heldCount)
+                        )
+                        : __('Nothing run yet')) ?>
                 </span>
             </button>
         </div>

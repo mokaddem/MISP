@@ -1025,6 +1025,21 @@ class ValueProfile extends AppModel
      * truly*, and adding a probe can only turn silence into a true
      * badge, never into a false one.
      *
+     * **Enrichment counts answers held, not modules eligible.** Phase
+     * 28 dropped this tab's number and the reason it gave still holds:
+     * the eligible-module count would make every page load on every
+     * tab depend on an external HTTP service, and pay its timeout
+     * whenever it is down. What the store made countable is a
+     * different number — how many answers this organisation already
+     * has about this value — and it asks nothing outside MISP:
+     * `ValueEnrichmentRun::heldCountFor` is one index-only count over
+     * the unique key's two leading columns.
+     *
+     * It is the viewer's, like the two beside it, because the store is
+     * scoped by organisation. And zero shows nothing, by the rule
+     * below: an instance that has never enriched anything has the tab
+     * bar it had before this existed.
+     *
      * **The warm-digest peek was the other candidate, and is refused.**
      * `relationDigest` is held in Redis per user and value, so a `GET`
      * here would hand over the exact join total for free once the tab
@@ -1046,10 +1061,9 @@ class ValueProfile extends AppModel
             ->occurrenceCountFor($user, $value);
         $counts['relationship_objects'] = $valueModel
             ->objectCountFor($user, $value);
-        unset(
-            $counts['relationships'],
-            $counts['enrichment']
-        );
+        $counts['enrichment'] = $this->model('ValueEnrichmentRun')
+            ->heldCountFor($user, $value);
+        unset($counts['relationships']);
         return $counts;
     }
 
@@ -14305,6 +14319,20 @@ class ValueProfile extends AppModel
      * stated condition and a silent drop. A profile declaring nothing,
      * which is the shipped default, never pays it.
      *
+     * **And what the store already holds, drawn.** The tab opened on
+     * *Nothing has been queried* while the Overview drew five widgets
+     * off the same rows, which is the page disagreeing with itself.
+     * So every held answer arrives with its shapes prepared, and the
+     * pane a module's row opens onto shows what it said rather than
+     * only that it said something.
+     *
+     * **The widget and not the pane.** A held answer's rows stay
+     * behind their press: `circl_passivedns` on `8.8.8.8` renders
+     * 1.6 MB of object cards and three such answers would be a
+     * multi-megabyte fragment on a tab nobody has asked a question of
+     * yet. The widget is 84 KB of that at the same 199 objects, and
+     * it is the half that reads at a glance.
+     *
      * @param array $user
      * @param string $value
      * @param array $options `profile` to resolve the enrichment
@@ -14315,14 +14343,55 @@ class ValueProfile extends AppModel
     public function forEnrichment(array $user, $value,
         array $options = array()
     ) {
+        $catalogue = $this->enrichmentCatalogue($user, $value, $options);
         return array(
             'value' => $value,
-            'enrichment' => $this->enrichmentCatalogue(
-                $user,
-                $value,
-                $options
+            'enrichment' => $catalogue,
+            'held' => $this->enrichmentHeldShapes(
+                $this->enrichmentStored($user, $value, $catalogue)
             ),
         );
+    }
+
+    /**
+     * What each held answer draws, per module.
+     *
+     * **Per module, where the Overview's strip merges.** The strip has
+     * one row and five slots, so three modules answering `geolocation`
+     * there is one map naming three sources; the tab has a pane per
+     * module and the rule it already keeps is that a module's pane
+     * draws that module's answer alone — a widget there carrying
+     * somebody else's data would answer a question the rail did not
+     * ask. Same renderers, same `drawFor`, different question.
+     *
+     * **A module whose answer no renderer claims keeps its entry, with
+     * no shapes in it.** It is still an answer this organisation
+     * holds, and the tab's badge counts rows in the store rather than
+     * drawings — so dropping it here would have the tab bar promising
+     * four answers over three. What it gets instead of a widget is a
+     * line saying its answer is rows, which are a press away.
+     *
+     * @param array $stored From `enrichmentStored`
+     * @return array module => `shapes`, `ran_at`, `total`, `shown`
+     */
+    private function enrichmentHeldShapes(array $stored)
+    {
+        $out = array();
+        foreach ($stored as $module => $run) {
+            if ($run === null || ($run['state'] ?? null) !== 'ok') {
+                continue;
+            }
+            $drawn = ValueRendererTool::drawFor(array($run));
+            $out[$module] = array(
+                'shapes' => array_values($drawn),
+                'ran_at' => isset($run['ran_at'])
+                    ? (int)$run['ran_at']
+                    : null,
+                'total' => isset($run['total']) ? (int)$run['total'] : 0,
+                'shown' => isset($run['shown']) ? (int)$run['shown'] : 0,
+            );
+        }
+        return $out;
     }
 
     /**
@@ -14612,7 +14681,6 @@ class ValueProfile extends AppModel
          * read of this organisation's own rows, and fires nothing.
          */
         $canRun = !empty($catalogue['can_run']);
-        $store = $this->model('ValueEnrichmentRun');
 
         $entries = array();
         /*
@@ -14623,28 +14691,13 @@ class ValueProfile extends AppModel
          * inflates over the same blobs.
          */
         $runs = array();
+        $stored = $this->enrichmentStored($user, $value, $catalogue);
         foreach ($catalogue['modules'] as $row) {
-            if (empty($row['stored']) || empty($row['stored']['held'])) {
+            if (!array_key_exists($row['name'], $stored)) {
                 continue;
             }
-            $held = $store->one(
-                $user,
-                $value,
-                $row['name'],
-                $row['stored']['type']
-            );
-            $shaped = $held === null
-                ? null
-                : ValueEnrichmentRun::unpack($held);
+            $shaped = $stored[$row['name']];
             if ($shaped !== null) {
-                /*
-                 * `pack()` drops the two fields that are about *now*
-                 * rather than about then, so the stamp is put back
-                 * from the row that carried it — which is what lets a
-                 * re-run visibly take a slot from the answer it
-                 * replaced.
-                 */
-                $shaped['ran_at'] = (int)$held['last_run'];
                 $runs[] = $shaped;
             }
             $entries[$row['name']] = array(
@@ -14768,6 +14821,63 @@ class ValueProfile extends AppModel
              */
             'gate_note' => $this->enrichmentGateNote($catalogue),
         );
+    }
+
+    /**
+     * Every answer the store holds about this value, unpacked.
+     *
+     * **One place where a blob is inflated**, because two surfaces
+     * read the same rows for different reasons — the Overview panel
+     * builds chips and widgets from them, the Enrichment tab draws
+     * each one over its module's pane — and a second spelling of this
+     * loop is how the two would come to disagree about what is held.
+     *
+     * Keyed by module and **null where the payload will not inflate**,
+     * which is not an error: the row still says a module was asked and
+     * when, so the caller can draw *asked, no longer held*. A module
+     * absent from the array was never asked at all, and the two are
+     * different things.
+     *
+     * The roster decides which rows are read — `stored.held` — so this
+     * costs one indexed lookup per module that has actually answered,
+     * and nothing at all on a value nobody has enriched.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $catalogue From `enrichmentCatalogue`
+     * @return array module => shaped run carrying `ran_at`, or null
+     */
+    private function enrichmentStored(array $user, $value,
+        array $catalogue
+    ) {
+        $store = $this->model('ValueEnrichmentRun');
+        $out = array();
+        foreach ($catalogue['modules'] as $row) {
+            if (empty($row['stored']) || empty($row['stored']['held'])) {
+                continue;
+            }
+            $held = $store->one(
+                $user,
+                $value,
+                $row['name'],
+                $row['stored']['type']
+            );
+            $shaped = $held === null
+                ? null
+                : ValueEnrichmentRun::unpack($held);
+            if ($shaped !== null) {
+                /*
+                 * `pack()` drops the two fields that are about *now*
+                 * rather than about then, so the stamp is put back
+                 * from the row that carried it — which is what lets a
+                 * re-run visibly take a slot from the answer it
+                 * replaced.
+                 */
+                $shaped['ran_at'] = (int)$held['last_run'];
+            }
+            $out[$row['name']] = $shaped;
+        }
+        return $out;
     }
 
     /**
@@ -15151,8 +15261,21 @@ class ValueProfile extends AppModel
          * trusted: a row can turn fresh between the plan being
          * computed and this request landing, which is precisely the
          * Overview-then-tab race this mode exists for.
+         *
+         * A **stored** never asks anybody anything. It is what *Show
+         * what came back* means, and that control went through `auto`
+         * until it was noticed that `auto` is refused where the gate
+         * is shut — which is every instance by default. A reader
+         * pressing it on a stock instance was told their own
+         * organisation's answer *was not run on its own*, and where
+         * the gate was open but the answer had aged past the reuse
+         * window they got a fresh outbound query from a button that
+         * promised to show them something already held. The gate
+         * governs running a module unasked; reading a row this
+         * organisation already wrote is neither.
          */
         $auto = $mode === 'auto';
+        $storedOnly = $mode === 'stored';
         /*
          * The catalogue is built with no profile, deliberately: it is
          * read here as an ACL band — which modules this reader would
@@ -15272,6 +15395,33 @@ class ValueProfile extends AppModel
                 return $this->enrichmentFromStore($held, $user, $value,
                     $run);
             }
+        }
+
+        if ($storedOnly) {
+            /*
+             * No gate and no reuse window. Neither is about this: the
+             * gate governs asking a module unasked, the window governs
+             * when an automatic reuse stops being good enough, and
+             * this is a reader asking to see a row their own
+             * organisation already wrote. The age travels with the
+             * answer, so an old one says so rather than being hidden.
+             *
+             * Nothing held is *expired* — the state the pane already
+             * words as *asked, and the answer is no longer kept* —
+             * because that is what a reader pressing this on a purged
+             * row has happen to them. It is also what a row somebody
+             * else is writing right now reads as: a `running` claim
+             * carries no payload, and saying *no longer kept* of it is
+             * wrong only until their request lands.
+             */
+            $held = $store->one($user, $value, $name, $type);
+            if ($held === null
+                || $held['state'] === ValueEnrichmentTool::RUN_RUNNING
+            ) {
+                $run['state'] = 'expired';
+                return $run;
+            }
+            return $this->enrichmentFromStore($held, $user, $value, $run);
         }
 
 

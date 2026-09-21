@@ -524,6 +524,30 @@ $sightingBadge = $sightings === 0 ? null : array(
 );
 
 /*
+ * The Enrichment pill, and it names its unit for the Relationships
+ * reason: `(3)` on a tab whose rail lists twelve modules reads as
+ * three *modules*, and the number is three **answers** — what this
+ * organisation already holds about this value, which is what decides
+ * whether the tab is worth opening.
+ *
+ * Not the count phase 28 dropped. That one was the eligible-module
+ * total and it was dropped because it cannot be told without asking
+ * the modules service on every page load; this is one index-only
+ * count in MISP's own store (`ValueEnrichmentRun::heldCountFor`).
+ *
+ * Null at zero, so an instance that has never enriched anything has
+ * the tab bar it had before the store existed.
+ */
+$enrichmentHeld = (int)($counts['enrichment'] ?? 0);
+$enrichmentBadge = $enrichmentHeld === 0 ? null : array(
+    'label' => sprintf(
+        __n('%s answer', '%s answers', $enrichmentHeld),
+        number_format($enrichmentHeld)
+    ),
+    'color' => 'var(--enrichment)',
+);
+
+/*
  * The Overview's left column, assembled rather than declared, because
  * its first entry is conditional.
  *
@@ -760,23 +784,21 @@ $tabRegistry = array(
         'title' => __('Enrichment'),
         'icon' => 'fas fa-wand-magic-sparkles',
         /*
-         * No count, dropped by phase 28 — and this was the last
-         * fixture number left in the page frame, the one §1.4
-         * predicted would start lying the day this tab converted.
+         * **A count of answers held, not of modules eligible.** Phase
+         * 28 dropped this tab's number and its reason stands: the
+         * eligible-module count would make every page load, on every
+         * tab, depend on an external HTTP service — and pay that
+         * service's 1 s timeout whenever it is down — for a number on
+         * a tab most readers never open. That number is still not
+         * MISP's to state.
          *
-         * The honest number is the eligible-module count and it is
-         * cheap: 9 ms for the catalogue plus 2–26 ms for `typesFor`.
-         * It is still dropped, because computing it would make **every
-         * page load, on every tab, depend on an external HTTP
-         * service** — and pay that service's 1 s timeout whenever it
-         * is down, for a number on a tab most readers never open. The
-         * Relationships and Collaboration tabs dropped theirs for
-         * their own reasons; this one is the first dropped because the
-         * number is not MISP's to state.
-         *
-         * After this the tab bar carries exactly two numbers, both the
-         * viewer's, both read live.
+         * What the run store made countable is a different one and it
+         * is entirely MISP's: how many answers this organisation
+         * already holds about this value. One index-only count over
+         * the unique key's two leading columns, and the pill says
+         * *answers* so it cannot be read as the module total.
          */
+        'badge' => $enrichmentBadge,
         /*
          * One full-width slot, and the panel owns its own split: the
          * module rail at ~40% and one module's results beside it. Not

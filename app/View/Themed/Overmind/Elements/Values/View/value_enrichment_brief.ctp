@@ -113,8 +113,8 @@ $kinds = implode(', ', $module['kinds']);
                     'module' => $module,
                     'canRun' => $canRun,
                     'noRun' => $noRun,
-                    'label' => __('Show what came back'),
-                    'mode' => 'auto',
+                    'label' => __('Show the rows'),
+                    'mode' => 'stored',
                     'variant' => 'secondary',
                     'runType' => $stored['type'],
                 )

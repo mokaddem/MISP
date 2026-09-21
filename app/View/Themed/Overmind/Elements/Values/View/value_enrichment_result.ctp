@@ -3,8 +3,10 @@
  * One module's answer.
  *
  * The fragment `viewEnrichmentRun` returns, injected into the pane the
- * run came from. **Nothing here is stored** — this markup is the whole
- * of the result's existence, and leaving the page loses it.
+ * run came from. **Nothing here is written into MISP** — no attribute,
+ * no object, no event. The answer itself is kept for the organisation
+ * since phase 11, which is what lets this same fragment be served
+ * without asking anybody anything.
  *
  * Eight outcomes, deliberately not interchangeable. Phase 12 named
  * four, the live path added three — *refused*, which is MISP declining
@@ -382,9 +384,26 @@ $manyObjects = count($run['objects']) > 1;
                         )) ?>
                     </span>
                 <?php endif; ?>
-                <span class="vp-e-chip vp-e-chip-quiet">
+                <?php
+                /*
+                 * **This said *nothing stored* until 2026-09-21**, two
+                 * chips along from one reading *asked 2 hours ago* —
+                 * the answer had been served out of the store it
+                 * claimed did not exist. What it was reaching for is
+                 * still true and is what an analyst needs: nothing
+                 * here is written into MISP. Every run is kept for the
+                 * organisation, and neither fact implies the other.
+                 */
+                ?>
+                <span class="vp-e-chip vp-e-chip-quiet"
+                      title="<?= h(__(
+                        'The answer is kept for your organisation so'
+                        . ' that opening this value again does not ask'
+                        . ' the module again. Nothing is written into'
+                        . ' MISP.'
+                      )) ?>">
                     <i class="fas fa-database"></i>
-                    <?= h(__('nothing stored')) ?>
+                    <?= h(__('kept, not written')) ?>
                 </span>
             </div>
         </div>
@@ -477,21 +496,9 @@ $manyObjects = count($run['objects']) > 1;
         : array();
     ?>
     <?php foreach ($drawn as $shape): ?>
-        <?php if ($shape['full'] === null) {
-            continue;
-        } ?>
-        <div class="vp-e-shape" data-vp-e-shape="<?= h($shape['shape']) ?>">
-            <div class="vp-e-shape-head">
-                <span class="vp-e-shape-name"><?= h(ucfirst(
-                    str_replace('-', ' ', $shape['shape'])
-                )) ?></span>
-                <span class="vp-e-shape-sub"><?=
-                    h($shape['description']) ?></span>
-            </div>
-            <?= $this->element($shape['full'], array(
-                'data' => $shape['data'],
-            )) ?>
-        </div>
+        <?= $this->element('Values/View/value_enrichment_shape', array(
+            'shape' => $shape,
+        )) ?>
     <?php endforeach; ?>
 
     <?php if ($showFilter): ?>

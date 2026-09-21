@@ -14,15 +14,23 @@
  * `mode` is what separates the twins. Without it the press is a press:
  * it always asks the module, because `max_age_hours` governs automatic
  * reuse and a human who pressed a button has made a decision a cache
- * must not overrule. With `auto` it serves the stored answer when
- * there is a fresh one — the same request the tab's own fan-out makes,
- * so *Show what came back* and an auto-run go down one path and cannot
- * disagree.
+ * must not overrule. With `auto` it serves a fresh stored answer and
+ * asks the module when there is none, which is what the tab's own
+ * fan-out sends. With `stored` it asks nobody anything and serves
+ * whatever is held, which is what a control offering to show an
+ * answer this organisation already has should do.
  *
- * The same `perm_add` bar guards both, even though the stored path
- * sends nothing: the endpoint decides whether to query, and a control
- * that looked cheaper than it might be would be promising on the
- * server's behalf.
+ * **The quiet button went through `auto` and should not have.** That
+ * mode is refused where the instance's auto-run gate is shut — which
+ * is every instance by default — so *show me what came back* answered
+ * *it was not run on its own*; and where the gate was open but the
+ * answer had aged out, the same press became an outbound query
+ * nobody asked for.
+ *
+ * The same `perm_add` bar guards all three, even though the stored
+ * path sends nothing: the endpoint decides whether to query, and a
+ * control that looked cheaper than it might be would be promising on
+ * the server's behalf.
  *
  * A plain partial, not an endpoint.
  *
@@ -30,7 +38,9 @@
  * @var bool $canRun
  * @var string $noRun
  * @var string $label
- * @var string|null $mode `auto` to prefer a stored answer
+ * @var string|null $mode `stored` to serve a held answer and ask
+ *                        nothing, `auto` to prefer a fresh one and ask
+ *                        when there is none
  * @var string|null $variant `secondary` for the quieter of two
  * @var string|null $runType The type to ask under; the row's default
  *                           otherwise. A stored answer is keyed by the
@@ -46,7 +56,7 @@ $runType = isset($runType) && $runType !== null
     : $module['type'];
 $tone = $variant === 'secondary' ? 'btn-outline-secondary'
     : 'btn-outline-primary';
-$icon = $mode === 'auto' ? 'fas fa-clock-rotate-left' : 'fas fa-play';
+$icon = $mode === null ? 'fas fa-play' : 'fas fa-clock-rotate-left';
 ?>
 <button type="button"
         class="btn btn-sm d-inline-flex align-items-center gap-1
