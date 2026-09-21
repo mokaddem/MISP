@@ -343,10 +343,6 @@ if (!empty($me)) {
                     'url' => $baseurl . '/decayingModel/index',
                 ),
                 array(
-                    'text' => __('Analyst Profiles'),
-                    'url' => $baseurl . '/analystProfiles/index',
-                ),
-                array(
                     'type' => 'separator'
                 ),
                 array(
