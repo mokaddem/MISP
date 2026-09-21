@@ -6,6 +6,13 @@
  * the one scoring you. A per-row standing can, and the model computes
  * it rather than the page inferring it.
  *
+ * It is kept to one short line each. MISP ships six profiles and five
+ * of them stand *not chosen*, so any sentence here is printed five
+ * times down the page: a paragraph explaining what choosing means
+ * becomes a wall the reader learns to skip, and the explanation itself
+ * belongs where it is said once — the rail — or where it is acted on —
+ * the confirm on *Use this*.
+ *
  * @var array $profile A row from the index board
  */
 $standing = $profile['standing'];
@@ -20,7 +27,7 @@ $tone = array(
 );
 $label = array(
     'in_force' => __('in force'),
-    'disabled' => __('disabled'),
+    'disabled' => __('switched off'),
     'overridden' => __('overridden'),
     'not_selected' => __('not chosen'),
     'other_owner' => __('another owner'),
@@ -41,29 +48,34 @@ $selectedBy = isset($profile['selected_by'])
 </span>
 <div class="wb-sub mt-1">
     <?php if ($state === 'in_force'): ?>
-        <?= h(__('Every value page you open is scored by this one.')) ?>
         <?php if (in_array('user', $selectedBy, true)): ?>
-            <?= h(__('You chose it; you did not fork it, so it stays'
-                . ' corrected as MISP corrects it.')) ?>
+            <?= h(__('You chose it.')) ?>
         <?php elseif (in_array('org', $selectedBy, true)): ?>
-            <?= h(__('Your organisation chose it. Choosing one of your'
-                . ' own, or forking, overrides that for you alone.')) ?>
+            <?= h(__('Your organisation chose it.')) ?>
         <?php elseif (in_array('instance', $selectedBy, true)): ?>
-            <?= h(__('The instance runs this one, for everybody whose'
-                . ' organisation and account have chosen none.')) ?>
+            <?= h(__('This instance runs it.')) ?>
+        <?php else: ?>
+            <?= h(__('Yours, and switched on.')) ?>
         <?php endif; ?>
     <?php elseif ($state === 'not_selected'): ?>
-        <?= h(__('One of the profiles MISP ships, switched on and chosen'
-            . ' by nobody. Choose it and it scores your pages — no fork,'
-            . ' so corrections to it reach you.')) ?>
+        <?= h(__('Shipped by MISP, chosen by nobody.')) ?>
+    <?php elseif ($state === 'disabled' && !empty($profile['default'])): ?>
+        <?php
+        /*
+         * Tested before `editable`, which a site admin has on every
+         * shipped profile: *yours* would be wrong on the row a site
+         * admin is most likely to be reading, and wrong in the one
+         * direction that matters — it is MISP's, and switching it off
+         * stops scoring for everybody who has chosen nothing.
+         */
+        ?>
+        <?= h(__('MISP\'s own. Nothing is scored while it is off.')) ?>
     <?php elseif ($state === 'disabled' && $profile['editable']): ?>
-        <?= h(__('Yours, and weighting nothing. You may hold one enabled'
-            . ' profile, so enabling this one disables the other — the'
-            . ' confirm says which, and nothing is deleted.')) ?>
+        <?= h(__('Yours, weighting nothing.')) ?>
     <?php elseif ($state === 'disabled'): ?>
-        <?= h(__('Enabled by nobody, so it weighs nothing.')) ?>
+        <?= h(__('Your organisation\'s, weighting nothing.')) ?>
     <?php elseif ($state === 'overridden'): ?>
-        <?= h(__('Enabled, and beaten for you by')) ?>
+        <?= h(__('Beaten for you by')) ?>
         <?php if (!empty($standing['winner'])): ?>
             <a class="fw-semibold"
                href="<?= h($this->Html->url(array(
@@ -72,18 +84,15 @@ $selectedBy = isset($profile['selected_by'])
         <?php else: ?>
             <?= h(__('a nearer profile.')) ?>
         <?php endif; ?>
-        <?php if (in_array('instance', $selectedBy, true)): ?>
-            <?= h(__('It is still what a colleague who has chosen nothing'
-                . ' is scored by.')) ?>
-        <?php elseif (in_array('org', $selectedBy, true)): ?>
-            <?= h(__('It is still what a colleague in your organisation'
-                . ' who has chosen nothing is scored by.')) ?>
+        <?php if (in_array('instance', $selectedBy, true)
+            || in_array('org', $selectedBy, true)): ?>
+            <?= h(__('It still scores colleagues who have chosen nothing.')) ?>
         <?php endif; ?>
     <?php elseif ($state === 'other_owner'): ?>
-        <?= h(__('Somebody else\'s. You can see it because you administer'
-            . ' this instance; it could never apply to you.')) ?>
+        <?= h(__('Somebody else\'s; you see it because you administer this'
+            . ' instance.')) ?>
     <?php else: ?>
-        <?= h(__('Enabled, applies to you, and yet nothing is in force —'
+        <?= h(__('Switched on and applies to you, yet nothing is in force —'
             . ' which resolution cannot produce. Reported rather than'
             . ' explained away.')) ?>
     <?php endif; ?>

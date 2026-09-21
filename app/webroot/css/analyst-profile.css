@@ -678,6 +678,83 @@ input.num[type="number"]::-webkit-inner-spin-button {
 }
 
 /* ==================================================================
+ * The index board.
+ *
+ * Its right column is not the editor's bench — it is three short
+ * answers about this visit — so it does not need the editor's 468px,
+ * and the width it gives back is the width the table needed. Declared
+ * before the container query on purpose: at a narrow pane the query
+ * restacks `.wb` at equal specificity and later source order, and the
+ * index restacks with everything else.
+ * ================================================================== */
+/* Six rows of 80px no longer reach the fold, so the board needs a
+ * bottom edge: without one the rail and bench rules stop in mid-page
+ * and the whole thing reads as cut off rather than finished. */
+.wb-index {
+    grid-template-columns: 212px minmax(0, 1fr) 336px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+/* The name is the way into a profile, so `View` is not a button.
+ * Underline on hover only: six underlined names down a column read as
+ * a list of links rather than a list of profiles. */
+.ap-name { color: inherit; text-decoration: none; }
+.ap-name:hover { text-decoration: underline; }
+
+/*
+ * One decision in the open, the rest behind the dots.
+ *
+ * `nowrap` is the whole point: nine buttons in this cell wrapped to
+ * nine lines and set the row's height, and a row that is 260px tall
+ * because of its buttons is a row whose content nobody compares.
+ */
+.ap-acts {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: .25rem;
+    flex-wrap: nowrap;
+}
+.ap-acts form { display: inline; }
+.ap-act-primary { white-space: nowrap; }
+.ap-act-more {
+    line-height: 1;
+    color: var(--bs-secondary-color);
+    background: none;
+    border: 0;
+}
+.ap-act-more:hover { color: var(--bs-body-color); }
+
+.ap-inforce { font-size: .8125rem; line-height: 1.5; }
+.ap-when { white-space: nowrap; }
+
+/*
+ * The instance's answers. Value weight carries the state, so a reader
+ * scanning the column sees what is on without reading a word of it;
+ * `warn` is kept for the one state somebody has to act on — permitted
+ * and inert.
+ */
+.ap-caps { display: grid; gap: .05rem; margin-bottom: .2rem; }
+.ap-cap {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: .6rem;
+    font-size: .75rem;
+    line-height: 1.7;
+}
+.ap-cap-k { color: var(--bs-secondary-color); }
+.ap-cap-v {
+    font-weight: 600;
+    text-align: right;
+    min-width: 0;
+}
+.ap-cap-v a { color: inherit; text-decoration: none; }
+.ap-cap-v a:hover { text-decoration: underline; }
+.ap-cap-off .ap-cap-v { color: var(--bs-secondary-color); font-weight: 400; }
+.ap-cap-warn .ap-cap-v { color: var(--vp-conflict-ink, var(--vp-conflict)); }
+
+/* ==================================================================
  * The degradation, made rather than caveated.
  *
  * The workbench is a container, so this fires on the pane width and
@@ -718,6 +795,19 @@ input.num[type="number"]::-webkit-inner-spin-button {
     }
     .wb-rail-title { display: none; }
     .wb-rail-note  { display: none; }
+    /*
+     * Except on the index, where the two notes are the only statement
+     * of how resolution works and how choosing differs from forking —
+     * the rest of the page assumes both. The editor's rail note is a
+     * caption on a column that is still visible; this one is the
+     * explanation, and it survives the restack as its own line under
+     * the chips.
+     */
+    .wb-index .wb-rail-note {
+        display: block;
+        flex: 1 0 100%;
+        padding: .2rem .15rem 0;
+    }
     .wb-rail-item {
         width: auto;
         border: 1px solid var(--bs-border-color);

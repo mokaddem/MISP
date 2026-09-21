@@ -178,7 +178,71 @@ class AnalystProfilesController extends AppController
             'loader_errors' => $this->__loaderErrors(),
             'comparison_set' => $this->__comparisonSet($user),
             'comparison_limit' => self::COMPARISON_LIMIT,
+            'capabilities' => $this->__capabilities($board),
         ), 'index');
+    }
+
+    /**
+     * What this instance lets a profile actually do.
+     *
+     * A profile can name enrichment modules its owner will never see
+     * run, and a reader can wonder for a long time why hovering a value
+     * shows nothing, because both are instance settings sitting above
+     * the profile rather than in it. Neither is visible from any page
+     * the profile is read on, so the index says so once, plainly, and
+     * links a site admin to the switch.
+     *
+     * `Plugin.Enrichment_services_enable` is reported beside the
+     * auto-run gate rather than folded into it: with modules off,
+     * auto-run set to `on` runs nothing, and *off* and *on but inert*
+     * are different conversations with different people.
+     *
+     * @param array $board The index board, for the instance selection
+     * @return array
+     */
+    private function __capabilities(array $board)
+    {
+        $uuid = isset($board['resolution']['selections']['instance'])
+            ? $board['resolution']['selections']['instance']
+            : null;
+        $named = null;
+        foreach ($board['profiles'] as $profile) {
+            if ($uuid !== null && $profile['uuid'] === $uuid) {
+                $named = $profile;
+                break;
+            }
+        }
+        $problem = isset($board['resolution']['unresolved']['instance'])
+            ? $board['resolution']['unresolved']['instance']
+            : null;
+
+        return array(
+            'hover_card' => array(
+                'setting' => 'MISP.value_hover_card',
+                'tab' => 'MISP',
+                'on' => (bool)Configure::read('MISP.value_hover_card'),
+            ),
+            'enrichment_modules' => array(
+                'setting' => 'Plugin.Enrichment_services_enable',
+                'tab' => 'Plugin',
+                'on' => (bool)Configure::read(
+                    'Plugin.Enrichment_services_enable'),
+            ),
+            'enrichment_auto_run' => array(
+                'setting' => 'Plugin.ValueProfile_enrichment_auto_run',
+                'tab' => 'Plugin',
+                'state' => (string)Configure::read(
+                    'Plugin.ValueProfile_enrichment_auto_run'),
+            ),
+            'instance_profile' => array(
+                'setting' => 'Plugin.ValueProfile_instance_profile',
+                'tab' => 'Plugin',
+                'uuid' => $uuid,
+                'name' => $named === null ? null : $named['name'],
+                'id' => $named === null ? null : $named['id'],
+                'reason' => $problem === null ? null : $problem['reason'],
+            ),
+        );
     }
 
     /**
