@@ -32,12 +32,20 @@
  * they have landed — because a widget that changed silently would be a
  * page arguing with what a reader had already read.
  *
+ * **What it draws, the rows below do not repeat.** The modules whose
+ * whole answer is in this row travel with it, because the browser
+ * reads them off the redraw: a module that fired on arrival has a
+ * chip row until its answer lands, and the strip that comes back is
+ * what says the row has been taken over.
+ *
  * @var array $strip From the panel's `strip`
  * @var string $valueB64
  * @var string $baseurl
  * @var int $pending Modules still answering
+ * @var array $drawn Modules this row answers for
  */
 $pending = isset($pending) ? (int)$pending : 0;
+$drawn = isset($drawn) ? $drawn : array();
 if (empty($strip['slots']) && $pending < 1) {
     return;
 }
@@ -56,7 +64,8 @@ $label = function ($shape) {
     return ucfirst(str_replace('-', ' ', $shape));
 };
 ?>
-<div class="vp-eb-strip" data-vp-eb-strip>
+<div class="vp-eb-strip" data-vp-eb-strip
+     data-vp-eb-drawn="<?= h(implode(',', $drawn)) ?>">
     <?php foreach ($strip['slots'] as $slot): ?>
         <?php $widget = $slot['widget']; ?>
         <div class="vp-eb-cell<?= $widget === null

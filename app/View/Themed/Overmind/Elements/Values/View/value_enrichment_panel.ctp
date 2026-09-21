@@ -21,10 +21,12 @@
  * **A summary and not the tab.** Three chips a module, a `+N` for what
  * that leaves out, and a count where the answer is a set — the shape
  * rule is `ValueEnrichmentTool::chipsFor` and it keys on the shape of
- * the response rather than on which module produced it. The real
- * per-type visualisations — a map for an IP's geolocation, and
- * whatever the equivalent is per type — are a later design, and these
- * chips are the placeholder they replace.
+ * the response rather than on which module produced it.
+ *
+ * **And chips only for what the widgets do not draw.** The strip is
+ * the per-type visualisation these chips were once the placeholder
+ * for, so a module whose whole answer is up there loses its row: a
+ * map and *country: US* under it are the same answer twice.
  *
  * When, never who: naming the analyst who ran a module would tell
  * the organisation which colleague is looking at which value.
@@ -52,10 +54,16 @@ $token = isset($this->request->params['_Token']['key'])
     : '';
 
 /*
- * Rows and the trailing line, split here rather than in the model,
- * because the split is about how a summary reads: a module that could
- * not answer is a state this page states rather than drops, and an
- * error sitting in the column of answers competes with them.
+ * Rows, the drawn, and the trailing line, split here rather than in
+ * the model, because the split is about how a summary reads: a module
+ * that could not answer is a state this page states rather than drops,
+ * and an error sitting in the column of answers competes with them.
+ *
+ * **A module the strip drew gets no row.** Its answer is above, drawn
+ * larger, in a cell that names it and dates it — and three of its
+ * relations chipped underneath that is the same answer twice. So the
+ * rows are what the widgets do not show: a shape that missed the five,
+ * an object no renderer claims, a bare text relation.
  *
  * A module that is firing keeps its row whatever it turns out to be —
  * the browser moves it when the answer lands, because a row that
@@ -63,7 +71,12 @@ $token = isset($this->request->params['_Token']['key'])
  */
 $rows = array();
 $failures = array();
+$drawn = array();
 foreach ($panel['modules'] as $entry) {
+    if (!empty($entry['drawn'])) {
+        $drawn[] = $entry['module'];
+        continue;
+    }
     if ($entry['pending'] !== null || $entry['state'] === 'ok') {
         $rows[] = $entry;
         continue;
@@ -113,13 +126,19 @@ $failureLine = function (array $entry) {
  * string is what keeps them from disagreeing.
  */
 $subFmt = __('%1$s of %2$s answered');
-$answered = 0;
+$answered = count($drawn);
 foreach ($rows as $entry) {
     if ($entry['pending'] === null && $entry['state'] === 'ok') {
         $answered++;
     }
 }
-$onPanel = count($rows) + count($failures);
+/*
+ * The drawn are counted on both sides of it: they answered, and they
+ * are on the panel. Counting rows alone would make a value whose
+ * every answer became a widget report *0 of 1*, with five widgets
+ * above the sentence saying so.
+ */
+$onPanel = count($rows) + count($failures) + count($drawn);
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-eb"
      style="--vp-panel-color: var(--vp-e-accent);"
@@ -180,16 +199,22 @@ $onPanel = count($rows) + count($failures);
 
     <?php
     /*
-     * The widgets, above the rows that summarise the same answers as
-     * chips. Both, and not one instead of the other: the strip shows
-     * five shapes and a value can carry eight answers, so the rows are
-     * what says the other three exist.
+     * The widgets, above the rows for the answers they do not draw:
+     * the strip shows five shapes and a value can carry eight answers,
+     * so the rows are what says the other three exist.
      */
     ?>
     <?= $this->element('Values/View/value_enrichment_strip', array(
         'strip' => $panel['strip'],
         'valueB64' => $valueB64,
         'baseurl' => $baseurl,
+        /*
+         * Carried on the strip's own markup because the browser reads
+         * it off the redraw: when the modules that fired on arrival
+         * land, the strip that comes back is what says which of the
+         * rows it has taken over.
+         */
+        'drawn' => $drawn,
         /*
          * How many modules are still answering. Only ever non-zero on
          * a profile that marked something `auto` under an open gate,
@@ -200,7 +225,14 @@ $onPanel = count($rows) + count($failures);
         'pending' => count($panel['fire']),
     )) ?>
 
-    <div class="vp-eb-body">
+    <?php
+    /*
+     * No body at all where the strip drew everything, rather than an
+     * empty one holding its own padding open under the widgets.
+     */
+    ?>
+    <div class="vp-eb-body<?= empty($rows) ? ' d-none' : '' ?>"
+         data-vp-eb-body>
         <?php foreach ($rows as $entry): ?>
             <div class="vp-eb-row"
                  data-vp-eb-row="<?= h($entry['module']) ?>">

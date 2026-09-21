@@ -14716,6 +14716,26 @@ class ValueProfile extends AppModel
             );
         }
 
+        /*
+         * The widgets first, because what they draw decides which
+         * modules still need a row: an answer drawn on the strip is
+         * not restated as chips underneath it.
+         */
+        $strip = $this->enrichmentStrip(
+            $runs,
+            $catalogue['profile'],
+            $catalogue['types'],
+            $value
+        );
+        foreach ($modules as &$entry) {
+            $entry['drawn'] = in_array(
+                $entry['module'],
+                $strip['drawn'],
+                true
+            );
+        }
+        unset($entry);
+
         return array(
             /*
              * The panel's presence is itself the signal that something
@@ -14731,11 +14751,7 @@ class ValueProfile extends AppModel
             'modules' => $modules,
             'fire' => $fire,
             'max_age_hours' => $catalogue['profile']['max_age_hours'],
-            'strip' => $this->enrichmentStrip(
-                $runs,
-                $catalogue['profile'],
-                $catalogue['types']
-            ),
+            'strip' => $strip,
             /*
              * The one policy a reader of *this* panel is owed, and only
              * where it applies to them. An empty band and a forbidden
@@ -14798,9 +14814,13 @@ class ValueProfile extends AppModel
      *
      * **One widget per shape.** Where three modules all returned a
      * geolocation, the renderers merge them and the strip shows one
-     * map; the rest of what those modules said is still on the rows
-     * below as chips. Five *different* visual answers, never three
-     * maps.
+     * map, whose cell names all three. Five *different* visual
+     * answers, never three maps.
+     *
+     * **And what it drew is what the rows below stop saying.** The
+     * covered modules come back with the slots, because a chip
+     * restating three relations under a picture of them is the same
+     * answer twice — the rows are for what the strip does not show.
      *
      * Everything about which five is `ValueRendererTool`'s: the
      * profile's ranking first — answered or not — then the shipped
@@ -14816,10 +14836,11 @@ class ValueProfile extends AppModel
      * @param array $runs Unpacked runs carrying `ran_at`
      * @param array $profile The resolved declaration
      * @param array $types `typesFor` output
+     * @param string $value The value being enriched
      * @return array
      */
     private function enrichmentStrip(array $runs, array $profile,
-        array $types
+        array $types, $value
     ) {
         $ranked = isset($profile['shapes']) ? $profile['shapes'] : array();
         /*
@@ -14829,7 +14850,7 @@ class ValueProfile extends AppModel
          * anything either.
          */
         if (empty($runs) && empty($ranked)) {
-            return array('slots' => array());
+            return array('slots' => array(), 'drawn' => array());
         }
         $drawn = ValueRendererTool::drawFor($runs);
         $promoted = ValueRendererTool::promote($drawn, $ranked, $types);
@@ -14842,7 +14863,19 @@ class ValueProfile extends AppModel
                     : null,
             );
         }
-        return array('slots' => $slots);
+        return array(
+            'slots' => $slots,
+            /*
+             * Which modules the row above answers for, so the rows
+             * below can be the ones it does not.
+             */
+            'drawn' => ValueRendererTool::covered(
+                $runs,
+                $drawn,
+                $promoted,
+                $value
+            ),
+        );
     }
 
     /**

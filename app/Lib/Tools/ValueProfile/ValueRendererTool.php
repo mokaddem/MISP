@@ -298,6 +298,102 @@ class ValueRendererTool
     }
 
     /**
+     * The modules whose whole answer is already on the strip.
+     *
+     * A module drawn into a promoted widget has nothing left to say as
+     * a chip: the widget is its answer drawn larger, and the cell
+     * names it and dates it. So the panel drops its row rather than
+     * restating three of its relations under a picture of them.
+     *
+     * **Whole, or not at all.** A module is covered only when every
+     * object it returned reached a shape that got a slot. An object
+     * whose template nobody claims, one drawn into a shape that missed
+     * the five, a bare attribute and a `simplified` element are each
+     * something the strip does not show — and the chip row is where
+     * they show. A capped answer is not covered either: the widget
+     * draws what was stored and the chip states what was found, and
+     * *1,375 passive-dns* is the only place that number appears.
+     *
+     * **Except the value itself, which every module hands back.** A
+     * `misp_standard` answer carries the attribute it was asked about
+     * so the result can be merged into an event, and on a page about
+     * that value it is the question rather than an answer —
+     * `enrichmentKnown()` drops it for the same reason. Counting it as
+     * something the strip does not show would leave a row under every
+     * widget on the instance, which is this rule not applying at all.
+     *
+     * @param array $runs Shaped runs, as `drawFor` takes them
+     * @param array $drawn From `drawFor`
+     * @param array $promoted From `promote`
+     * @param string|null $subject The value being enriched
+     * @return array Module names
+     */
+    public static function covered(array $runs, array $drawn,
+        array $promoted, $subject = null
+    ) {
+        $byTemplate = self::byTemplate();
+        $out = array();
+        foreach ($runs as $run) {
+            if (!is_array($run) || ($run['state'] ?? null) !== 'ok') {
+                continue;
+            }
+            $module = $run['module'] ?? null;
+            $objects = self::listOf($run, 'objects');
+            if ($module === null || empty($objects)
+                || !empty($run['capped'])
+                || self::loose($run, $subject)
+            ) {
+                continue;
+            }
+            $whole = true;
+            foreach ($objects as $object) {
+                $name = $object['name'] ?? null;
+                $shape = $name === null || !isset($byTemplate[$name])
+                    ? null
+                    : $byTemplate[$name];
+                if ($shape === null || !isset($drawn[$shape])
+                    || !in_array($shape, $promoted, true)
+                ) {
+                    $whole = false;
+                    break;
+                }
+            }
+            if ($whole && !in_array($module, $out, true)) {
+                $out[] = $module;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Whether a run said anything outside its objects.
+     *
+     * The value it was asked about does not count, however it was
+     * handed back — as a bare attribute by a `misp_standard` module,
+     * as an element by a `simplified` one.
+     *
+     * @param array $run
+     * @param string|null $subject
+     * @return bool
+     */
+    private static function loose(array $run, $subject)
+    {
+        $lists = array(
+            self::listOf($run, 'attributes'),
+            self::listOf($run, 'elements'),
+        );
+        foreach ($lists as $list) {
+            foreach ($list as $one) {
+                $value = isset($one['value']) ? (string)$one['value'] : '';
+                if ($value !== '' && $value !== (string)$subject) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * The shipped order for these types, deduplicated.
      *
      * A value is several types at once, so the orders are read in the

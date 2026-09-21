@@ -5159,6 +5159,22 @@
             var fresh = frame.querySelector('[data-vp-eb-strip]');
             if (fresh) {
                 strip.replaceWith(fresh);
+                /*
+                 * The rows the widgets have just taken over. A module
+                 * that fired kept a chip row while it was answering,
+                 * and now its answer is drawn above — the chip would
+                 * be the same answer twice, so the row goes and the
+                 * count is restated without it.
+                 */
+                enrichPanelDrawn(panel).forEach(function (name) {
+                    var row = panel.querySelector(
+                        '[data-vp-eb-row="' + cssEscape(name) + '"]'
+                    );
+                    if (row) {
+                        row.remove();
+                    }
+                });
+                enrichPanelCount(panel);
             } else {
                 /*
                  * Nothing drawable came back, which is a real outcome:
@@ -5268,27 +5284,54 @@
     }
 
     /**
+     * The modules the strip answers for, off the strip itself.
+     *
+     * @param {Element} panel
+     * @return {Array} Module names
+     */
+    function enrichPanelDrawn(panel) {
+        var strip = panel.querySelector('[data-vp-eb-strip]');
+        var raw = strip ? (strip.dataset.vpEbDrawn || '') : '';
+        return raw === '' ? [] : raw.split(',');
+    }
+
+    /**
      * Restate how much of the panel is an answer.
      *
      * Rebuilt from the panel rather than counted up as replies land,
      * so a request that never came back cannot leave the line claiming
      * something is still on its way.
      *
+     * **The drawn count on both sides of it.** A module whose answer
+     * became a widget has no row to be counted by, and the line is
+     * about what the panel holds rather than about how many rows it
+     * has — counting rows alone would report *0 of 1* under five
+     * widgets.
+     *
      * @param {Element} panel
      */
     function enrichPanelCount(panel) {
+        var body = panel.querySelector('[data-vp-eb-body]');
+        var rows = panel.querySelectorAll('[data-vp-eb-row]').length;
+        if (body) {
+            /*
+             * An empty body holding its padding open under the
+             * widgets is a gap a reader reads as something missing.
+             */
+            body.classList.toggle('d-none', rows === 0);
+        }
         var out = panel.querySelector('[data-vp-eb-count]');
         if (!out) {
             return;
         }
-        var rows = panel.querySelectorAll('[data-vp-eb-row]').length;
+        var drawn = enrichPanelDrawn(panel).length;
         var failed = panel.querySelectorAll('.vp-eb-failed').length;
         var answered = panel.querySelectorAll(
             '[data-vp-eb-res][data-vp-eb-state="ok"]'
         ).length;
         out.textContent = (panel.dataset.vpEbSub || '%1$s of %2$s')
-            .replace('%1$s', answered)
-            .replace('%2$s', rows + failed);
+            .replace('%1$s', answered + drawn)
+            .replace('%2$s', rows + failed + drawn);
     }
 
     /**
