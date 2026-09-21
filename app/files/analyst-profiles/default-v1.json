@@ -246,6 +246,7 @@
                 "groups", "microsoft-activity-group",
                 "360net-threat-actor", "surveillance-vendor",
                 "canada-listed-terrorist-entities", "campaigns",
+                "mitre-campaign",
                 "malpedia", "ransomware", "backdoor", "banker", "stealer",
                 "wiper", "rat", "botnet", "cryptominers", "android",
                 "stalkerware", "mitre-malware",
@@ -253,7 +254,7 @@
                 "mitre-mobile-attack-malware", "mitre-ics-software",
                 "tool", "mitre-tool", "mitre-enterprise-attack-tool",
                 "mitre-mobile-attack-tool", "exploit-kit", "tds",
-                "rmm-tool", "software"
+                "rmm-tool", "software", "mitre-software"
             ]
         }
     }

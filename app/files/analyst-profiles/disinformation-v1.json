@@ -354,6 +354,7 @@
                 "surveillance-vendor",
                 "canada-listed-terrorist-entities",
                 "campaigns",
+                "mitre-campaign",
                 "malpedia",
                 "ransomware",
                 "backdoor",
@@ -377,6 +378,7 @@
                 "tds",
                 "rmm-tool",
                 "software",
+                "mitre-software",
                 "disarm-techniques",
                 "amitt-misinformation-pattern"
             ]
