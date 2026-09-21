@@ -164,6 +164,59 @@ class AnalystProfileFormTool
     );
 
     /**
+     * The groups the rail draws the sections under, in order.
+     *
+     * The axis tag answers *what does this move?*, which is the right
+     * question once you are already editing. It is the wrong question
+     * when you are looking for the section to edit, because a reader
+     * arrives knowing what they want to change, not which of three
+     * numbers it lands on — and the axes do not partition the list
+     * anyway, since `thresholds` and `signals` reach two apiece.
+     *
+     * These do partition it, and they sort by the kind of knob:
+     *
+     *   assessment  what counts as evidence, and what it is worth
+     *   behaviour   what the engine does with it — resolve, skip, age,
+     *               and go and ask
+     *   display     what you look at first, which reaches no score
+     *
+     * Orthogonal to the axis on purpose: `escalations` is grouped as
+     * behaviour and still tagged `lean`, because *when signals
+     * contradict each other, refuse to lean* is a rule about conduct
+     * that happens to land on that axis. The rail shows both, and a
+     * reader who wants the axes has the tags.
+     */
+    const SECTION_GROUP = array(
+        'signals' => 'assessment',
+        'thresholds' => 'assessment',
+        'exclusions' => 'assessment',
+        'reference' => 'assessment',
+        'galaxies' => 'assessment',
+        'escalations' => 'behaviour',
+        'relevance' => 'behaviour',
+        'enrichment' => 'behaviour',
+        'context' => 'display',
+    );
+
+    /**
+     * The groups in the order a rail draws them, key => label.
+     *
+     * Ordered narrowest-blast-radius last: everything in `assessment`
+     * and `behaviour` changes a number somebody else may be reading,
+     * and `display` changes only what this reader sees.
+     *
+     * @return array
+     */
+    public function groups()
+    {
+        return array(
+            'assessment' => __('Assessment'),
+            'behaviour' => __('Behaviour'),
+            'display' => __('Display'),
+        );
+    }
+
+    /**
      * The whole view-model for `view` and `edit`.
      *
      * @param array $parameters The profile's decoded `parameters`
@@ -180,6 +233,7 @@ class AnalystProfileFormTool
             $method = 'section' . ucfirst($id);
             $sections[$id] = $this->$method($parameters, $sources);
             $sections[$id]['axis'] = $this->axisLabel($id);
+            $sections[$id]['group'] = self::SECTION_GROUP[$id];
         }
         return $sections;
     }

@@ -83,6 +83,33 @@
     padding: .1rem .85rem .3rem;
 }
 
+/*
+ * The editor rail's group headings, which replaced its one `Sections`
+ * title and so carry its weight.
+ *
+ * The rule is what does the grouping. Space alone was not enough: every
+ * row already carries its axis in the same small grey uppercase, so a
+ * heading set apart by margin only reads as one more axis tag that has
+ * lost its row. Indented to the item text rather than to the rail, so
+ * a heading lines up with what it heads — the items clear a 3px
+ * selection border the headings do not have.
+ */
+.wb-rail-group {
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    padding: .5rem .85rem .3rem .7rem;
+    margin-top: .5rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.wb-rail-group:first-child {
+    margin-top: 0;
+    padding-top: .1rem;
+    border-top: 0;
+}
+
 .wb-rail-item {
     display: flex;
     align-items: baseline;
@@ -847,6 +874,17 @@ input.num[type="number"]::-webkit-inner-spin-button {
     }
     .wb-rail-title { display: none; }
     .wb-rail-note  { display: none; }
+    /*
+     * The headings stay when the rail restacks into a row of pills —
+     * they are the grouping, and a wrapped row of ten pills needs it
+     * more than the column did. Full-width so the pills under one
+     * heading wrap among themselves.
+     */
+    .wb-rail-group {
+        flex: 1 0 100%;
+        margin-top: .4rem;
+        padding: .35rem .15rem 0;
+    }
     /*
      * Except on the index, where the two notes are the only statement
      * of how resolution works and how choosing differs from forking —

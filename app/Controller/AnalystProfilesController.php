@@ -1563,6 +1563,7 @@ class AnalystProfilesController extends AppController
             'editable' => $editable
                 && $this->AnalystProfile->isEditableByCurrentUser($user, $row),
             'sections' => $form->sections($parameters, $sources),
+            'groups' => $form->groups(),
             'bands' => $form->bandStrip($parameters),
             'errors' => $checked['errors'],
             'warnings' => $checked['warnings'],

@@ -14,6 +14,7 @@
  * @var array $profile
  * @var bool $editable
  * @var array $sections
+ * @var array $groups
  * @var array $bands
  * @var array $errors
  * @var array $warnings
@@ -128,6 +129,7 @@ $parse = isset($parse) ? $parse : null;
 
                 <?= $this->element('AnalystProfiles/rail', array(
                     'sections' => $sections,
+                    'groups' => $groups,
                     'open' => $open,
                     'raw' => $raw,
                     'editable' => $editable,
