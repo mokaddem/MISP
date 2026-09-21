@@ -356,7 +356,7 @@ class NavbarHelper extends AppHelper {
                 'url' => $baseurl . '/analystProfiles/index',
                 'controller' => 'analystProfiles',
                 'action' => 'index',
-                'icon' => 'fas fa-user-gear'
+                'icon' => 'fas fa-magnifying-glass-chart'
             ],
             ['divider' => true],
             [
