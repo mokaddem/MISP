@@ -165,15 +165,14 @@ class NavbarHelper extends AppHelper {
                 'icon' => 'misp-icon misp-icon-attribute misp-simple',
             ],
             [
-                // Skeleton affordance: the page's subject is a value, and
-                // there is no value index to point at yet, so this links
-                // the demo value until a lookup exists.
+                // The entry names the feature and points at the way in:
+                // the profile's subject is a value the reader supplies,
+                // so there is nothing to link but the resolver.
                 'type' => 'group',
                 'label' => __('Value Profile'),
-                'url' => $baseurl . '/values/view/'
-                    . base64_encode('185.234.219.24'),
+                'url' => $baseurl . '/values/index',
                 'controller' => 'values',
-                'action' => 'view',
+                'action' => 'index',
                 'icon' => 'fas fa-fingerprint',
             ],
             ['divider' => true],
