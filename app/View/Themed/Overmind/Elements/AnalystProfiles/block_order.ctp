@@ -46,10 +46,8 @@ $canAdd = $editable && !empty($block['add']['options']);
     <div class="wb-empty" data-ap-order-empty
          <?= empty($entries) ? '' : 'hidden' ?>>
         <div class="fw-semibold"><?= h($block['empty_label']) ?></div>
-        <p class="mb-0 mt-1"><?= h(__('Ranking nothing is not a gap.'
-            . ' Every value page still draws what it has, in the order'
-            . ' this instance ships for the attribute types that value'
-            . ' is.')) ?></p>
+        <p class="mb-0 mt-1"><?= h(__('Nothing ranked, so each value page'
+            . ' uses the order this instance ships.')) ?></p>
     </div>
 
     <ol class="ap-order-list" data-ap-order-list

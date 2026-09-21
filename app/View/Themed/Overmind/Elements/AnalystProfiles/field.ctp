@@ -215,8 +215,8 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                        AnalystProfileFormTool::fieldName($mapPath)) ?>"
                    data-ap-type-value="<?= h($bucket) ?>"
                    placeholder="<?= h(sprintf(__n(
-                       '+ add a type (%s free)',
-                       '+ add types (%s free)',
+                       '+ add a type (%s unassigned)',
+                       '+ add types (%s unassigned)',
                        count($free)
                    ), count($free))) ?>">
         <?php endif; ?>
@@ -346,7 +346,7 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                         $rowOptions[] = array(
                             'value' => $state,
                             'label' => sprintf(
-                                __('%s — declared here, not offered'),
+                                __('%s — kept from this profile'),
                                 $state
                             ),
                         );

@@ -237,7 +237,9 @@ function boot() {
                 }
                 if (!has) {
                     cell.appendChild(sub(labels.no_row || ''));
-                    cell.appendChild(sub(labels.no_row_sub || ''));
+                    if (labels.no_row_sub) {
+                        cell.appendChild(sub(labels.no_row_sub));
+                    }
                     return;
                 }
                 var points = rows[id];

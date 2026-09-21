@@ -21,8 +21,8 @@ $title = isset($field['help'])
     ? $field['help']
     : (isset($field['label']) ? $field['label'] : $field['key']);
 if ($undeclared) {
-    $title = __('This version has no schema for this key, so it is kept'
-        . ' as written rather than dropped.');
+    $title = __('This MISP version does not know this setting. It is'
+        . ' kept as written.');
 }
 ?>
 <span class="kv <?= $undeclared ? 'is-undeclared' : '' ?>"

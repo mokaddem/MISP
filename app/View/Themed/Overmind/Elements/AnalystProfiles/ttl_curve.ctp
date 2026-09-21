@@ -174,7 +174,7 @@ if ($here !== null) {
             $speed
         )) ?></b>
         <span class="wb-sub"><?= h(sprintf(
-            __('what %s looks like'), 'short'
+            __('the %s bucket'), 'short'
         )) ?></span>
     </figcaption>
     <svg viewBox="0 0 260 118" role="img" aria-label="<?= h($label) ?>">

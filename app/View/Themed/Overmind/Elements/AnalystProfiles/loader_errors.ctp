@@ -32,7 +32,7 @@ if (empty($loader_errors)) {
         <?php endforeach; ?>
     </ul>
     <p class="wb-sub mb-0 mt-1">
-        <?= h(__('Nothing here is configurable: a skipped file contributes'
-            . ' no signal, so a profile naming it lists it as missing.')) ?>
+        <?= h(__('A skipped file contributes no signal. Any profile naming'
+            . ' it shows it as missing.')) ?>
     </p>
 </div>

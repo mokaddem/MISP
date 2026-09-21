@@ -209,10 +209,8 @@ $canAdd = $editable && !empty($block['add']);
     ?>
     <div class="wb-empty" data-ap-map-empty="1" <?= $hasRows ? 'hidden' : '' ?>>
         <div class="fw-semibold"><?= h($emptyLabel) ?></div>
-        <p class="mb-0 mt-1"><?= h(__('An empty map is not a gap. It means'
-            . ' this profile overrides nothing here, and everything'
-            . ' takes the behaviour it would have had without the'
-            . ' section.')) ?></p>
+        <p class="mb-0 mt-1"><?= h(__('This profile overrides nothing'
+            . ' here, so the shipped behaviour applies.')) ?></p>
     </div>
 <?php endif; ?>
 <?php
@@ -392,10 +390,7 @@ $rowFilter = !empty($block['row_filter'])
                                         AnalystProfileFormTool::fieldId(
                                             $entry['path']
                                         )) ?>"
-                                    title="<?= h(__('Remove this row. The'
-                                        . ' map is written whole on'
-                                        . ' save, so a removed row is'
-                                        . ' a removed key.')) ?>">
+                                    title="<?= h(__('Remove this row')) ?>">
                                 &times;
                             </button>
                         </td>
@@ -516,8 +511,6 @@ $rowFilter = !empty($block['row_filter'])
                 <?= h($block['add']['copy_from']['label']) ?>
             </button>
         <?php endif; ?>
-        <span class="wb-sub"><?= h(__('added rows are saved with the'
-            . ' section')) ?></span>
     </div>
 <?php endif; ?>
 

@@ -121,7 +121,9 @@ $parse = isset($parse) ? $parse : null;
                 </div>
                 <div class="wb-panehead wb-panehead-right">
                     <span><?= h(__('The value under assessment')) ?></span>
-                    <em><?= h(__('recomputed on every change')) ?></em>
+                    <em><?= h($editable
+                        ? __('recomputed on every change')
+                        : __('scored under this profile')) ?></em>
                 </div>
 
                 <?= $this->element('AnalystProfiles/rail', array(
@@ -151,9 +153,10 @@ $parse = isset($parse) ? $parse : null;
                             <span class="wb-ax"><?= h(__('all three')) ?></span>
                         </p>
                         <p class="wb-blurb">
-                            <?= h(__('The whole document. Pasting one replaces'
-                                . ' it rather than merging, because that is'
-                                . ' what pasting a document means.')) ?>
+                            <?= h($editable
+                                ? __('The whole document. Pasting one'
+                                    . ' replaces it — nothing is merged.')
+                                : __('The whole document.')) ?>
                         </p>
                         <?php if (!empty($parse)): ?>
                             <div class="wb-note bad mb-2">
@@ -163,9 +166,8 @@ $parse = isset($parse) ? $parse : null;
                                     <?= h(sprintf(__('Line %s.'), $parse['line'])) ?>
                                 <?php endif; ?>
                                 <div class="wb-sub mt-1">
-                                    <?= h(__('The stored profile is untouched.'
-                                        . ' What is in the box below is what'
-                                        . ' you posted.')) ?>
+                                    <?= h(__('The box below holds what you'
+                                        . ' posted.')) ?>
                                 </div>
                             </div>
                         <?php endif; ?>
@@ -193,10 +195,8 @@ $parse = isset($parse) ? $parse : null;
                                 <?= h(__('Replace the document')) ?>
                             </button>
                             <span class="wb-sub ms-2">
-                                <?= h(__('Validated before anything is'
-                                    . ' written: a paste that will not'
-                                    . ' parse leaves the stored profile'
-                                    . ' byte-identical.')) ?>
+                                <?= h(__('If the JSON will not parse,'
+                                    . ' nothing is saved.')) ?>
                             </span>
                         <?php endif; ?>
                     </section>

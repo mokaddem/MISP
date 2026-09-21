@@ -27,13 +27,13 @@ $this->set('headerBreadcrumb', array(
 ));
 $this->set('headerCountText', sprintf(__('rev %s'), $profile['revision']));
 $this->set('headerCount', $profile['revision']);
-$this->set('headerDescription', __('Seven sections, one open at a time.'
-    . ' Nothing is normalised, so the contribution column on the right'
-    . ' adds up to the quality exactly.'));
+$this->set('headerDescription', __('Your copy of the scoring rules.'
+    . ' Edit a section on the left; the value on the right is rescored'
+    . ' as you go.'));
 $this->set('headerActions', array(
     array(
         'type' => 'navigate',
-        'label' => __('Expand the bench'),
+        'label' => __('Open the full comparison'),
         'icon' => 'up-right-and-down-left-from-center',
         'url' => $this->Html->url(array(
             'action' => 'simulate', $profile['id'], '?' => $query)),

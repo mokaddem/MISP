@@ -150,9 +150,8 @@ $number = function ($value) {
             <?= h(sprintf(
                 __('The rows in force sum to %1$s against a quality of'
                     . ' %2$s, and the candidate\'s to %3$s against'
-                    . ' %4$s. Nothing is normalised, so these should be'
-                    . ' equal — the diff above cannot be trusted until'
-                    . ' they are.'),
+                    . ' %4$s. These should match — the comparison above'
+                    . ' is unreliable until they do.'),
                 $detail['sums']['before']['ledger'],
                 $detail['sums']['before']['quality'],
                 $detail['sums']['after']['ledger'],

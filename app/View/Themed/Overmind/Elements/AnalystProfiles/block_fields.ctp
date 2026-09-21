@@ -64,7 +64,7 @@
                     <span class="pill t-off"><?= h(
                         isset($field['inert_note'])
                             ? $field['inert_note']
-                            : __('not in force')) ?></span>
+                            : __('not used yet')) ?></span>
                 <?php endif; ?>
             </label>
             <div class="wb-inline">

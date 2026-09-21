@@ -112,9 +112,9 @@ $carry = array(
         ? __('+ carries it')
         : '',
     'labels' => array(
-        'none' => "â",
-        'no_row' => __('no row'),
-        'no_row_sub' => __('on this value'),
+        'none' => "—",
+        'no_row' => __('did not fire'),
+        'no_row_sub' => '',
     ),
     'rows' => $ledgerNow,
 );
@@ -135,10 +135,10 @@ $carry = array(
         <div class="input-group input-group-sm">
             <input type="text" class="form-control form-control-sm"
                    data-ap-bench-input autocomplete="off" spellcheck="false"
-                   placeholder="<?= h(__('bench a value — an IP, a domain,'
+                   placeholder="<?= h(__('try a value — an IP, a domain,'
                        . ' a hash')) ?>">
             <button type="button" class="btn btn-sm btn-outline-primary"
-                    data-ap-bench=""><?= h(__('Bench it')) ?></button>
+                    data-ap-bench=""><?= h(__('Try it')) ?></button>
         </div>
         <?php if (!empty($values)): ?>
             <div class="bench-quick">
@@ -156,23 +156,19 @@ $carry = array(
 
     <?php if ($benched === null): ?>
         <div class="wb-empty">
-            <div class="fw-semibold"><?= h(__('Nothing on the bench')) ?></div>
+            <div class="fw-semibold"><?= h(__('No value chosen')) ?></div>
             <p class="mb-0 mt-1">
-                <?= h(__('Put a value in the box above and it appears here,'
-                    . ' scored under the profile you are editing beside the'
-                    . ' one in force. Arriving from a value page benches'
-                    . ' that value for the visit; pinning it keeps it here'
-                    . ' for every profile you edit, and that takes a'
-                    . ' press.')) ?>
+                <?= h(__('Put a value in the box above to see what this'
+                    . ' profile makes of it, beside the profile in force.'
+                    . ' Pin a value to keep it here on every profile you'
+                    . ' open.')) ?>
             </p>
         </div>
     <?php else: ?>
         <div class="bench-value">
             <span class="v"><?= h($benched) ?></span>
             <?php if (!in_array($benched, $pinned, true)): ?>
-                <span class="wb-sub"><?= $focus !== null && $focus === $benched
-                    ? h(__('benched, not pinned'))
-                    : h(__('benched')) ?></span>
+                <span class="wb-sub"><?= h(__('not pinned')) ?></span>
                 <?php if ($live): ?>
                     <button type="button" data-ap-value="<?= h($benched) ?>"
                             data-ap-pin="<?= h($this->Html->url(
@@ -212,17 +208,12 @@ $carry = array(
         </div>
 
         <div class="bench-live">
-            <?= h(sprintf(__n(
-                'recomputed · %s context build',
-                'recomputed · %s context builds',
-                $bench['context_builds']
-            ), $bench['context_builds'])) ?>
+            <?= h(__('recomputed')) ?>
         </div>
 
         <?php if ($detail !== null): ?>
             <div class="bench-sec">
                 <span><?= h(__('Assessment')) ?></span>
-                <span class="wb-sub"><?= h(__('three axes, read separately')) ?></span>
             </div>
             <?= $this->element('AnalystProfiles/assessment_head', array(
                 'axes' => $detail['axes'],
@@ -238,8 +229,7 @@ $carry = array(
             )) ?>
 
             <div class="bench-sec">
-                <span><?= h(__('The quality ledger')) ?></span>
-                <span class="wb-sub"><?= h(__('the only axis that sums')) ?></span>
+                <span><?= h(__('Quality')) ?></span>
             </div>
             <div class="bench-q">
                 <span class="now"><?= h($detail['totals']['after']) ?></span>
@@ -272,12 +262,8 @@ $carry = array(
                     <b class="num"><?= h($detail['axes']['fired']['after']) ?></b>
                 </div>
                 <div>
-                    <span><?= h(__('attainable bound')) ?></span>
+                    <span><?= h(__('highest reachable')) ?></span>
                     <b class="num"><?= h($bands['bound']) ?></b>
-                </div>
-                <div>
-                    <span><?= h(__('saved')) ?></span>
-                    <b class="wb-sub"><?= h(__('nothing, ever')) ?></b>
                 </div>
             </div>
 
@@ -323,7 +309,7 @@ $carry = array(
                    ? array()
                    : array('value' => ValueUrlTool::encode($focus)),
            ))) ?>">
-            <?= h(__('Expand the bench — every row, both columns')) ?>
+            <?= h(__('Open the full comparison')) ?>
         </a>
     <?php endif; ?>
 </div>

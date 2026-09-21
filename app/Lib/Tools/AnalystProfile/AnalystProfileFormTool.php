@@ -201,8 +201,8 @@ class AnalystProfileFormTool
             'lean' => __('lean'),
             'relevance' => __('relevance'),
             'quality — trust weighting' => __('quality — trust weighting'),
-            'no axis — context' => __('no axis — context'),
-            'no axis — display order' => __('no axis — display order'),
+            'no axis — context' => __('context'),
+            'no axis — display order' => __('display order'),
         );
         $key = self::SECTION_AXIS[$id];
         return isset($labels[$key]) ? $labels[$key] : $key;
@@ -247,27 +247,17 @@ class AnalystProfileFormTool
              * values, which is exactly the reasoning the split removed.
              */
             'blurb' => __(
-                'What each kind of evidence is worth. The verdict itself'
-                . ' is decided separately, before any of these points are'
-                . ' counted, by counting how many organisations called'
-                . ' the value one thing or the other — so nothing on this'
-                . ' table decides the reading on its own. Most signals'
-                . ' weigh the record instead: how widely it was reported,'
-                . ' how much of it is published, whether anyone attributed'
-                . ' it, whether it can date its own observations. A plus'
-                . ' there means the record carries something and a minus'
-                . ' that it does not, and that does not change with the'
-                . ' verdict — a value reported by four organisations is'
-                . ' equally well documented whether the verdict came out'
-                . ' threat or benign. Those points add up to the quality'
-                . ' exactly. Two signals are different and are marked'
-                . ' "reads the value": a warninglist hit and a'
-                . ' false-positive sighting say what the value is, so'
-                . ' they are scored against the verdict — a plus supports'
-                . ' it, a minus argues with it, and a big enough minus'
-                . ' turns it contested. Those add up beside the quality'
-                . ' rather than into it. Nothing is normalised either'
-                . ' way, so each column is its own ledger.'
+                'What each kind of evidence is worth. The lean itself is'
+                . ' decided separately, by counting how many'
+                . ' organisations called the value one thing or the'
+                . ' other, so nothing on this table decides it on its'
+                . ' own. Most signals weigh the record instead: a plus'
+                . ' means it carries something — widely reported,'
+                . ' published, attributed — and a minus that it does'
+                . ' not, whichever way the lean came out. Two signals'
+                . ' marked "reads the value", a warninglist hit and a'
+                . ' false-positive sighting, are scored against the lean'
+                . ' instead and are counted separately.'
             ),
             'blocks' => array(
                 array(
@@ -409,10 +399,9 @@ class AnalystProfileFormTool
                 'id' => 'custom',
                 'label' => __('custom'),
                 'title' => __(
-                    'Dropped into app/Lib/ValueSignals on this instance.'
-                    . ' Nothing upstream computes it, so a colleague'
-                    . ' reading this profile elsewhere cannot reproduce'
-                    . ' the number it contributes.'
+                    'Added on this instance, so a colleague reading this'
+                    . ' profile elsewhere cannot reproduce the number it'
+                    . ' contributes.'
                 ),
             );
         }
@@ -570,8 +559,8 @@ class AnalystProfileFormTool
             'id' => 'thresholds',
             'title' => __('Thresholds'),
             'blurb' => __(
-                'Where the points become words: which way the record'
-                . ' leans, and how much evidence stands behind it.'
+                'The cut-offs: which way the record leans, and which'
+                . ' quality band a score falls in.'
             ),
             'blocks' => array(
                 array(
@@ -668,16 +657,12 @@ class AnalystProfileFormTool
                     'id' => 'thin_record_clamp',
                     'title' => __('The thin-record clamp'),
                     'blurb' => __(
-                        'A value can pile up points while resting on a'
-                        . ' single reporter — one organisation repeating'
-                        . ' the same value month after month, with'
-                        . ' nobody else confirming it. When the record'
-                        . ' is that thin, the three settings below hold'
-                        . ' its band down whatever the points say: with'
-                        . ' the shipped numbers, a value reported by one'
-                        . ' organisation and sighted by nobody never'
-                        . ' reads above low. The clamp only lowers the'
-                        . ' quality band; it leaves the lean alone.'
+                        'Hold the band down when a value rests on a'
+                        . ' single reporter, however many points it'
+                        . ' scores. With the shipped numbers, a value'
+                        . ' one organisation reported and nobody sighted'
+                        . ' never reads above low. This lowers the'
+                        . ' quality band only — the lean is untouched.'
                     ),
                     'fields' => array(
                         array(
@@ -769,10 +754,8 @@ class AnalystProfileFormTool
             'id' => 'escalations',
             'title' => __('Conflict rules'),
             'blurb' => __(
-                'When the record contradicts itself loudly enough that'
-                . ' no lean is honest. A rule may only ever say'
-                . ' contested — one that could name a side would be a'
-                . ' score override wearing a different hat.'
+                'When the record contradicts itself badly enough that no'
+                . ' lean is honest. A rule can only ever say contested.'
             ),
             'blocks' => array(
                 array(
@@ -830,7 +813,7 @@ class AnalystProfileFormTool
             $badges[] = array(
                 'id' => 'custom',
                 'label' => __('custom'),
-                'title' => __('Dropped into app/Lib/ValueEscalations.'),
+                'title' => __('Added on this instance.'),
             );
         }
         if ($config === null) {
@@ -899,10 +882,9 @@ class AnalystProfileFormTool
             'id' => 'exclusions',
             'title' => __('Exclusions'),
             'blurb' => __(
-                'Evidence you have decided not to count, filtered once'
-                . ' before any signal sees it, and every row an'
-                . ' exclusion removes is listed in the assessment as'
-                . ' not counted, naming the rule.'
+                'Evidence you have decided not to count. Anything an'
+                . ' exclusion removes is listed in the assessment as not'
+                . ' counted, naming the rule.'
             ),
             'blocks' => array(
                 array(
@@ -1132,10 +1114,9 @@ class AnalystProfileFormTool
             'id' => 'relevance',
             'title' => __('Relevance'),
             'blurb' => __(
-                'Whether what the record asserts still matters today.'
-                . ' Its own axis, and nothing in the quality reads it:'
-                . ' silence must never be able to promote a value to a'
-                . ' definite answer.'
+                'Whether what the record says still holds today. Kept'
+                . ' separate from quality: an old value is not a'
+                . ' better-evidenced one.'
             ),
             'blocks' => array(
                 array(
@@ -1180,12 +1161,9 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 1.0,
                             'help' => __(
-                                "MISP's polynomial. 1 is linear; below"
-                                . ' 1 holds its value then falls off a'
-                                . ' cliff; above 1 drops at once then'
-                                . ' lingers. Exponential has no TTL to'
-                                . ' measure against, which is why the'
-                                . ' curve is pinned here.'
+                                '1 is a straight line. Below 1 holds its'
+                                . ' value then drops off; above 1 drops'
+                                . ' at once then lingers.'
                             ),
                             'path' => array('relevance', 'decay_speed'),
                         ),
@@ -1242,24 +1220,12 @@ class AnalystProfileFormTool
                                     : null),
                             'default' => 30,
                             'help' => __(
-                                'MISP records no date an attribute was'
-                                . ' created, so when no occurrence sets'
-                                . ' first seen there is nothing to'
-                                . ' measure the value\'s real age'
-                                . ' with. This is the assumption used'
-                                . ' instead: those values read as this'
-                                . ' many days older than their record,'
-                                . ' and every page showing one says so.'
-                                . ' It moves where a value sits on the'
-                                . ' curve, so it counts as aging'
-                                . ' sooner — and it never moves the'
-                                . ' date its lifetime ends, because'
-                                . ' expiring on a guess would drop'
-                                . ' indicators nobody chose to drop.'
-                                . ' Set it to 0 to add nothing — the'
-                                . ' value still reads timeline'
-                                . ' uncertain, because that is a fact'
-                                . ' about the data and not a setting.'
+                                'When a value has no first-seen date,'
+                                . ' read it as this many days older than'
+                                . ' its record, and say so on every page'
+                                . ' showing it. It ages sooner, but'
+                                . ' never expires on the assumption. Set'
+                                . ' 0 to add nothing.'
                             ),
                             'path' => array('relevance',
                                 'undated_assumed_days'),
@@ -1549,10 +1515,8 @@ class AnalystProfileFormTool
             'id' => 'reference',
             'title' => __('Sources & reputation'),
             'blurb' => __(
-                'What you believe about your sources, and what the'
-                . ' warninglists mean. Admiralty-shaped on purpose:'
-                . ' source reliability goes in, information credibility'
-                . ' comes out.'
+                'What you believe about your sources, and what a'
+                . ' warninglist hit means.'
             ),
             'blocks' => array(
                 array(
@@ -2084,11 +2048,10 @@ class AnalystProfileFormTool
             'id' => 'enrichment',
             'title' => __('Enrichment'),
             'blurb' => __(
-                'Which modules you would want asked about a value of'
-                . ' each type, and which of their answers you want'
-                . ' drawn first. Most modules arrive ticked and wait'
-                . ' for your press; one choice runs by itself, and only'
-                . ' if an administrator has allowed that here.'
+                'Which modules to offer for each attribute type, and'
+                . ' which of their answers to draw first. Nothing here'
+                . ' runs a module on its own unless you choose that and'
+                . ' an administrator has allowed it.'
             ),
             'blocks' => array(
                 $this->shapeOrderBlock($section),
@@ -2169,14 +2132,10 @@ class AnalystProfileFormTool
                     'id' => 'locality',
                     'title' => __('Where a module answers from'),
                     'blurb' => __(
-                        'Overrides the shipped roster. Locality cannot'
-                        . ' be derived — a module that declares no'
-                        . ' config and no requirements may still fetch'
-                        . ' a third-party site, and configurable is not'
-                        . ' the same as local: dns defaults to 8.8.8.8,'
-                        . ' so it leaves the building on a deployment'
-                        . ' nobody has repointed. It ships as knowledge'
-                        . ' and this is where you correct it.'
+                        'Whether asking a module sends the value outside'
+                        . ' this instance. MISP cannot work this out on'
+                        . ' its own — dns, for one, defaults to 8.8.8.8'
+                        . ' — so correct the shipped answer here.'
                     ),
                     'key_label' => __('Module'),
                     'value_label' => __('Answers from'),
@@ -2907,10 +2866,6 @@ class AnalystProfileFormTool
                         . ' allows it'),
                 ),
             ),
-            'note' => __('A module you say nothing about is not blocked'
-                . ' — it simply arrives unticked. Only "block it" takes'
-                . ' anything away, and only "run it on its own" adds'
-                . ' anything.'),
         );
     }
 
@@ -4718,12 +4673,9 @@ class AnalystProfileFormTool
             'id' => 'context',
             'title' => __('What you look at first'),
             'blurb' => __(
-                'MISP ships 182 taxonomies and 130 galaxies, and to a'
-                . ' card with room for five of them they are one'
-                . ' undifferentiated set. This is where you say which'
-                . ' ones are your job. Nothing here hides anything:'
-                . ' demoting a taxonomy pushes it down, and the'
-                . ' instance decides what exists at all.'
+                'Which taxonomies and galaxies you want shown first, on'
+                . ' cards with room for only a few. Nothing is hidden —'
+                . ' demoting one only pushes it down.'
             ),
             'blocks' => $blocks,
         );
@@ -4775,14 +4727,10 @@ class AnalystProfileFormTool
             'id' => 'galaxies',
             'title' => __('What counts as an attribution'),
             'blurb' => __(
-                'A galaxy cluster on an occurrence is the strongest'
-                . ' editorial statement MISP carries, and the'
-                . ' attribution signal pays for one. These are the'
-                . ' galaxies whose clusters name a threat rather than'
-                . ' classify one: an actor, a campaign, a family, a'
-                . ' tool. An empty list switches the filter off and'
-                . ' every cluster counts, which is what the signal did'
-                . ' before this list existed.'
+                'Which galaxies name a threat rather than classify one:'
+                . ' an actor, a campaign, a family, a tool. The'
+                . ' attribution signal only pays for these. An empty'
+                . ' list counts every cluster.'
             ),
             'blocks' => array(
                 array(
@@ -4791,13 +4739,9 @@ class AnalystProfileFormTool
                     'title' => __('Attribution galaxies'),
                     'blurb' => __(
                         'Remove a row to stop counting it. A sector, a'
-                        . ' country, a countermeasure and a typology'
-                        . ' are all clusters and none of them is an'
-                        . ' attribution — state-sponsored is a type,'
-                        . ' not a name. This list and the galaxy tiers'
-                        . ' above will overlap heavily, and they are'
-                        . ' two lists because a card\'s order is not a'
-                        . ' score.'
+                        . ' country, a countermeasure or a typology is'
+                        . ' not an attribution — state-sponsored is a'
+                        . ' type, not a name.'
                     ),
                     'key_label' => __('Galaxy'),
                     'value_label' => __('Counts as'),

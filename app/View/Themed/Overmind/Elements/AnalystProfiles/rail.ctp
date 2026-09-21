@@ -39,8 +39,8 @@ $count = function (array $section) {
                 data-sec="<?= h($id) ?>">
             <span>
                 <span class="mk" data-ap-dirty-mark="<?= h($id) ?>" hidden
-                      title="<?= h(__('this section holds an edit this'
-                          . ' session has made and not saved')) ?>">&#8961;</span>
+                      title="<?= h(__('Unsaved change in this'
+                          . ' section')) ?>">&#8961;</span>
                 <?= h($section['title']) ?>
                 <span class="wb-rail-ax"><?= h($section['axis']) ?></span>
             </span>
@@ -55,9 +55,4 @@ $count = function (array $section) {
         </span>
         <span class="c"><?= h(sprintf('%.1f KB', strlen($raw) / 1024)) ?></span>
     </button>
-    <p class="wb-rail-note">
-        <?= h(__('The rail is the whole document; the pane beside it is one'
-            . ' section of it. Under each section is the axis it'
-            . ' configures.')) ?>
-    </p>
 </nav>

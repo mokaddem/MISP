@@ -187,9 +187,7 @@ class ValueExclusionTool
                 'description' => __(
                     'Leave your own organisation out of every count, so'
                     . ' the assessment says what everyone else reports.'
-                    . ' This one changes the queries rather than'
-                    . ' filtering their results, so it moves every'
-                    . ' aggregate at once.'
+                    . ' This moves every aggregate at once.'
                 ),
                 'schema' => array(),
             ),
@@ -201,8 +199,7 @@ class ValueExclusionTool
                     'On a value with more occurrences than the'
                     . ' threshold, read row evidence from the last N'
                     . ' days only. Whole-history aggregates are never'
-                    . ' windowed. Applied by the context builder rather'
-                    . ' than here, because it decides what is fetched.'
+                    . ' windowed.'
                 ),
                 'schema' => array(
                     'days' => array(

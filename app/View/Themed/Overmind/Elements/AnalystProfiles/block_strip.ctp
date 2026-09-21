@@ -65,7 +65,7 @@ $markAt = function ($points) use ($pct) {
         <?php $last = $band['from']; ?>
     <?php endforeach; ?>
     <span style="flex:1 1 auto"><?= h(sprintf(
-        __('%s attainable'), $strip['bound']
+        __('%s reachable'), $strip['bound']
     )) ?></span>
 </div>
 
@@ -79,12 +79,10 @@ $markAt = function ($points) use ($pct) {
     <div class="wb-note warn mt-2">
         <?= h(sprintf(
             __n(
-                'One enabled signal pays per unit with no cap, so the'
-                    . ' bound is a floor rather than a ceiling and a'
-                    . ' band above it is not refused: %s.',
-                '%2$s enabled signals pay per unit with no cap, so the'
-                    . ' bound is a floor rather than a ceiling and a'
-                    . ' band above it is not refused: %1$s.',
+                'One enabled signal has no upper limit, so the score can'
+                    . ' go past this mark: %s.',
+                '%2$s enabled signals have no upper limit, so the score'
+                    . ' can go past this mark: %1$s.',
                 count($strip['attainable']['unbounded'])
             ),
             implode(', ', $strip['attainable']['unbounded']),

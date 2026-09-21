@@ -29,14 +29,14 @@ $tone = array('up' => 'd-up', 'down' => 'd-dn', 'sideways' => 'd-0',
  */
 ?>
 <div class="bench-sec" style="margin-top:1.1rem">
-    <span><?= h(__('Values on the bench')) ?></span>
+    <span><?= h(__('Values tested')) ?></span>
     <span class="num"><?= h(count($comparison)) ?></span>
 </div>
 <?php if (!empty($comparison)): ?>
     <p class="wb-sub mt-1 mb-1">
         <?= count($pinned) === 0
-            ? h(__('None of them is pinned yet. Pinning one keeps it here'
-                . ' for every profile you edit, not just this visit.'))
+            ? h(__('None of them is pinned. A pinned value stays here on'
+                . ' every profile you open.'))
             : h(sprintf(__n('%s of them is pinned.',
                 '%s of them are pinned.', count($pinned)),
                 count($pinned))) ?>
@@ -46,10 +46,8 @@ $tone = array('up' => 'd-up', 'down' => 'd-dn', 'sideways' => 'd-0',
     <div class="wb-empty">
         <div class="fw-semibold"><?= h(__('Nothing pinned yet')) ?></div>
         <p class="mb-0 mt-1">
-            <?= h(__('Pin a value and its two columns appear here. A pinned'
-                . ' value is one you want every profile change judged'
-                . ' against, instead of judging it on whichever value you'
-                . ' happened to arrive from.')) ?>
+            <?= h(__('Pin a value to keep it here on every profile you'
+                . ' open.')) ?>
         </p>
     </div>
 <?php else: ?>
@@ -105,7 +103,7 @@ $tone = array('up' => 'd-up', 'down' => 'd-dn', 'sideways' => 'd-0',
         </tbody>
     </table>
     <p class="wb-sub mt-1 mb-0">
-        <?= h(__('▲ and ▼ say which way the ledger moved, not whether the'
-            . ' move is right. You are the one deciding that.')) ?>
+        <?= h(__('▲ and ▼ show which way the score moved, not whether the'
+            . ' move is right.')) ?>
     </p>
 <?php endif; ?>

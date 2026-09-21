@@ -154,13 +154,8 @@ $columns = $isSignals ? 5 : 3;
                     ?>
                     <div class="wb-tbl-sub" data-ap-anchor
                          title="<?= h(__(
-                             'A plus is a row where the record carries'
-                             . ' something and a minus one where it does'
-                             . ' not, whatever the verdict came out as.'
-                             . ' The rows marked "reads the value" are'
-                             . ' the exception: those two say what the'
-                             . ' value is, so their sign is scored'
-                             . ' against the verdict instead.'
+                             'Plus: the record carries something.'
+                             . ' Minus: it does not.'
                          )) ?>"
                          <?= $anchor === '' ? 'hidden' : '' ?>><?=
                         h($anchor) ?></div>
@@ -240,10 +235,9 @@ $columns = $isSignals ? 5 : 3;
                     <?php if ($state === 'available'): ?>
                         <div class="mt-1">
                             <span class="pill t-plain"
-                                  title="<?= h(__('This instance implements it'
-                                      . ' and this profile does not name it.'
-                                      . ' Enabling it adds it to the'
-                                      . ' document.')) ?>">
+                                  title="<?= h(__('This instance has this'
+                                      . ' signal and this profile does not'
+                                      . ' use it.')) ?>">
                                 <?= h(__('available')) ?>
                             </span>
                         </div>
@@ -401,8 +395,7 @@ $columns = $isSignals ? 5 : 3;
                         <?php elseif ($benchValue === null): ?>
                             <span class="wb-sub">&mdash;</span>
                         <?php elseif ($contribution === null): ?>
-                            <div class="wb-sub"><?= h(__('no row')) ?></div>
-                            <div class="wb-sub"><?= h(__('on this value')) ?></div>
+                            <div class="wb-sub"><?= h(__('did not fire')) ?></div>
                         <?php else: ?>
                             <?php
                             /*

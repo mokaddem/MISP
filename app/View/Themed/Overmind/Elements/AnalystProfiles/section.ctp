@@ -69,14 +69,13 @@ foreach ($section['blocks'] as $block) {
             <div class="text-end">
                 <p class="wb-sub mt-1 mb-0" style="max-width:20rem">
                     <?= $available === 0
-                        ? h(sprintf(__('Nothing left to add: all %s signals'
-                            . ' this instance implements are already in'
-                            . ' this profile.'), $configured - $available))
+                        ? h(__('Every signal this instance has is already'
+                            . ' in this profile.'))
                         : h(sprintf(__n(
-                            '%s signal this instance implements is not in'
-                                . ' this profile. Enabling its row adds it.',
-                            '%s signals this instance implements are not in'
-                                . ' this profile. Enabling a row adds it.',
+                            '%s signal this instance has is not in this'
+                                . ' profile.',
+                            '%s signals this instance has are not in this'
+                                . ' profile.',
                             $available
                         ), $available)) ?>
                 </p>

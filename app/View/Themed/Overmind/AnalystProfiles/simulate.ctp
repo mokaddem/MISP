@@ -31,13 +31,13 @@ $query = $focus === null
     ? array()
     : array('value' => ValueUrlTool::encode($focus));
 
-$this->set('headerTitle', __('The bench, expanded'));
+$this->set('headerTitle', __('Full comparison'));
 $this->set('headerBreadcrumb', array(
     array('label' => __('Analyst Profiles'),
         'url' => array('action' => 'index')),
     array('label' => $base['name'],
         'url' => array('action' => 'view', $base['id'])),
-    __('The bench'),
+    __('Full comparison'),
 ));
 $this->set('headerCountText', $focus === null ? __('no value') : $focus);
 $this->set('headerCount', count($values));
@@ -83,7 +83,7 @@ $bench = array(
             <div class="wb-panehead wb-panehead-left">
                 <span><?= h(__('What you are proposing')) ?></span>
                 <em><?= $detail === null
-                    ? h(__('nothing on the bench'))
+                    ? h(__('no value chosen'))
                     : h(sprintf(__n('%s difference', '%s differences',
                         count($detail['moved'])), count($detail['moved']))) ?></em>
             </div>
