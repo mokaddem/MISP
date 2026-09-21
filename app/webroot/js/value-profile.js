@@ -4725,6 +4725,23 @@
     }
 
     /**
+     * Whether a card is still hiding something below its fold.
+     *
+     * The scrollbar is the only other signal there is, and on a
+     * platform that hides scrollbars until they move there is none —
+     * so a card that clips says so with an edge, and stops saying it
+     * once the reader reaches the bottom.
+     *
+     * @param {Element} card
+     * @param {Element} body The scrolling part
+     */
+    function markEnrichCardMore(card, body) {
+        var more = body.scrollTop + body.clientHeight
+            < body.scrollHeight - 2;
+        card.classList.toggle('vp-e-allcard-more', more);
+    }
+
+    /**
      * Rebuild the merged pane from the answers already on the page.
      *
      * `E2`'s one addition to the direction it came from: the rail
@@ -4780,10 +4797,40 @@
                 return;
             }
             groups++;
-            var group = document.createElement('div');
+            /*
+             * **One card a module, and the card is what is capped.**
+             * A module's own pane draws its whole answer, which is
+             * what a reader who picked that module asked for; here
+             * they asked for all of them, and `circl_passivedns`
+             * alone measures 5,632px against `ipasn`'s 146. Uncapped,
+             * one module decides how tall this pane is and the others
+             * are below the fold of it.
+             */
+            var card = document.createElement('section');
+            card.className = 'vp-e-allcard';
+            card.dataset.vpEAllcard = name;
+
+            var head = document.createElement('div');
+            head.className = 'vp-e-allcard-head';
+            var group = document.createElement('span');
             group.className = 'vp-e-group';
             group.textContent = name;
-            body.appendChild(group);
+            head.appendChild(group);
+            /*
+             * Where the rest of it is. The rail row does the same
+             * thing, and a card that clips its content owes the
+             * reader the way out of it from the card itself.
+             */
+            var open = document.createElement('button');
+            open.type = 'button';
+            open.className = 'vp-e-allcard-open';
+            open.dataset.vpEPick = name;
+            open.textContent = panel.dataset.vpEAOpen || 'Open';
+            head.appendChild(open);
+            card.appendChild(head);
+
+            var cardBody = document.createElement('div');
+            cardBody.className = 'vp-e-allcard-body';
             if (!shapes.length && !items.length) {
                 /*
                  * An answer nothing draws and nobody has opened. It is
@@ -4795,14 +4842,20 @@
                 note.className = 'vp-e-cold-prose';
                 note.textContent = panel.dataset.vpEARows
                     || 'Answered in rows — open this module to read them.';
-                body.appendChild(note);
+                cardBody.appendChild(note);
             }
             shapes.forEach(function (shape) {
-                body.appendChild(shape.cloneNode(true));
+                cardBody.appendChild(shape.cloneNode(true));
             });
             items.forEach(function (item) {
                 elements++;
-                body.appendChild(item.cloneNode(true));
+                cardBody.appendChild(item.cloneNode(true));
+            });
+            card.appendChild(cardBody);
+            body.appendChild(card);
+            markEnrichCardMore(card, cardBody);
+            cardBody.addEventListener('scroll', function () {
+                markEnrichCardMore(card, cardBody);
             });
         });
 
