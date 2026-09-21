@@ -1,8 +1,8 @@
 {
     "uuid": "7701d271-fd42-45fd-b680-b5b137a96fe3",
     "name": "Risk & Reporting",
-    "description": "For an analyst who will be asked to explain the number. It changes no number at all: evidence weights, thresholds, bands and shelf life are the shipped default's, so a quality band read under this profile is the instance's band and not this profile's opinion of it - which is the point, for a reader who has to defend it. What changes is what the page puts in front of you. TLP, the admiralty scale and estimative language are pinned, so the page states their absence rather than leaving a gap: a statement put in front of a board rests on how far the source was trusted and how firmly the claim was made, and a missing one of those is itself worth reporting. Sectors, countries, branded vulnerabilities and threat actors sort ahead of everything else it draws. Those first three sort high without counting as an attribution: a value tagged with a sector and a country has been described, not attributed, and a number this profile has to defend should not have been paid for the difference. The enrichment strip leads with the vulnerability, then reputation, location, network ownership and resolution history - what a risk statement is built from, and every one of them has a module behind it today. It runs nothing: the modules it names arrive ticked on the Enrichment tab and a run still takes a press, and a module an administrator has not turned on stays off. It is meant to be forked rather than edited - take a copy, change your own, and the nearest profile to the reader wins.",
-    "version": 1,
+    "description": "For an analyst who will be asked to explain the number. It changes no number at all - only what the page shows first - so a band read here is the instance's band and not this profile's opinion of it.",
+    "version": 2,
     "parameters": {
         "format": 1,
         "signals": [

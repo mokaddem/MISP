@@ -85,7 +85,29 @@ $this->set('headerBreadcrumb', array(
 ));
 $this->set('headerCountText', sprintf(__('rev %s'), $profile['revision']));
 $this->set('headerCount', $profile['revision']);
-$this->set('headerDescription', $profile['description']);
+/*
+ * The subtitle is one line and a description need not be: a fork
+ * carries its origin line and then everything the source said. Flatten
+ * the newlines, keep the opening, and leave the rest to the sections
+ * below, which are what the description was describing.
+ *
+ * `h()` because `headerSection.ctp` echoes this one raw — unlike
+ * `headerTitle`, which it escapes and which has a separate
+ * `headerTitleHtml` entry for callers with markup to pass.
+ *
+ * PCRE under `/u` rather than `mb_substr()`, as on the index: the
+ * PRD's render harnesses run a CLI PHP without mbstring.
+ */
+$summary = trim(preg_replace('/\s+/u', ' ', (string)$profile['description']));
+if (preg_match('/^(.{320})./u', $summary, $m)) {
+    $summary = $m[1];
+    $cut = strrpos($summary, ' ');
+    if ($cut !== false && $cut > 160) {
+        $summary = substr($summary, 0, $cut);
+    }
+    $summary = rtrim($summary, " ,;:") . '…';
+}
+$this->set('headerDescription', h($summary));
 $this->set('headerActions', $actions);
 $this->set('headerActionGroups', array('navigate' => array('mode' => 'none')));
 
