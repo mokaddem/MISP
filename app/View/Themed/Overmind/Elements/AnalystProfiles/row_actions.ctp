@@ -102,7 +102,7 @@ $useConfirm = ($in_force !== null && $in_force['name'] !== $profile['name'])
             <li>
                 <a class="<?= $item ?>" href="<?= h($this->Html->url(array(
                     'action' => 'view', $profile['id']))) ?>">
-                    <i class="fas fa-eye me-2"></i><?= h(__('Read it')) ?></a>
+                    <i class="fas fa-eye me-2"></i><?= h(__('View')) ?></a>
             </li>
             <?php if ($profile['editable']): ?>
                 <li>
