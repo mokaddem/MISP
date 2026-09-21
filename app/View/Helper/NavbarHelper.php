@@ -28,6 +28,7 @@ class NavbarHelper extends AppHelper {
         'galaxy_clusters'          => 'datamodels',
         'galaxy_cluster_relations' => 'datamodels',
         'decayingmodel'            => 'datamodels',
+        'analystprofiles'          => 'datamodels',
         'objecttemplates'          => 'datamodels',
         'object_relationships'     => 'datamodels',
         'event_templates'          => 'datamodels',
@@ -348,6 +349,14 @@ class NavbarHelper extends AppHelper {
                     //     'icon' => 'fas fa-toolbox'
                     // ]
                 //]
+            ],
+            [
+                'type' => 'group',
+                'label' => __('Analyst Profiles'),
+                'url' => $baseurl . '/analystProfiles/index',
+                'controller' => 'analystProfiles',
+                'action' => 'index',
+                'icon' => 'fas fa-user-gear'
             ],
             ['divider' => true],
             [
