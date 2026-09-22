@@ -1,9 +1,9 @@
 # The Analyst Assessment: slide deck
 
-A 25-slide talk on MISP's analyst assessment system, written for CTI
+A 26-slide talk on MISP's analyst assessment system, written for CTI
 analysts and SOC practitioners. It covers what the system is, why it
-exists, the signals it is built from, how to configure it, and how to
-add a signal of your own.
+exists, the signals it is built from, how to configure it, how to add a
+signal of your own, and what the export gate still costs.
 
 ```
 deck.html         the deck. Open it in a browser, that is all
@@ -11,7 +11,7 @@ deck.md           the same deck as Markdown (generated)
 to-markdown.mjs   regenerates deck.md from deck.html
 capture.mjs       re-takes the screenshots from a live MISP instance
 img/              the screenshots
-example/          the custom signal the last two slides demonstrate
+example/          the custom signal slides 23 and 24 demonstrate
 ```
 
 ## Presenting

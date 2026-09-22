@@ -422,21 +422,36 @@ class LifecycleLongevity extends ValueSignalBase
 
 ---
 
+**Where this stands**
+
+## The gate that is still landing
+
+`restSearch` does not filter on the assessment yet, and it cannot do it the way `excludeDecayed` filters on decay. A decay score is a formula over the attribute's own row and its last sighting, cheap enough to run per request. An assessment is eleven database statements per distinct value.
+
+| A 10,000-attribute export | Warm |
+| --- | --- |
+| as MISP ships it | **136 ms** |
+| with an assessment on every value | **74.9 s** |
+
+550×, measured on a 3.9M-attribute instance, and linear: 100k extrapolates to about twelve minutes. Ninety-four per cent of it is fetching context, not arithmetic, so there is no hot spot to optimise away.
+
+> Nobody else computes aging per request at export time either. Every TIP surveyed ages its indicators in the background, by a TTL that flips a status or by a decay curve crossing a threshold, and the exports filter on the result.
+
+So the gate has to be a stored row, filled in by a worker under the instance default profile. Precomputing the whole value space is the expensive half: 4.8 hours for the two million values on the test instance, and 23 to 93 days on a billion-attribute one. Keeping them current afterwards is not, at roughly 1.4 hours a day.
+
+**Which leaves a door open.** If the backfill is the problem and the steady state is not, the shape worth exploring is precomputing a **time slice**: the values active in a window, with everything else computed the first time something asks for it. The backfill becomes optional warming rather than a precondition.
+
+> Two more questions decide it, and both are one probe each: what a relevance-only context costs, since `excludeStale` is the gate people will actually use, and whether a batched aggregate over 500 values costs like one statement or like 500.
+
+---
+
 **Closing**
 
-## Where this stands
-
-**Working today:** the three axes, the twelve signals, the ledger and its exact sum, conflict rules, exclusions, the relevance clock, org trust, the six shipped profiles, the editor, the bench, and the drop-in directories for signals and conflict rules.
-
-**Still landing: the export gate.** The profile's TTL does not gate `restSearch` yet. The design is a materialised instance assessment: a background worker stores one row per value under the instance default, and `restSearch` filters on that stored row. It waits on the `value_assessments` table.
-
-> Per-analyst export gating is out of scope by design, because a worker has to pick its profile before any caller exists.
-
-> Two analysts can now read the same value differently, and the system can show exactly where they parted.
-
-**Try it on your own instance.**
+## Try it on your own instance
 
 - Open any value's *Assessment* tab and read the ledger before you trust the number.
 - Go to *Analyst Profiles* and pick the one that matches how you work, or fork it and argue with a weight.
 - Pin the values you always end up explaining, and judge every change against them.
 - If the twelve do not say what your team means, the thirteenth is a file.
+
+> Two analysts can now read the same value differently, and the system can show exactly where they parted.
