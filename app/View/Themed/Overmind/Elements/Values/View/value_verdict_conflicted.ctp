@@ -119,6 +119,10 @@ foreach ($cases as $case) {
                 )) ?></span>
             </div>
         </div>
+
+        <?= $this->element('Values/View/value_verdict_runway', array(
+            'relevance' => $verdict['relevance'] ?? array(),
+        )) ?>
     </div>
 
     <?php

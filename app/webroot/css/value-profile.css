@@ -3450,6 +3450,70 @@ tr.vp-occ-deleted td {
 }
 
 /*
+ * Relevance's figure, drawn as the hover card draws its runway. The
+ * state rides in ink weight, not hue: the lean owns the hue here.
+ */
+.vp-vc-runway {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding-left: 18px;
+    border-left: 1px solid var(--bs-border-color);
+    line-height: 1;
+}
+
+.vp-vc-score + .vp-vc-runway {
+    margin-left: 0;
+}
+
+.vp-vc-runway-k,
+.vp-vc-runway-s {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-runway-n {
+    margin: 5px 0 4px;
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--bs-body-color);
+}
+
+.vp-vc-runway-n.vp-vc-runway-absent {
+    font-weight: 500;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-runway-u {
+    margin-left: 5px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-runway-aging .vp-vc-runway-s:not(.vp-vc-runway-note),
+.vp-vc-runway-expired .vp-vc-runway-s:not(.vp-vc-runway-note) {
+    color: var(--bs-body-color);
+}
+
+.vp-vc-runway-expired .vp-vc-runway-s:not(.vp-vc-runway-note) {
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2px;
+}
+
+.vp-vc-runway-note {
+    margin-top: 3px;
+    font-weight: 600;
+}
+
+/*
  * Kept under the hero's name because that is where they used to live
  * and where the tooltips still point; they are drawn in the provenance
  * strip now, one notch smaller so the small print stays small print.

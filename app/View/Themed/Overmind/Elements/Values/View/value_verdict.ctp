@@ -225,6 +225,10 @@ foreach ($verdict['orgs'] as $org) {
             </div>
         <?php endif; ?>
 
+        <?= $this->element('Values/View/value_verdict_runway', array(
+            'relevance' => $verdict['relevance'] ?? array(),
+        )) ?>
+
     </div>
 
     <?php
