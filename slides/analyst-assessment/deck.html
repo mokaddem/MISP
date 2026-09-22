@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Analyst Assessment — MISP</title>
+<title>The Analyst Assessment · MISP</title>
 
 <!--
   ============================================================
@@ -11,8 +11,8 @@
   ============================================================
 
   One slide is one <section class="slide">. Add one, delete one,
-  reorder them — nothing else has to change. The navigation, the
-  slide numbers and the Markdown export all read the document.
+  reorder them. The navigation, the slide numbers and the
+  Markdown export all read the document.
 
   The vocabulary each slide may use:
 
@@ -75,7 +75,7 @@ html, body {
 
 /* ---- the deck ---------------------------------------------------
    Each slide is a 16:9 box sized to the viewport. Everything inside
-   is measured in cqw — hundredths of the slide's own width — so the
+   is measured in cqw, hundredths of the slide's own width, so the
    whole slide scales as one piece and never needs a magic number. */
 
 #deck { position: relative; }
@@ -288,7 +288,7 @@ figure.tall img { max-height: 74cqh; width: auto; margin: 0 auto; }
 
 /* ---- density variants ---------------------------------------------
    `dense` for a slide carrying a full table; `code` for the one that
-   carries a listing. Both only tighten — nothing moves. */
+   carries a listing. Both only tighten the spacing. */
 
 .slide.dense, .slide.code { padding: 4.3cqw 6cqw 4.8cqw; }
 .slide.dense h2 { font-size: 3cqw; margin-bottom: 1.7cqw; }
@@ -370,28 +370,27 @@ body.stack .slide {
   <p class="kicker">MISP · Value Profile</p>
   <div class="rule"></div>
   <h1>The Analyst Assessment</h1>
-  <p class="lead">What MISP makes of a value — and whose judgement
-    that is.</p>
+  <p class="lead">What MISP makes of a value, and whose judgement that
+    is.</p>
 </section>
 
 <!-- 2 ============================================================ -->
 <section class="slide">
   <p class="kicker">The problem</p>
-  <h2>MISP tells you what is recorded.<br>It never told you what to
-    make of it.</h2>
+  <h2>The record does not add itself up</h2>
   <div class="cols">
     <div>
-      <p>Eight organisations reported this IP. There are 53 sightings,
-        four of them false positives. It hits a warninglist. No galaxy
-        is attached to it.</p>
-      <p><strong>So — is it a threat?</strong></p>
-      <p>Every analyst does this arithmetic in their head, every day,
-        and no two do it the same way.</p>
+      <p>Eight organisations reported this IP. It carries 53 sightings,
+        four of them filed as false positives. It hits a warninglist. No
+        galaxy is attached to it.</p>
+      <p>So is it a threat?</p>
+      <p>Every analyst does this arithmetic in their head. No two of them
+        do it the same way.</p>
     </div>
     <div>
       <blockquote>Four independent organisations reported it is worth
         +28 to one analyst and +12 to another, and neither is wrong.
-        <cite>Why the engine could not simply ship weights</cite>
+        <cite>Why MISP could not simply ship weights</cite>
       </blockquote>
     </div>
   </div>
@@ -402,19 +401,18 @@ body.stack .slide {
 <!-- 3 ============================================================ -->
 <section class="slide big">
   <p class="kicker">The move</p>
-  <p>The engine is a <strong>mechanism</strong>.<br>
-     The judgement is a <strong>document you own</strong>.</p>
-  <p class="note">Two analysts looking at the same value cannot presently
-    disagree in a way the system can express — one of them writes a note.
-    With profiles the disagreement becomes an artefact: the same evidence,
-    two profiles, two scores, and a ledger each that shows exactly which
-    row diverged.</p>
+  <p>MISP owns the arithmetic.<br>You own the weights it runs on.</p>
+  <p class="note">Today, two analysts who read the same value differently
+    have nowhere to put the disagreement. One of them writes a note. A
+    profile turns it into something the system holds: the same evidence,
+    two profiles, two scores, and a ledger each showing which row
+    diverged.</p>
 </section>
 
 <!-- 4 ============================================================ -->
 <section class="slide shot">
   <p class="kicker">What an assessment is</p>
-  <h2>Three readings, not one score</h2>
+  <h2>An assessment is three readings</h2>
   <figure>
     <img src="img/three-readings.png"
          alt="Three cards: lean contested, relevance current, quality 57">
@@ -441,18 +439,16 @@ body.stack .slide {
 <!-- 5 ============================================================ -->
 <section class="slide">
   <p class="kicker">Axis one</p>
-  <h2>Lean — read, not invented</h2>
+  <h2>Lean: what the record asserts</h2>
   <div class="cols">
     <div>
-      <p><code>to_ids</code> is the community's explicit, per-occurrence,
-        machine-readable vote that a value is an actionable indicator.
-        It is already in the database and IDS exports already filter on
-        it.</p>
-      <p>Reading it makes the lean a <strong>report of the community's
-        assertion</strong> instead of an invented judgement.</p>
-      <p>Lean is categorical and timeless. A malware hash leans
-        <code>threat</code> forever; time cannot move it, only new
-        assertions can.</p>
+      <p><code>to_ids</code> is a per-occurrence vote that a value is an
+        actionable indicator. It is already in the database, and IDS
+        exports already filter on it.</p>
+      <p>So the lean reports what the community said about the value,
+        and MISP is never asked to form an opinion of its own.</p>
+      <p>Lean is categorical, and it does not age. A malware hash leans
+        <code>threat</code> forever. Only new assertions can move it.</p>
     </div>
     <div>
       <table>
@@ -472,38 +468,37 @@ body.stack .slide {
       </table>
     </div>
   </div>
-  <p class="note"><code>to_ids</code> is noisy in practice — per-type
-    defaults, wholesale feed imports, orgs that never curate it. The
-    three axes absorb that instead of being corrupted by it: lean reports
-    what the record asserts, and <strong>quality is where sloppy
-    assertions get graded</strong>. One uncurated org's
-    <code>to_ids = 1</code> is a threat lean with low quality; four
-    independent orgs deliberately confirming is the same lean with high
-    quality.</p>
+  <p class="note"><code>to_ids</code> is noisy in practice: MISP sets
+    per-type defaults, feed imports set it wholesale, and plenty of
+    organisations never curate it. Splitting the axes is what absorbs
+    that. Lean reports the assertion; quality grades how well it was
+    made. One uncurated org's <code>to_ids = 1</code> is a threat lean
+    with low quality. Four organisations deliberately confirming is the
+    same lean with high quality.</p>
 </section>
 
 <!-- 6 ============================================================ -->
 <section class="slide shot">
   <p class="kicker">Axis two</p>
-  <h2>Relevance — the clock, quarantined</h2>
+  <h2>Relevance: whether it still holds</h2>
   <figure>
     <img src="img/clock.png"
          alt="How long this reading holds: current, 60 days left">
-    <figcaption>Everything temporal lives here: the per-type TTL, the
-      last-independent-corroboration clock, expiry, the runway. The clock
-      never touches the lean.</figcaption>
+    <figcaption>The per-type TTL, the last-independent-corroboration
+      clock, expiry and the runway all live on this axis. None of them
+      touches the lean.</figcaption>
   </figure>
   <div class="cols" style="margin-top:1.4cqw">
     <div>
-      <p><strong>Fresh corroboration</strong> makes the assessment more
-        current; expiry makes it less. Which corroborations reset the
-        clock is listed, with dates and who filed them.</p>
+      <p>Fresh corroboration makes the reading more current and expiry
+        makes it less. The page lists which corroborations reset the
+        clock, with dates and the organisation that filed each.</p>
     </div>
     <div>
-      <p><strong>Temporal precision is an input.</strong> No
-        <code>first_seen</code>, a large created-to-published lag, a
-        timestamp standing in for an observation date — each degrades
-        relevance to <code>timeline uncertain</code> and deducts from
+      <p>Temporal precision feeds in here too. A missing
+        <code>first_seen</code>, a long created-to-published lag, or a
+        timestamp standing in for an observation date will each degrade
+        relevance to <code>timeline uncertain</code> and deduct from
         quality.</p>
     </div>
   </div>
@@ -512,7 +507,7 @@ body.stack .slide {
 <!-- 7 ============================================================ -->
 <section class="slide shot">
   <p class="kicker">Axis three</p>
-  <h2>Quality — the score is its own explanation</h2>
+  <h2>Quality: how well evidenced</h2>
   <div class="cols narrow-left">
     <figure class="tall">
       <img src="img/how-reached.png"
@@ -520,15 +515,16 @@ body.stack .slide {
                 Lifecycle +16, signals against -13, total 57 of 100">
     </figure>
     <div>
-      <p class="lead">Contributions sum to the score. Exactly.</p>
-      <p>Nothing is normalised, calibrated or post-processed. There is no
-        second code path that could disagree with the ledger — the sum
-        <em>is</em> the number, by construction.</p>
+      <p class="lead">Contributions sum to the score, exactly.</p>
+      <p>Nothing is normalised, calibrated or post-processed. The sum is
+        the number, by construction, so there is no second code path
+        that could ever disagree with the ledger.</p>
       <p>That is what makes a profile diff renderable, and what lets a
-        reader argue with one row instead of with a black box.</p>
-      <p>The number claims something narrow: not <em>how malicious</em>,
-        but <strong>how much corroborated, attributed, temporally precise
-        weight stands behind the record</strong>.</p>
+        reader argue with a single row.</p>
+      <p>The claim it makes is a narrow one. It measures how much
+        corroborated, attributed, temporally precise weight stands
+        behind the record, which is a different question from how
+        malicious the value is.</p>
     </div>
   </div>
 </section>
@@ -543,14 +539,14 @@ body.stack .slide {
               Incident Response &amp; Investigation. Conflict rule: a
               warninglist marks this as a false positive and 8 of 8
               organisations report it as a threat regardless.">
-    <figcaption>The hero names the reading, the number, the band, the
-      profile that weighted it, and — here — the rule that decided
-      it.</figcaption>
+    <figcaption>The banner names the reading, the number, the band and
+      the profile that weighted them. On this value it also names the
+      rule that decided the reading.</figcaption>
   </figure>
   <p class="note">“Both judgements are deliberate; the page will not pick
-    one.” A contradiction between a warninglist and eight reporting
-    organisations is not an error to be netted off in arithmetic. It is
-    the finding.</p>
+    one.” A warninglist standing against eight reporting organisations
+    is the finding here, and arithmetic that quietly cancelled one off
+    against the other would bury it.</p>
 </section>
 
 <!-- 9 ============================================================ -->
@@ -568,32 +564,34 @@ body.stack .slide {
          alt="List of known IPv4 public DNS resolvers, category
               false_positive, matched by CIDR">
     <figcaption>Category <code>false_positive</code> means reports about
-      this value are usually collateral — the sample really did touch it,
-      and it is still not the indicator. It does not say the reporting
-      organisations were wrong about their incidents.</figcaption>
+      this value are usually collateral: the sample really did touch it,
+      and it still is not the indicator. That says nothing about whether
+      the reporting organisations were right about their
+      incidents.</figcaption>
   </figure>
 </section>
 
 <!-- 10 =========================================================== -->
 <section class="slide shot dense">
   <p class="kicker">8.8.8.8</p>
-  <h2>The ledger — every row a reader can argue with</h2>
+  <h2>Every row, and where to go and check it</h2>
   <figure>
     <img src="img/ledger.png"
          alt="The signal ledger: reporting, sightings, attribution and
               lifecycle groups, each row with its claim, evidence,
               contribution, source panel and as-of date">
   </figure>
-  <p class="note">Claim · evidence · contribution · <strong>which panel to
-    go and argue with it in</strong> · as of when. The last group,
-    <em>settled by rule, not by evidence</em>, carries contradictions no
-    signal owns — so no row quietly nets them off.</p>
+  <p class="note">Each row carries its claim, the evidence behind it,
+    what it contributed, the panel to go and argue with it in, and the
+    date it was read. The last group is the page's own heading,
+    <em>settled by rule, not by evidence</em>. It holds contradictions no
+    signal owns, so no row quietly cancels them.</p>
 </section>
 
 <!-- 11 =========================================================== -->
 <section class="slide shot">
   <p class="kicker">8.8.8.8</p>
-  <h2>It tells you what would change its mind</h2>
+  <h2>What would change the reading</h2>
   <div class="cols narrow-left">
     <figure>
       <img src="img/what-would-change.png"
@@ -603,12 +601,12 @@ body.stack .slide {
     </figure>
     <div>
       <p>An assessment that cannot be falsified is an opinion.</p>
-      <p>Because the score is a sum of declared weights over declared
-        evidence, the engine can work backwards: <strong>name the
-        evidence that would move the reading, and by how much</strong>.</p>
-      <p>Signals that are linear in a countable unit declare it, so the
-        card can say <em>“two more organisations reporting it”</em>
-        instead of <em>“fourteen more points”</em>.</p>
+      <p>The score is a sum of declared weights over declared evidence,
+        so the engine can run it backwards and name the evidence that
+        would move the reading, and by how much.</p>
+      <p>A signal that is linear in something countable says so, which
+        is how the card can offer “two more organisations reporting it”
+        where it would otherwise print a bare points gap.</p>
     </div>
   </div>
 </section>
@@ -618,21 +616,22 @@ body.stack .slide {
   <p class="kicker">Same engine, same instance</p>
   <h2>Three more values</h2>
   <figure>
-    <img src="img/hero-benign.png" alt="google.com — asserted benign, 37">
-    <figcaption><code>google.com</code> — <strong>asserted benign</strong>.
-      Four orgs, three sightings, no threat assertion standing.</figcaption>
+    <img src="img/hero-benign.png" alt="google.com, asserted benign, 37">
+    <figcaption><code>google.com</code>, asserted benign. Four
+      organisations, three sightings, and no threat assertion left
+      standing.</figcaption>
   </figure>
   <figure style="margin-top:1.1cqw">
-    <img src="img/hero-fp.png" alt="45.155.205.233 — contested, 11">
-    <figcaption><code>45.155.205.233</code> — <strong>contested</strong>,
-      and by a different road: three false-positive sightings filed
-      against a threat assertion. No warninglist involved.</figcaption>
+    <img src="img/hero-fp.png" alt="45.155.205.233, contested, 11">
+    <figcaption><code>45.155.205.233</code>, contested by a different
+      route: three false-positive sightings filed against a threat
+      assertion, with no warninglist involved.</figcaption>
   </figure>
   <figure style="margin-top:1.1cqw">
-    <img src="img/hero-threat.png" alt="An md5 — asserted threat, 19">
-    <figcaption>An md5 — <strong>asserted threat</strong>. Three orgs,
-      galaxy attribution, thin sighting history. A low number under a
-      confident lean is the honest answer, not a contradiction.</figcaption>
+    <img src="img/hero-threat.png" alt="An md5, asserted threat, 19">
+    <figcaption>An md5, asserted threat. Three organisations and galaxy
+      attribution, but a thin sighting history. A confident lean with a
+      low number behind it is an honest pair of readings.</figcaption>
   </figure>
 </section>
 
@@ -689,31 +688,31 @@ body.stack .slide {
         <td><code>per_verdict 12</code>, <code>cap 24</code></td></tr>
     </tbody>
   </table>
-  <p class="note"><code>known_hit</code> is <strong>zero</strong> by
-    design. A <code>known</code>-category hit says <em>this is shared
-    infrastructure</em>, not <em>this is harmless</em>: the row belongs on
-    the page, counted for neither side, and a conflict rule names its
-    contradiction with wide reporting rather than netting it off.</p>
+  <p class="note"><code>known_hit</code> is zero by design. A
+    <code>known</code>-category hit says the value is shared
+    infrastructure, which is a different claim from harmless. The row
+    belongs on the page and counts for neither side, and a conflict rule
+    is what names its contradiction with wide reporting.</p>
 </section>
 
 <!-- 14 =========================================================== -->
 <section class="slide">
   <p class="kicker">The contract</p>
-  <h2>A signal returns a row, not a number</h2>
+  <h2>What a signal hands back</h2>
   <div class="cols">
     <div>
       <p>Only the signal knows how to say <em>“53 sightings from 6 orgs,
         last 27 days ago”</em> and put <em>“3 in the last 30 days”</em>
-        underneath it.</p>
-      <p><strong>The implementation owns the sentence. The profile owns
-        the points.</strong></p>
-      <p>Points are declared <strong>threat-signed</strong>: does this
-        evidence point at a threat, and how hard. The author never thinks
-        about which way the arrow renders — the engine anchors the lean
-        rows to the lean's polarity at assembly.</p>
+        underneath it. So a signal returns a whole ledger row.</p>
+      <p>The implementation owns the sentence. The profile owns the
+        points.</p>
+      <p>Points are declared threat-signed: does this evidence point at a
+        threat, and how hard. Which way the arrow renders is the engine's
+        problem, and it anchors the lean rows to the lean's polarity at
+        assembly.</p>
       <p>Quality rows keep their declared sign whatever the lean, because
-        <em>how much record there is</em> is the same question whatever
-        the record concluded.</p>
+        how much record there is stays the same question whatever the
+        record concluded.</p>
     </div>
     <div>
       <pre data-lang="json"><code>{ <b>"id"</b>: "reporting.independent_orgs",
@@ -723,9 +722,9 @@ body.stack .slide {
   <b>"points"</b>: { "per_org": 7, "cap": 28 },
   <b>"config"</b>: { "named": 4 } }</code></pre>
       <p class="note" style="margin-top:1.2cqw">
-        <code>points</code> is what evidence is worth;
+        <code>points</code> is what evidence is worth,
         <code>config</code> is the implementation's thresholds. Neither
-        has a fixed schema — each class declares its own keys, and
+        has a fixed schema: each class declares its own keys, and
         validation runs per implementation on save.</p>
     </div>
   </div>
@@ -742,71 +741,71 @@ body.stack .slide {
     </div>
     <div class="tile">
       <h3>Silent</h3>
-      <p>Evaluated, nothing to say, no row. A ledger listing everything
-        that did not happen is unreadable.</p>
+      <p>Evaluated, with nothing to say. A ledger that listed everything
+        which did not happen would be unreadable.</p>
     </div>
     <div class="tile">
       <h3>Could not run</h3>
-      <p>Named in <code>not counted</code>, with the reason. Excluded by
-        policy, or blocked by permissions, or no data.</p>
+      <p>Named in <code>not counted</code>, with the reason: excluded by
+        policy, blocked by permissions, or simply no data.</p>
     </div>
     <div class="tile">
       <h3>Unknown id</h3>
-      <p>A profile naming a signal this instance does not have. Named,
-        never dropped.</p>
+      <p>A profile naming a signal this instance does not have. It is
+        named on the page rather than dropped.</p>
     </div>
   </div>
-  <p><strong>Absent because excluded is not absent.</strong> A signal
-    whose input set was emptied by an exclusion stays silent rather than
-    firing its absence key — zero sightings because
-    <code>sightings.self</code> removed them all is not a value nobody
+  <p>Absence and exclusion are different things. A signal whose input set
+    was emptied by an exclusion stays silent instead of firing its
+    absence key: zero sightings because <code>sightings.self</code>
+    removed them all is a very different value from one nobody has
     sighted.</p>
   <p class="note">A score computed from eight of nine configured signals
-    and presented as if nine ran is exactly the kind of quiet lie this
-    feature forbids. The hero still names the profile, because the
-    profile <em>was</em> the thing that weighted the assessment —
-    imperfectly.</p>
+    and presented as though nine had run would be the kind of quiet lie
+    this feature exists to avoid. The banner still names the profile,
+    because the profile is what weighted the assessment, imperfectly or
+    not.</p>
 </section>
 
 <!-- 16 =========================================================== -->
 <section class="slide">
   <p class="kicker">Cost</p>
-  <h2>The budget is evidence time, never a stopwatch</h2>
+  <h2>The budget is measured in evidence time</h2>
   <div class="cols">
     <div>
       <p>Every signal reads one shared context, built once per
-        assessment — the occurrence tally, the sighting rows, the tag and
-        galaxy sets, the warninglist result, the corroboration dates. One
-        query pass, not twelve.</p>
-      <p>Each signal declares its <strong>evidence class</strong>:</p>
+        assessment: the occurrence tally, the sighting rows, the tag and
+        galaxy sets, the warninglist result, the corroboration dates.
+        That is one query pass for twelve signals.</p>
+      <p>Each signal declares its evidence class:</p>
       <ul>
-        <li><strong>Aggregate</strong> — counts and dates. Index
-          aggregates, cheap at any cardinality, computed
-          whole-history, always.</li>
-        <li><strong>Row</strong> — the material signals quote in their
-          prose. This is what a window bounds, because rows were the
-          cost.</li>
+        <li><strong>Aggregate.</strong> Counts and dates. Index
+          aggregates, cheap at any cardinality, and always computed over
+          the whole history.</li>
+        <li><strong>Row.</strong> The material a signal quotes in its
+          prose. Rows were the cost, so rows are what a window
+          bounds.</li>
       </ul>
     </div>
     <div>
       <table>
         <thead><tr><th>Value</th><th>What happens</th></tr></thead>
         <tbody>
-          <tr><td>Normal</td><td>Everything. No budget in play, no note
-            on the page.</td></tr>
+          <tr><td>Normal</td><td>Everything. No budget in play, and no
+            note on the page.</td></tr>
           <tr><td>Long history</td><td>Row evidence fetched for the last
-            90 days only — and said so, as profile policy, linked to the
-            editor.</td></tr>
-          <tr><td>Too hot</td><td>Row-hungry signals are not evaluated and
-            land in <code>not counted</code>. The assessment is computed
-            from the signals that can still run.</td></tr>
+            90 days, and the page says so, as profile policy, linked to
+            the editor.</td></tr>
+          <tr><td>Too hot</td><td>Row-hungry signals are not evaluated
+            and land in <code>not counted</code>. The assessment is
+            computed from the signals that can still run.</td></tr>
         </tbody>
       </table>
       <p class="note" style="margin-top:1.4cqw">Row caps and wall-clock
-        budgets were rejected on determinism: the page, the simulator and
-        the export worker all compute this and must agree. A row cap
-        scores whichever rows the query happened to return; a stopwatch
-        scores by server load.</p>
+        budgets were rejected on determinism. The page, the simulator and
+        the export worker all compute this, and they have to agree. A row
+        cap scores whichever rows the query happened to return, and a
+        stopwatch scores by server load.</p>
     </div>
   </div>
 </section>
@@ -825,15 +824,14 @@ body.stack .slide {
       <p class="lead">Nearest owner wins.</p>
       <p>MISP asks three questions in order and takes the first answer:
         your own profile, then your organisation's, then the instance
-        default. Exactly one profile is in force for any (reader, value)
-        pair — which is what lets the page name it.</p>
-      <p><strong>A fork is a full copy</strong> with a fresh uuid and no
-        memory of its parent. An improved default never reaches an
-        existing fork — which is why every map in a profile is an
-        override set: a fork that overrides nothing keeps tracking what it
-        came from.</p>
-      <p><strong>Editing the instance default is a site-admin act.</strong>
-        For an ordinary analyst, fork is the path — and it is one
+        default. Exactly one profile is in force for any reader and
+        value, which is what lets the page name it.</p>
+      <p>A fork is a full copy, with a fresh uuid and no memory of its
+        parent, so an improved default never reaches one. That is why
+        every map in a profile is an override set: a fork that overrides
+        nothing keeps tracking what it came from.</p>
+      <p>Editing the instance default is a site-admin act. For an
+        ordinary analyst the path is to fork, and that takes one
         click.</p>
     </div>
   </div>
@@ -857,13 +855,13 @@ body.stack .slide {
         <td>named rules that emit <code>contested</code> instead of
           contributing points</td><td>lean</td></tr>
       <tr><td><code>exclusions</code></td>
-        <td>evidence set aside <em>before</em> scoring — self-sightings,
+        <td>evidence set aside <em>before</em> scoring: self-sightings,
           mirrored feeds, the long-history window</td><td>quality</td></tr>
       <tr><td><code>relevance</code></td>
         <td>the clock, the per-type TTLs, the precision tripwires</td>
         <td>relevance</td></tr>
       <tr><td><code>reference</code></td>
-        <td>what you believe about your sources: org trust, which
+        <td>what you believe about your sources: org trust, and which
           warninglists mean <em>shared infrastructure</em> rather than
           <em>false positive</em></td><td>quality</td></tr>
       <tr><td><code>enrichment</code></td>
@@ -871,14 +869,15 @@ body.stack .slide {
           it will contact third parties</td><td>context</td></tr>
     </tbody>
   </table>
-  <p style="margin-top:1.2cqw"><strong>Empty means “as before”.</strong>
-    Every map is an override set — an empty org-trust map weights all
-    organisations equally. The feature changes no behaviour until
-    somebody edits something.</p>
-  <p class="note">A profile cannot widen instance policy: it picks
-    enrichment modules from the set the instance already enabled. And
-    presentation stays out — a version bump on the object that explains a
-    score should never mean somebody changed their default tab.</p>
+  <p style="margin-top:1.2cqw">Empty means “as before”. Every map is an
+    override set, so an empty org-trust map weights all organisations
+    equally, and the feature changes no behaviour until somebody edits
+    something.</p>
+  <p class="note">A profile cannot widen instance policy; it picks
+    enrichment modules from the set the instance already enabled.
+    Presentation stays out of it as well, because a version bump on the
+    object that explains a score should never mean somebody changed
+    their default tab.</p>
 </section>
 
 <!-- 19 =========================================================== -->
@@ -891,26 +890,26 @@ body.stack .slide {
               Investigation, default-v1, Disinformation &amp; Influence,
               Fraud &amp; Abuse, Risk &amp; Reporting and SOC Triage">
   </figure>
-  <p class="note">Deliberately conservative: all five keep the shipped
-    default's weights and bands. What moves is <strong>shelf life</strong>
-    and <strong>what the page shows first</strong> — Fraud &amp; Abuse
-    expires an IP in 14 days where Incident Response gives a hash five
-    years, and Risk &amp; Reporting changes no number at all. Choosing one
-    MISP ships keeps it corrected upstream; forking freezes a copy you
-    own.</p>
+  <p class="note">They are deliberately conservative. All five keep the
+    shipped default's weights and bands, and what moves instead is shelf
+    life and what the page shows first. Fraud &amp; Abuse expires an IP
+    in 14 days where Incident Response gives a hash five years, and Risk
+    &amp; Reporting changes no number at all. Choosing one MISP ships
+    keeps it corrected upstream; forking freezes a copy you own.</p>
 </section>
 
 <!-- 20 =========================================================== -->
 <section class="slide shot">
   <p class="kicker">Configuration</p>
-  <h2>The editor: every weight, in one place</h2>
+  <h2>The editor: every weight in one place</h2>
   <figure>
     <img src="img/editor-signals.png"
          alt="The profile editor's Signals section, each signal with its
               points and tuning fields, and a value bench on the right">
-    <figcaption>Ten sections down the left. Each signal carries its
-      points, its tuning, whether it is trust-weighted, which panel it
-      reads, and whether it reads the value or weighs the record.</figcaption>
+    <figcaption>Ten sections down the left side. Each signal shows its
+      points and its tuning, whether it is trust-weighted, which panel it
+      reads, and whether it reads the value or weighs the
+      record.</figcaption>
   </figure>
 </section>
 
@@ -934,24 +933,25 @@ body.stack .slide {
   </div>
   <p style="margin-top:1.2cqw">Put a value on the bench and it is
     rescored as you type, against the profile in force. Here
-    <code>independent_orgs</code> went from 7 points an organisation to 3
-    (<span class="down">−4</span>), and a signal that was not in the
-    profile was switched on (<span class="up">+6</span>).</p>
-  <p><strong>Two of eleven rows moved. Nine did not</strong> — and the page
-    says which, and by how much, before you save anything.</p>
-  <p class="note">Pin a value and it follows you between profiles, so every
-    change is judged on the same evidence.</p>
+    <code>independent_orgs</code> went from 7 points an organisation to
+    3, worth <span class="down">−4</span>, and a signal the profile did
+    not use was switched on, worth <span class="up">+6</span>.</p>
+  <p>Two of eleven rows moved. The page says which ones and by how much,
+    before anything is saved.</p>
+  <p class="note">Pin a value and it follows you between profiles, so
+    every change is judged on the same evidence.</p>
 </section>
 
 <!-- 22 =========================================================== -->
 <section class="slide dense">
   <p class="kicker">Extending</p>
-  <h2>A new signal is a file, not a release</h2>
+  <h2>A new signal is a file you drop in</h2>
   <div class="cols">
     <div>
       <p>Nothing about the catalogue is hardcoded. The twelve shipped
-        signals are twelve files; a thirteenth is a thirteenth file. The
-        code that would have held a list of them does not exist.</p>
+        signals are twelve files, and a thirteenth is a thirteenth file.
+        The code that would have held a list of them was never
+        written.</p>
       <table style="margin-top:1.4cqw">
         <thead><tr><th>Directory</th><th>Holds</th>
           <th>On upgrade</th></tr></thead>
@@ -963,28 +963,30 @@ body.stack .slide {
         </tbody>
       </table>
       <p class="note" style="margin-top:1cqw">The same shape MISP already
-        uses twice — <code>Workflow</code>'s two module roots and the
+        uses twice, for <code>Workflow</code>'s two module roots and the
         decaying-model formula directory.</p>
     </div>
     <div>
       <ol>
         <li><strong>Discovery is not activation.</strong> A dropped file
           changes no score until a profile names its id. Otherwise
-          copying a file would move every number on the instance with no
-          edit to any profile.</li>
-        <li><strong>A colliding id is refused, not overridden.</strong>
-          The shipped signal keeps the id. Two instances rendering one
-          ledger row from two different computations is the failure mode
-          worth preventing.</li>
+          copying a file would move every number on the instance with
+          nobody having edited a profile.</li>
+        <li><strong>A colliding id is refused.</strong> The shipped
+          signal keeps it. The alternative is two instances rendering
+          the same ledger row from two different computations, with
+          nothing on screen saying so.</li>
         <li><strong>A broken file is an honest state.</strong> Does not
           parse, wrong base class, <code>evaluate()</code> throws, row
-          malformed: logged, skipped, named in <code>not counted</code>.
-          Never a fatal.</li>
-        <li><strong>One scan per request, no cache.</strong> An admin who
-          drops a file expects the next page load to see it.</li>
+          malformed: each is logged, skipped, and named in
+          <code>not counted</code>. None of them takes the page
+          down.</li>
+        <li><strong>One scan per request, and no cache.</strong> An
+          admin who drops a file expects the next page load to see
+          it.</li>
         <li><strong>Nothing in the UI ever writes one of these
-          files.</strong> No upload, no in-browser editor. Signals arrive
-          the way you already deploy code.</li>
+          files.</strong> There is no upload and no in-browser editor;
+          signals arrive the way you already deploy code.</li>
       </ol>
     </div>
   </div>
@@ -996,15 +998,15 @@ body.stack .slide {
   <h2>Writing one</h2>
   <div class="cols">
     <div>
-      <p>The judgement this encodes: a value first reported nine years
-        ago <em>and still being reported</em> is a different thing from
-        one that appeared last week.</p>
+      <p>The judgement it encodes: a value first reported nine years ago
+        and still being reported is a different thing from one that
+        appeared last week.</p>
       <p>The catalogue scores how <em>recently</em> a value was reported
         and how <em>continuously</em>. Nothing scores how long it has
         stood.</p>
       <p>The two schemas are what let the editor render a form for a
         signal it has never seen. Without them a drop-in is only half
-        usable — the admin has to hand-edit JSON to configure the file
+        usable, and the admin has to hand-edit JSON to configure the file
         they just wrote.</p>
       <p class="note">Whole file:
         <code>example/LifecycleLongevity.php</code></p>
@@ -1050,62 +1052,62 @@ body.stack .slide {
 <!-- 24 =========================================================== -->
 <section class="slide shot dense">
   <p class="kicker">Extending</p>
-  <h2>Drop it in — two page loads later</h2>
+  <h2>Two page loads later</h2>
   <figure>
     <img src="img/custom-row.png"
          alt="The editor's signal row for lifecycle.longevity, tagged
               custom and available, with number fields for established,
               brief and established_days">
-    <figcaption>The editor discovered it and built its form.
-      <strong>custom</strong> — added here, so a colleague reading this
-      profile elsewhere cannot reproduce the number it contributes.
-      <strong>available</strong> — this instance has it; this profile does
-      not use it yet.</figcaption>
+    <figcaption>The editor discovered it and built the form itself.
+      <em>custom</em> means it was added on this instance, so a colleague
+      reading the profile elsewhere cannot reproduce the number it
+      contributes. <em>available</em> means this instance has it and this
+      profile does not use it yet.</figcaption>
   </figure>
   <figure style="margin-top:1.3cqw">
     <img src="img/ledger-custom.png"
          alt="The ledger's Lifecycle group now carrying a row: On record
               for 4 years, established once it has stood for 365 days,
               plus 6, Occurrences, 2022-06-28">
-    <figcaption>Tick it in a profile and it scores real values, in its own
-      prose, indistinguishable from the twelve MISP ships.</figcaption>
+    <figcaption>Tick it in a profile and it scores real values in its own
+      prose, sitting in the ledger beside the twelve MISP
+      ships.</figcaption>
   </figure>
 </section>
 
 <!-- 25 =========================================================== -->
 <section class="slide">
-  <p class="kicker">Where this stands</p>
-  <h2>What is done, and what is not</h2>
+  <p class="kicker">Closing</p>
+  <h2>Where this stands</h2>
   <div class="cols">
     <div>
-      <p><strong>Working today.</strong> The three axes, the twelve
+      <p><strong>Working today:</strong> the three axes, the twelve
         signals, the ledger and its exact sum, conflict rules,
-        exclusions, the relevance clock, org trust, the six profiles,
-        the editor, the bench, and the drop-in directories for signals
-        and conflict rules.</p>
+        exclusions, the relevance clock, org trust, the six shipped
+        profiles, the editor, the bench, and the drop-in directories for
+        signals and conflict rules.</p>
       <p><strong>Still landing: the export gate.</strong> The profile's
         TTL does not gate <code>restSearch</code> yet. The design is a
-        materialised <em>instance</em> assessment — a worker stores one
+        materialised instance assessment: a background worker stores one
         row per value under the instance default, and
-        <code>restSearch</code> filters that row, which is the
-        status-flip model the industry already runs. It waits on the
-        <code>value_assessments</code> table.</p>
-      <p class="note">Per-analyst export gating is deliberately not the
-        plan: a worker has to pick its profile before any caller
-        exists.</p>
+        <code>restSearch</code> filters on that stored row. It waits on
+        the <code>value_assessments</code> table.</p>
+      <p class="note">Per-analyst export gating is out of scope by
+        design, because a worker has to pick its profile before any
+        caller exists.</p>
     </div>
     <div>
-      <blockquote>Two analysts looking at the same value can now disagree
-        in a way the system can express.
+      <blockquote>Two analysts can now read the same value differently,
+        and the system can show exactly where they parted.
       </blockquote>
       <p><strong>Try it on your own instance.</strong></p>
       <ul>
         <li>Open any value's <em>Assessment</em> tab and read the ledger
           before you trust the number.</li>
-        <li><em>Analyst Profiles</em> → pick the one that matches how you
-          work, or fork and argue with a weight.</li>
-        <li>Pin the three values you always end up explaining, and judge
-          every change on them.</li>
+        <li>Go to <em>Analyst Profiles</em> and pick the one that matches
+          how you work, or fork it and argue with a weight.</li>
+        <li>Pin the values you always end up explaining, and judge every
+          change against them.</li>
         <li>If the twelve do not say what your team means, the
           thirteenth is a file.</li>
       </ul>

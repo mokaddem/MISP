@@ -12,11 +12,11 @@
 //
 // Everything is captured in MISP's dark theme, as an element clip on a
 // real page, so the deck never shows a mock-up. Values and profile
-// names are the constants below — change them to match your instance.
+// names are the constants below; change them to match your instance.
 //
 // Two images the deck uses are NOT produced here, because they only
 // exist while a profile is being edited: img/bench-score.png and
-// img/bench-moved.png. See README.md — they come from the editor's
+// img/bench-moved.png. See README.md: they come from the editor's
 // bench with a value pinned and a weight changed.
 
 import { mkdirSync } from 'node:fs';
@@ -81,7 +81,7 @@ const shot = async (name, selector) => {
         await el.screenshot({ path: `${OUT}/${name}.png` });
         console.log('  shot  ' + name);
     } catch (e) {
-        console.log('  skip  ' + name + ' — ' + e.message.split('\n')[0]);
+        console.log('  skip  ' + name + ': ' + e.message.split('\n')[0]);
     }
 };
 
@@ -147,7 +147,7 @@ await page.goto(`${BASE}/analyst_profiles/index`,
 await page.waitForTimeout(2500);
 await shot('resolution-order', '.col-lg-2, aside');
 await page.screenshot({ path: `${OUT}/profiles-index.png`, fullPage: true });
-console.log('  shot  profiles-index (full page — crop to taste)');
+console.log('  shot  profiles-index (full page; crop to taste)');
 
 await page.goto(`${BASE}/analyst_profiles/edit/${PROFILE_ID}`,
     { waitUntil: 'domcontentloaded' });

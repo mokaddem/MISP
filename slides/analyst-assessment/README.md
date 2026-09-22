@@ -1,11 +1,12 @@
-# The Analyst Assessment — slide deck
+# The Analyst Assessment: slide deck
 
-A 25-slide talk on MISP's analyst assessment system for CTI analysts and
-SOC practitioners: what it is, why it exists, the signals it is built
-from, how to configure it, and how to add a signal of your own.
+A 25-slide talk on MISP's analyst assessment system, written for CTI
+analysts and SOC practitioners. It covers what the system is, why it
+exists, the signals it is built from, how to configure it, and how to
+add a signal of your own.
 
 ```
-deck.html         the deck — open it in a browser, that is all
+deck.html         the deck. Open it in a browser, that is all
 deck.md           the same deck as Markdown (generated)
 to-markdown.mjs   regenerates deck.md from deck.html
 capture.mjs       re-takes the screenshots from a live MISP instance
@@ -15,8 +16,8 @@ example/          the custom signal the last two slides demonstrate
 
 ## Presenting
 
-Open `deck.html` in any browser. No build step, no server, no network —
-it is one file plus images.
+Open `deck.html` in any browser. There is no build step, no server and
+no network call. It is one file plus images.
 
 | Key | |
 |---|---|
@@ -35,8 +36,8 @@ graphics*. Each slide becomes one page.
 ## Editing
 
 One slide is one `<section class="slide">`. Add one, delete one, reorder
-them — the navigation, the slide counter and the Markdown export all
-read the document, so nothing else needs changing.
+them. The navigation, the slide counter and the Markdown export all read
+the document, so nothing else needs changing.
 
 The full class vocabulary is documented in a comment at the top of
 `deck.html`. The short version:
@@ -52,11 +53,11 @@ The full class vocabulary is documented in a comment at the top of
 ```
 
 Add `dense` to a slide's class when it carries a full table, and `code`
-when it carries a listing — both only tighten the spacing.
+when it carries a listing. Both only tighten the spacing.
 
 Everything is sized in `cqw`, hundredths of the slide's own width, so a
-slide scales as one piece on any screen. There are no magic pixel
-values to keep in step.
+slide scales as one piece on any screen. There are no magic pixel values
+to keep in step.
 
 ## Markdown
 
@@ -64,31 +65,31 @@ values to keep in step.
 node to-markdown.mjs
 ```
 
-Reads `deck.html`, writes `deck.md`, slides separated by `---` — which
-is what Marp, reveal-md, Slidev and Pandoc all read as a slide break.
-No dependencies. It understands the vocabulary above; stay inside it
-and an edit to the slides shows up in the Markdown without touching the
-script.
+Reads `deck.html` and writes `deck.md`, with slides separated by `---`,
+which is what Marp, reveal-md, Slidev and Pandoc all read as a slide
+break. No dependencies. It understands the vocabulary above, so as long
+as you stay inside it, an edit to the slides shows up in the Markdown
+without touching the script.
 
 `deck.md` is generated. Edit `deck.html`.
 
 ## The screenshots
 
-Every image in `img/` is a real element clipped from a real page of a
-running MISP instance in its dark theme, not a mock-up. The values are
+Every image in `img/` was clipped from a real page of a running MISP
+instance in its dark theme. None of them is a mock-up. The values are
 this instance's own:
 
 | Value | Reading |
 |---|---|
-| `8.8.8.8` | contested, quality 57 — a warninglist against eight reporting organisations |
+| `8.8.8.8` | contested, quality 57, a warninglist against eight reporting organisations |
 | `google.com` | asserted benign, 37 |
-| `45.155.205.233` | contested, 11 — by false-positive sightings rather than a warninglist |
+| `45.155.205.233` | contested, 11, driven by false-positive sightings rather than a warninglist |
 | `27304b246c7d5b4e149124d5f93c5b01` | asserted threat, 19 |
 
 The numbers were produced under the **Incident Response &
 Investigation** profile, which was the one in force when they were
-taken. Another profile gives other numbers — which is rather the point
-of the talk.
+taken. Another profile gives other numbers, which is what the talk is
+about.
 
 To re-take them against your own instance:
 
@@ -96,18 +97,20 @@ To re-take them against your own instance:
 node capture.mjs https://your-misp admin@example.test yourpassword
 ```
 
-It needs Playwright; if it is not resolvable from this folder, point at
-an install with `PLAYWRIGHT=/path/to/node_modules/playwright/index.mjs`.
+It needs Playwright. If that is not resolvable from this folder, point
+at an install with `PLAYWRIGHT=/path/to/node_modules/playwright/index.mjs`.
 Edit the `VALUES` and `PROFILE_ID` constants at the top to match what
-your instance actually holds. Two images it does not produce are
-`bench-score.png` and `bench-moved.png`: they only exist while a profile
-is open in the editor with a value on the bench and a weight changed, so
-they are cropped out of that screen by hand. `profiles-index.png` and
-`editor-signals.png` come out as full pages and were cropped down.
+your instance actually holds.
+
+Two images the script does not produce are `bench-score.png` and
+`bench-moved.png`. They only exist while a profile is open in the editor
+with a value on the bench and a weight changed, so they were cropped out
+of that screen by hand. `profiles-index.png` and `editor-signals.png`
+come out as full pages and were cropped down.
 
 ## The example signal
 
-`example/LifecycleLongevity.php` is the custom signal slides 23–24
+`example/LifecycleLongevity.php` is the custom signal slides 23 and 24
 demonstrate. It scores how long a value has been on record, which
 nothing in the shipped catalogue does.
 
@@ -118,13 +121,12 @@ directory of the instance you are presenting from:
 cp example/LifecycleLongevity.php /var/www/MISP/app/Lib/ValueSignals/
 ```
 
-The next page load discovers it: the profile editor's Signals section
+The next page load discovers it. The profile editor's Signals section
 grows a row tagged **custom** and **available**, with a form built from
 the class's own `points_schema`. Tick it in a profile and it starts
-emitting ledger rows. Delete the file to take it away again — nothing
-else has to change, and no profile has to be edited first, because
-discovery is not activation.
+emitting ledger rows. Deleting the file takes it away again, with no
+other change and no profile to edit first, because discovery is not
+activation.
 
-It is not installed by default, and it must not be committed into
-`app/Lib/ValueSignals/`: that directory is expected to be empty in a
-clean checkout.
+The file ships here rather than in `app/Lib/ValueSignals/`, which is
+expected to be empty in a clean checkout.
