@@ -145,7 +145,6 @@ $headerActions = array(
 
 $this->set('headerTitleHtml', $titleHtml);
 $this->set('headerBreadcrumb', array(
-    __('Data points'),
     array('label' => __('Values'),
         'url' => array('controller' => 'values', 'action' => 'index')),
     __('Value Profile'),
