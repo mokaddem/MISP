@@ -569,7 +569,7 @@ class ValueRelevanceTool
                 . ' current.'),
             'expired' => __('Past its lifetime. Re-check it before'
                 . ' acting on it.'),
-            'uncertain' => __('The age below is a minimum, not a'
+            'uncertain' => __('The age is a minimum, not a'
                 . ' measurement.'),
         );
         return isset($hints[$state]) ? $hints[$state] : null;

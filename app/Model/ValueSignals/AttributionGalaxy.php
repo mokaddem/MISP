@@ -148,10 +148,10 @@ class AttributionGalaxy extends ValueSignalBase
                             . ' events it appears in)'),
                         count($onEvents)
                     );
-                    $evidence = __('Those events name a threat and this'
-                        . ' value is not labelled with it — a report'
+                    $evidence = __('Those events carry a galaxy naming'
+                        . ' a threat and this value does not — a report'
                         . ' about an actor does not attribute every'
-                        . ' indicator in it');
+                        . ' value in it');
                 }
             } elseif ($ruled === 1) {
                 $signal = __('One galaxy on the occurrences, and it'

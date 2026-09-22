@@ -62,8 +62,7 @@ $warninglist = $verdict['warninglist'] ?? null;
 $qualityLabel = __(
     'How much record stands behind this assessment — corroboration,'
     . ' publication, attribution, temporal precision. Not how strongly'
-    . ' it supports the reading above: what argues for and against that'
-    . ' is in the band below.'
+    . ' the record supports the reading.'
 );
 
 /*

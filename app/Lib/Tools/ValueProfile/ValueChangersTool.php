@@ -817,20 +817,19 @@ class ValueChangersTool
     {
         if ($stance === 'threat') {
             return $orgs === 1
-                ? __('One more organisation asserting it as an'
-                    . ' indicator')
+                ? __('One more organisation reporting it with to_ids'
+                    . ' set')
                 : sprintf(
-                    __('%d more organisations asserting it as an'
-                        . ' indicator'),
+                    __('%d more organisations reporting it with to_ids'
+                        . ' set'),
                     $orgs
                 );
         }
         return $orgs === 1
-            ? __('One more organisation holding it without the'
-                . ' indicator flag')
+            ? __('One more organisation holding it with to_ids unset')
             : sprintf(
-                __('%d more organisations holding it without the'
-                    . ' indicator flag'),
+                __('%d more organisations holding it with to_ids'
+                    . ' unset'),
                 $orgs
             );
     }

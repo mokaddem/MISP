@@ -71,8 +71,7 @@ foreach ($ledger as $group) {
                             . ' value. A row adds where the record'
                             . ' carries something and deducts where it'
                             . ' does not, whatever the record'
-                            . ' concluded. What reads the value is in'
-                            . ' the band above.'
+                            . ' concluded.'
                         )) ?>">
                         <?= __('Contribution') ?>
                     </th>

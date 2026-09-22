@@ -80,14 +80,13 @@ class ValueLeanReasonTool
                 /*
                  * The one exit that already has prose, and it is
                  * better prose than this file could write: the rule
-                 * was authored for exactly this value's shape. So the
-                 * sentence points at it rather than competing with it
-                 * — the provenance line directly above carries the
-                 * rule itself, and two sentences saying one thing is
-                 * what §13.3 was careful not to ship.
+                 * was authored for exactly this value's shape. The
+                 * provenance line carries the rule itself, so this
+                 * says only which exit was taken — two sentences
+                 * saying one thing is what §13.3 was careful not to
+                 * ship.
                  */
-                return __('A conflict rule decided this reading — it is'
-                    . ' quoted in the line above.');
+                return __('A conflict rule decided this reading.');
 
             case 'false_positive_listed':
                 /*

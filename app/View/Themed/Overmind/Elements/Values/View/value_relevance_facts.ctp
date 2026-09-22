@@ -216,11 +216,11 @@ $state = $relevance['state'];
                             'So the %1$s profile reads it as %2$s day'
                                 . ' older than its %3$s days on the'
                                 . ' record — the hatched part of the'
-                                . ' bar above.',
+                                . ' bar.',
                             'So the %1$s profile reads it as %2$s days'
                                 . ' older than its %3$s days on the'
                                 . ' record — the hatched part of the'
-                                . ' bar above.',
+                                . ' bar.',
                             $assumed
                         ),
                         $relevance['profile'] ?? __('active'),
@@ -385,7 +385,7 @@ $state = $relevance['state'];
                 <?= h(__('This value is too common for MISP to'
                     . ' correlate, so its individual reports were not'
                     . ' read. A sighting could be newer than the date'
-                    . ' above.')) ?>
+                    . ' shown.')) ?>
             </div>
         <?php endif; ?>
 

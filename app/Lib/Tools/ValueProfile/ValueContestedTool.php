@@ -150,12 +150,12 @@ class ValueContestedTool
                     count($split)
                 ),
                 'evidence' => sprintf(
-                    __('%s — some occurrences carry the indicator flag'
-                        . ' and some do not'),
+                    __('%s — some occurrences have to_ids set and some'
+                        . ' do not'),
                     implode(', ', $split)
                 ),
                 'note' => __('Counted with the asserters, because one'
-                    . ' occurrence carrying the flag is an assertion.'
+                    . ' occurrence carrying to_ids is an assertion.'
                     . ' The occurrences that do not are netted off'
                     . ' nowhere.'),
             );

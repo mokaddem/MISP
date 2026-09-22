@@ -115,7 +115,7 @@ $supermajority = isset($stances['supermajority'])
             <div class="vp-vc-lean-counts">
                 <span class="vp-vc-lean-count vp-vc-lean-threat"
                       title="<?= h(__('Organisations with at least one'
-                          . ' occurrence flagged for detection.')) ?>">
+                          . ' occurrence carrying to_ids.')) ?>">
                     <?= h(sprintf(
                         __n(
                             '%s organisation asserts a threat',
@@ -127,7 +127,7 @@ $supermajority = isset($stances['supermajority'])
                 </span>
                 <span class="vp-vc-lean-count vp-vc-lean-benign"
                       title="<?= h(__('Organisations whose occurrences'
-                          . ' are all unflagged — the record says'
+                          . ' all have to_ids unset — the record says'
                           . ' harmless by not asserting.')) ?>">
                     <?= h(sprintf(
                         __n(
@@ -207,7 +207,7 @@ $supermajority = isset($stances['supermajority'])
                     <span class="vp-vc-lean-rows-total"
                           title="<?= h(__(
                               'These rows sum to this. They are not'
-                              . ' part of the quality below, which'
+                              . ' part of the quality score, which'
                               . ' weighs how much record there is'
                               . ' rather than what it says.'
                           )) ?>">

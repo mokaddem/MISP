@@ -73,7 +73,7 @@ class ReportingPublishedRatio extends ValueSignalBase
             return $this->row(
                 $this->points($config, 'none'),
                 $events === 1
-                    ? __('The only event carrying it is a draft')
+                    ? __('The only event carrying it is unpublished')
                     : sprintf(
                         __('None of %d events is published'),
                         $events
@@ -98,7 +98,8 @@ class ReportingPublishedRatio extends ValueSignalBase
                 $published,
                 $events
             ),
-            __('Published events carry more weight than drafts'),
+            __('Published events carry more weight than unpublished'
+                . ' ones'),
             $context
         );
     }

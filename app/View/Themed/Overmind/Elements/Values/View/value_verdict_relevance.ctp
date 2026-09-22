@@ -104,10 +104,8 @@ if (($verdict['lean'] ?? null) === 'none'
         ?>
         <?php if (($relevance['state'] ?? null) !== null): ?>
             <p class="vp-vc-clock-note">
-                <?= h(__('The Shelf life chart in the rail plots this'
-                    . ' bar over the last 90 days, and the Sightings'
-                    . ' tab\'s Lifetime card carries the same clock in'
-                    . ' full.')) ?>
+                <?= h(__('The Sightings tab\'s Lifetime card carries'
+                    . ' the same clock in full.')) ?>
             </p>
         <?php elseif ($reason === 'rows_not_read'): ?>
             <p class="vp-vc-clock-note">
