@@ -890,6 +890,20 @@ th .sort-icon::before {
 [data-bs-theme="dark"] {
     /*--primary: #0B394A; */
     --galaxy-alpha: 0.92;
+
+    /*
+     * The one entity hue that is a shade rather than a colour. Every
+     * other entry in the palette is mid-bright and carries across both
+     * themes; #524948 is a near-black warm grey, which reads as ink on
+     * white and as nothing at all on #212529 — 1.53:1 against the very
+     * tint it is mixed into, which is how the object glyph on *Who says
+     * what* came to be black on black.
+     *
+     * Same hue, lifted to where a glyph clears its tile (3.85:1) and
+     * the body (6.63:1). Its consumers all want a visible object mark,
+     * so the token moves rather than each of them working around it.
+     */
+    --object: #b5a7a4;
 }
 
 /* Backgrounds */

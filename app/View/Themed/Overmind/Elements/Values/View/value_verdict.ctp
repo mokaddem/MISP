@@ -85,6 +85,7 @@ foreach ($verdict['orgs'] as $org) {
 <div class="card shadow-sm mb-3 vp-panel vp-vc vp-vc-agreeing
             vp-vc-<?= h($treatment['slug']) ?>"
      style="--vp-vc-color: <?= h($treatment['colour']) ?>;
+            --vp-vc-ink: <?= h($treatment['ink']) ?>;
             <?= h(ValueLean::directionStyle($lean)) ?>">
 
     <?php

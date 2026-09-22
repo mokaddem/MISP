@@ -38,6 +38,14 @@
     --vp-unknown: var(--bs-gray-600);
 
     /*
+     * And its reading tone, which is the text colour the note above
+     * keeps out of the fill — the inversion that ruins a chip is
+     * exactly what ink wants. `--vp-unknown` itself lands at 4.42:1 on
+     * the hero, just under small text's 4.5.
+     */
+    --vp-unknown-ink: var(--bs-secondary-color);
+
+    /*
      * Which way a signal points, as opposed to which hue that is. A ▲
      * row supports the disposition the card states, so on a BENIGN
      * value `with` is the green and `against` is the red. The default

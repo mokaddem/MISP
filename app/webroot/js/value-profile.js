@@ -2028,6 +2028,37 @@
      * ================================================================== */
 
     /**
+     * One `var()` reference, fallback chain and all.
+     *
+     * The chain is the point. A config writing `var(--a, var(--b))` —
+     * the form a stylesheet would use — used to miss the pattern and
+     * reach Chart.js as its own source text, which Chart.js cannot
+     * parse and silently draws in black. On the light theme that is a
+     * visible line and nobody notices; on the dark one it is black on
+     * `#212529`, 1.36:1. The shelf life curve shipped that way.
+     *
+     * An unset variable with no fallback still returns the source text,
+     * so a genuine typo stays as loud as it was.
+     *
+     * @param {string} value
+     * @param {Element} el
+     * @return {string}
+     */
+    function resolveVar(value, el) {
+        var match = value.match(/^var\(\s*(--[\w-]+)\s*(?:,([\s\S]*))?\)$/);
+        if (!match) {
+            return value;
+        }
+        var resolved = getComputedStyle(el)
+            .getPropertyValue(match[1]).trim();
+        if (resolved) {
+            return resolved;
+        }
+        var fallback = (match[2] || '').trim();
+        return fallback ? resolveVar(fallback, el) : value;
+    }
+
+    /**
      * Turn every `var(--x)` in a config into the value that variable
      * has on `el`.
      *
@@ -2041,13 +2072,7 @@
      */
     function resolveChartColours(node, el) {
         if (typeof node === 'string') {
-            var match = node.match(/^var\((--[\w-]+)\)$/);
-            if (!match) {
-                return node;
-            }
-            var resolved = getComputedStyle(el)
-                .getPropertyValue(match[1]).trim();
-            return resolved || node;
+            return resolveVar(node, el);
         }
         if (Array.isArray(node)) {
             return node.map(function (item) {

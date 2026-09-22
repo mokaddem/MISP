@@ -16613,10 +16613,19 @@ class ValueProfile extends AppModel
         if (!$drawn) {
             return array();
         }
+        /*
+         * The Sightings overlay plots this same series as its Lifetime
+         * line, so it is drawn in that line's ink rather than in one of
+         * its own: two cards showing one series in two colours is the
+         * drift `value-palette.css` exists to stop. It is also the only
+         * shelf life ink with a dark theme behind it — `--sighting`,
+         * which this asked for until 2026-09-22, is #890096 at 1.84:1
+         * on `#212529`.
+         */
         return array(
             'curves' => array(array(
                 'label' => __('Shelf life left'),
-                'colour' => 'var(--vp-relevance, var(--sighting))',
+                'colour' => 'var(--vp-sight-curve-1)',
                 'data' => $points,
             )),
             'curves_span' => __('90 days'),

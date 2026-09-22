@@ -651,8 +651,15 @@ tr.vp-occ-deleted td {
     color: var(--bs-body-color);
 }
 
+/*
+ * 15% and not 45%: the old figure was three times the light theme's
+ * because it was mixing a near-black `--object` into a near-black
+ * ground and needed most of the way there to show at all. The token is
+ * a visible warm grey in dark since 2026-09-22, so the same chip comes
+ * out of a normal tint — this lands on the colour 45% used to.
+ */
 [data-bs-theme="dark"] .vp-relation {
-    background: color-mix(in srgb, var(--object) 45%, var(--bs-body-bg));
+    background: color-mix(in srgb, var(--object) 15%, var(--bs-body-bg));
 }
 
 /*
@@ -2357,13 +2364,17 @@ tr.vp-occ-deleted td {
  * ================================================================== */
 
 /*
- * The card's own hue. Amber here because a conflicted card is the base
- * case; the agreeing card overwrites it inline from the disposition, so
- * every rule below can be written once and read against whichever hue
- * the value earned.
+ * The card's own hue, and the tone it says words in. Amber here because
+ * a conflicted card is the base case; the agreeing card overwrites both
+ * inline from the disposition, so every rule below can be written once
+ * and read against whichever hue the value earned.
+ *
+ * They travel as a pair because a card painting text in its fill hue is
+ * the mistake this pair exists to prevent — see `ValueLean::TREATMENTS`.
  */
 .vp-vc {
     --vp-vc-color: var(--vp-conflict);
+    --vp-vc-ink: var(--vp-conflict-ink);
     border-color: color-mix(in srgb, var(--vp-conflict) 40%,
         var(--bs-border-color));
     overflow: hidden;
@@ -3391,9 +3402,16 @@ tr.vp-occ-deleted td {
     color: var(--bs-secondary-color);
 }
 
+/*
+ * The ink, not the hue. This is 0.6rem, uppercase and letterspaced —
+ * small text by every measure — and painting it in the card's fill put
+ * `57 / 100` on the hero at 2.14:1 on a contested value, 3.02 on a
+ * benign one and 4.22 on a threat. None of the three passed, and the
+ * amber was the one you could not read at all.
+ */
 .vp-vc-score-value {
     font-family: var(--bs-font-monospace);
-    color: var(--vp-vc-color);
+    color: var(--vp-vc-ink);
 }
 
 .vp-vc-score-track {
@@ -8335,8 +8353,9 @@ th.vp-rel-num {
     text-align: left;
 }
 
+/* Same rebalance as `.vp-relation`, rest and hover together. */
 [data-bs-theme="dark"] .vp-e-obj-head {
-    background: color-mix(in srgb, var(--object) 42%, var(--bs-body-bg));
+    background: color-mix(in srgb, var(--object) 14%, var(--bs-body-bg));
 }
 
 .vp-e-obj-head:hover {
@@ -8344,7 +8363,7 @@ th.vp-rel-num {
 }
 
 [data-bs-theme="dark"] .vp-e-obj-head:hover {
-    background: color-mix(in srgb, var(--object) 55%, var(--bs-body-bg));
+    background: color-mix(in srgb, var(--object) 18%, var(--bs-body-bg));
 }
 
 .vp-e-obj-head:focus-visible {

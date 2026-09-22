@@ -27,6 +27,12 @@
  * are drawn as solid chips; `contested` and `none` are the absence of
  * one and are drawn quietly, because a loud chip reading *Contested*
  * claims a certainty the record does not have.
+ *
+ * `ink` is `colour`'s reading tone, and the two are not interchangeable
+ * (`value-palette.css`): `colour` is a fill, held to a fill's 3:1, and
+ * every one of these four misses small text's 4.5:1 when a rule reaches
+ * for it as a text colour — amber worst at 2.14:1 on the hero. A rule
+ * painting a surface takes `colour`; a rule painting words takes `ink`.
  */
 class ValueLean
 {
@@ -34,6 +40,7 @@ class ValueLean
         'threat' => array(
             'label' => 'Asserted threat',
             'colour' => 'var(--vp-mal)',
+            'ink' => 'var(--vp-mal-ink)',
             'icon' => 'fas fa-triangle-exclamation',
             'slug' => 'threat',
             'definite' => true,
@@ -41,6 +48,7 @@ class ValueLean
         'benign' => array(
             'label' => 'Asserted benign',
             'colour' => 'var(--vp-ben)',
+            'ink' => 'var(--vp-ben-ink)',
             'icon' => 'fas fa-circle-check',
             'slug' => 'benign',
             'definite' => true,
@@ -48,6 +56,7 @@ class ValueLean
         'contested' => array(
             'label' => 'Contested',
             'colour' => 'var(--vp-conflict)',
+            'ink' => 'var(--vp-conflict-ink)',
             'icon' => 'fas fa-circle-exclamation',
             'slug' => 'contested',
             'definite' => false,
@@ -55,6 +64,7 @@ class ValueLean
         'none' => array(
             'label' => 'Nothing asserted',
             'colour' => 'var(--vp-unknown)',
+            'ink' => 'var(--vp-unknown-ink)',
             'icon' => 'fas fa-circle-question',
             'slug' => 'none',
             'definite' => false,
@@ -64,6 +74,7 @@ class ValueLean
     const NEUTRAL = array(
         'label' => 'Nothing asserted',
         'colour' => 'var(--vp-unknown)',
+        'ink' => 'var(--vp-unknown-ink)',
         'icon' => 'fas fa-circle-question',
         'slug' => 'none',
         'definite' => false,
@@ -103,6 +114,16 @@ class ValueLean
     public static function colour($lean)
     {
         return self::treatment($lean)['colour'];
+    }
+
+    /**
+     * @param string|null $lean
+     * @return string A CSS variable reference; `colour`'s tone for
+     *                words rather than for a surface
+     */
+    public static function ink($lean)
+    {
+        return self::treatment($lean)['ink'];
     }
 
     /**
