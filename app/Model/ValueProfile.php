@@ -1764,7 +1764,8 @@ class ValueProfile extends AppModel
         }
         $hits = ValueWarninglistTool::hitsFor(
             $this->model('Warninglist'),
-            $pairs
+            $pairs,
+            false
         );
         $sightings = $valueModel->sightingCountsFor($user, $value, $options);
         return array(
@@ -17362,7 +17363,7 @@ class ValueProfile extends AppModel
         foreach ($types as $type) {
             $pairs[] = array('type' => $type['type'], 'value' => $value);
         }
-        $hits = ValueWarninglistTool::hitsFor($warninglist, $pairs);
+        $hits = ValueWarninglistTool::hitsFor($warninglist, $pairs, false);
         $lists = isset($hits[$value]) ? $hits[$value] : array();
         $overrides = $this->verdictSection($profile, 'reference');
         $map = isset($overrides['warninglist_category'])

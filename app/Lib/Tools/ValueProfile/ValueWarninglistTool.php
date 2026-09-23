@@ -48,17 +48,20 @@ class ValueWarninglistTool
      * would let a `sha1` seen once as `md5` escape the empty-file list
      * it is on.
      *
-     * **One SQL query, and only where something matched.** The check
-     * itself is Redis; `assignComments` is the query, issued by the
-     * batch whenever any probe hit.
+     * **One SQL query, and only where something matched and the caller
+     * wants the comments.** The check itself is Redis; `assignComments`
+     * is the query. Only the relation panels draw a comment, so the
+     * banner and the assessment skip it.
      *
      * @param Warninglist $warninglist
      * @param array $pairs `value` and `type`, duplicates welcome
+     * @param bool $withComments Fetch each matched entry's comment
      * @return array value => list of id, name, category, matched,
-     *               comment
+     *               comment (null when not fetched)
      */
-    public static function hitsFor($warninglist, array $pairs)
-    {
+    public static function hitsFor($warninglist, array $pairs,
+        $withComments = true
+    ) {
         $probes = array();
         $seen = array();
         foreach ($pairs as $pair) {
@@ -82,7 +85,7 @@ class ValueWarninglistTool
             return array();
         }
 
-        $warninglist->attachWarninglistToAttributes($probes);
+        $warninglist->attachWarninglistToAttributes($probes, $withComments);
 
         /*
          * **Two fields core does not hand back.** A match carries the
@@ -121,15 +124,7 @@ class ValueWarninglistTool
                      * to guess why.
                      */
                     'matched' => $warning['match'],
-                    /*
-                     * The entry's own note, where whoever curated the
-                     * list left one. This is the single query the batch
-                     * costs — `assignComments` fetches it whenever
-                     * anything matched, whether or not the caller reads
-                     * it — so carrying it through is what makes that
-                     * query earn its place rather than a cost paid and
-                     * thrown away.
-                     */
+                    // The entry's own note, where the list's curator left one.
                     'comment' => isset($warning['comment'])
                         ? $warning['comment']
                         : null,
