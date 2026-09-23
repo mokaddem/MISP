@@ -557,6 +557,184 @@
         return parts.join(' · ');
     }
 
+    /* ── pivots: correlations (R1) and related events (R2) ──── */
+    // Counts come from /events/correlationCounts, which counts exactly the
+    // pairs /events/correlatedAttributes returns — so a summary never promises
+    // what the fetch cannot bring. Null until loaded: nothing applies until then.
+    var _counts = null;
+
+    function ownElementCount(d) {
+        if (!_counts || !d || !d.uuid) return 0;
+        if (d.type === 'attribute') return _counts.attributes[d.uuid] || 0;
+        if (d.type === 'object')    return _counts.objects[d.uuid] || 0;
+        return 0;
+    }
+
+    function relatedEventCount(d) {
+        if (!_counts || !d || d.type !== 'event') return 0;
+        if (String(d.event_id) === String(eventId)) return 0;
+        return _counts.events[String(d.event_id)] || 0;
+    }
+
+    function sumCounts(nodes, count) {
+        return nodes.reduce(function (s, n) { return s + count(n.getData()); }, 0);
+    }
+
+    // This event's live attributes by uuid, and each object's attribute uuids.
+    function ownAttributeIndex() {
+        var ev = (_event && _event.Event) || {};
+        var byUuid = {}, byObject = {};
+        (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a)) byUuid[a.uuid] = a; });
+        (ev.Object || []).forEach(function (o) {
+            if (isDeleted(o)) return;
+            byObject[o.uuid] = [];
+            (o.Attribute || []).forEach(function (a) {
+                if (isDeleted(a)) return;
+                byUuid[a.uuid] = a;
+                byObject[o.uuid].push(a.uuid);
+            });
+        });
+        return { byUuid: byUuid, byObject: byObject };
+    }
+
+    function attributeUuidsOf(nodes) {
+        var index = ownAttributeIndex();
+        var out = [];
+        nodes.forEach(function (n) {
+            var d = n.getData() || {};
+            if (d.type === 'attribute') out.push(d.uuid);
+            else if (d.type === 'object') out = out.concat(index.byObject[d.uuid] || []);
+        });
+        return out;
+    }
+
+    // Correlated attributes land inside their event's node — the L0 proxy when
+    // it is on the canvas, since ingest merges children into a container by id.
+    // This event's side of each pair is brought along when it is not drawn yet
+    // (an event-level attribute, or one inside an object L2 skipped).
+    function correlationResult(pairs) {
+        var index = ownAttributeIndex();
+        var containers = {}, order = [], edges = [], seen = {}, sourceNodes = [];
+        pairs.forEach(function (p) {
+            var ev  = p.Event || {};
+            var cid = 'event:' + ev.uuid;
+            if (!containers[cid]) {
+                containers[cid] = { id: cid, data: eventNodeData(ev), children: [] };
+                order.push(cid);
+            }
+            var tid = 'attr:' + p.Attribute.uuid;
+            if (!seen[cid + tid]) {
+                seen[cid + tid] = true;
+                var td = attributeNodeData(p.Attribute);
+                td.event_id = ev.id;
+                containers[cid].children.push({ id: tid, data: td });
+            }
+            var sid = 'attr:' + p.source_uuid;
+            if (!seen[sid]) {
+                seen[sid] = true;
+                var drawn = _graph && typeof _graph.getNode === 'function' && _graph.getNode(sid);
+                if (!drawn && index.byUuid[p.source_uuid]) {
+                    sourceNodes.push({ id: sid, data: attributeNodeData(index.byUuid[p.source_uuid]) });
+                }
+            }
+            var eid = 'corr:' + p.source_uuid + ':' + p.Attribute.uuid;
+            if (!seen[eid]) {
+                seen[eid] = true;
+                edges.push({ id: eid, from: sid, to: tid, data: { kind: 'correlation', label: '' } });
+            }
+        });
+        return {
+            nodes: order.map(function (cid) { return containers[cid]; }).concat(sourceNodes),
+            edges: edges
+        };
+    }
+
+    function fetchCorrelated(body, signal) {
+        return fetch(baseurl + '/events/correlatedAttributes/' + encodeURIComponent(eventId) + '.json', {
+            method: 'POST',
+            credentials: 'same-origin',
+            signal: signal,
+            headers: {
+                'Content-Type':     'application/json',
+                'Accept':           'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(body)
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(correlationResult);
+    }
+
+    function correlationPivot() {
+        return {
+            id:            'correlations',
+            label:         'Correlations',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) {
+                return nodes.filter(function (n) { return ownElementCount(n.getData()) > 0; });
+            },
+            summarize: function (nodes) {
+                return { total: sumCounts(nodes, ownElementCount) };
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                return fetchCorrelated({ attribute_uuids: attributeUuidsOf(nodes) }, ctx && ctx.signal);
+            }
+        };
+    }
+
+    function relatedEventPivot() {
+        return {
+            id:            'related-event',
+            label:         'Correlations with this event',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) {
+                return nodes.filter(function (n) { return relatedEventCount(n.getData()) > 0; });
+            },
+            summarize: function (nodes) {
+                return { total: sumCounts(nodes, relatedEventCount) };
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                var ids = nodes.map(function (n) { return (n.getData() || {}).event_id; });
+                return fetchCorrelated({ event_ids: ids }, ctx && ctx.signal);
+            }
+        };
+    }
+
+    // Declared, never queried (pivotick draws the rim badge from it): each
+    // related event wears the number of correlations its pivot would bring.
+    function declareRelatedEventPotential(graph) {
+        if (!graph || typeof graph.getNodes !== 'function') return;
+        graph.getNodes().forEach(function (n) {
+            var n2 = relatedEventCount(n.getData());
+            if (!n2) return;
+            var live = graph.getMutableNode(n.id);
+            if (live && typeof live.setPotential === 'function') live.setPotential('related-event', n2);
+        });
+        if (graph.renderer && typeof graph.renderer.update === 'function') graph.renderer.update();
+    }
+
+    function loadCorrelationCounts(graph) {
+        return fetch(baseurl + '/events/correlationCounts/' + encodeURIComponent(eventId) + '.json', {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function (c) {
+            if (!c || !c.attributes) return;
+            _counts = c;
+            declareRelatedEventPotential(graph);
+        })
+        .catch(function (err) {
+            console.error('[pivot-explorer] correlation counts failed:', err);
+        });
+    }
+
     /* ── pivotick options ──────────────────────────────────── */
     function graphOptions() {
         return {
@@ -617,7 +795,8 @@
                     'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
                     // Green to match the event nodes it joins; dashed like every
                     // other derived (as opposed to authored) relationship.
-                    'event-correlation':    { strokeColor: '#6fbe80', dashed: true }
+                    'event-correlation':    { strokeColor: '#6fbe80', dashed: true },
+                    'correlation':          { strokeColor: '#888', dashed: true }
                 },
                 // Draw the relationship_type on every edge (referenced + newly created).
                 defaultLabelStyle: {
@@ -630,6 +809,8 @@
             simulation: {
                 d3LinkDistance: 200
             },
+            // No `save`: correlations are derived, never counted unsaved.
+            pivots: [correlationPivot(), relatedEventPivot()],
             callbacks: {
                 // A correlated event is a leaf here (PRD §4) — it cannot expand
                 // in place, so double-click hands the analyst over to its own
@@ -729,6 +910,7 @@
                     try { editor.attach(_graph); }
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
+                loadCorrelationCounts(_graph);
             })
             .catch(function (err) {
                 console.error('[pivot-explorer] graph build failed:', err);

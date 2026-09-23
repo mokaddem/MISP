@@ -88,6 +88,7 @@ function findByClass(el, cls, out) {
 function buildGraph(payload, options) {
     options = options || {};
     const errors = [];
+    const fetchLog = [];
     let constructed = null;
 
     const card = makeEl('div');
@@ -127,9 +128,12 @@ function buildGraph(payload, options) {
             location: { href: '' },
         },
         Image: function () { return { src: '' }; },
-        fetch: () => Promise.resolve({
-            ok: true, status: 200, json: () => Promise.resolve(payload),
-        }),
+        fetch: (url, init) => {
+            fetchLog.push({ url: String(url), init: init || {} });
+            const route = (options.routes || []).find(r => r[0].test(String(url)));
+            const body = route ? (typeof route[1] === 'function' ? route[1](init) : route[1]) : payload;
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+        },
         console: { log() {}, error: (...a) => errors.push(a.map(String).join(' ')) },
         Promise, JSON, Object, String, Number, Array, Math, RegExp, Error,
         encodeURIComponent, setTimeout,
@@ -165,6 +169,7 @@ function buildGraph(payload, options) {
             resolution: byId['pe-resolution'].textContent,
             resolutionShown: byId['pe-resolution'].style.display === '',
             win: sandbox.window,
+            fetchLog,
             panel, tray, trayGroups, trayEmptyHtml, errors,
         };
     });
@@ -461,9 +466,11 @@ test('the edge-kind dimension is declared for pivotick', async () => {
 
     eq('object-reference is styled in D1 blue',
        r.edgeStyleMap['object-reference'], { strokeColor: '#428bca' });
-    eq('all three implemented kinds are styled',
+    eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
-       ['object-reference', 'analyst-relationship', 'event-correlation']);
+       ['object-reference', 'analyst-relationship', 'event-correlation', 'correlation']);
+    eq('correlations are dashed grey (D1 palette)',
+       r.edgeStyleMap['correlation'], { strokeColor: '#888', dashed: true });
     eq('analyst relationships are dashed orange (D1 palette)',
        r.edgeStyleMap['analyst-relationship'], { strokeColor: '#f39a1f', dashed: true });
     eq('event correlations are dashed green, matching the event nodes they join',
@@ -1024,6 +1031,130 @@ test('INVARIANT: every kind the builder emits resolves to a styled kind — all 
         ok('kind ' + JSON.stringify(resolved) + ' for ' + e.from + '->' + e.to + ' is styled',
            styled.indexOf(resolved) !== -1, 'styled kinds: ' + JSON.stringify(styled));
     });
+});
+
+/* ───────────────────── pivots (R1, R2) ───────────────────────── */
+
+// A node as pivotick hands it to a pivot: only getData() is read.
+const pnode = data => ({ getData: () => data });
+
+// Counts and pairs as /events/correlationCounts and /events/correlatedAttributes
+// shape them.
+const COUNTS = {
+    total: 3,
+    attributes: { e1: 1, c1: 2 },
+    objects: { A: 2 },
+    events: { '7': 2, '8': 1 },
+    limit: 5000,
+};
+const pair = (src, uuid, evId, evUuid) => ({
+    source_uuid: src,
+    Attribute: { id: '9' + uuid, uuid, type: 'ip-dst', category: 'Network activity', value: '10.0.0.' + uuid },
+    Event: { id: evId, uuid: evUuid, info: 'Event ' + evId },
+    Object: null,
+});
+const PAIRS = [pair('c1', 'x1', '7', 'R7'), pair('c1', 'x2', '7', 'R7'), pair('e1', 'x1', '8', 'R8')];
+
+function pivotFixture() {
+    return ev({
+        RelatedEvent: [relEvent({ uuid: 'R7', id: '7' }), relEvent({ uuid: 'R8', id: '8' })],
+        Attribute: [attr({ uuid: 'e1' })],
+        Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1' })] }), obj({ uuid: 'B' })],
+    });
+}
+
+function withPivots(extraRoutes) {
+    return buildGraph(pivotFixture(), {
+        routes: (extraRoutes || []).concat([
+            [/correlationCounts\/1\.json$/, COUNTS],
+            [/correlatedAttributes\/1\.json$/, PAIRS],
+        ]),
+    }).then(g => new Promise(res => setTimeout(() => res(g), 0)));
+}
+
+const pivot = (g, id) => g.opts.pivots.find(p => p.id === id);
+
+test('both pivots are declared, capped at the canvas budget, and savable by nobody', async () => {
+    const g = await withPivots();
+    eq('the two pivots', g.opts.pivots.map(p => p.id), ['correlations', 'related-event']);
+    g.opts.pivots.forEach(p => {
+        eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
+        ok(p.id + ' has no save — correlations are derived', p.save === undefined);
+    });
+    ok('the counts were asked for once the graph existed',
+       g.fetchLog.some(f => /\/misp\/events\/correlationCounts\/1\.json$/.test(f.url)));
+});
+
+test('the correlation pivot applies only where the counts say something correlates', async () => {
+    const g = await withPivots();
+    const p = pivot(g, 'correlations');
+    const nodes = [
+        pnode({ type: 'attribute', uuid: 'e1' }),
+        pnode({ type: 'object', uuid: 'A' }),
+        pnode({ type: 'object', uuid: 'B' }),
+        pnode({ type: 'event', uuid: 'R7', event_id: '7' }),
+    ];
+    eq('it keeps the correlated attribute and object',
+       p.appliesTo(nodes).map(n => n.getData().uuid), ['e1', 'A']);
+    eq('summarize is the counts, summed over the origin',
+       p.summarize(p.appliesTo(nodes)), { total: 3 });
+});
+
+test('before the counts arrive, no pivot applies', async () => {
+    const g = await buildGraph(pivotFixture());     // counts route answers with the event payload
+    eq('correlations', pivot(g, 'correlations').appliesTo([pnode({ type: 'attribute', uuid: 'e1' })]).length, 0);
+    eq('related-event', pivot(g, 'related-event').appliesTo([pnode({ type: 'event', event_id: '7' })]).length, 0);
+});
+
+test('the related-event pivot applies to other events, never to this one', async () => {
+    const g = await withPivots();
+    const p = pivot(g, 'related-event');
+    const nodes = [
+        pnode({ type: 'event', uuid: 'R7', event_id: '7' }),
+        pnode({ type: 'event', uuid: 'R9', event_id: '9' }),
+        pnode({ type: 'event', uuid: 'SELF', event_id: '1' }),
+    ];
+    eq('only the counted foreign event', p.appliesTo(nodes).map(n => n.getData().event_id), ['7']);
+    eq('its summary is that event\'s count', p.summarize(p.appliesTo(nodes)), { total: 2 });
+});
+
+test('an object origin fetches by its live attributes', async () => {
+    let body = null;
+    const g = await withPivots([[/correlatedAttributes/, init => { body = JSON.parse(init.body); return PAIRS; }]]);
+    await pivot(g, 'correlations').fetch([pnode({ type: 'object', uuid: 'A' }), pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
+    eq('the object expands to its child attribute, the attribute stays itself',
+       body, { attribute_uuids: ['c1', 'e1'] });
+});
+
+test('a related-event origin fetches by event id', async () => {
+    let body = null;
+    const g = await withPivots([[/correlatedAttributes/, init => { body = JSON.parse(init.body); return PAIRS; }]]);
+    await pivot(g, 'related-event').fetch([pnode({ type: 'event', uuid: 'R7', event_id: '7' })], {}, {});
+    eq('event ids', body, { event_ids: ['7'] });
+});
+
+test('correlated attributes land inside their event, joined to this event by correlation edges', async () => {
+    const g = await withPivots();
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
+    const containers = r.nodes.filter(n => n.id.indexOf('event:') === 0);
+    eq('one container per correlated event, keyed like the L0 proxy', containers.map(n => n.id), ['event:R7', 'event:R8']);
+    eq('R7 holds both of its attributes once', containers[0].children.map(c => c.id), ['attr:x1', 'attr:x2']);
+    eq('a correlated attribute is drawn like any attribute, and says which event it is in',
+       [containers[0].children[0].data.type, containers[0].children[0].data.event_id], ['attribute', '7']);
+    eq('the container is an event node', containers[0].data.type, 'event');
+    eq('one correlation edge per pair, with a stable id',
+       r.edges.map(e => [e.id, e.from, e.to, e.data.kind]),
+       [['corr:c1:x1', 'attr:c1', 'attr:x1', 'correlation'],
+        ['corr:c1:x2', 'attr:c1', 'attr:x2', 'correlation'],
+        ['corr:e1:x1', 'attr:e1', 'attr:x1', 'correlation']]);
+});
+
+test('this event\'s side of a pair comes along when it is not on the canvas', async () => {
+    const g = await withPivots();
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
+    const own = r.nodes.filter(n => n.id.indexOf('attr:') === 0).map(n => n.id).sort();
+    eq('both source attributes are offered (the stub graph holds nothing)', own, ['attr:c1', 'attr:e1']);
+    eq('and drawn from the event payload', r.nodes.find(n => n.id === 'attr:e1').data.uuid, 'e1');
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */
