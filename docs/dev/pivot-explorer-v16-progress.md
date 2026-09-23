@@ -7,7 +7,7 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 11 done · 1 part-done and blocked · 12 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); count source built (5e); **5 and 5d next, needing a fetch path**
+- **Status:** 12 done · 12 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); count source built (5e); **5 and 5d next, needing a fetch path**
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 48 cases, 170 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
@@ -26,7 +26,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | E | Extract inline JS out of the `.ctp` into `webroot/js/pivot-explorer.js` | ✅ | 0 | `edc6a0caa` (2026-08-31) |
 | T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
 | 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
-| 1b | Regression pass under v2 (§8.1) | 🔜 ⏸ | 0b | **Gate — blocks 2, 6, 9, 11.** Rendering half done in a headless harness (§2); the real-instance half needs the dev server — §3 |
+| 1b | Regression pass under v2 (§8.1) | ✅ | 0b | 2026-09-23 on the dev instance — see §2. Found and fixed: the editor was never offered on view2 (`608229a2b`) |
 | 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor` / `edgeStyleMap` / `edgeFacets` (one layer) | ✅ | 1 | Built ahead of the 1b gate, deliberately. Edge stroke becomes explicit blue — see §2 |
 | 3 | Generalise `computeConnectivity()` to any authored relationship; analyst-relationship edges as a second layer (L1, D5′) | ✅ | 2 | Also fixed a pre-existing seeding bug — see §2 |
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ✅ | 2 | `7ab4f859f` (2026-08-31), shared with 3c — see §2 |
@@ -86,6 +86,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Task 3c — the budget, L2 clusters, the resolution statement | ✅ data + config | Same suite: the boundary (1,500 fits, 1,501 skips whole), cost counted with children and without tombstones, L2 never seeding a bare attribute, the tray losing exactly the objects L2 drew, and the statement's own text in eight states | **How the statement reads in the card — §8.1**; the `hideDisconnected` collision (§7) is still unexercised |
 | v2 bundle + write path (task 0b) | ✅ | Clean `npm run build` of `d220446`, `node --check`, md5 `1183ba8c…`; every option/call `pivot-explorer.js` makes checked against `dist/types`; suite 170/170; **headless Chromium harness** — real bundle + real `pivot-explorer.js`, stubbed `fetch`, hand-built fixture (L0 pair, one reference, one L2 object, one tray attribute): renders with no console error, L0+L1+L2 seeded, both edge colours, tray drop pinned + pending, four edge gestures each checked for picker / POST / edge / history | §8.1 on the real instance with events 1195 and 4116 |
 | Count endpoint (task 5e) | ✅ model + aggregation | `php -l` on every file; `CorrelationCountToolTest` 3/3 under the container's PHPUnit; the method body run from a check shell against the live models for two users × two events — counts, timings, sizes, the 404, and agreement with `RelatedEvent` (graph-endpoint PRD §7) | **The HTTP route itself** — JSON extension, ACL entry, 404 — needs the dev server on this branch |
+| Real instance, v2 (task 1b) | ✅ | Playwright, logged in, dev server on `pivotick-v2`. `correlationCounts` over HTTP: admin 1195 → 350 / 18 events, 4116 → 708 / 78; org 9 admin 1195 → 346 / 15, 4116 → 404 — identical to the check shell. Pivot Explorer: 1195 opens in 4.7 s, layout settles in ~17 s (4,743 top-level nodes, 2,362 references); 4116 opens in 21 s (L0 only, 90 nodes — the D13 payload); 2014 in 0.4 s. No console error from the explorer. Edit rights: admin → editor, plain org-1 User on an org-9 event → read-only. A drawn reference on 2014 POSTs 200, lands as `object-reference`, records `persisted: true`, survives a reload — then deleted (`objectReferences/delete/11378/1`) | Glyphs: see below |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey
@@ -168,6 +169,24 @@ by gesture in the harness, not by the unit suite — the editor has no unit test
 **One visible regression is left open on purpose:** `render.minLabelFontSize` (9 px) hides every
 label at the opening fit on the harness fixture (zoom 0.62). The library default, so the call is
 the owner's — PRD §3.7.
+
+**What the live pass turned up:**
+
+- **The editor was never offered on `/events/view2`** — `view2()` sets no `mayModify`, which the
+  element read, so `canEdit` was always false, for a site admin on their own event too. The
+  element now asks `$this->Acl->canModifyEvent($data)`, as `event_attachments.ctp` and its other
+  siblings already do. Pre-dates the v2 work (`4061b1b8c`).
+- **No misp-iconify glyph on any node.** The icon class resolves and `misp-iconify.css` loads, but
+  Pivotick draws no icon element. **Not pursued:** node rendering is to be replaced by another
+  renderer once the functional work is done (owner's call, 2026-09-23).
+- **`/events/view2` exists only under the Overmind theme** — a user on the default theme gets
+  *View file "Events/view2.ctp" is missing*. Only users 1 and 2 are on Overmind here, which is
+  why no non-admin editor could be exercised live; the rule is the siblings' own.
+- **Pre-existing page error, not ours:** `mispOvermind.js:2489` listens for `mouseenter` in the
+  capture phase on `document` and calls `e.target.closest` unguarded, so the pointer entering the
+  page throws `e.target.closest is not a function` (`a6a06665f`).
+- **Side effect of the save test:** event 2014's timestamp moved to 2026-09-23 13:35; the
+  reference itself is gone.
 
 ## 3. Blockers
 
