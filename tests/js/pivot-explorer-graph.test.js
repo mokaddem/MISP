@@ -105,6 +105,8 @@ function buildGraph(payload, options) {
     const byId = {
         'pe-card': card,
         'pe-stage': makeEl('div'),
+        'pe-header': makeEl('div'),
+        'pe-identity': makeEl('div'),
         'pe-resolution': makeEl('div'),
         'pivot-explorer-loader': makeEl('div'),
         'pivot-explorer-graph': makeEl('div'),
@@ -176,8 +178,10 @@ function buildGraph(payload, options) {
             edges: constructed.data.edges,
             opts: constructed.opts,
             graph: constructed.graph,
-            resolution: byId['pe-resolution'].textContent,
-            resolutionShown: byId['pe-resolution'].style.display === '',
+            // Read live: the correlation counts rewrite the line after construction.
+            get resolution() { return byId['pe-resolution'].textContent; },
+            get resolutionShown() { return byId['pe-resolution'].style.display === ''; },
+            header: byId,
             win: sandbox.window,
             fetchLog,
             tray, errors,
@@ -1548,6 +1552,116 @@ test('the statement is text, never markup', async () => {
     ok('no innerHTML anywhere in the card', (function noHtml(el) {
         return !el._html && (el.children || []).every(noHtml);
     })(card));
+});
+
+/* ─────────── provenance, the facets, the header ─────────── */
+
+const flat = nodes => (nodes || []).reduce((out, n) => out.concat([n], flat(n.children)), []);
+const prov = n => [n.data.scope, n.data.event_id, n.data.event_uuid];
+
+test('every seeded node says which event it belongs to', async () => {
+    const g = await buildGraph(ev({
+        RelatedEvent: [relEvent({ uuid: 'R7', id: '7' })],
+        Attribute: [attr({ uuid: 'e1', event_id: '1' })],
+        Object: [obj({ uuid: 'A', event_id: '1', Attribute: [attr({ uuid: 'c1', event_id: '1' })],
+                       ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
+    }));
+    const all = flat(g.nodes);
+    eq('this event', prov(byId(all, 'event:EV-SELF')), ['self', '1', 'EV-SELF']);
+    eq('a correlated event', prov(byId(all, 'event:R7')), ['foreign', '7', 'R7']);
+    eq('an object', prov(byId(all, 'obj:A')), ['self', '1', 'EV-SELF']);
+    eq('its child attribute', prov(byId(all, 'attr:c1')), ['self', '1', 'EV-SELF']);
+    eq('an event-level attribute', prov(byId(all, 'attr:e1')), ['self', '1', 'EV-SELF']);
+    ok('every node carries a scope', all.every(n => n.data.scope === 'self' || n.data.scope === 'foreign'));
+});
+
+test('an element merged in from an extension event is foreign, known by id alone', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', event_id: '1', ObjectReference: [ref({ referenced_uuid: 'X' })] }),
+        obj({ uuid: 'X', event_id: '42', Attribute: [attr({ uuid: 'x1', event_id: '42' })] }),
+    ] }));
+    const all = flat(g.nodes);
+    eq('the extension object', prov(byId(all, 'obj:X')), ['foreign', '42', undefined]);
+    eq('and its attribute', prov(byId(all, 'attr:x1')), ['foreign', '42', undefined]);
+    eq('this event\'s own object stays self', prov(byId(all, 'obj:A')), ['self', '1', 'EV-SELF']);
+});
+
+test('a record without an event_id belongs to the event it came in', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    eq('self', prov(byId(g.nodes, 'obj:A')), ['self', '1', 'EV-SELF']);
+});
+
+test('pivot results carry provenance: correlated elements foreign, this event\'s side self', async () => {
+    const g = await withPivots();
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
+    const all = flat(r.nodes);
+    eq('a correlated attribute', prov(all.find(n => n.id === 'attr:x1')), ['foreign', '7', 'R7']);
+    eq('its container', prov(all.find(n => n.id === 'event:R7')), ['foreign', '7', 'R7']);
+    eq('this event\'s side brought along', prov(all.find(n => n.id === 'attr:e1')), ['self', '1', 'EV-SELF']);
+});
+
+test('elements put on the canvas from the element pivot are this event\'s', async () => {
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1' })],
+        Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1' })] })],
+    }), { routes: [[/correlationCounts/, { attributes: {}, objects: {}, events: {} }]] });
+    // Push A past the canvas so the pivot offers it too.
+    g.graph.getNode = () => undefined;
+    const r = pivot(g, 'event-elements').fetch([], {}, {});
+    eq('each, children included', flat(r.nodes).map(n => n.id + '=' + n.data.scope).sort(),
+       ['attr:c1=self', 'attr:e1=self', 'obj:A=self']);
+});
+
+test('the filter panel declares its facets, provenance first', async () => {
+    const g = await buildGraph(ev({}));
+    const facets = g.opts.UI.filter.facets;
+    eq('the facet set', facets.map(f => [f.key, f.type]),
+       [['scope', 'multiselect'], ['type', 'multiselect'], ['category', 'multiselect'],
+        ['attr-type', 'multiselect'], ['name', 'multiselect'], ['to_ids', 'boolean'], ['value', 'regex']]);
+    eq('provenance names both sides in words', facets[0].options,
+       [{ label: 'This event', value: 'self' }, { label: 'Other events', value: 'foreign' }]);
+    eq('provenance is labelled as such', facets[0].label, 'Provenance');
+    eq('the edge layer switch is unchanged', g.opts.UI.filter.edgeFacets.map(f => f.key), ['kind']);
+});
+
+test('a facet\'s options are what the live graph holds, children included', async () => {
+    const g = await buildGraph(ev({}));
+    const cat = g.opts.UI.filter.facets.find(f => f.key === 'category');
+    const graph = { getMutableNodes: () => [
+        pnode({ category: 'Payload delivery' }), pnode({ category: 'Network activity' }),
+        pnode({ category: 'Network activity' }), pnode({ type: 'object' }), pnode({ category: '' }),
+    ] };
+    eq('distinct, sorted, blanks dropped', cat.options(graph),
+       [{ label: 'Network activity', value: 'Network activity' },
+        { label: 'Payload delivery', value: 'Payload delivery' }]);
+});
+
+test('the header names the event the graph was seeded from', async () => {
+    const g = await buildGraph(ev({ info: 'Phishing <b>wave</b>', date: '2026-09-01',
+                                    Orgc: { name: 'CIRCL' }, Object: [obj({ uuid: 'A' })] }));
+    eq('identity line', g.header['pe-identity'].textContent, 'Event 1 · Phishing <b>wave</b> · CIRCL · 2026-09-01');
+    eq('the full line is its tooltip, since it truncates',
+       g.header['pe-identity'].getAttribute('title'), 'Event 1 · Phishing <b>wave</b> · CIRCL · 2026-09-01');
+    ok('written as text', !g.header['pe-identity']._html);
+    ok('the header is shown', g.header['pe-header'].style.display === '');
+    eq('the resolution line sits under it', g.resolution, 'Seeded L2 · 1 node');
+});
+
+test('the identity line leaves out what the event lacks', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    eq('id only', g.header['pe-identity'].textContent, 'Event 1');
+});
+
+test('the correlation total joins the resolution line once counted', async () => {
+    const g = await withPivots();
+    ok('it ends the statement', /· 3 correlations available$/.test(g.resolution), g.resolution);
+});
+
+test('no correlations, no clause', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }),
+        { routes: [[/correlationCounts/, { total: 0, attributes: {}, objects: {}, events: {} }]] });
+    await new Promise(res => setTimeout(res, 0));
+    eq('unchanged', g.resolution, 'Seeded L2 · 1 node');
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

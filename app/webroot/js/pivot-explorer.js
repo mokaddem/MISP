@@ -58,9 +58,27 @@
         return baseurl + '/attributes/viewPicture/' + attr.uuid + '/webp';
     }
 
+    // Which event a node belongs to, and whether it is the one the graph was
+    // seeded from. Read by the Provenance facet and the sidebar, never drawn:
+    // the analyst decides which event is the subject.
+    function provenance(id, uuid) {
+        return {
+            scope:      String(id) === String(eventId) ? 'self' : 'foreign',
+            event_id:   id,
+            event_uuid: uuid
+        };
+    }
+
+    // The owner of a record in an event payload. Extension events merge their
+    // elements in with only an id to tell them apart.
+    function ownerIn(ev, rec) {
+        var id = (rec && rec.event_id != null) ? rec.event_id : ev.id;
+        return provenance(id, String(id) === String(ev.id) ? ev.uuid : undefined);
+    }
+
     // Shared by the graph builder and the pivots so an attribute brought in
     // renders identically to one that was referenced from the start.
-    function attributeNodeData(attr) {
+    function attributeNodeData(attr, owner) {
         var val   = attr.value != null ? String(attr.value) : '';
         var isImg = isImageAttribute(attr);
         return compact(Object.assign({
@@ -77,7 +95,7 @@
             uuid:            attr.uuid,
             image:           isImg || undefined,
             imageUrl:        isImg ? attributeImageUrl(attr) : undefined
-        }, analystFields(attr)));
+        }, owner, analystFields(attr)));
     }
 
     // Soft-deleted records (deleted=1) are tombstones — refs create no edge and
@@ -312,13 +330,12 @@
             info:        info,
             date:        e.date,
             org:         org || undefined,
-            event_id:    e.id,
             uuid:        e.uuid
-        }, analystFields(e)));
+        }, provenance(e.id, e.uuid), analystFields(e)));
     }
 
     // Shared object node data (graph builder + element pivot).
-    function objectNodeData(obj) {
+    function objectNodeData(obj, owner) {
         return compact(Object.assign({
             type:            'object',
             label:           truncate(obj.name || 'Object', 42),
@@ -326,7 +343,7 @@
             name:            obj.name,
             'meta-category': obj['meta-category'],
             uuid:            obj.uuid
-        }, analystFields(obj)));
+        }, owner, analystFields(obj)));
     }
 
     /* ── misp-iconify (webfont) integration ────────────────── */
@@ -393,7 +410,7 @@
             var id = 'attr:' + attr.uuid;
             if (nodeSet[id]) return null;
             nodeSet[id] = true;
-            return { id: id, data: attributeNodeData(attr) };
+            return { id: id, data: attributeNodeData(attr, ownerIn(ev, attr)) };
         }
 
         // Top-level attribute node (used for event-level attributes).
@@ -451,7 +468,7 @@
             addNode(objId, {
                 id:       objId,
                 children: children,
-                data:     objectNodeData(obj)
+                data:     objectNodeData(obj, ownerIn(ev, obj))
             });
         });
 
@@ -520,10 +537,10 @@
         };
     }
 
-    // D12's resolution statement. Without it 87 nodes read as the whole of a
-    // 28,410-object event (§7). Task 8 folds this into the header above the
-    // event's own identity line; task 4 owns the nothing-was-drawn case (D11).
-    function resolutionStatement(stats) {
+    // Which levels the seed took and what it left out. Without it 87 nodes
+    // read as the whole of a 28,410-object event. `correlations` joins it
+    // once the counts arrive.
+    function resolutionStatement(stats, correlations) {
         var parts = [];
         // A seed that took no level at all still owes the skip clause: an event
         // whose only content is 28,410 relationship-less objects draws nothing
@@ -541,7 +558,36 @@
                        + (stats.relationshipsSkipped === 1 ? '' : 's')
                        + ' not drawable');
         }
+        if (correlations) {
+            parts.push(plural(correlations, 'correlation', 'correlations') + ' available');
+        }
         return parts.join(' · ');
+    }
+
+    // Nothing on the canvas says which event seeded it, so the card does.
+    function identityLine(ev) {
+        var org = (ev.Orgc && ev.Orgc.name) || '';
+        return ['Event ' + (ev.id || eventId), ev.info, org, ev.date]
+            .filter(function (p) { return p != null && p !== ''; })
+            .join(' · ');
+    }
+
+    var _stats = null;
+    function renderHeader() {
+        var headerEl = document.getElementById('pe-header');
+        var idEl     = document.getElementById('pe-identity');
+        var resEl    = document.getElementById('pe-resolution');
+        var ev       = (_event && _event.Event) || {};
+        if (idEl) {
+            idEl.textContent = identityLine(ev);
+            idEl.setAttribute('title', idEl.textContent);
+        }
+        if (resEl && _stats) {
+            var res = resolutionStatement(_stats, _counts && _counts.total);
+            resEl.textContent   = res;
+            resEl.style.display = res ? '' : 'none';
+        }
+        if (headerEl) headerEl.style.display = '';
     }
 
     /* ── analyst data: one folded badge, detail in the sidebar (D2, §6.2) ── */
@@ -781,16 +827,18 @@
             var tid = 'attr:' + p.Attribute.uuid;
             if (!seen[cid + tid]) {
                 seen[cid + tid] = true;
-                var td = attributeNodeData(p.Attribute);
-                td.event_id = ev.id;
-                containers[cid].children.push({ id: tid, data: td });
+                containers[cid].children.push({
+                    id:   tid,
+                    data: attributeNodeData(p.Attribute, provenance(ev.id, ev.uuid))
+                });
             }
             var sid = 'attr:' + p.source_uuid;
             if (!seen[sid]) {
                 seen[sid] = true;
                 var drawn = _graph && typeof _graph.getNode === 'function' && _graph.getNode(sid);
-                if (!drawn && index.byUuid[p.source_uuid]) {
-                    sourceNodes.push({ id: sid, data: attributeNodeData(index.byUuid[p.source_uuid]) });
+                var own = index.byUuid[p.source_uuid];
+                if (!drawn && own) {
+                    sourceNodes.push({ id: sid, data: attributeNodeData(own, ownerIn(_event.Event, own)) });
                 }
             }
             var eid = 'corr:' + p.source_uuid + ':' + p.Attribute.uuid;
@@ -884,6 +932,7 @@
         .then(function (c) {
             if (!c || !c.attributes) return;
             _counts = c;
+            renderHeader();
             declareRelatedEventPotential(graph);
         })
         .catch(function (err) {
@@ -955,14 +1004,15 @@
     }
 
     function elementNode(c) {
+        var ev = _event.Event;
         if (c.kind === 'attribute') {
-            return { id: 'attr:' + c.rec.uuid, data: attributeNodeData(c.rec) };
+            return { id: 'attr:' + c.rec.uuid, data: attributeNodeData(c.rec, ownerIn(ev, c.rec)) };
         }
         return {
             id:       'obj:' + c.rec.uuid,
-            data:     objectNodeData(c.rec),
+            data:     objectNodeData(c.rec, ownerIn(ev, c.rec)),
             children: (c.rec.Attribute || []).filter(function (a) { return !isDeleted(a); })
-                .map(function (a) { return { id: 'attr:' + a.uuid, data: attributeNodeData(a) }; })
+                .map(function (a) { return { id: 'attr:' + a.uuid, data: attributeNodeData(a, ownerIn(ev, a)) }; })
         };
     }
 
@@ -1073,6 +1123,36 @@
         };
     }
 
+    /* ── filter panel ──────────────────────────────────────── */
+    // Declaring any node facet replaces pivotick's derivation from every data
+    // key, so the panel names the ones an analyst filters on. Provenance is
+    // here rather than in the legend: it has no colour to sample.
+    function distinctOptions(key) {
+        return function (graph) {
+            var seen = {};
+            graph.getMutableNodes().forEach(function (n) {
+                var v = (n.getData() || {})[key];
+                if (v != null && v !== '') seen[String(v)] = true;
+            });
+            return Object.keys(seen).sort().map(function (v) { return { label: v, value: v }; });
+        };
+    }
+
+    function nodeFacets() {
+        return [
+            { key: 'scope', label: 'Provenance', type: 'multiselect', options: [
+                { label: 'This event',   value: 'self' },
+                { label: 'Other events', value: 'foreign' }
+            ] },
+            { key: 'type',      label: 'Element',        type: 'multiselect', options: distinctOptions('type') },
+            { key: 'category',  label: 'Category',       type: 'multiselect', options: distinctOptions('category') },
+            { key: 'attr-type', label: 'Attribute type', type: 'multiselect', options: distinctOptions('attr-type') },
+            { key: 'name',      label: 'Object',         type: 'multiselect', options: distinctOptions('name') },
+            { key: 'to_ids',    label: 'IDS flag',       type: 'boolean' },
+            { key: 'value',     label: 'Value',          type: 'regex' }
+        ];
+    }
+
     /* ── pivotick options ──────────────────────────────────── */
     function graphOptions() {
         return {
@@ -1169,6 +1249,7 @@
                 // The layer switch. Declaring the facet is what makes edges
                 // filterable at all — pivotick never derives edge facets.
                 filter: {
+                    facets: nodeFacets(),
                     edgeFacets: [
                         { key: 'kind', label: 'Relationship', type: 'multiselect' }
                     ]
@@ -1216,12 +1297,8 @@
                 if (loaderEl)    loaderEl.style.display    = 'none';
                 if (containerEl) containerEl.style.display = '';
 
-                var resEl = document.getElementById('pe-resolution');
-                var res   = resolutionStatement(data.stats);
-                if (resEl && res) {
-                    resEl.textContent    = res;
-                    resEl.style.display  = '';
-                }
+                _stats = data.stats;
+                renderHeader();
 
                 var editor = canEdit ? createEditor() : null;
                 var opts   = graphOptions();
@@ -1242,7 +1319,8 @@
                     try { editor.attach(_graph); }
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
-                watchElementPivot(_graph);                loadCorrelationCounts(_graph);
+                watchElementPivot(_graph);
+                loadCorrelationCounts(_graph);
             })
             .catch(function (err) {
                 console.error('[pivot-explorer] graph build failed:', err);
