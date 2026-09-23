@@ -488,7 +488,8 @@ test('the edge-kind dimension is declared for pivotick', async () => {
        r.edgeStyleMap['object-reference'], { strokeColor: '#428bca' });
     eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
-       ['object-reference', 'analyst-relationship', 'event-correlation', 'correlation']);
+       ['object-reference', 'analyst-relationship', 'event-correlation', 'correlation',
+        'feed-correlation', 'server-correlation']);
     eq('correlations are dashed grey (D1 palette)',
        r.edgeStyleMap['correlation'], { strokeColor: '#888', dashed: true });
     eq('analyst relationships are dashed orange (D1 palette)',
@@ -1983,6 +1984,152 @@ test('no correlations, no clause', async () => {
         { routes: [[/correlationCounts/, { total: 0, attributes: {}, objects: {}, events: {} }]] });
     await new Promise(res => setTimeout(res, 0));
     eq('unchanged', g.resolution, 'Seeded L2 · 1 node');
+});
+
+/* ────────────── task 5b: feed and server correlations ────────────── */
+
+// A feed as Feed::attachFeedCorrelations() attaches it: the full record on the
+// event's source map, and a copy on every attribute it was seen in. The map is
+// keyed by feed id in PHP but reaches the browser as a list.
+const FEED1 = { id: '1', name: 'CIRCL OSINT Feed', url: 'https://x/osint', provider: 'CIRCL',
+                source_format: 'misp', lookup_visible: true, event_uuids: ['u1', 'u2'] };
+const FEED9 = { id: '9', name: 'URLHaus', url: 'https://x/urlhaus', provider: 'abuse.ch',
+                source_format: 'csv', lookup_visible: true };
+
+function feedEvent(extra) {
+    return ev(Object.assign({
+        Feed: [FEED1, FEED9],   // FEED9 at index 1: position is not id
+        // The first hit met is a trimmed copy, so the node must read the map.
+        Attribute: [attr({ uuid: 'e1', value: 'linked', Feed: [{ id: '1', name: 'CIRCL OSINT Feed' }] }),
+                    attr({ uuid: 'e2', value: 'loose', Feed: [FEED1, FEED9] })],
+        Object: [
+            obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })],
+                  Attribute: [attr({ uuid: 'c1', Feed: [{ id: '1', name: 'CIRCL OSINT Feed' }, FEED9] }),
+                              attr({ uuid: 'c2' })] }),
+        ],
+    }, extra));
+}
+
+test('5b: one node per feed, joined to every drawn attribute seen in it', async () => {
+    const g = await buildGraph(feedEvent());
+    eq('the two feeds join the canvas', ids(g.nodes), ['attr:e1', 'feed:1', 'feed:9', 'obj:A']);
+    eq('edges into the referenced attribute and the object\'s child — into, which pivotick draws for a child',
+       g.edges.filter(e => e.data.kind === 'feed-correlation').map(e => e.from + '->' + e.to).sort(),
+       ['feed:1->attr:c1', 'feed:1->attr:e1', 'feed:9->attr:c1']);
+    eq('a correlation asserts nothing', g.edges.filter(e => e.data.kind === 'feed-correlation')
+       .map(e => [e.data.label, 'relationship_type' in e.data]), [['', false], ['', false], ['', false]]);
+    const f = byId(g.nodes, 'feed:1').data;
+    eq('the node reads the event\'s full record, not the attribute\'s copy', f, {
+        type: 'feed', label: 'CIRCL OSINT Feed', description: 'CIRCL · misp feed', source_id: '1',
+        provider: 'CIRCL', url: 'https://x/osint', source_format: 'misp', feed_events: 2, scope: 'foreign' });
+    ok('no name key — that is the Object facet', !('name' in f));
+    ok('no feed_events without a MISP-format feed', !('feed_events' in byId(g.nodes, 'feed:9').data));
+});
+
+test('5b: the source map is read by id, as a list or keyed', async () => {
+    const list = await buildGraph(feedEvent());
+    const keyed = await buildGraph(feedEvent({ Feed: { 1: FEED1, 9: FEED9 } }));
+    [['list', list], ['keyed', keyed]].forEach(([shape, g]) => eq(shape + ': each node under its own name',
+        ['feed:1', 'feed:9'].map(i => byId(g.nodes, i).data.label), ['CIRCL OSINT Feed', 'URLHaus']));
+});
+
+test('5b: a feed hit never puts an element on the canvas', async () => {
+    const g = await buildGraph(feedEvent());
+    ok('the loose attribute stays off', !byId(g.nodes, 'attr:e2'));
+    eq('its hits are stated, the feeds and the source nodes counted', g.resolution,
+       'Seeded L1 · 6 nodes · 2 feed hits on elements not shown');
+    eq('and it is still offered by the element pivot', trayLabels(g), ['loose']);
+});
+
+test('5b: a feed seen only by elements not drawn draws no node', async () => {
+    const g = await buildGraph(ev({
+        Feed: [FEED9],
+        Attribute: [attr({ uuid: 'e2', Feed: [FEED9] })],
+        Object: [obj({ uuid: 'A' })],
+    }));
+    eq('no feed node', ids(g.nodes), ['obj:A']);
+    eq('the hit is stated', g.resolution, 'Seeded L2 · 1 node · 1 feed hit on elements not shown');
+});
+
+test('5b: deleted attributes carry no hits', async () => {
+    const g = await buildGraph(ev({
+        Feed: [FEED1],
+        Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1', deleted: true, Feed: [FEED1] })] })],
+    }));
+    eq('no feed node, nothing stated', [ids(g.nodes), g.resolution], [['obj:A'], 'Seeded L2 · 1 node']);
+});
+
+test('5b: past 10,000 hits, a badge on each attribute and the total in the statement', async () => {
+    const g = await buildGraph(ev({
+        FeedCount: 16246,
+        Attribute: [attr({ uuid: 'e1', FeedHit: true })],
+        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })],
+                       Attribute: [attr({ uuid: 'c1', FeedHit: true }), attr({ uuid: 'c2' })] })],
+    }));
+    ok('no source node — there is nothing to point at', !g.nodes.some(n => n.data.type === 'feed'));
+    ok('no feed edge', !g.edges.some(e => e.data.kind === 'feed-correlation'));
+    const c1 = byId(g.nodes, 'obj:A').children.find(c => c.id === 'attr:c1').data;
+    const c2 = byId(g.nodes, 'obj:A').children.find(c => c.id === 'attr:c2').data;
+    eq('the flag rides on the node', [byId(g.nodes, 'attr:e1').data.feed_hit, c1.feed_hit, 'feed_hit' in c2],
+       [true, true, false]);
+    const b = badgesOf(g, c1);
+    eq('one badge, bottom-left, off the analyst corner', b.map(x => [x.position, x.iconClass, x.color]),
+       [['sw', 'fas fa-rss', '#5bc0de']]);
+    ok('it says why no feed is named', /too many/.test(b[0].title), b[0].title);
+    eq('no badge without the flag', badgesOf(g, c2), []);
+    eq('both badges when there is analyst data too',
+       badgesOf(g, { feed_hit: true, analyst_count: 2, analyst_mood: 'none' }).map(x => x.position), ['nw', 'sw']);
+    eq('the statement carries the total', g.resolution,
+       'Seeded L1 · 4 nodes · 16246 feed hits, too many to name their feeds');
+});
+
+test('5b: a server is a source like a feed, on its own layer, even with only id and name', async () => {
+    const SRV = { id: '3', name: 'Partner MISP' };
+    const g = await buildGraph(ev({
+        Server: [SRV],
+        Attribute: [attr({ uuid: 'e1', Server: [SRV] })],
+        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
+    }));
+    eq('its node', byId(g.nodes, 'server:3').data,
+       { type: 'server', label: 'Partner MISP', description: 'Server', source_id: '3', scope: 'foreign' });
+    eq('its edge', g.edges.filter(e => e.from === 'server:3').map(e => [e.to, e.data.kind]),
+       [['attr:e1', 'server-correlation']]);
+});
+
+test('5b: a feed and a server sharing an id are two nodes', async () => {
+    const g = await buildGraph(ev({
+        Feed: [FEED1], Server: [{ id: '1', name: 'S' }],
+        Attribute: [attr({ uuid: 'e1', Feed: [FEED1], Server: [{ id: '1', name: 'S' }] })],
+        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
+    }));
+    eq('both', ids(g.nodes).filter(i => /^(feed|server):/.test(i)), ['feed:1', 'server:1']);
+});
+
+test('5b: sources are styled, iconed and keyed like the other elements', async () => {
+    const g = await buildGraph(feedEvent());
+    const r = g.opts.render;
+    eq('triangles, in their layer\'s colour', [r.nodeStyleMap.feed, r.nodeStyleMap.server],
+       [{ shape: 'triangle', color: '#5bc0de', size: 24 }, { shape: 'triangle', color: '#9b59b6', size: 24 }]);
+    eq('the accessor reads the type', r.nodeTypeAccessor(pnode({ type: 'feed' })), 'feed');
+    eq('a glyph each', [r.defaultNodeStyle.iconClass(pnode({ type: 'feed' })),
+                        r.defaultNodeStyle.iconClass(pnode({ type: 'server' }))], ['fas fa-rss', 'fas fa-server']);
+    const styled = Object.keys(r.edgeStyleMap);
+    g.edges.forEach(e => ok('kind ' + e.data.kind + ' is styled',
+                            styled.indexOf(r.edgeTypeAccessor({ getData: () => e.data })) !== -1));
+    eq('Provenance puts a source with the other events\' elements',
+       g.nodes.filter(n => n.data.type === 'feed').map(n => n.data.scope), ['foreign', 'foreign']);
+});
+
+test('5b: no pivot and no write reaches a source node', async () => {
+    const g = await withEditor();
+    const feed = pnode({ type: 'feed', source_id: '1', scope: 'foreign', label: 'F' });
+    const offered = g.opts.pivots.filter(p => p.appliesTo && p.appliesTo([feed]).length);
+    eq('no pivot applies', offered.map(p => p.id), []);
+    ok('nothing draws from a feed', !g.opts.callbacks.isValidConnection(feed, own.objA));
+    ok('nor to one', !g.opts.callbacks.isValidConnection(own.objA, feed));
+    const fe = pedge('fc:1', own.attrE1, feed, { kind: 'feed-correlation', label: '' });
+    const d = await g.opts.callbacks.onBeforeDelete({ nodes: [], edges: [fe], confirm: () => Promise.resolve(true) });
+    eq('its edge is spared, not deleted', d, { accept: true, edges: [] });
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

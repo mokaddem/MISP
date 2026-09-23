@@ -99,7 +99,8 @@
             comment:         attr.comment,
             uuid:            attr.uuid,
             image:           isImg || undefined,
-            imageUrl:        isImg ? attributeImageUrl(attr) : undefined
+            imageUrl:        isImg ? attributeImageUrl(attr) : undefined,
+            feed_hit:        attr.FeedHit ? true : undefined
         }, owner, analystFields(attr)));
     }
 
@@ -351,6 +352,33 @@
         }, owner, analystFields(obj)));
     }
 
+    // A feed or server this event's values were seen in: one node per source,
+    // off the payload's deduplicated event.Feed / event.Server map. No `name`
+    // key, which the Object facet reads. A restricted Server source carries
+    // only id and name (Feed.php), so everything past the label is optional.
+    var SOURCES = [
+        { scope: 'Feed',   type: 'feed',   kind: 'feed-correlation' },
+        { scope: 'Server', type: 'server', kind: 'server-correlation' }
+    ];
+
+    function sourceNodeData(type, src) {
+        var fmt = src.source_format ? src.source_format + ' feed' : '';
+        return compact({
+            type:          type,
+            label:         truncate(src.name || (type + ' ' + src.id), 42),
+            description:   [src.provider, fmt].filter(Boolean).join(' · ')
+                           || (type === 'feed' ? 'Feed' : 'Server'),
+            source_id:     String(src.id),
+            provider:      src.provider,
+            url:           src.url,
+            source_format: src.source_format,
+            feed_events:   (src.event_uuids || []).length || undefined,
+            // Not this event's. Provenance is binary (D2); the node's type
+            // already says it is a feed and not another event.
+            scope:         'foreign'
+        });
+    }
+
     /* ── misp-iconify (webfont) integration ────────────────── */
     // Pivotick resolves the glyph AND its font from the icon class itself
     // (font-agnostically, off the computed `::before`) and simply skips any
@@ -375,6 +403,9 @@
         if (d.type === 'event') {
             return 'misp-icon misp-icon-event misp-simple';
         }
+        // misp-iconify has neither; pivotick resolves any icon font's class.
+        if (d.type === 'feed')   return 'fas fa-rss';
+        if (d.type === 'server') return 'fas fa-server';
         return undefined;
     }
 
@@ -524,6 +555,45 @@
                       relationship_type: type });
         });
 
+        /* Feed and server correlations (D1). Derived, like correlations, so a
+           hit never puts an element on the canvas: it is drawn from elements
+           the seed already took, and a source node appears with its first
+           drawable hit. Hits on elements not drawn are counted. Past 10,000
+           hits MISP drops the sources and flags each attribute FeedHit, which
+           attributeNodeData turns into a badge; FeedCount is the total.
+           The edge runs source → attribute: pivotick stands in for an edge
+           into a collapsed object's child, and draws none out of one. */
+        var sourceNodes    = 0;
+        var feedHitsHidden = 0;
+        function eachLiveAttribute(fn) {
+            (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a)) fn(a); });
+            (ev.Object || []).forEach(function (o) {
+                if (isDeleted(o)) return;
+                (o.Attribute || []).forEach(function (a) { if (!isDeleted(a)) fn(a); });
+            });
+        }
+        SOURCES.forEach(function (s) {
+            // Keyed by id when MISP builds it, but serialised as a list.
+            var known = {};
+            Object.keys(ev[s.scope] || {}).forEach(function (k) {
+                var src = ev[s.scope][k];
+                if (src && src.id != null) known[String(src.id)] = src;
+            });
+            eachLiveAttribute(function (a) {
+                (a[s.scope] || []).forEach(function (hit) {
+                    var attrId = 'attr:' + a.uuid;
+                    if (!nodeSet[attrId]) { feedHitsHidden++; return; }
+                    var srcId = s.type + ':' + hit.id;
+                    if (!nodeSet[srcId]) {
+                        addNode(srcId, { id: srcId,
+                            data: sourceNodeData(s.type, known[String(hit.id)] || hit) });
+                        sourceNodes++;
+                    }
+                    addEdge(srcId, attrId, '', s.kind);
+                });
+            });
+        });
+
         /* What the graph must be able to say about itself (D12, §7): which
            levels it took, how big that made it, and what it left out. */
         var levels = [];
@@ -536,10 +606,12 @@
             edges: edges,
             stats: {
                 levels:               levels,
-                nodeCount:            seed.cost.l0 + seed.cost.l1 + seed.cost.l2,
+                nodeCount:            seed.cost.l0 + seed.cost.l1 + seed.cost.l2 + sourceNodes,
                 budget:               seed.budget,
                 objectsSkipped:       seed.objectsSkipped,
-                relationshipsSkipped: relationshipsSkipped
+                relationshipsSkipped: relationshipsSkipped,
+                feedHitsHidden:       feedHitsHidden,
+                feedCount:            Number(ev.FeedCount) || 0
             }
         };
     }
@@ -564,6 +636,14 @@
             parts.push(stats.relationshipsSkipped + ' relationship'
                        + (stats.relationshipsSkipped === 1 ? '' : 's')
                        + ' not drawable');
+        }
+        if (stats.feedCount) {
+            parts.push(plural(stats.feedCount, 'feed hit', 'feed hits')
+                       + ', too many to name their feeds');
+        }
+        if (stats.feedHitsHidden) {
+            parts.push(plural(stats.feedHitsHidden, 'feed hit', 'feed hits')
+                       + ' on elements not shown');
         }
         if (correlations) {
             parts.push(plural(correlations, 'correlation', 'correlations') + ' available');
@@ -640,6 +720,25 @@
     }
 
     var MOOD_COLOR = { disputed: '#b94a48', endorsed: '#6fbe80', neutral: '#999', none: '#999' };
+
+    var FEED_COLOR = '#5bc0de';
+
+    function nodeBadges(node) {
+        return analystBadges(node).concat(feedHitBadges(node));
+    }
+
+    // The degraded shape: MISP saw the value in a feed but did not say which,
+    // so there is no node to draw an edge to (§7).
+    function feedHitBadges(node) {
+        var d = node && node.getData ? node.getData() : null;
+        if (!d || !d.feed_hit) return [];
+        return [{
+            position:  'sw',
+            iconClass: 'fas fa-rss',
+            color:     FEED_COLOR,
+            title:     'Seen in a feed — too many hits in this event to name which'
+        }];
+    }
 
     function analystBadges(node) {
         var d = node && node.getData ? node.getData() : null;
@@ -1184,6 +1283,8 @@
                     event:     { shape: 'hexagon', color: '#6fbe80', size: 26 },
                     object:    { shape: 'square',  color: '#428bca', size: 20 },
                     attribute: { shape: 'circle',  color: '#f39a1f', size: 13 },
+                    feed:      { shape: 'triangle', color: FEED_COLOR, size: 24 },
+                    server:    { shape: 'triangle', color: '#9b59b6', size: 24 },
                     image:     {
                         imageFit:    'frame',
                         size:        80,
@@ -1208,10 +1309,9 @@
                         return (d && d.image) ? d.imageUrl : undefined;
                     },
                     textVerticalShift: -1,
-                    badges: analystBadges
+                    badges: nodeBadges
                 },
-                // D1's first edge dimension. Two kinds so far; correlations and
-                // feed/server kinds arrive with their layers (PRD tasks 5, 5b).
+                // D1's first edge dimension.
                 edgeTypeAccessor: function (edge) {
                     var d = edge.getData ? edge.getData() : null;
                     return d ? d.kind : undefined;
@@ -1222,7 +1322,9 @@
                     // Green to match the event nodes it joins; dashed like every
                     // other derived (as opposed to authored) relationship.
                     'event-correlation':    { strokeColor: '#6fbe80', dashed: true },
-                    'correlation':          { strokeColor: '#888', dashed: true }
+                    'correlation':          { strokeColor: '#888', dashed: true },
+                    'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
+                    'server-correlation':   { strokeColor: '#9b59b6', dashed: true }
                 },
                 // Draw the relationship_type on every edge (referenced + newly created).
                 defaultLabelStyle: {
