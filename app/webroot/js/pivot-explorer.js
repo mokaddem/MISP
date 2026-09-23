@@ -1246,6 +1246,14 @@
                     edgeCreator: { enabled: canEdit },
                     deletion:    { enabled: canEdit }
                 },
+                // Element keys on nodeTypeAccessor. Relationship names the
+                // edge facet's key, so legend and panel drive one filter.
+                legend: {
+                    sections: [
+                        { title: 'Element' },
+                        { title: 'Relationship', scope: 'edge', key: 'kind' }
+                    ]
+                },
                 // The layer switch. Declaring the facet is what makes edges
                 // filterable at all — pivotick never derives edge facets.
                 filter: {

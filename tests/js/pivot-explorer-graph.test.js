@@ -1624,6 +1624,18 @@ test('the filter panel declares its facets, provenance first', async () => {
     eq('the edge layer switch is unchanged', g.opts.UI.filter.edgeFacets.map(f => f.key), ['kind']);
 });
 
+test('the legend keys elements and relationships, the latter on the layer facet', async () => {
+    const g = await buildGraph(ev({}));
+    const sections = g.opts.UI.legend.sections;
+    eq('two sections', sections.map(s => s.title), ['Element', 'Relationship']);
+    ok('Element is the nodeTypeAccessor dimension: no key, no entries',
+       sections[0].key === undefined && sections[0].entries === undefined && sections[0].scope === undefined);
+    eq('Relationship keys on edges by kind', [sections[1].scope, sections[1].key], ['edge', 'kind']);
+    ok('the same key the layer facet declares',
+       g.opts.UI.filter.edgeFacets.some(f => f.key === sections[1].key));
+    ok('no provenance section: it has no colour to sample', !sections.some(s => s.key === 'scope'));
+});
+
 test('a facet\'s options are what the live graph holds, children included', async () => {
     const g = await buildGraph(ev({}));
     const cat = g.opts.UI.filter.facets.find(f => f.key === 'category');
