@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `1296966` (`d220446` + the two MISP requests: pivot edges to children, `UI.emptyState`). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 19 done · 6 not started (5b, 5c, 7, 10b, 10c, 11 — 7 now unblocked) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 95 cases, 321 assertions, no dependencies
+- **Status:** 20 done · 6 not started (5b, 5c, 10b, 10c, 11 — all independent) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 96 cases, 326 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -40,7 +40,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ⬚ | 2 | |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | ⬚ | 2 | |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | ✅ | 1 | 2026-09-23 — see §2. Answers PRD §11.9: no aggregation |
-| 7 | Sectioned legend | ⬚ | 3, 5, 6 | |
+| 7 | Sectioned legend | ✅ | 3, 5, 6 | `dcbf0abc3` (2026-09-23) — configuration only; the corner is the library's default, not D3's `bottom-left`. See §2 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | ✅ | 5 | `da35afec2` (2026-09-23) — declares the whole node-facet set, not `scope` alone: declaring any facet replaces derivation. Header in the card, not `UI.mainHeader`. See §2 |
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | ✅ | 1 | 2026-09-23 — built as PRD §11.7's origin-less pivot, not a bespoke pane (P0). See §2 |
 | R5 | Read-only users: every persistence editor off, no editor hooks, no tray | ✅ | 0b | `5a5770d9c` (2026-09-23) — verified in the harness for both roles |
@@ -58,14 +58,14 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
                        │        ├─ 3b ✅ ── 5d ✅
                        │        ├─ 5b
                        │        └─ 5c
-                       ├─ 6 ✅ ─────── 7   (also needs 3, 5)
+                       ├─ 6 ✅ ─────── 7 ✅
                        ├─ 9 ✅ ── 4 ✅
                        ├─ 10 ✅ ─┬─ 10b
                        │         └─ 10c
                        └─ 11
 ```
 
-Nothing is blocked any more. **Next on the critical path:** 7 (legend; 3, 5 and 6 all ✅). **Independent:** 10b, 10c, 5b, 5c, 11. Task 4 moved off the correlation chain
+The critical path is done. **Left, all independent:** 10b, 10c, 5b, 5c, 11. Task 4 moved off the correlation chain
 onto 9 (see §2), and 10 off 8.
 
 ---
@@ -93,6 +93,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Empty canvas (task 4) | ✅ | Now Pivotick's `UI.emptyState` card, MISP supplying the words. Suite 294/294 (6 cases: the statement and its counts without tombstones, the action, the over-budget case beside the resolution line, a bare event with no action, the emptied-by-hand wording from `initial: false`, text not markup; showing and hiding is the library's and tested there); 8 targeted mutants, 8 caught. Live, admin: 184 opens on the library's card — *Nothing in this event is related yet … Its 1 attribute is listed under Event elements* — the button opens the Pivot panel, ingesting removes the card (0 → 1 node), undo brings it back saying *The canvas is empty*; 2014 shows none. No console error | — |
 | Pivots (tasks 5, 5d, 5f) | ✅ | Suite 192/192 (8 new: declaration, cap, no `save`, `appliesTo` before/after counts, never this event, fetch bodies, container shape, stable edge ids, this event's side brought along). Live, admin, via `graph.pivots`: `correlatedAttributes` pairs = counts on 1195 (350), 4116 (708), one attribute, one event, and for the org 9 admin (346); Pivot rail button present; `related-event` potential on 23/23 related events of 2014 and 78/89 of 4116 (the other 11 have no count), each equal to 5e; a related-event run ingests its attributes into the proxy (2014: 4, 4116: 33) and undo takes them back | **Edges, re-run on `1296966`:** every pair lands, both ends on canvas, undo clean — 2014 related-event 1 → 1; 4116 related-event × 5 events 29 → 29 (this event's side arriving as top-level nodes, L2 being skipped); 1195 correlations × 20 origins 57 → 57. No console error |
 | Provenance, facets, header (task 8) | ✅ | Suite 321/321 (11 new cases: provenance on every seeded kind, an extension-event element known by id alone, a record with no `event_id`, pivot results on both sides, the element pivot's nodes and children, the declared facet set and Provenance's worded options, options read off the live graph, the identity line and its tooltip as text, a sparse identity, the correlation clause arriving with the counts and absent at zero); 13 targeted mutants, 13 caught. Live, admin: 2014's header reads *Event 2014 · Test · ADMIN · 2025-11-16* over *Seeded L0+L1+L2 · 41 nodes · 35 correlations available*; 23 proxies `foreign`, the event and its 17 elements `self`; a related-event run brings an attribute in as `foreign` with that event's id and uuid; the filter panel shows exactly the seven declared facets, Provenance offering *This event* / *Other events*; filtering to `self` leaves 6 visible top-level nodes, to `foreign` 23, reset restores all. 4116: *Seeded L0 · 90 nodes · L2 skipped (28410 objects not shown) · 708 correlations available* — 708 equal to 5e; same filter behaviour (6 / 89). No console error | Extension events were not seen live: the explorer fetches the event without `extended:1`, so today every payload element is `self` |
+| Sectioned legend (task 7) | ✅ | Suite 326/326 (1 new case: two sections, Element on `nodeTypeAccessor` with no key, Relationship on edges by `kind`, the same key as the layer facet, no provenance section); 4 targeted mutants, 4 caught. Live, admin, 2014: one card in the right column above the minimap — *Element*: event 24 · attribute 1 · object 4; *Relationship*: event-correlation 23 (dashed green line swatch) · object-reference 2 (solid blue). Clicking *event-correlation* hides those 23 edges by setting `edge:kind` = `[object-reference]` — the panel's own layer filter — and leaves the nodes; clicking again clears it. No console error | Found a library defect: four icons in `icons.ts` carry mangled SVG, which puts `< path d = … />` text into the section headers' `textContent` — invisible, filed as `pivotick/prd/misp/mangled-inline-icons.md` |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey

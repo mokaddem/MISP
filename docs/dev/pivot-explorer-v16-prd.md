@@ -764,8 +764,10 @@ Rejected alternative worth recording: swatches showing the same hue at two satur
 swatch demonstrates the encoding. It only tells the truth for one node kind — a saturated and
 desaturated orange keys it to attributes, while objects are blue and feeds different again.
 
-Corner budget is fine: the legend defaults to `bottom-left`, the minimap to `bottom-right`
-(`Minimap.ts:113`), so they do not collide.
+Corner: **the library's default**, not a declared one (✅ task 7). In `full` mode Pivotick now
+docks the legend in the right column, stacked above the minimap, because the left column belongs to
+the mode rail and its panels — so the `bottom-left` this section first proposed would now fight
+the rail.
 
 #### D2c — Provenance has no canvas encoding ✅ SETTLED
 
@@ -1042,7 +1044,6 @@ lets its click fall through, so declaring one is required for interactivity.
 ```js
 UI: {
     legend: {
-        position: 'bottom-left',
         sections: [
             { title: 'Element' },                                  // nodeTypeAccessor dimension
             { title: 'Relationship', scope: 'edge', key: 'kind' },
@@ -1307,7 +1308,7 @@ relationships, and the events in §3.5 as fixtures):
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | ✅ Analyst-data badges + selection-reactive sidebar panel | 1 |
-| 7 | Sectioned legend | 3, 5, 6 |
+| 7 | ✅ Sectioned legend — `Element` on `nodeTypeAccessor`, `Relationship` on edge `kind`; library-default corner | 3, 5, 6 |
 | 8 | ✅ `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c). The whole node-facet set is declared, since declaring one replaces derivation | 5 |
 | 9 | ✅ "Unlinked attributes" → an origin-less pivot, *Event elements*: search + element/category facets, the Review tab as the paged list, ingest as putting on the canvas (D4 under P0, §11.7) | 1 |
 | 10 | ✅ `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5. Ownership comes from the payload, so 8 was not needed | 1 |
