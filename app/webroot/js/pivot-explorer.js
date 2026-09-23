@@ -27,18 +27,6 @@
     var _graph       = null;
     var _event       = null;
 
-    /* Common object-reference relationship types (misp-objects). The DB list
-       is authoritative; this curated default keeps the prototype self-contained
-       even when the object-relationship table is empty. relationship_type is
-       free text server-side, so "custom…" always works. */
-    var DEFAULT_RELATIONSHIPS = [
-        'related-to', 'connected-to', 'includes', 'included-in', 'part-of',
-        'derived-from', 'downloaded-from', 'downloads', 'dropped-by', 'drops',
-        'communicates-with', 'resolves-to', 'mentions', 'mitigates', 'uses',
-        'used-by', 'targets', 'beacons-to', 'contacts', 'characterizes',
-        'indicates', 'references', 'variant-of', 'child-of', 'parent-of'
-    ];
-
     /* ── helpers ───────────────────────────────────────────── */
     function truncate(str, max) {
         str = String(str == null ? '' : str);
@@ -581,7 +569,10 @@
     }
 
     // This event's live attributes by uuid, and each object's attribute uuids.
+    // Built once per payload: isValidConnection reads it on every pointer move.
+    var _ownIndex = null, _ownIndexFor = null;
     function ownAttributeIndex() {
+        if (_ownIndex && _ownIndexFor === _event) return _ownIndex;
         var ev = (_event && _event.Event) || {};
         var byUuid = {}, byObject = {};
         (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a)) byUuid[a.uuid] = a; });
@@ -594,7 +585,19 @@
                 byObject[o.uuid].push(a.uuid);
             });
         });
-        return { byUuid: byUuid, byObject: byObject };
+        _ownIndexFor = _event;
+        _ownIndex = { byUuid: byUuid, byObject: byObject };
+        return _ownIndex;
+    }
+
+    // Is this node one of this event's live attributes or objects? A
+    // correlated attribute a pivot brought in looks the same but is not.
+    function isOwnElement(d) {
+        if (!d || !d.uuid) return false;
+        var index = ownAttributeIndex();
+        if (d.type === 'object')    return !!index.byObject[d.uuid];
+        if (d.type === 'attribute') return !!index.byUuid[d.uuid];
+        return false;
     }
 
     function attributeUuidsOf(nodes) {
@@ -773,16 +776,7 @@
                         var d = node.getData();
                         return (d && d.image) ? d.imageUrl : undefined;
                     },
-                    textVerticalShift: -1,
-                    // Newly dragged-in, not-yet-referenced nodes wear an orange ring
-                    // until their relationship is saved.
-                    styleCb: function (node) {
-                        var d = node.getData();
-                        if (d && d.pending) {
-                            return { strokeColor: '#f39a1f', strokeWidth: 3 };
-                        }
-                        return {};
-                    }
+                    textVerticalShift: -1
                 },
                 // D1's first edge dimension. Two kinds so far; correlations and
                 // feed/server kinds arrive with their layers (PRD tasks 5, 5b).
@@ -825,14 +819,16 @@
             UI: {
                 mode: 'full',
                 theme: 'dark',
-                // Nothing that would reach MISP is offered to a user who cannot
-                // write it; notes, hides and layout stay, being canvas-only.
-                editors: canEdit ? {} : {
+                // Only drawing a reference reaches MISP, so creating or editing
+                // a node or an edge's data is offered to nobody. A user who
+                // cannot write the event gets no write tool at all; notes,
+                // hides and layout stay, being canvas-only.
+                editors: {
                     nodeEditor:  { enabled: false },
                     nodeCreator: { enabled: false },
-                    edgeCreator: { enabled: false },
                     edgeEditor:  { enabled: false },
-                    deletion:    { enabled: false }
+                    edgeCreator: { enabled: canEdit },
+                    deletion:    { enabled: canEdit }
                 },
                 // The layer switch. Declaring the facet is what makes edges
                 // filterable at all — pivotick never derives edge facets.
@@ -942,7 +938,7 @@
         var filterEl   = null;
         var filterVal  = '';
 
-        var staged = {};   // attr uuid -> { nodeId, saved }
+        var staged = {};   // uuid -> node id, once put on the canvas
 
         /* ── unlinked inventory (what's NOT on the canvas) ──── */
         // Same seed as the canvas builder, so the tray lists exactly the
@@ -1108,12 +1104,10 @@
                 var children = (it.obj.Attribute || []).filter(function (a) { return !isDeleted(a); })
                     .map(function (a) { return { id: 'attr:' + a.uuid, data: attributeNodeData(a) }; });
                 var odata = objectNodeData(it.obj);
-                odata.pending = true;
                 raw = { id: nodeId, children: children, data: odata };
             } else {
                 nodeId = 'attr:' + uuid;
                 var adata = attributeNodeData(it.attr);
-                adata.pending = true;
                 raw = { id: nodeId, data: adata };
             }
             var c = graphCoords(clientX, clientY);
@@ -1124,7 +1118,7 @@
                 console.error('[pivot-explorer] addNode failed:', e);
                 return;
             }
-            staged[uuid] = { nodeId: nodeId, saved: false };
+            staged[uuid] = nodeId;
             if (graph.simulation && typeof graph.simulation.reheat === 'function') {
                 graph.simulation.reheat();
             }
@@ -1151,49 +1145,109 @@
             });
         }
 
-        /* ── edge creation → validate, pick relationship, save ─ */
+        /* ── edge creation → what it can be, ask, save ──────── */
         function nodeData(n) {
             return n && typeof n.getData === 'function' ? n.getData() : null;
         }
 
-        // MISP references are owned by an object → the source must be an object.
+        // Which link kinds a drawn edge could become (D2b). An object
+        // reference is owned by an object and stays inside its event, so both
+        // ends must be this event's own elements, and only an attribute or an
+        // object can be referenced.
+        function possibleKinds(source, target) {
+            var s = nodeData(source) || {}, t = nodeData(target) || {};
+            var kinds = [];
+            if (canEdit && s.type === 'object' && isOwnElement(s)
+                && (t.type === 'object' || t.type === 'attribute') && isOwnElement(t)) {
+                kinds.push('object-reference');
+            }
+            return kinds;
+        }
+
         // A note (no getData) is linking itself, which is not ours to judge.
-        function isValidConnection(source) {
+        function isValidConnection(source, target) {
             if (!source || typeof source.getData !== 'function') return true;
-            var d = source.getData();
-            return !!d && d.type === 'object';
+            return possibleKinds(source, target).length > 0;
+        }
+
+        // The object_relationships vocabulary, fetched once on first use. A
+        // failed fetch leaves only the free-text field, which the server
+        // accepts anyway.
+        var _vocabulary = null;
+        function loadVocabulary() {
+            if (_vocabulary) return _vocabulary;
+            _vocabulary = fetch(baseurl + '/objectRelationships/index.json', {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (rows) {
+                return (Array.isArray(rows) ? rows : [])
+                    .map(function (r) { return r && r.name; })
+                    .filter(function (n) { return typeof n === 'string' && n !== ''; })
+                    .sort();
+            })
+            .catch(function (err) {
+                console.error('[pivot-explorer] relationship list failed:', err);
+                _vocabulary = null;   // ask again next time
+                return [];
+            });
+            return _vocabulary;
+        }
+
+        function relationshipFields(names) {
+            var fields = [];
+            if (names.length) {
+                fields.push({
+                    key:          'relationship_type',
+                    label:        'Relationship type',
+                    type:         'select',
+                    options:      names.map(function (n) { return { label: n, value: n }; }),
+                    defaultValue: names.indexOf('related-to') !== -1 ? 'related-to' : names[0]
+                });
+            }
+            fields.push({
+                key:         'custom',
+                label:       names.length ? 'Or a custom one' : 'Relationship type',
+                type:        'text',
+                placeholder: 'custom relationship'
+            });
+            return fields;
         }
 
         // The edge only lands once the reference is saved, so the history
         // records it as persisted and a refused save leaves nothing behind.
         function onBeforeEdgeCreate(ctx) {
             if (ctx.kind !== 'edge') return true;
+            if (!possibleKinds(ctx.source, ctx.target).length) return false;
             var fromData = nodeData(ctx.source);
             var toData   = nodeData(ctx.target);
-            if (!fromData || !toData || fromData.type !== 'object') return false;
 
-            return new Promise(function (resolve) {
-                showRelationshipPicker(function (rel) {
-                    saveReference(fromData.uuid, toData.uuid, rel).then(function (ok) {
-                        resolve(ok ? {
-                            accept:    true,
-                            data:      { kind: 'object-reference', label: rel },
-                            persisted: true
-                        } : false);
-                    });
-                }, function () {   // cancelled
-                    resolve(false);
+            return loadVocabulary().then(function (names) {
+                return ctx.promptData({
+                    title:       'Add relationship',
+                    submitLabel: 'Save',
+                    fields:      relationshipFields(names)
+                });
+            }).then(function (values) {
+                if (!values) return false;   // cancelled
+                var rel = String(values.custom || '').trim()
+                          || String(values.relationship_type || '').trim();
+                if (!rel) {
+                    notify('warning', 'No relationship type', 'Pick one or type your own.');
+                    return false;
+                }
+                return saveReference(fromData.uuid, toData.uuid, rel).then(function (ok) {
+                    return ok ? {
+                        accept:    true,
+                        data:      { kind: 'object-reference', label: rel },
+                        persisted: true
+                    } : false;
                 });
             });
-        }
-
-        // Mark a staged node saved and drop its pending ring, whichever end it is.
-        function clearPending(uuid) {
-            if (staged[uuid]) staged[uuid].saved = true;
-            var live = typeof graph.getMutableNode === 'function'
-                ? (graph.getMutableNode('obj:' + uuid) || graph.getMutableNode('attr:' + uuid))
-                : null;
-            if (live && live.updateData) live.updateData({ pending: undefined });
         }
 
         function saveReference(sourceUuid, targetUuid, rel) {
@@ -1223,8 +1277,6 @@
                 return res.json().catch(function () { return {}; });
             })
             .then(function () {
-                clearPending(sourceUuid);   // a staged object can be the source
-                clearPending(targetUuid);
                 notify('success', 'Relationship added', rel);
                 return true;
             })
@@ -1232,47 +1284,6 @@
                 console.error('[pivot-explorer] save failed:', err);
                 notify('error', 'Save failed', String(err && err.message || err));
                 return false;
-            });
-        }
-
-        /* ── relationship picker ───────────────────────────── */
-        function showRelationshipPicker(onConfirm, onCancel) {
-            var backdrop = document.createElement('div');
-            backdrop.className = 'pe-picker-backdrop';
-            var opts = DEFAULT_RELATIONSHIPS.map(function (r) {
-                return '<option value="' + r + '">' + r + '</option>';
-            }).join('');
-            backdrop.innerHTML =
-                '<div class="pe-picker">' +
-                    '<h4>Add relationship</h4>' +
-                    '<div class="pe-picker-sub">object → target</div>' +
-                    '<label>Relationship type</label>' +
-                    '<select class="pe-picker-select">' + opts +
-                        '<option value="__custom">custom…</option></select>' +
-                    '<input type="text" class="pe-picker-custom" placeholder="custom relationship" ' +
-                        'style="display:none;margin-top:.4rem;">' +
-                    '<div class="pe-picker-actions">' +
-                        '<button type="button" class="pe-picker-btn pe-picker-cancel">Cancel</button>' +
-                        '<button type="button" class="pe-picker-btn pe-btn-primary pe-picker-save">Save</button>' +
-                    '</div>' +
-                '</div>';
-            (stageEl || document.body).appendChild(backdrop);
-
-            var sel    = backdrop.querySelector('.pe-picker-select');
-            var custom = backdrop.querySelector('.pe-picker-custom');
-            sel.value = 'related-to';
-            sel.addEventListener('change', function () {
-                custom.style.display = sel.value === '__custom' ? '' : 'none';
-                if (sel.value === '__custom') custom.focus();
-            });
-            function close() { if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop); }
-            backdrop.querySelector('.pe-picker-cancel').addEventListener('click', function () {
-                close(); onCancel();
-            });
-            backdrop.querySelector('.pe-picker-save').addEventListener('click', function () {
-                var rel = sel.value === '__custom' ? custom.value.trim() : sel.value;
-                if (!rel) { custom.focus(); return; }
-                close(); onConfirm(rel);
             });
         }
 

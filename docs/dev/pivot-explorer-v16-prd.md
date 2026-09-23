@@ -715,9 +715,8 @@ state.
 **The two kinds do not share a vocabulary**, which decides the form's shape:
 
 - **Object references** draw on `object_relationships` — **262 rows** on the dev instance, so it
-  is populated and authoritative. The module's hardcoded `DEFAULT_RELATIONSHIPS` (25 entries,
-  `:34`)
-  is a stale fallback.
+  is populated and authoritative. The module's hardcoded 25-entry fallback is deleted (task 10);
+  the list comes from `/objectRelationships/index.json`, and a failed fetch leaves free text.
 - **Analyst relationships** take free text (`relationship_type varchar(255)`, no vocabulary).
 
 So the relationship-type field depends on the chosen link type, which the declarative
@@ -1289,7 +1288,7 @@ relationships, and the events in §3.5 as fixtures):
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | 1 |
-| 10 | `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5 | 1, 8 |
+| 10 | ✅ `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5. Ownership comes from the payload, so 8 was not needed | 1 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | 10 |
 | 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4) | 10 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |

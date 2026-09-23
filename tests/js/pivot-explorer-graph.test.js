@@ -132,7 +132,9 @@ function buildGraph(payload, options) {
             fetchLog.push({ url: String(url), init: init || {} });
             const route = (options.routes || []).find(r => r[0].test(String(url)));
             const body = route ? (typeof route[1] === 'function' ? route[1](init) : route[1]) : payload;
-            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+            // A route answering { __status: 500 } stands for a failed request.
+            const status = body && body.__status ? body.__status : 200;
+            return Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) });
         },
         console: { log() {}, error: (...a) => errors.push(a.map(String).join(' ')) },
         Promise, JSON, Object, String, Number, Array, Math, RegExp, Error,
@@ -1155,6 +1157,141 @@ test('this event\'s side of a pair comes along when it is not on the canvas', as
     const own = r.nodes.filter(n => n.id.indexOf('attr:') === 0).map(n => n.id).sort();
     eq('both source attributes are offered (the stub graph holds nothing)', own, ['attr:c1', 'attr:e1']);
     eq('and drawn from the event payload', r.nodes.find(n => n.id === 'attr:e1').data.uuid, 'e1');
+});
+
+/* ──────────────── task 10: what a drawn edge can be ─────────────── */
+
+const VOCAB = [
+    { name: 'related-to' }, { name: 'drops' }, { name: "<script>alert('name')</script>" },
+    { name: '' }, { name: null },
+];
+
+function editorFixture() {
+    return ev({
+        Attribute: [attr({ uuid: 'e1' })],
+        Object: [
+            obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1' })] }),
+            obj({ uuid: 'B' }),
+        ],
+    });
+}
+
+// Boot as an editor, recording every POST to objectReferences/add.
+function withEditor(extraRoutes) {
+    const posts = [];
+    return buildGraph(editorFixture(), {
+        routes: (extraRoutes || []).concat([
+            [/objectRelationships\/index\.json$/, VOCAB],
+            [/objectReferences\/add\//, init => { posts.push(JSON.parse(init.body)); return {}; }],
+            [/correlationCounts/, { attributes: {}, objects: {}, events: {} }],
+        ]),
+    }).then(g => { g.posts = posts; return g; });
+}
+
+// An EdgeCreateContext whose form answers `answer`, recording what it was asked.
+function edgeCtx(source, target, answer) {
+    const ctx = {
+        kind: 'edge', source, target, origin: 'drag', asked: null,
+        promptData: opts => { ctx.asked = opts; return Promise.resolve(answer); },
+    };
+    return ctx;
+}
+
+const own = {
+    objA: pnode({ type: 'object', uuid: 'A' }),
+    objB: pnode({ type: 'object', uuid: 'B' }),
+    attrE1: pnode({ type: 'attribute', uuid: 'e1' }),
+    childC1: pnode({ type: 'attribute', uuid: 'c1' }),
+};
+const foreign = {
+    attr: pnode({ type: 'attribute', uuid: 'x1', event_id: '7' }),
+    obj: pnode({ type: 'object', uuid: 'X' }),
+    event: pnode({ type: 'event', uuid: 'R7', event_id: '7' }),
+};
+
+test('only drawing a reference reaches MISP, so it is the only write tool an editor keeps', async () => {
+    const g = await withEditor();
+    eq('editor', g.opts.UI.editors, {
+        nodeEditor: { enabled: false }, nodeCreator: { enabled: false },
+        edgeEditor: { enabled: false }, edgeCreator: { enabled: true }, deletion: { enabled: true },
+    });
+    const r = await buildGraph(editorFixture(), { canEdit: false });
+    ok('a read-only viewer gets none of them',
+       Object.keys(r.opts.UI.editors).every(k => r.opts.UI.editors[k].enabled === false));
+    ok('and no edge hooks', !r.opts.callbacks.isValidConnection && !r.opts.callbacks.onBeforeEdgeCreate);
+});
+
+test('a reference runs from one of this event\'s objects to one of its attributes or objects', async () => {
+    const g = await withEditor();
+    const valid = g.opts.callbacks.isValidConnection;
+    ok('object → object', valid(own.objA, own.objB));
+    ok('object → event-level attribute', valid(own.objA, own.attrE1));
+    ok('object → another object\'s attribute', valid(own.objB, own.childC1));
+    ok('an attribute cannot own a reference', !valid(own.attrE1, own.objA));
+    ok('an event node cannot own one', !valid(foreign.event, own.objA));
+    ok('nor be referenced', !valid(own.objA, foreign.event));
+    ok('a correlated attribute from another event cannot be referenced', !valid(own.objA, foreign.attr));
+    ok('an object that is not this event\'s cannot own one', !valid(foreign.obj, own.objB));
+    ok('a note linking itself is not ours to judge', valid({}, own.objA));
+});
+
+test('an invalid pair is refused without asking anything', async () => {
+    const g = await withEditor();
+    const ctx = edgeCtx(own.attrE1, own.objA, { relationship_type: 'drops' });
+    eq('refused', await g.opts.callbacks.onBeforeEdgeCreate(ctx), false);
+    ok('no form', ctx.asked === null);
+    eq('no POST', g.posts.length, 0);
+});
+
+test('the form offers the object_relationships vocabulary, sorted, defaulting to related-to', async () => {
+    const g = await withEditor();
+    const ctx = edgeCtx(own.objA, own.objB, null);
+    await g.opts.callbacks.onBeforeEdgeCreate(ctx);
+    const select = ctx.asked.fields[0];
+    eq('select of names, blanks dropped', [select.key, select.type, select.options.map(o => o.value)],
+       ['relationship_type', 'select', ["<script>alert('name')</script>", 'drops', 'related-to']]);
+    eq('a name is a label, handed over as text', select.options[0].label, "<script>alert('name')</script>");
+    eq('defaults to related-to', select.defaultValue, 'related-to');
+    eq('plus a free-text field', [ctx.asked.fields[1].key, ctx.asked.fields[1].type], ['custom', 'text']);
+    ok('the vocabulary was asked for once, and only when needed',
+       g.fetchLog.filter(f => /objectRelationships/.test(f.url)).length === 1);
+});
+
+test('saving: the chosen type is POSTed and the edge lands persisted', async () => {
+    const g = await withEditor();
+    const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.attrE1, { relationship_type: 'drops' }));
+    eq('POST body', g.posts, [{ ObjectReference: { referenced_uuid: 'e1', relationship_type: 'drops', comment: '' } }]);
+    eq('decision', d, { accept: true, data: { kind: 'object-reference', label: 'drops' }, persisted: true });
+    ok('to the source object', g.fetchLog.some(f => /\/misp\/objectReferences\/add\/A\.json$/.test(f.url)));
+});
+
+test('a typed relationship wins over the list; an empty answer saves nothing', async () => {
+    const g = await withEditor();
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { relationship_type: 'drops', custom: '  beacons-to ' }));
+    eq('custom, trimmed', g.posts[0].ObjectReference.relationship_type, 'beacons-to');
+    eq('blank', await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { relationship_type: '', custom: ' ' })), false);
+    eq('cancelled', await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, null)), false);
+    eq('only the first was POSTed', g.posts.length, 1);
+});
+
+test('a refused save leaves no edge', async () => {
+    const g = await withEditor([[/objectReferences\/add\//, { __status: 403, message: 'no' }]]);
+    eq('refused', await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { relationship_type: 'drops' })), false);
+});
+
+test('without the vocabulary the form is one free-text field, and asks again next time', async () => {
+    const g = await withEditor([[/objectRelationships\/index\.json$/, { __status: 500 }]]);
+    const ctx = edgeCtx(own.objA, own.objB, { custom: 'drops' });
+    eq('saved', (await g.opts.callbacks.onBeforeEdgeCreate(ctx)).accept, true);
+    eq('one text field', ctx.asked.fields.map(f => [f.key, f.type]), [['custom', 'text']]);
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, null));
+    eq('asked twice', g.fetchLog.filter(f => /objectRelationships/.test(f.url)).length, 2);
+});
+
+test('nothing carries a pending flag any more (D2)', async () => {
+    const g = await withEditor();
+    ok('no styleCb', g.opts.render.defaultNodeStyle.styleCb === undefined);
+    ok('no node data carries pending', JSON.stringify(g.nodes).indexOf('pending') === -1);
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

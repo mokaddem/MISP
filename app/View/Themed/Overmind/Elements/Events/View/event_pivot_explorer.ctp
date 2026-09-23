@@ -43,7 +43,7 @@
 <?php if ($canEdit): ?>
 <style>
     /* The tray is rendered inside pivotick's sidebar (extraPanel); these style
-       its contents. The relationship picker overlays the graph stage. */
+       its contents. */
     #pe-card .pe-tray-body { display: flex; flex-direction: column; gap: .5rem; font-size: .82rem; }
     #pe-card .pe-count { font-size: .74rem; opacity: .75; }
     #pe-card .pe-count .pe-badge {
@@ -89,35 +89,5 @@
     }
     .pe-ghost-attribute { background: #f39a1f; color: #1a1d21; }
     .pe-ghost-object    { background: #428bca; color: #fff; }
-
-    /* Relationship picker */
-    #pe-card .pe-picker-backdrop {
-        position: absolute; inset: 0; z-index: 40;
-        background: rgba(0,0,0,.35); display: flex;
-        align-items: center; justify-content: center;
-    }
-    #pe-card .pe-picker {
-        width: 320px; max-width: 90%; padding: 1rem; border-radius: 10px;
-        background: #1c2128; border: 1px solid rgba(255,255,255,.14);
-        box-shadow: 0 12px 32px rgba(0,0,0,.5); color: #e6e8ea;
-    }
-    #pe-card .pe-picker h4 { font-size: .95rem; margin: 0 0 .25rem; }
-    #pe-card .pe-picker .pe-picker-sub { font-size: .74rem; opacity: .6; margin-bottom: .75rem; word-break: break-all; }
-    #pe-card .pe-picker label { display: block; font-size: .75rem; opacity: .7; margin: .5rem 0 .2rem; }
-    #pe-card .pe-picker select,
-    #pe-card .pe-picker input[type="text"] {
-        width: 100%; padding: .4rem .5rem; border-radius: 6px;
-        border: 1px solid rgba(255,255,255,.15); background: rgba(0,0,0,.25);
-        color: inherit; font-size: .85rem;
-    }
-    #pe-card .pe-picker-btn {
-        display: inline-flex; align-items: center; gap: .4rem;
-        padding: .3rem .7rem; border-radius: 6px; cursor: pointer;
-        border: 1px solid rgba(255,255,255,.18);
-        background: rgba(255,255,255,.06); color: inherit; font-size: .85rem;
-    }
-    #pe-card .pe-picker-btn:hover { background: rgba(255,255,255,.12); }
-    #pe-card .pe-picker-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
-    #pe-card .pe-picker .pe-btn-primary { background: #428bca; border-color: #428bca; color: #fff; }
 </style>
 <?php endif; ?>

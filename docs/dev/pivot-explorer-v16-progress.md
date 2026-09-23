@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 12 done · 2 built and blocked upstream (5, 5d) · 10 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); count source built (5e); **5 and 5d next, needing a fetch path**
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 48 cases, 170 assertions, no dependencies
+- **Status:** 13 done · 2 built and blocked upstream (5, 5d) · 9 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); **in progress while the Pivotick fix is out: 4, 6, 9 (10 done)**
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 65 cases, 225 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -43,7 +43,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | ⬚ | 5 | |
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | ⬚ | 1 | |
 | R5 | Read-only users: every persistence editor off, no editor hooks, no tray | ✅ | 0b | `5a5770d9c` (2026-09-23) — verified in the harness for both roles |
-| 10 | `possibleKinds()`; `ctx.promptData` replaces the `innerHTML` picker; delete the pending ring (D2, D2b, P0) | ⬚ | 1, 8 | Hooks landed in 0b, read-only gating in R5. The editor role still has Pivotick's Add node / Edit node / Delete node, none of them backed by MISP — decide here |
+| 10 | `possibleKinds()`; `ctx.promptData` replaces the `innerHTML` picker; delete the pending ring (D2, D2b, P0) | ✅ | 1 | 2026-09-23 — see §2. Did not need 8: ownership is read off the payload, not a `scope` field. Needed the vocabulary endpoint fixed first (`e39908012`) |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | ⬚ | 10 | |
 | 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, `persisted: true`; node deletion vetoed (D6, R4) | ⬚ | 10 | Pivotick locks the history row itself |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | ⬚ | 1 | |
@@ -88,6 +88,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | v2 bundle + write path (task 0b) | ✅ | Clean `npm run build` of `d220446`, `node --check`, md5 `1183ba8c…`; every option/call `pivot-explorer.js` makes checked against `dist/types`; suite 170/170; **headless Chromium harness** — real bundle + real `pivot-explorer.js`, stubbed `fetch`, hand-built fixture (L0 pair, one reference, one L2 object, one tray attribute): renders with no console error, L0+L1+L2 seeded, both edge colours, tray drop pinned + pending, four edge gestures each checked for picker / POST / edge / history | §8.1 on the real instance with events 1195 and 4116 |
 | Count endpoint (task 5e) | ✅ model + aggregation | `php -l` on every file; `CorrelationCountToolTest` 3/3 under the container's PHPUnit; the method body run from a check shell against the live models for two users × two events — counts, timings, sizes, the 404, and agreement with `RelatedEvent` (graph-endpoint PRD §7) | **The HTTP route itself** — JSON extension, ACL entry, 404 — needs the dev server on this branch |
 | Real instance, v2 (task 1b) | ✅ | Playwright, logged in, dev server on `pivotick-v2`. `correlationCounts` over HTTP: admin 1195 → 350 / 18 events, 4116 → 708 / 78; org 9 admin 1195 → 346 / 15, 4116 → 404 — identical to the check shell. Pivot Explorer: 1195 opens in 4.7 s, layout settles in ~17 s (4,743 top-level nodes, 2,362 references); 4116 opens in 21 s (L0 only, 90 nodes — the D13 payload); 2014 in 0.4 s. No console error from the explorer. Edit rights: admin → editor, plain org-1 User on an org-9 event → read-only. A drawn reference on 2014 POSTs 200, lands as `object-reference`, records `persisted: true`, survives a reload — then deleted (`objectReferences/delete/11378/1`) | Glyphs: see below |
+| Drawn edges (task 10) | ✅ | Suite 225/225 (9 new: editor gating per role, the ownership gate on both ends, refusal before any form, vocabulary sorted/defaulted/fetched once, the POST and the persisted decision, custom beats list, blank and cancel save nothing, a refused save, the free-text fallback retrying); 7 targeted mutants, 7 caught. Live, admin, event 2014, through Pivotick's click-connect: the form is Pivotick's themed modal with 262 relationships defaulting to `related-to`, the `<script>` row rendered as text (no `<script>` element in the modal); a list choice and a typed one both POST, land as `object-reference` with the typed label, no console error — references 11379/11380, then hard-deleted | The perm-only analyst kind is 10b |
 | Pivots (tasks 5, 5d, 5f) | ✅ except edges | Suite 192/192 (8 new: declaration, cap, no `save`, `appliesTo` before/after counts, never this event, fetch bodies, container shape, stable edge ids, this event's side brought along). Live, admin, via `graph.pivots`: `correlatedAttributes` pairs = counts on 1195 (350), 4116 (708), one attribute, one event, and for the org 9 admin (346); Pivot rail button present; `related-event` potential on 23/23 related events of 2014 and 78/89 of 4116 (the other 11 have no count), each equal to 5e; a related-event run ingests its attributes into the proxy (2014: 4, 4116: 33) and undo takes them back | **Correlation edges: 90 staged, 0 landed** — upstream |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
@@ -189,6 +190,25 @@ the owner's — PRD §3.7.
   page throws `e.target.closest is not a function` (`a6a06665f`).
 - **Side effect of the save test:** event 2014's timestamp moved to 2026-09-23 13:35; the
   reference itself is gone.
+
+**Task 10 — what was decided while building it.**
+
+- **Node creation, node editing and edge editing are off for everyone**, editors included. None of
+  them writes anything to MISP: a created node would be a phantom, and an edited label would
+  disagree with the saved reference. Drawing an edge and deleting stay for editors (deletion's
+  MISP backing is 10c).
+- **"Is this one of this event's elements" is answered from the payload**, not from task 8's
+  `scope` field: a node is own if its uuid is a live attribute or object of the event. That is
+  what made 10 independent of 8. A correlated attribute a pivot brings in fails it, so it can
+  never be referenced.
+- **The vocabulary is `object_relationships`**, from `/objectRelationships/index.json`, fetched on
+  the first drawn edge and cached. That endpoint returned a 500 for every user — it checked a
+  REST payload only CRUD actions set — and is fixed on its own (`e39908012`). The hardcoded
+  25-entry list is deleted; if the fetch fails, the form is a single free-text field and the next
+  edge asks again.
+- **The form is declarative**: a select (defaulting to `related-to`) and a free-text field, the
+  typed value winning. Pivotick has no combobox, so a list plus a text field is the closest
+  honest shape. Only one kind is ever possible until 10b, so there is no link-type question.
 
 **Tasks 5 and 5d are blocked on Pivotick, not on MISP.** `PivotManager.ingest()` lands a carried
 edge only when an endpoint is a *top-level* node the run landed: descendants of a new container are
