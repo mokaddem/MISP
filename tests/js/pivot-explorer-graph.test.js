@@ -1310,6 +1310,14 @@ test('nothing carries a pending flag any more (D2)', async () => {
     ok('no node data carries pending', JSON.stringify(g.nodes).indexOf('pending') === -1);
 });
 
+/* ─────────────── task 11: physics adapts after the first frame ─────────────── */
+
+test('physics is auto, seeded by the hand-tuned link distance', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1' })] }));
+    eq('both set: a d3 value alone would pin physics to manual',
+       g.opts.simulation, { physics: 'auto', d3LinkDistance: 200 });
+});
+
 /* ──────────── task 10c: deleting an edge deletes the reference ──────────── */
 
 function deleteFixture() {

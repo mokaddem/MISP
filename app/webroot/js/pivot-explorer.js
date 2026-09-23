@@ -1216,7 +1216,10 @@
                     }
                 }
             },
+            // The link distance seeds the opening frame; auto re-tunes from
+            // there, since a seed can be 20 nodes or 1,500 (D7).
             simulation: {
+                physics:        'auto',
                 d3LinkDistance: 200
             },
             // No `save`: correlations are derived, never counted unsaved.
