@@ -1,6 +1,6 @@
 # PRD: A graph endpoint for the Pivot Explorer
 
-**Status:** DRAFT — not started. Deferred from
+**Status:** DRAFT — first slice built (§7, correlation counts, 2026-09-23). Deferred from
 [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md) D13.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-31
@@ -144,3 +144,48 @@ missing one.
 - The Pivot Explorer builds its graph from the response with no `computeConnectivity()` or
   `buildGraphData()` of its own.
 - ACL entry present; `findMissingFunctionNames` clean.
+
+## 7. Slice 1 — correlation counts ✅ BUILT (`7f0b6d041`)
+
+Built ahead of the rest because the parent PRD's pivots (R1, R2) cannot gate or badge without it.
+
+`GET /events/correlationCounts/{id}.json`, ACL `*`, 404 unless `fetchSimpleEvent` shows the
+event to the user.
+
+```json
+{ "total": 350,
+  "attributes": { "<attribute uuid>": 3 },
+  "objects":    { "<object uuid>": 4 },
+  "events":     { "<correlated event id>": 124 },
+  "limit": 5000 }
+```
+
+- **Source:** `Event::getRelatedAttributes()` — the same correlations, the same per-row ACL
+  (`checkCorrelationACL`), the same exclusion of excluded and over-correlating values, and the
+  same `MISP.max_correlations_per_event` cap per side as the event view's `RelatedAttribute`.
+  Engine-agnostic: Default, NoAcl and OnDemand all implement it. `limit` is that setting, so a
+  client knows the ceiling; there is deliberately no "truncated" flag, since deciding it would
+  mean counting rows the user may not see.
+- **The event's own side** is limited to its attributes the user can see
+  (`fetchAttributesSimple` with the user's conditions, restricted to the correlated ids), so a
+  count never speaks for an attribute the user could not open.
+- **Aggregation** is `CorrelationCountTool::aggregate()`, pure and unit-tested
+  (`app/Test/CorrelationCountToolTest.php`, 3 cases).
+
+Measured on the dev instance (the served tree was another worktree, so the method body ran from
+a check shell against the live models — identical code, not the HTTP route):
+
+| User | Event | Correlations | Attributes | Objects | Events | Time | Size |
+|---|---|---|---|---|---|---|---|
+| site admin | 4116 | 708 | 352 | 352 | 78 | 35 ms | 29.6 KB |
+| site admin | 1195 | 350 | 312 | 88 | 18 | 27 ms | 16.6 KB |
+| org 9 admin | 1195 | 346 | 311 | 88 | 15 | 31 ms | 16.5 KB |
+| org 9 admin | 4116 | — | — | — | — | 404 | — |
+
+Against `RelatedEvent`: on 1195 the counted events and `RelatedEvent` agree exactly, for both
+users. On 4116, 11 of 89 related events count 0 — they are related only through values the
+correlation list excludes. **The raw 5,629 for event 4116 in §1 is the table, not what a user
+is offered; 708 is.**
+
+Still owed: the route over HTTP (JSON extension, ACL, the 404) once the dev server serves this
+branch.

@@ -7,7 +7,7 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 10 done · 1 part-done and blocked · 12 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); **one open question — the count source for R1/R2 — gates 5, 5d and 4**
+- **Status:** 11 done · 1 part-done and blocked · 12 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); count source built (5e); **5 and 5d next, needing a fetch path**
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 48 cases, 170 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
@@ -32,8 +32,9 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ✅ | 2 | `7ab4f859f` (2026-08-31), shared with 3c — see §2 |
 | 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ✅ | 3, 3b | `7ab4f859f` (2026-08-31). **Changes what most events draw** — see §2 |
 | 4 | D11 empty-state message, pointing at the correlation pivot | ⬚ | 3c, 5 | Now follows 5: the message points at the pivot |
-| 5 | Correlations as a pivot — `appliesTo` / `fetch` / `maxCandidates`, no `save` (R1) | ⏸ | count source | Needs a cheap count for `summarize`; the payload has none |
-| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | ⏸ | 3b, count source | Same count question, per related event |
+| 5e | Count source — `GET /events/correlationCounts/{id}.json` (R1, first slice of D13) | ✅ | — | `7f0b6d041` (2026-09-23) — see §2 |
+| 5 | Correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | 🔜 | 5e, fetch path | Count in hand; `fetch` needs the correlated elements with stable ids |
+| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 🔜 | 3b, 5e, fetch path | Badge `n` = 5e's `events` entry |
 | 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ⬚ | 2 | |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | ⬚ | 2 | |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | ⬚ | 1 | |
@@ -50,9 +51,10 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 
 ```
 0 ✅ ─ E ✅ ─ T ✅
-         └──── 1b ⏸ ─┬─ 2 ✅ ─┬─ 3 ✅ ─┬─ 3c ✅ ─ 5 ⏸ ─ 4 ─ 8 ─ 10 ─┬─ 10b
-                      │        │        │         (count source)      └─ 10c
-                      │        ├─ 3b ✅ ─┴─ 5d ⏸
+         └──── 1b ⏸ ─┬─ 2 ✅ ─┬─ 3 ✅ ─┬─ 3c ✅ ─ 5 ─ 4 ─ 8 ─ 10 ─┬─ 10b
+                      │        │        │   ↑                     └─ 10c
+                      │        │        │  5e ✅ ─┐
+                      │        ├─ 3b ✅ ─┴─────── 5d
                       │        ├─ 5b
                       │        └─ 5c
                       ├─ 6 ──────────── 7   (also needs 3, 5)
@@ -61,8 +63,8 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 ```
 
 Task 1b unblocks four independent fronts (2, 6, 9, 11). The seed chain is now complete through
-3c. Under R1 the next link is **task 5, and it waits on the count source** — the one open
-question. The longest chain is `5 → 4 → 8 → 10 → 10b/10c`. Nothing on the write-path branch
+3c. Under R1 the next link is **task 5**; its count (5e) is built, and what it still needs is a
+fetch path for the correlated elements. The longest chain is `5 → 4 → 8 → 10 → 10b/10c`. Nothing on the write-path branch
 (10, 10c) needs the count: its dependency on 8 is the scope facet, so 10's P0 work — the
 `promptData` picker — could go first if the count question takes time.
 
@@ -83,6 +85,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Task 3b — L0 nodes, `event-correlation` edges, `Event` as a relationship target | ✅ data + config | Same suite: proxy per `RelatedEvent`, dedupe, no self-proxy, the edge-gate on the event node, `Event`-typed analyst targets resolving to both the event and its neighbours, label/description/`event_id` shape, and `onNodeDbclick` navigating only for a foreign `event` node | **The green hexagons and dashed-green edges are visual — §8.1**; §8.7's double-click check |
 | Task 3c — the budget, L2 clusters, the resolution statement | ✅ data + config | Same suite: the boundary (1,500 fits, 1,501 skips whole), cost counted with children and without tombstones, L2 never seeding a bare attribute, the tray losing exactly the objects L2 drew, and the statement's own text in eight states | **How the statement reads in the card — §8.1**; the `hideDisconnected` collision (§7) is still unexercised |
 | v2 bundle + write path (task 0b) | ✅ | Clean `npm run build` of `d220446`, `node --check`, md5 `1183ba8c…`; every option/call `pivot-explorer.js` makes checked against `dist/types`; suite 170/170; **headless Chromium harness** — real bundle + real `pivot-explorer.js`, stubbed `fetch`, hand-built fixture (L0 pair, one reference, one L2 object, one tray attribute): renders with no console error, L0+L1+L2 seeded, both edge colours, tray drop pinned + pending, four edge gestures each checked for picker / POST / edge / history | §8.1 on the real instance with events 1195 and 4116 |
+| Count endpoint (task 5e) | ✅ model + aggregation | `php -l` on every file; `CorrelationCountToolTest` 3/3 under the container's PHPUnit; the method body run from a check shell against the live models for two users × two events — counts, timings, sizes, the 404, and agreement with `RelatedEvent` (graph-endpoint PRD §7) | **The HTTP route itself** — JSON extension, ACL entry, 404 — needs the dev server on this branch |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey

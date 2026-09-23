@@ -1,8 +1,9 @@
 # PRD: Pivot Explorer — leveraging Pivotick on `/events/view2`
 
 **Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then
-revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). One count-source question is open
-(R1/R2).
+revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). R1/R2's count source is built
+(`GET /events/correlationCounts/{id}.json` (`7f0b6d041`)).
+
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -364,11 +365,18 @@ a refusal that names the number instead of truncating, the Review tab where resu
 chosen, provenance, and undo of an ingest. **No `save`** — correlations are derived, so the
 results are never counted unsaved.
 
-**Open — the count source.** `summarize` needs a cheap count, and `/events/view/{id}.json` has
-none: `RelatedAttribute` is absent from REST by default (§3.4) and `RelatedEvent` carries no
-per-event counts. Without `summarize` the pivot is a bare Run with no gate, which is wrong for
-event 4116's 5,629. The count is the first thing the graph endpoint (D13) has to answer; the
-choice is between building that slice of D13 now or shipping R1 ungated behind it.
+**The count source — built, as the first slice of D13.** `summarize` needs a cheap count, and
+`/events/view/{id}.json` has none: `RelatedAttribute` is absent from REST by default (§3.4) and
+`RelatedEvent` carries no per-event counts. `GET /events/correlationCounts/{id}.json` (`7f0b6d041`) answers it:
+`{ total, attributes: {uuid: n}, objects: {uuid: n}, events: {id: n}, limit }`, from the same
+ACL'd correlations as the event view's `RelatedAttribute`, with the event's own side limited to
+attributes the user can see. Fetched once per graph; `summarize` reads it for the origin it is
+handed. Measured in `graph-endpoint-prd` §7.
+
+It changes a number this PRD leaned on: **event 4116 has 708 correlations to offer, not
+5,629.** 5,629 is the raw table; the event view's correlation list — and so anything a pivot can
+fetch — leaves out correlation-exclusion and over-correlating values. Still well past a sane
+`maxCandidates`, so the gate is still load-bearing.
 
 #### R2 — Related events are a pivot, and the badge shows what they would bring ✅ RULED (revises §4, D12 L0)
 
@@ -376,8 +384,9 @@ A correlated-event proxy (L0) is a pivot origin. Pivoting on it fetches the elem
 event which correlate with this one, staged for triage like R1's. The node carries the count as
 **declared potential** — `node.setPotential('related-event', n)` draws a rim badge, and clicking
 it opens Pivot mode on that pivot. Declared, never queried: the library will not call a provider
-to draw a badge. Same open question as R1 — `n` has to come from somewhere, and the payload has
-no per-event correlation count.
+to draw a badge. `n` is the `events` entry of R1's count response. A related event reached only
+through excluded or over-correlating values counts 0 and wears no badge — 11 of event 4116's 89
+— which is honest: the pivot would bring nothing back from it.
 
 #### R3 — Enrichment is its own later pass ✅ RULED
 
@@ -1266,8 +1275,9 @@ relationships, and the events in §3.5 as fixtures):
 | 3b | ✅ L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
 | 3c | ✅ L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
 | 4 | D11 empty-state message, pointing at the correlation pivot | 3c, 5 |
-| 5 | Correlations as a pivot: `appliesTo` / `fetch` / `maxCandidates`, no `save` (R1) | count source (R1) |
-| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, count source |
+| 5e | ✅ Count source: `/events/correlationCounts/{id}.json` (R1, first slice of D13) | — |
+| 5 | Correlations as a pivot: `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | 5e, a fetch path |
+| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, 5e, a fetch path |
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
@@ -1279,8 +1289,9 @@ relationships, and the events in §3.5 as fixtures):
 | 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4) | 10 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
-Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d wait on R1's count source; 4
-follows 5, because its message points at the pivot. Enrichment (R3) is not a task here.
+Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d have their count (5e) and still
+need a fetch path — the correlated elements themselves, with stable ids; 4 follows 5, because its
+message points at the pivot. Enrichment (R3) is not a task here.
 
 **✅ Done (prerequisite, not a task above).** The inline JS is extracted out of the `.ctp` into
 `app/webroot/js/pivot-explorer.js`, leaving the element at 117 lines of markup + CSS + config.
@@ -1305,10 +1316,14 @@ for CSS.
 | `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c) |
 | `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
 | `tests/js/pivot-explorer-graph.test.js` | ✅ new — zero-dependency unit suite over the seed and the graph builder |
+| `app/Controller/EventsController.php`, `app/Controller/Component/ACLComponent.php` | ✅ `correlationCounts` action + ACL entry (`*`) (task 5e) |
+| `app/Model/Event.php` | ✅ `getCorrelationCounts()` (task 5e) |
+| `app/Lib/Tools/CorrelationCountTool.php`, `app/Test/CorrelationCountToolTest.php` | ✅ new — the aggregation, and its unit test (task 5e) |
 | `app/Model/Behavior/AnalystDataParentBehavior.php` | Phase 2 only — `RelationshipInbound` in the bulk path |
 | `docs/dev/pivot-explorer-v16-prd.md` | this document |
 
-No controller change, no new endpoint, no schema change in Phase 1.
+No schema change in Phase 1. One new endpoint, `correlationCounts` (task 5e), as the first slice
+of D13.
 
 ## 11. Open Questions / Phase 2
 
