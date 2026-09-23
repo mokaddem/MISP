@@ -492,7 +492,7 @@
                 var prefix   = (String(ref.referenced_type) === '1') ? 'obj:' : 'attr:';
                 var targetId = prefix + ref.referenced_uuid;
                 addEdge(objId, targetId, ref.relationship_type || 'related-to',
-                        'object-reference');
+                        'object-reference', { uuid: ref.uuid });
             });
         });
 
@@ -1449,12 +1449,11 @@
                     notify('warning', 'No relationship type', 'Pick one or type your own.');
                     return false;
                 }
-                return saveReference(fromData.uuid, toData.uuid, rel).then(function (ok) {
-                    return ok ? {
-                        accept:    true,
-                        data:      { kind: 'object-reference', label: rel },
-                        persisted: true
-                    } : false;
+                return saveReference(fromData.uuid, toData.uuid, rel).then(function (saved) {
+                    if (!saved) return false;
+                    var data = { kind: 'object-reference', label: rel };
+                    if (saved.uuid) data.uuid = saved.uuid;
+                    return { accept: true, data: data, persisted: true };
                 });
             });
         }
@@ -1485,13 +1484,93 @@
                 }
                 return res.json().catch(function () { return {}; });
             })
-            .then(function () {
+            .then(function (body) {
                 notify('success', 'Relationship added', rel);
-                return true;
+                return (body && body.ObjectReference) || {};
             })
             .catch(function (err) {
                 console.error('[pivot-explorer] save failed:', err);
                 notify('error', 'Save failed', String(err && err.message || err));
+                return null;
+            });
+        }
+
+        /* ── deletion → the reference behind the edge, never an element ── */
+        // Only a reference whose uuid we know can be found again in MISP.
+        // Correlations are derived, and analyst relationships have no write
+        // path yet (PRD task 10b).
+        function isDeletable(edge) {
+            var d = edge.getData ? edge.getData() : null;
+            return !!d && d.kind === 'object-reference' && !!d.uuid;
+        }
+
+        function describeEdge(edge) {
+            var d = edge.getData() || {};
+            var end = function (n) { return (nodeData(n) || {}).label || n.id; };
+            return end(edge.from) + ' → ' + (d.label || 'related-to') + ' → ' + end(edge.to);
+        }
+
+        function confirmBody(edges) {
+            var shown = edges.slice(0, 3).map(describeEdge);
+            if (edges.length > 3) shown.push('and ' + (edges.length - 3) + ' more');
+            return 'This deletes ' + (edges.length === 1 ? 'the relationship ' : edges.length + ' relationships ')
+                 + 'in MISP: ' + shown.join('; ') + '. It cannot be undone from the graph.';
+        }
+
+        // Delete sits beside Hide, so a node is refused outright and an edge
+        // is deleted in MISP only after a confirm saying so. The history row
+        // is sealed as persisted, and narrowed to what MISP actually deleted.
+        function onBeforeDelete(ctx) {
+            if (ctx.nodes.length) {
+                notify('warning', 'Elements are not deleted here',
+                       'Hide takes one off the canvas; the event view deletes it from MISP.');
+                return false;
+            }
+            var refs = ctx.edges.filter(isDeletable);
+            if (refs.length < ctx.edges.length) {
+                notify('info', 'Only object references can be deleted',
+                       'Correlations and analyst relationships stay; hide them instead.');
+            }
+            if (!refs.length) return ctx.edges.length ? { accept: true, edges: [] } : true;
+
+            return ctx.confirm({
+                title:        refs.length === 1 ? 'Delete relationship' : 'Delete relationships',
+                body:         confirmBody(refs),
+                confirmLabel: 'Delete in MISP',
+                variant:      'danger'
+            }).then(function (confirmed) {
+                if (!confirmed) return false;
+                return Promise.all(refs.map(deleteReference)).then(function (results) {
+                    var done = refs.filter(function (e, i) { return results[i]; });
+                    if (!done.length) return false;
+                    notify('success', done.length === 1 ? 'Relationship deleted' : done.length + ' relationships deleted');
+                    return { accept: true, edges: done, persisted: true };
+                });
+            });
+        }
+
+        // A soft delete, as the event view does, so the deletion syncs.
+        function deleteReference(edge) {
+            var uuid = edge.getData().uuid;
+            return fetch(baseurl + '/objectReferences/delete/' + encodeURIComponent(uuid) + '.json', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type':     'application/json',
+                    'Accept':           'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: '{}'
+            })
+            .then(function (res) {
+                if (res.ok) return true;
+                return res.json().catch(function () { return {}; }).then(function (body) {
+                    throw new Error((body && (body.errors || body.message)) || ('HTTP ' + res.status));
+                });
+            })
+            .catch(function (err) {
+                console.error('[pivot-explorer] delete failed:', err);
+                notify('error', 'Delete failed', describeEdge(edge) + ': ' + String(err && err.message || err));
                 return false;
             });
         }
@@ -1500,7 +1579,8 @@
         return {
             callbacks: {
                 isValidConnection:  isValidConnection,
-                onBeforeEdgeCreate: onBeforeEdgeCreate
+                onBeforeEdgeCreate: onBeforeEdgeCreate,
+                onBeforeDelete:     onBeforeDelete
             },
             attach: function (g) { graph = g; }
         };

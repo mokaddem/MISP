@@ -140,6 +140,11 @@ function buildGraph(payload, options) {
                 this.selected = [];
                 this.selectElement = n => { this.selected.push(n); };
                 this.UIManager = { sidebar: { shown: 0, showSidebar() { this.shown++; } } };
+                const notices = this.notices = [];
+                this.notifier = {};
+                ['success', 'warning', 'error', 'info'].forEach(level => {
+                    this.notifier[level] = (title, msg) => notices.push({ level, title, msg });
+                });
                 constructed.graph = this;
             },
             location: { href: '' },
@@ -1303,6 +1308,128 @@ test('nothing carries a pending flag any more (D2)', async () => {
     const g = await withEditor();
     ok('no styleCb', g.opts.render.defaultNodeStyle.styleCb === undefined);
     ok('no node data carries pending', JSON.stringify(g.nodes).indexOf('pending') === -1);
+});
+
+/* ──────────── task 10c: deleting an edge deletes the reference ──────────── */
+
+function deleteFixture() {
+    return ev({
+        Attribute: [attr({ uuid: 'e1', value: '1.2.3.4' })],
+        Object: [
+            obj({ uuid: 'A', name: 'file', ObjectReference: [
+                ref({ uuid: 'R1', referenced_uuid: 'e1', referenced_type: '0', relationship_type: 'drops' }),
+            ] }),
+            obj({ uuid: 'B', name: 'domain-ip' }),
+        ],
+    });
+}
+
+// Boot as an editor; every delete POST is logged and answered by `answer`.
+function withDeletes(answer) {
+    const deletes = [];
+    return buildGraph(deleteFixture(), {
+        routes: [
+            [/objectReferences\/delete\//, init => {
+                deletes.push(init);
+                return answer ? answer(deletes.length) : { saved: true };
+            }],
+            [/objectReferences\/add\//, { ObjectReference: { uuid: 'R-NEW', id: '9' } }],
+            [/objectRelationships\/index\.json$/, VOCAB],
+            [/correlationCounts/, { attributes: {}, objects: {}, events: {} }],
+        ],
+    }).then(g => { g.deletes = deletes; return g; });
+}
+
+const pedge = (id, from, to, data) => ({ id, from, to, getData: () => data });
+const refEdge = (uuid, label) => pedge('ref:' + uuid,
+    pnode({ type: 'object', uuid: 'A', label: 'file' }),
+    pnode({ type: 'attribute', uuid: 'e1', label: '1.2.3.4' }),
+    { kind: 'object-reference', label: label || 'drops', uuid });
+const corrEdge = pedge('corr:1', pnode({ label: 'a' }), pnode({ label: 'b' }), { kind: 'correlation', label: '' });
+const arelEdge = pedge('arel:1', pnode({ label: 'a' }), pnode({ label: 'b' }), { kind: 'analyst-relationship', label: 'x' });
+
+// A DeleteContext whose confirm answers `yes`, recording what it was shown.
+function delCtx(parts, yes) {
+    const ctx = Object.assign({ nodes: [], edges: [], notes: [], cascadingEdges: [], origin: 'bulk-action' }, parts);
+    ctx.asked = null;
+    ctx.confirm = opts => { ctx.asked = opts; return Promise.resolve(yes); };
+    return ctx;
+}
+
+test('a seeded reference edge knows its reference, so it can be found again in MISP', async () => {
+    const g = await withDeletes();
+    eq('uuid on the edge', g.edges.filter(e => e.data.kind === 'object-reference').map(e => e.data.uuid), ['R1']);
+});
+
+test('a drawn reference takes the uuid MISP gave it', async () => {
+    const g = await withDeletes();
+    const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { relationship_type: 'drops' }));
+    eq('decision', d, { accept: true, data: { kind: 'object-reference', label: 'drops', uuid: 'R-NEW' }, persisted: true });
+});
+
+test('deleting a node is refused, and says where it is done instead', async () => {
+    const g = await withDeletes();
+    const ctx = delCtx({ nodes: [own.objA], edges: [refEdge('R1')] }, true);
+    eq('vetoed', await g.opts.callbacks.onBeforeDelete(ctx), false);
+    ok('nothing asked', ctx.asked === null);
+    eq('nothing deleted', g.deletes.length, 0);
+    eq('one warning naming Hide', g.graph.notices.map(n => [n.level, /Hide/.test(n.msg)]), [['warning', true]]);
+});
+
+test('an edge is deleted in MISP only after a danger confirm saying it cannot be undone', async () => {
+    const g = await withDeletes();
+    const ctx = delCtx({ edges: [refEdge('R1')] }, true);
+    const d = await g.opts.callbacks.onBeforeDelete(ctx);
+    eq('confirm', [ctx.asked.variant, ctx.asked.confirmLabel, ctx.asked.title], ['danger', 'Delete in MISP', 'Delete relationship']);
+    eq('body names the relationship and the consequence', ctx.asked.body,
+       'This deletes the relationship in MISP: file → drops → 1.2.3.4. It cannot be undone from the graph.');
+    ok('a soft delete, by uuid, as a POST',
+       g.fetchLog.some(f => /\/misp\/objectReferences\/delete\/R1\.json$/.test(f.url) && f.init.method === 'POST'));
+    eq('the history row is sealed', [d.accept, d.edges.map(e => e.id), d.persisted], [true, ['ref:R1'], true]);
+});
+
+test('cancelling the confirm deletes nothing', async () => {
+    const g = await withDeletes();
+    eq('vetoed', await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [refEdge('R1')] }, false)), false);
+    eq('no POST', g.deletes.length, 0);
+});
+
+test('only what MISP deleted leaves the canvas', async () => {
+    const g = await withDeletes(n => (n === 2 ? { __status: 403, saved: false, errors: 'no' } : { saved: true }));
+    const edges = [refEdge('R1'), refEdge('R2', 'uses'), refEdge('R3', 'hosts'), refEdge('R4', 'x')];
+    const ctx = delCtx({ edges }, true);
+    const d = await g.opts.callbacks.onBeforeDelete(ctx);
+    ok('the body lists three and counts the rest', /hosts → 1\.2\.3\.4; and 1 more\. /.test(ctx.asked.body), ctx.asked.body);
+    eq('narrowed to the three that went', d.edges.length, 3);
+    eq('the refusal is reported in MISP\'s words',
+       g.graph.notices.filter(n => n.level === 'error').map(n => n.msg), ['file → uses → 1.2.3.4: no']);
+    const none = await withDeletes(() => ({ __status: 500 }));
+    eq('all refused: nothing leaves', await none.opts.callbacks.onBeforeDelete(delCtx({ edges: [refEdge('R1')] }, true)), false);
+});
+
+test('derived and analyst edges are spared, not deleted, and the rest goes ahead', async () => {
+    const g = await withDeletes();
+    const d = await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [corrEdge, refEdge('R1'), arelEdge] }, true));
+    eq('only the reference', d.edges.map(e => e.id), ['ref:R1']);
+    eq('one POST', g.deletes.length, 1);
+    ok('told why', g.graph.notices.some(n => n.level === 'info'));
+    const ctx = delCtx({ edges: [corrEdge], notes: [{ id: 'n1' }] }, true);
+    eq('nothing deletable: the note still goes, the edge stays', await g.opts.callbacks.onBeforeDelete(ctx), { accept: true, edges: [] });
+    ok('without a confirm', ctx.asked === null);
+    eq('a reference with no uuid is spared too',
+       (await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [refEdge(undefined)] }, true))).edges, []);
+});
+
+test('notes alone are canvas-only and go straight through', async () => {
+    const g = await withDeletes();
+    const ctx = delCtx({ notes: [{ id: 'n1' }] }, true);
+    eq('accepted', await g.opts.callbacks.onBeforeDelete(ctx), true);
+    ok('no confirm, no POST', ctx.asked === null && g.deletes.length === 0);
+});
+
+test('a read-only viewer has no delete hook', async () => {
+    const r = await buildGraph(deleteFixture(), { canEdit: false });
+    ok('none', !r.opts.callbacks.onBeforeDelete);
 });
 
 /* ─────────── task 9: the event's elements, as an origin-less pivot ─────────── */
