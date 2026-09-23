@@ -786,8 +786,9 @@ type space and makes the `Element` section do two jobs.
 **Consequence — the chrome becomes the only "you are here".** With no canvas encoding, nothing
 inside the graph says which event seeded it. That is tolerable on `/events/view2`, where the
 surrounding page identifies the event, but not once the same component is mounted from a pivot
-route (§11) with no event page around it. So the component carries its own header, via
-`UI.mainHeader.render` or the card header:
+route (§11) with no event page around it. So the component carries its own header — the card
+header, since `UI.mainHeader` is the sidebar's per-selection title and Pivotick has no graph-level
+slot (✅ task 8):
 
 ```
 Event 1234 · <info> · <orgc> · <date>
@@ -1048,7 +1049,13 @@ UI: {
         ],
     },
     filter: {
-        facets: [{ key: 'scope', label: 'Provenance', type: 'multiselect' }],   // D3
+        facets: [                                                            // D3, task 8
+            { key: 'scope', label: 'Provenance', type: 'multiselect',
+              options: [{ label: 'This event', value: 'self' }, { label: 'Other events', value: 'foreign' }] },
+            // Declaring any node facet replaces derivation, so the rest are declared too,
+            // options read off the live graph: Element (type), Category, Attribute type,
+            // Object (name), IDS flag (boolean), Value (regex).
+        ],
         edgeFacets: [
             { key: 'kind',              label: 'Relationship', type: 'multiselect' },
             { key: 'relationship_type', label: 'Asserts',      type: 'text' },
@@ -1079,7 +1086,12 @@ Correlated events (`RelatedEvent`) render as **leaf proxy nodes** of type `event
 labelled from `info`/`date`/`org`. They are **not** expandable containers in this phase (§4);
 double-click navigates to that event's own `view2`. ✅ Built in task 3b, navigation included:
 `callbacks.onNodeDbclick` sends the analyst to `/events/view2/{id}` for any `event` node but the
-one the graph was seeded from. What task 8 still owes these nodes is `data.scope` and the header.
+one the graph was seeded from. ✅ Task 8 gave them `data.scope: 'foreign'` and the header.
+
+✅ **Built in task 8.** Every node carries `scope`, `event_id` (for an attribute or object, the
+event it belongs to) and `event_uuid` where the payload knows it — extension events are listed
+without one. Pivot results carry it too: a correlated attribute is foreign with its event's id and
+uuid, this event's side of the pair self.
 
 Extended events (`extended:1` merges foreign attributes/objects into the same arrays, provenance
 in `Event.extensionEvents`) are `scope: 'foreign'` and, unlike correlated events, are real nodes
@@ -1296,7 +1308,7 @@ relationships, and the events in §3.5 as fixtures):
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | ✅ Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
-| 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
+| 8 | ✅ `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c). The whole node-facet set is declared, since declaring one replaces derivation | 5 |
 | 9 | ✅ "Unlinked attributes" → an origin-less pivot, *Event elements*: search + element/category facets, the Review tab as the paged list, ingest as putting on the canvas (D4 under P0, §11.7) | 1 |
 | 10 | ✅ `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5. Ownership comes from the payload, so 8 was not needed | 1 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | 10 |
@@ -1327,7 +1339,7 @@ for CSS.
 |---|---|
 | `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`) |
 | `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`) |
-| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c) |
+| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c); ✅ `#pe-header` with `#pe-identity` above it (task 8) |
 | `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
 | `tests/js/pivot-explorer-graph.test.js` | ✅ new — zero-dependency unit suite over the seed and the graph builder |
 | `app/Controller/EventsController.php`, `app/Controller/Component/ACLComponent.php` | ✅ `correlationCounts` (5e) and `correlatedAttributes` (5f, POST) actions + ACL entries (`*`) |
