@@ -458,23 +458,56 @@
  * ================================================================== */
 
 .vi-invite {
-    padding: 18px 14px 20px;
+    padding: 16px 14px 18px;
 }
 
-.vi-invite h2 {
-    margin: 0 0 6px;
-    font-size: 1.06rem;
+/*
+ * The empty page's help text, set as a callout so it reads as guidance
+ * about the box rather than as content of the page.
+ */
+.vi-tip {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    max-width: 78ch;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--bs-border-radius);
+    background: color-mix(in srgb, var(--primary) 6%, var(--bs-body-bg));
+}
+
+.vi-tip__icon {
+    flex: none;
+    margin-top: 2px;
+    font-size: 1rem;
+    color: var(--primary);
+}
+
+.vi-tip__title {
+    margin: 0 0 4px;
+    font-size: 0.95rem;
     font-weight: 600;
     line-height: 1.3;
-    letter-spacing: -0.01em;
 }
 
-.vi-invite p {
-    margin: 0;
-    max-width: 66ch;
+.vi-tip p {
+    margin: 0 0 3px;
     color: var(--bs-secondary-color);
     font-size: 0.82rem;
-    line-height: 1.6;
+    line-height: 1.55;
+}
+
+.vi-tip p:last-child {
+    margin-bottom: 0;
+}
+
+.vi-tip code {
+    padding: 1px 4px;
+    border-radius: var(--bs-border-radius-sm);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: 0.78rem;
 }
 
 
