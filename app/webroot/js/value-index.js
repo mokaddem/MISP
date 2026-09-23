@@ -258,11 +258,13 @@
         Array.prototype.forEach.call(
             this.list.querySelectorAll('.vi-row'),
             function (el, i) {
+                var said = el.querySelector('.vi-val');
                 self.rows.push({
                     el: el,
                     fill: el.querySelector('[data-vi-fill]'),
                     rail: el.querySelector('[data-vi-rail]'),
                     value: el.getAttribute('data-vi-value'),
+                    said: said ? said.textContent : null,
                     state: 'queued',
                     toggled: false,
                     lean: null,
@@ -467,6 +469,15 @@
             return response.text();
         }).then(function (html) {
             row.fill.innerHTML = html;
+            /*
+             * The card names the value as the instance spells it; the
+             * row keeps the reader's spelling so a worked list can be
+             * read against the report it was pasted from.
+             */
+            var val = row.fill.querySelector('.vi-val');
+            if (val && row.said !== null) {
+                val.textContent = row.said;
+            }
             var card = row.fill.querySelector('.vi-card');
             var quality = card
                 ? card.getAttribute('data-vi-quality')
