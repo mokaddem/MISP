@@ -569,12 +569,14 @@ me only `communicates-with`" are different questions:
 distinct values (`analysed-with` 6,968, then a long tail through `opened`, `includes`,
 `communicates-with`, `child-of`, `calls`). A 143-row dropdown is unusable, and the library already
 concedes the pattern — its table row filters switch from a dropdown to a text box past 50 distinct
-values. A substring box ("everything `*-of`") is the usable form.
+values. A pattern box ("everything `-of$`") is the usable form.
 
-**Built (task 5c) as a case-blind substring match**, through the facet's `predicate` rather than
-Pivotick's `matchMode: 'partial'`, which is a case-sensitive `includes`. Types are free text —
-the dev instance carries `Characterized_By` beside `dropped-by` — so `by` must find both. The
-value lives in `data.relationship_type` on every object-reference and analyst-relationship edge,
+**Built (task 5c), now Pivotick's own `regex` facet (task 14).** Types are free text — the dev
+instance carries `Characterized_By` beside `dropped-by` — so `by` must find both, and a `regex`
+facet compiles case-insensitively; `matchMode: 'partial'` is a case-sensitive `includes`. 5c
+first shipped a hand-written case-blind `predicate`; task 14 dropped it for the library's box,
+which also validates the pattern before applying it. A plain word still reads as a substring;
+the cost is that `.` and brackets are pattern syntax. The value lives in `data.relationship_type` on every object-reference and analyst-relationship edge,
 seeded or drawn, next to the `label` that displays it. Derived kinds (`event-correlation`,
 `correlation`, later `feed-correlation`) assert nothing and carry no such field, so any typed
 filter hides them — asking "what asserts `-by`" is asking about authored edges.
@@ -1035,8 +1037,7 @@ render: {
 },
 UI: { filter: { edgeFacets: [
     { key: 'kind',              label: 'Relationship', type: 'multiselect' },
-    { key: 'relationship_type', label: 'Asserts',      type: 'text',
-      predicate: assertsMatches },   // case-blind substring on data.relationship_type
+    { key: 'relationship_type', label: 'Asserts',      type: 'regex' },   // case-blind
 ]}},
 ```
 
@@ -1100,8 +1101,7 @@ UI: {
         ],
         edgeFacets: [
             { key: 'kind',              label: 'Relationship', type: 'multiselect' },
-            { key: 'relationship_type', label: 'Asserts',      type: 'text',
-              predicate: assertsMatches },
+            { key: 'relationship_type', label: 'Asserts',      type: 'regex' },
         ],
     },
 }
@@ -1380,6 +1380,19 @@ test what replaced them.
 | 10b | ✅ Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5). Deletion too, by creator org, as 10c's inverse | 10 |
 | 10c | ✅ `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4). A soft delete by the reference's uuid; correlations and analyst relationships are spared | 10 |
 | 11 | ✅ `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
+
+**P0 sweep (2026-09-23).** A read of Pivotick `develop` against what the explorer uses found
+library features it rebuilt by hand or left unused. One commit each:
+
+| # | Task | Depends on |
+|---|---|---|
+| 12 | Remove what the correlation pivots brought, through `graph.removeBySource` | 5, 5d |
+| 13 | Labels carry the whole value; the canvas's `textTruncate` shortens them, not a 42-character cut | — |
+| 14 | ✅ The Asserts box is Pivotick's `regex` facet, case-blind, instead of MISP's own predicate (5c) | 5c |
+| 15 | Correlated attributes and objects declare their correlation count as rim potential, like related events (R2) | 5, 5d |
+| 16 | Drop `compact()` if null data values no longer break the library | 8 |
+| 17 | The analyst panel through the library's panel lifecycle; the sidebar's fields declared | 6 |
+| 18 | Node context menu: open the element in MISP, copy its value | — |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
 `correlation` edges needed a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4

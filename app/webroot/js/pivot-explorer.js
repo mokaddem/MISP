@@ -1244,15 +1244,6 @@
         };
     }
 
-    // Case-blind, unlike pivotick's 'partial': types are free text, and
-    // `by` should find `Characterized_By` as well as `dropped-by`.
-    function assertsMatches(edge, value) {
-        var d = edge.getData ? edge.getData() : null;
-        if (!d || d.relationship_type == null) return false;
-        return String(d.relationship_type).toLowerCase()
-            .indexOf(String(value == null ? '' : value).toLowerCase()) !== -1;
-    }
-
     function nodeFacets() {
         return [
             { key: 'scope', label: 'Provenance', type: 'multiselect', options: [
@@ -1377,15 +1368,15 @@
                     ]
                 },
                 // The layer switch, then what an edge asserts. The latter is
-                // a substring box, not a list: references alone use ~143
-                // types (D1). Derived edges assert nothing and carry no
-                // relationship_type, so a typed filter hides them.
+                // a pattern box, not a list: references alone use ~143 types
+                // (D1). A regex facet is case-blind, so `by` finds
+                // `Characterized_By` too. Derived edges assert nothing and
+                // carry no relationship_type, so a typed filter hides them.
                 filter: {
                     facets: nodeFacets(),
                     edgeFacets: [
                         { key: 'kind', label: 'Relationship', type: 'multiselect' },
-                        { key: 'relationship_type', label: 'Asserts', type: 'text',
-                          predicate: assertsMatches }
+                        { key: 'relationship_type', label: 'Asserts', type: 'regex' }
                     ]
                 }
             }

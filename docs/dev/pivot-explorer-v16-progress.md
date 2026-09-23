@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `1296966` (`d220446` + the two MISP requests: pivot edges to children, `UI.emptyState`). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 25 done — every task in the PRD's §9 plan · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 127 cases, 431 assertions, no dependencies
+- **Status:** 26 done — the §9 plan, and 1 of the 7-task P0 sweep (12–18) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 127 cases, 428 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -38,7 +38,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 5 | Correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | ✅ | 5e, 5f, 0c | `65b782926`; edges land since `1296966` — see §2 |
 | 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | ✅ | 3b, 5e, 5f, 0c | `65b782926`. Badge counts match 5e on every related event; edges land since `1296966` |
 | 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ✅ | 2 | 2026-09-23 — a hit never seeds an element; edges run source → attribute, around a library gap filed upstream. See §2 |
-| 5c | `relationship_type` text facet as the second edge dimension (D1) | ✅ | 2 | 2026-09-23 — case-blind through the facet's `predicate`, not `matchMode: 'partial'`. See §2 |
+| 5c | `relationship_type` text facet as the second edge dimension (D1) | ✅ | 2 | 2026-09-23 — case-blind through the facet's `predicate`, not `matchMode: 'partial'`; since task 14 the library's `regex` facet. See §2 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | ✅ | 1 | 2026-09-23 — see §2. Answers PRD §11.9: no aggregation |
 | 7 | Sectioned legend | ✅ | 3, 5, 6 | `dcbf0abc3` (2026-09-23) — configuration only; the corner is the library's default, not D3's `bottom-left`. See §2 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | ✅ | 5 | `da35afec2` (2026-09-23) — declares the whole node-facet set, not `scope` alone: declaring any facet replaces derivation. Header in the card, not `UI.mainHeader`. See §2 |
@@ -48,6 +48,13 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | ✅ | 10 | `fc954861f` (2026-09-23) — plus deletion by creator org; the two-kind form stays declarative (P0). See §2 |
 | 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, `persisted: true`; node deletion vetoed (D6, R4) | ✅ | 10 | `b2b969730` (2026-09-23) — a soft delete by the reference's uuid, which every object-reference edge now carries; correlations and analyst relationships are spared, not refused. See §2 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | ✅ | 1 | `5d44f7811` (2026-09-23) — the link distance alone had pinned physics to `'manual'`. See §2 |
+| 12 | Remove what the correlation pivots brought (`removeBySource`) | ⬚ | 5, 5d | P0 sweep |
+| 13 | Full-value labels, truncated by the canvas (`textTruncate`) | ⬚ | — | P0 sweep |
+| 14 | Asserts as Pivotick's `regex` facet | ✅ | 5c | 2026-09-23 — MISP's `assertsMatches` predicate deleted. See §2 |
+| 15 | Correlation count as declared rim potential on attributes and objects | ⬚ | 5, 5d | P0 sweep |
+| 16 | Drop `compact()` if dead | ⬚ | 8 | P0 sweep |
+| 17 | Analyst panel on the library's panel lifecycle; declared sidebar fields | ⬚ | 6 | P0 sweep |
+| 18 | Node context menu: open in MISP, copy value | ⬚ | — | P0 sweep |
 
 ### Critical path
 
@@ -99,6 +106,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Physics (task 11) | ✅ | Suite 352/352 (1 new case: both options passed). Live, admin, via `graph.simulation`: auto is on for both events. 2014 (29 top-level nodes): auto's pass lands inside its deadband and is skipped, so the opening layout is today's, at rest on open. 1195 (4,743): auto re-tunes — repulsion 25, link distance 184, friction 62 — and is near rest (alpha 0.01) 7–10 s after the tab opens, an even disc with the related events at the centre. No console error | Timings were taken under load ~2.5 on a shared machine, so they are not compared with 1b's ~17 s settle |
 | Asserts facet (task 5c) | ✅ | Suite 394/394 (2 new cases: the facet's declaration and its case-blind substring predicate, `relationship_type` on every authored edge including the `related-to` default, none on derived edges; four pinned decisions and the facet list updated); 10 targeted mutants, 10 caught. Live, admin, through the real filter panel (*Asserts* box, `Shift+K`): 1215 — `contain` keeps the 3 `contains` and 1 `contained-within`, pill *21 edges hidden*, 4 edge groups drawn; `-BY` keeps the lone `downloaded-by`. 1086 — `by` finds `Characterized_By` (1 of 70). 2014 — `relat` keeps both references and hides the 23 correlations; `geo` hides all 25. 1195 — `-with` keeps all 2,362 `analysed-with`. Reset restores every edge each time. No console error | The panel applies typed text on a debounce: a reading taken ~1.5 s after typing caught a stale count (24) |
 | Feed and server sources (task 5b) | ✅ | Suite 431/431 (10 new cases: one node per feed joined to drawn attributes, event-level and children; the node reading the event's record not the attribute's copy; the source list read by id whether a list or keyed; a hit never seeding an element, and stated; a feed seen only off-canvas drawing no node; deleted attributes; the degraded badge, its corner beside the analyst one, and the total; a server with only id and name; a feed and a server sharing an id; styles, glyphs, provenance; no pivot, no drawn edge and no deletion reaching a source); 20 targeted mutants, 20 caught — two only after the fixes below. Live, admin: **2014** — CIRCL OSINT (19 feed events), Threatfox (3), Botvrij (1) as triangles, 9 feed edges, exactly the payload's; legend *feed 3* / *feed-correlation 9*. Expanding an object with four hits swaps its 3 stand-ins (one per feed) for the 4 real edges. **1086** — 270 drawn + *69 feed hits on elements not shown* = the payload's 339. **1195** — degraded (`FeedCount` 16,246): no source node, *16246 feed hits, too many to name their feeds*; expanding an object draws an `sw` badge on each of its 3 flagged attributes with the tooltip. No console error | Found live, fixed before commit: `event.Feed` arrives as a list, so indexing by key named every feed after its neighbour; and edges out of a collapsed child never draw (PRD §7), which the source → attribute direction avoids. Analyst relationships from a child attribute are still hidden by that gap — upstream |
+| Asserts as a regex facet (task 14) | ✅ | Suite 428/428 (the 5c case now pins the declaration — `type: 'regex'`, no predicate — and drops the four assertions on MISP's matcher, whose behaviour is the library's to test). Live, admin, through the real *Asserts* box: every 5c reading repeats — 1215 `contain` keeps 3 `contains` + 1 `contained-within`, `-BY` the lone `downloaded-by`; 1086 `by` finds `Characterized_By`; 2014 `relat` keeps both references and hides the 23 correlations. New with the pattern: `^contain` keeps the same four; `(` is refused by the panel and hides nothing. Reset restores every edge. No console error | — |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey

@@ -503,7 +503,7 @@ test('the edge-kind dimension is declared for pivotick', async () => {
        { key: 'kind', label: 'Relationship', type: 'multiselect' });
 });
 
-test('5c: relationship_type is the second edge dimension, a substring box', async () => {
+test('5c: relationship_type is the second edge dimension, a pattern box', async () => {
     const g = await buildGraph(ev({ Object: [
         obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B', relationship_type: 'child-of' })],
               Relationship: [arel({ object_uuid: 'A', related_object_uuid: 'B',
@@ -511,15 +511,10 @@ test('5c: relationship_type is the second edge dimension, a substring box', asyn
         obj({ uuid: 'B', ObjectReference: [ref({ referenced_uuid: 'A', relationship_type: '' })] }),
     ] }));
     const facet = g.opts.UI.filter.edgeFacets[1];
-    eq('declared as a text box — not a 143-row list',
-       [facet.key, facet.label, facet.type], ['relationship_type', 'Asserts', 'text']);
-    const hit = (type, q) => facet.predicate({ getData: () => ({ relationship_type: type }) }, q);
-    eq('a substring anywhere in the type', [hit('dropped-by', '-by'), hit('child-of', 'ild'), hit('child-of', '-by')],
-       [true, true, false]);
-    eq('blind to case either way', [hit('Characterized_By', 'by'), hit('dropped-by', 'BY')], [true, true]);
-    eq('an edge asserting nothing never matches',
-       [facet.predicate({ getData: () => ({ kind: 'correlation', label: '' }) }, 'x'),
-        facet.predicate({ getData: () => null }, 'x'), facet.predicate({}, 'x')], [false, false, false]);
+    // Pivotick compiles a regex facet case-insensitively and matches nothing
+    // against a missing value; that is its to test, not ours to redo.
+    eq('declared as the library\'s regex box — not a 143-row list, not our own matcher',
+       facet, { key: 'relationship_type', label: 'Asserts', type: 'regex' });
     eq('every authored edge carries the type it asserts, the default included',
        g.edges.map(e => e.data.kind + ':' + e.data.relationship_type).sort(),
        ['analyst-relationship:seen-with', 'object-reference:child-of', 'object-reference:related-to']);
