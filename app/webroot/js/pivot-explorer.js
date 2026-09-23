@@ -1334,6 +1334,42 @@
         ];
     }
 
+    /* ── canvas menu: taking fetched correlations back off ─── */
+    // Everything either correlation pivot brought, over however many runs;
+    // what the seed or the element pivot also vouches for stays. Pivotick
+    // records no history row for it, so the notice says it is final.
+    var CORRELATION_PIVOTS = ['correlations', 'related-event'];
+
+    function fromCorrelationPivot(element) {
+        return CORRELATION_PIVOTS.some(function (p) { return element.hasSource(p); });
+    }
+
+    function holdsFetchedCorrelations() {
+        return !!_graph && (_graph.getMutableEdges().some(fromCorrelationPivot)
+            || _graph.getMutableNodes().some(fromCorrelationPivot));
+    }
+
+    function removeFetchedCorrelations() {
+        var nodes = 0, edges = 0;
+        CORRELATION_PIVOTS.forEach(function (p) {
+            var removed = _graph.removeBySource(p);
+            nodes += removed.nodes.length;
+            edges += removed.edges.length;
+        });
+        _graph.notifier.success('Correlations removed',
+            plural(nodes, 'element', 'elements') + ' and ' + plural(edges, 'link', 'links')
+            + ' off the canvas. This is not in Undo; Pivot fetches them again.');
+    }
+
+    function canvasMenu() {
+        return [{
+            text:      'Remove fetched correlations',
+            iconClass: 'fas fa-eraser',
+            visible:   holdsFetchedCorrelations,
+            onclick:   removeFetchedCorrelations
+        }];
+    }
+
     /* ── filter panel ──────────────────────────────────────── */
     // Declaring any node facet replaces pivotick's derivation from every data
     // key, so the panel names the ones an analyst filters on. Provenance is
@@ -1456,7 +1492,10 @@
                     nodePropertiesMap: nodeProperties,
                     edgePropertiesMap: edgeProperties
                 },
-                contextMenu: { menuNode: { menu: nodeMenu() } },
+                contextMenu: {
+                    menuNode:   { menu: nodeMenu() },
+                    menuCanvas: { menu: canvasMenu() }
+                },
                 // Only drawing or deleting a relationship reaches MISP, so
                 // creating or editing a node or an edge's data is offered to
                 // nobody. A user who can write neither a reference nor an

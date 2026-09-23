@@ -139,19 +139,40 @@ function buildGraph(payload, options) {
                 this.getNodes = () => this.nodeList;
                 // Live nodes, children included, carrying declared potential.
                 const live = this.live = {};
-                this.liveNode = raw => {
+                this.liveNode = (raw, sources) => {
                     const potentials = new Map();
+                    const vouched = new Set(sources || ['seed']);
                     return live[raw.id] = {
                         id: raw.id, getData: () => raw.data,
                         setPotential(pivotId, count) {
                             if (count) potentials.set(pivotId, count); else potentials.delete(pivotId);
                         },
                         getPotentials: () => potentials,
+                        hasSource: s => vouched.has(s),
+                        dropSource: s => { vouched.delete(s); return vouched.size === 0; },
                     };
                 };
                 Object.keys(drawn).forEach(id => this.liveNode(drawn[id]));
                 this.getMutableNode = id => live[id];
                 this.getMutableNodes = () => Object.keys(live).map(id => live[id]);
+                // Edges carry provenance like nodes: what the library's removeBySource reads.
+                const liveEdges = this.liveEdges = data.edges.map(e => ({
+                    id: e.from + '>' + e.to, getData: () => e.data, vouched: new Set(['seed']),
+                    hasSource(s) { return this.vouched.has(s); },
+                    dropSource(s) { this.vouched.delete(s); return this.vouched.size === 0; },
+                }));
+                this.getMutableEdges = () => liveEdges.slice();
+                this.removedBy = [];
+                // The library's rule: drop the claim, delete only what nothing else vouches for.
+                this.removeBySource = source => {
+                    this.removedBy.push(source);
+                    const edges = liveEdges.filter(e => e.hasSource(source) && e.dropSource(source));
+                    edges.forEach(e => liveEdges.splice(liveEdges.indexOf(e), 1));
+                    const nodes = Object.keys(live).map(id => live[id])
+                        .filter(n => n.hasSource(source) && n.dropSource(source));
+                    nodes.forEach(n => delete live[n.id]);
+                    return { nodes, edges };
+                };
                 this.renderer = { updates: 0, update() { this.updates++; } };
                 this.listeners = {};
                 this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
@@ -1936,8 +1957,9 @@ test('18: MISP adds three entries to the node menu, after the library\'s own', a
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     eq('in this order', g.opts.UI.contextMenu.menuNode.menu.map(i => [i.text, i.iconClass]), [
         ['Open its event', 'fas fa-external-link-alt'], ['Browse feed', 'fas fa-rss'], ['Copy value', 'fas fa-copy']]);
-    ok('no topbar of ours, and the other menus left alone',
-       !g.opts.UI.contextMenu.menuNode.topbar && Object.keys(g.opts.UI.contextMenu).length === 1);
+    ok('no topbar of ours, and the edge and note menus left alone',
+       !g.opts.UI.contextMenu.menuNode.topbar
+       && JSON.stringify(Object.keys(g.opts.UI.contextMenu)) === JSON.stringify(['menuNode', 'menuCanvas']));
 });
 
 test('18: another event\'s page opens in a new tab, for whatever belongs to one', async () => {
@@ -1993,6 +2015,50 @@ test('18: a refused or missing clipboard says so', async () => {
     const none = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     menuItem(none, 'Copy value').onclick({}, pnode({ type: 'attribute', value: 'v' }));
     eq('absent', none.graph.notices.map(n => [n.level, n.title]), [['error', 'Copy failed']]);
+});
+
+/* ─────────── task 12: taking fetched correlations back off ─────────── */
+
+const canvasItem = g => g.opts.UI.contextMenu.menuCanvas.menu[0];
+
+// The pivot fixture, then one correlation run's worth of results, vouched as
+// Pivotick vouches an ingest: by the pivot's id.
+async function withFetched() {
+    const g = await withPivots();
+    const gr = g.graph;
+    gr.liveNode({ id: 'attr:x1', data: { type: 'attribute', uuid: 'x1' } }, ['correlations']);
+    gr.liveNode({ id: 'attr:x2', data: { type: 'attribute', uuid: 'x2' } }, ['related-event']);
+    gr.liveNode({ id: 'attr:e1', data: { type: 'attribute', uuid: 'e1' } }, ['correlations', 'event-elements']);
+    ['c1>x1', 'c1>x2'].forEach((id, i) => gr.liveEdges.push({
+        id, getData: () => ({ kind: 'correlation' }), vouched: new Set([i ? 'related-event' : 'correlations']),
+        hasSource(s) { return this.vouched.has(s); },
+        dropSource(s) { this.vouched.delete(s); return this.vouched.size === 0; },
+    }));
+    return g;
+}
+
+test('12: the canvas menu offers it only while a correlation pivot has brought something', async () => {
+    const seeded = await withPivots();
+    eq('one entry', [canvasItem(seeded).text, canvasItem(seeded).iconClass],
+       ['Remove fetched correlations', 'fas fa-eraser']);
+    eq('nothing fetched, nothing offered', canvasItem(seeded).visible(null), false);
+    const fetched = await withFetched();
+    eq('after a run, offered', canvasItem(fetched).visible(null), true);
+});
+
+test('12: it removes what both correlation pivots brought, and only that', async () => {
+    const g = await withFetched();
+    const seedNodes = g.graph.getMutableNodes().length - 3, seedEdges = g.graph.getMutableEdges().length - 2;
+    canvasItem(g).onclick({}, null);
+    eq('each pivot, through the library', g.graph.removedBy, ['correlations', 'related-event']);
+    ok('the fetched elements are gone', !g.graph.getMutableNode('attr:x1') && !g.graph.getMutableNode('attr:x2'));
+    ok('one the element pivot also put there stays', !!g.graph.getMutableNode('attr:e1'));
+    eq('the seed is untouched', [g.graph.getMutableNodes().length - 1, g.graph.getMutableEdges().length],
+       [seedNodes, seedEdges]);
+    eq('the notice counts it and says it is final', g.graph.notices.map(n => [n.level, n.title, n.msg]), [[
+        'success', 'Correlations removed',
+        '2 elements and 2 links off the canvas. This is not in Undo; Pivot fetches them again.']]);
+    eq('and then there is nothing left to offer', canvasItem(g).visible(null), false);
 });
 
 /* ─────────────────── task 4: the empty canvas (D11) ─────────────────── */

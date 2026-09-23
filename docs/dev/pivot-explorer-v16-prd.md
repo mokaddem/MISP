@@ -386,6 +386,14 @@ own side a correlation run brings along), before the render that follows. An obj
 own count, which already covers its attributes; the attributes wear theirs once it is expanded.
 Like R2's, the badge says what the pivot *would* bring, and stays after a run has brought it.
 
+**Taking them back off (task 12).** Undo takes back the newest run; everything the two
+correlation pivots brought, over any number of runs, comes off through the canvas menu's *Remove
+fetched correlations* — `graph.removeBySource` for `correlations` and `related-event`, which
+deletes only what nothing else vouches for, so the seed and whatever the element pivot put there
+stay. The entry shows only while something fetched is on the canvas. Pivotick does not record the
+removal in its history, although its docs say it does (§11.13), so the notice says it is final
+and that Pivot fetches them again.
+
 It changes a number this PRD leaned on: **event 4116 has 708 correlations to offer, not
 5,629.** 5,629 is the raw table; the event view's correlation list — and so anything a pivot can
 fetch — leaves out correlation-exclusion and over-correlating values. Still well past a sane
@@ -1414,7 +1422,7 @@ library features it rebuilt by hand or left unused. One commit each:
 
 | # | Task | Depends on |
 |---|---|---|
-| 12 | Remove what the correlation pivots brought, through `graph.removeBySource` | 5, 5d |
+| 12 | ✅ Remove what the correlation pivots brought, through `graph.removeBySource`, from the canvas menu (R1) | 5, 5d |
 | 13 | ✅ Labels carry the whole value; the canvas's `textTruncate` shortens them, not a 42-character cut | — |
 | 14 | ✅ The Asserts box is Pivotick's `regex` facet, case-blind, instead of MISP's own predicate (5c) | 5c |
 | 15 | ✅ Correlated attributes and objects declare their correlation count as rim potential, like related events (R1, R2) | 5, 5d |
@@ -1495,3 +1503,7 @@ of D13.
 12. **Edges out of a nested child** — a Pivotick defect (§7), left to the Pivotick project
     (`pivotick/prd/misp/edges-out-of-children.md`). Until it is fixed, an analyst relationship from
     an object's attribute to anything outside that object is not drawn.
+13. **`removeBySource` is not in Undo** — a Pivotick defect (`pivotick/prd/misp/remove-by-source-history.md`):
+    its docs call it a forward operation recorded in the history, and nothing records it. Task 12's
+    removal cannot be undone, and the next Undo is spent on the emptied run. Until it is fixed, the
+    notice says so.
