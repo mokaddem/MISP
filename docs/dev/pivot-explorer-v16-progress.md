@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `1296966` (`d220446` + the two MISP requests: pivot edges to children, `UI.emptyState`). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 24 done · 1 not started (5b) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 117 cases, 394 assertions, no dependencies
+- **Status:** 25 done — every task in the PRD's §9 plan · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 127 cases, 431 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -37,7 +37,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 5f | Fetch path — `POST /events/correlatedAttributes/{id}.json` (`attribute_uuids` / `event_ids`) | ✅ | 5e | `261e06772` — pairs match 5e's counts exactly, per attribute and per event |
 | 5 | Correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | ✅ | 5e, 5f, 0c | `65b782926`; edges land since `1296966` — see §2 |
 | 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | ✅ | 3b, 5e, 5f, 0c | `65b782926`. Badge counts match 5e on every related event; edges land since `1296966` |
-| 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ⬚ | 2 | |
+| 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ✅ | 2 | 2026-09-23 — a hit never seeds an element; edges run source → attribute, around a library gap filed upstream. See §2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | ✅ | 2 | 2026-09-23 — case-blind through the facet's `predicate`, not `matchMode: 'partial'`. See §2 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | ✅ | 1 | 2026-09-23 — see §2. Answers PRD §11.9: no aggregation |
 | 7 | Sectioned legend | ✅ | 3, 5, 6 | `dcbf0abc3` (2026-09-23) — configuration only; the corner is the library's default, not D3's `bottom-left`. See §2 |
@@ -56,7 +56,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
          └──── 1b ✅ ─┬─ 2 ✅ ─┬─ 3 ✅ ─┬─ 3c ✅ ─ 5 ✅ ─ 8 ✅
                        │        │        │  5e ✅ 5f ✅ ┘
                        │        ├─ 3b ✅ ── 5d ✅
-                       │        ├─ 5b
+                       │        ├─ 5b ✅
                        │        └─ 5c ✅
                        ├─ 6 ✅ ─────── 7 ✅
                        ├─ 9 ✅ ── 4 ✅
@@ -65,7 +65,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
                        └─ 11 ✅
 ```
 
-The critical path is done. **Left, independent:** 5b. Task 4 moved off the correlation chain
+Every task is done. Task 4 moved off the correlation chain
 onto 9 (see §2), and 10 off 8.
 
 ---
@@ -98,6 +98,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Analyst relationships (task 10b) | ✅ | Suite 386/386 (9 new cases: the uuid on seeded analyst edges; analyst rights alone give back edge tool, delete and hooks; which pairs are valid — across events, from and to event nodes, never to itself, a type MISP cannot name or a uuid-less node; the link-type question only with two kinds, defaulting to the reference; the POST addressed by MISP type and the edge landing with MISP's uuid/orgc/authors; the chosen kind deciding the write, an unoffered one falling back; a refused save; deletion by creator org, site admin, and neither role deleting the other's kind; a mixed selection split across both endpoints); 26 targeted mutants, 26 caught. Live, through Pivotick's click-connect and the real modals: **admin, 2014** — object → object offers *Link type* (Object reference / Analyst relationship), choosing the analyst kind POSTs `analystData/add/Relationship/{uuid}/Object.json` and the edge carries MISP's uuid, org and author; attribute → related-event proxy asks no link type and saves `related_object_type: Event`; both deleted behind the confirm, sealed, view 200 → 404. **orgadmin, org 9's 803** (analyst, cannot edit the event) — card `can-edit 0 / can-analyst 1`, edge tool and delete present, object → object asks no link type, saves under the user's org, deletes. **user, 803** (no analyst permission) — no editor, no hooks. No console error from the explorer. Probe relationships, their blocklist rows and orgadmin's temporary `ui_theme` row removed after | Another org's relationship being spared was not seen live — no event with a foreign-org relationship was at hand; the suite covers it |
 | Physics (task 11) | ✅ | Suite 352/352 (1 new case: both options passed). Live, admin, via `graph.simulation`: auto is on for both events. 2014 (29 top-level nodes): auto's pass lands inside its deadband and is skipped, so the opening layout is today's, at rest on open. 1195 (4,743): auto re-tunes — repulsion 25, link distance 184, friction 62 — and is near rest (alpha 0.01) 7–10 s after the tab opens, an even disc with the related events at the centre. No console error | Timings were taken under load ~2.5 on a shared machine, so they are not compared with 1b's ~17 s settle |
 | Asserts facet (task 5c) | ✅ | Suite 394/394 (2 new cases: the facet's declaration and its case-blind substring predicate, `relationship_type` on every authored edge including the `related-to` default, none on derived edges; four pinned decisions and the facet list updated); 10 targeted mutants, 10 caught. Live, admin, through the real filter panel (*Asserts* box, `Shift+K`): 1215 — `contain` keeps the 3 `contains` and 1 `contained-within`, pill *21 edges hidden*, 4 edge groups drawn; `-BY` keeps the lone `downloaded-by`. 1086 — `by` finds `Characterized_By` (1 of 70). 2014 — `relat` keeps both references and hides the 23 correlations; `geo` hides all 25. 1195 — `-with` keeps all 2,362 `analysed-with`. Reset restores every edge each time. No console error | The panel applies typed text on a debounce: a reading taken ~1.5 s after typing caught a stale count (24) |
+| Feed and server sources (task 5b) | ✅ | Suite 431/431 (10 new cases: one node per feed joined to drawn attributes, event-level and children; the node reading the event's record not the attribute's copy; the source list read by id whether a list or keyed; a hit never seeding an element, and stated; a feed seen only off-canvas drawing no node; deleted attributes; the degraded badge, its corner beside the analyst one, and the total; a server with only id and name; a feed and a server sharing an id; styles, glyphs, provenance; no pivot, no drawn edge and no deletion reaching a source); 20 targeted mutants, 20 caught — two only after the fixes below. Live, admin: **2014** — CIRCL OSINT (19 feed events), Threatfox (3), Botvrij (1) as triangles, 9 feed edges, exactly the payload's; legend *feed 3* / *feed-correlation 9*. Expanding an object with four hits swaps its 3 stand-ins (one per feed) for the 4 real edges. **1086** — 270 drawn + *69 feed hits on elements not shown* = the payload's 339. **1195** — degraded (`FeedCount` 16,246): no source node, *16246 feed hits, too many to name their feeds*; expanding an object draws an `sw` badge on each of its 3 flagged attributes with the tooltip. No console error | Found live, fixed before commit: `event.Feed` arrives as a list, so indexing by key named every feed after its neighbour; and edges out of a collapsed child never draw (PRD §7), which the source → attribute direction avoids. Analyst relationships from a child attribute are still hidden by that gap — upstream |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey

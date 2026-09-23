@@ -986,17 +986,37 @@ must say why rather than fall silent.
 
 Feed and server correlations add two node types and two more kinds (D1). Source nodes come from
 the deduplicated `event['Feed']` / `event['Server']` maps — one node per source — and the edges
-from each attribute's `Feed[]` / `Server[]` hits:
+from each attribute's `Feed[]` / `Server[]` hits. As built (task 5b):
 
 ```js
-// one node per feed/server, not per correlation
-Object.values(ev.Feed || {}).forEach(f => nodes.push({
-    id: 'feed:' + f.id, data: { type: 'feed', label: f.name, scope: 'external' } }));
+// The map is keyed by source id in PHP but arrives as a JSON list, so it is
+// re-indexed by each record's own id — by position, feed 1 reads feed 2's name.
+known[String(src.id)] = src;
 
-// per-attribute hits; degraded shape carries no sources at all
-(attr.Feed || []).forEach(f => edges.push({ from: attrId, to: 'feed:' + f.id,
-    data: { kind: 'feed-correlation', label: '' } }));
+// Per-attribute hit, event-level and object children alike. Source → attribute:
+// pivotick draws a stand-in for an edge *into* a collapsed object's child, and
+// none for an edge out of one (§7).
+if (!nodeSet[attrId]) { feedHitsHidden++; return; }       // never pulls an element in
+addNode(srcId, { id: srcId, data: sourceNodeData(type, known[hit.id] || hit) });
+addEdge(srcId, attrId, '', 'feed-correlation');           // or 'server-correlation'
 ```
+
+**A feed hit never seeds an element.** It is a derived correlation, not an authored relationship,
+so it joins neither L1 nor the budget arithmetic: edges draw from elements the seed already took,
+a source node appears with its first drawable hit, and the rest are stated — *"69 feed hits on
+elements not shown"*. The element pivot still offers those elements; one it brings in arrives
+without its feed edges, as it arrives without its references. Source nodes are few (one per feed,
+88 at most on the dev instance) and are counted in the node total but not in the budget.
+
+A source node is a `triangle` — cyan `#5bc0de` for a feed, purple `#9b59b6` for a server, the colour
+of its edge layer — with Font Awesome's `fa-rss` / `fa-server` (misp-iconify has neither). Its data
+carries the label, provider, format and URL where MISP sends them, `feed_events` for a MISP-format
+feed, and `scope: 'foreign'`: provenance stays binary (D2), and a value the Provenance facet does
+not offer would hide the node under either choice. It has no `name` key, which the Object facet
+reads. A restricted `Server` source carries only id and name, and draws as a bare label.
+
+**Server correlations are built but not requested.** The code is the feed code on `ev.Server`; the
+REST fetch leaves `includeServerCorrelations` at 0, so the layer stays empty (§4).
 
 Options:
 
@@ -1267,11 +1287,21 @@ Two smaller items:
 - **Cluster stand-in edges** are deduped by node pair and can speak for several kinds; the
   library keeps them alive while any represented edge passes the filter. Nothing to do, but a
   stand-in's style may not match any single layer.
+- **Edges out of a nested child are never drawn** (Pivotick `1296966`). A collapsed object gets a
+  stand-in for an edge into one of its attributes, but nothing for an edge out of one — not even
+  once expanded (`toggleSyntheticEdges` re-shows only a child's incoming edges). Feed edges run
+  source → attribute because of it. **An analyst relationship from an object's attribute to
+  anything outside that object is hidden today**, and its direction cannot be flipped. Filed as
+  `pivotick/prd/misp/edges-out-of-children.md`.
 - **Feed correlations in degraded mode.** Past 10,000 hits without `overrideLimit` the sources are
   dropped and the payload carries only `attribute['FeedHit'] = true` and `event['FeedCount']`
   (`Feed.php:604-611`). There is nothing to draw an edge *to* — no feed node exists. Render this as
   a **badge** on the attribute ("in a feed") rather than an edge, and say so at the graph level
-  from `FeedCount`. Both shapes must be handled; a big event will hit this.
+  from `FeedCount`. Both shapes must be handled; a big event will hit this. **Built (5b):** an `sw`
+  badge (`fa-rss`, the feed cyan) on each flagged attribute, off the analyst badge's `nw` corner,
+  and *"16246 feed hits, too many to name their feeds"* in the statement. Like the analyst badge
+  it does not roll up, so on event 1195 — every flagged attribute inside a collapsed object — it
+  shows only once an object is expanded.
 - **Server fields are restricted.** Non-site-admin users outside the host org get only `id` and
   `name` on a `Server` source (`Feed.php:613-620`), so a server node's label is all there is —
   no tooltip detail, no URL. Server event-UUID hits are withheld entirely (`:648-652`).
