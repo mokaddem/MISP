@@ -127,15 +127,5 @@ $axes = array(
             . ' organisations reported it, how often, how recently and'
             . ' whether they agree.'
         )) ?></p>
-        <p><?= sprintf(
-            h(__(
-                'Each one matches a filter you already use in exports'
-                . ' and restSearch: %s for the lean, %s for relevance'
-                . ' and %s for quality.'
-            )),
-            '<code>to_ids</code>',
-            '<code>excludeStale</code>',
-            '<code>minQuality</code>'
-        ) ?></p>
     </div>
 </details>
