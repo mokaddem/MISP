@@ -218,7 +218,9 @@ $row = function (array $threat, $folded) use (
     $targetKindWords
 ) {
     $kind = isset($threat['kind']) ? $threat['kind'] : '';
-    $word = isset($kindWords[$kind]) ? $kindWords[$kind] : $kind;
+    $word = isset($kindWords[$kind])
+        ? $kindWords[$kind]
+        : str_replace('-', ' ', $kind);
     $attachment = isset($threat['attachment'])
         ? $threat['attachment']
         : 'event';

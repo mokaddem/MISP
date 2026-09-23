@@ -4606,9 +4606,22 @@ class ValueProfile extends AppModel
         $fresh = !empty($options['fresh']);
         $keyOptions = $options;
         unset($keyOptions['fresh']);
+        /*
+         * The threats panel is ordered and filtered by the reader's
+         * profile, so a different profile or a new revision of it is a
+         * different digest.
+         */
+        $profile = ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        $profileKey = empty($profile)
+            ? '-'
+            : (isset($profile['uuid']) ? $profile['uuid'] : '')
+                . '@' . (isset($profile['revision'])
+                    ? (int)$profile['revision']
+                    : 0);
         $key = 'misp:value_profile:relation_digest:v'
             . self::CACHE_SHAPE . ':' . (int)$user['id']
-            . ':' . hash('sha256', $value . '|' . json_encode($keyOptions));
+            . ':' . hash('sha256', $value . '|' . $profileKey . '|'
+                . json_encode($keyOptions));
 
         return $this->cachedFold($key, $fresh,
             function () use ($user, $value, $options) {
@@ -4806,6 +4819,14 @@ class ValueProfile extends AppModel
             }
         }
 
+        /*
+         * The panel names what this reader counts as attribution: the
+         * profile's list where it declares one, the named-threat
+         * galaxies where it does not.
+         */
+        $profile = ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        $attribution = ValueLabelPriority::attribution($profile);
+
         $rows = array();
         /*
          * The label section's rows, which are held uncapped for exactly
@@ -4827,7 +4848,8 @@ class ValueProfile extends AppModel
                 $label['cluster'],
                 $label['attachment'],
                 $label,
-                $eventTitles
+                $eventTitles,
+                $attribution
             );
         }
 
@@ -4853,6 +4875,7 @@ class ValueProfile extends AppModel
                 'claim',
                 null,
                 $eventTitles,
+                $attribution,
                 $claim
             );
         }
@@ -4896,7 +4919,7 @@ class ValueProfile extends AppModel
          */
         $rows = ValueLabelPriority::order(
             $rows,
-            ClassRegistry::init('AnalystProfile')->resolveFor($user),
+            $profile,
             ValueLabelPriority::GALAXIES
         );
         $found['rows'] = $rows;
@@ -4921,6 +4944,8 @@ class ValueProfile extends AppModel
      *     events and organisations are the card's figures. Null for a
      *     cluster a claim brought in, which the fold never saw.
      * @param array $eventTitles Event id => id, info, date
+     * @param array|null $attribution Galaxy types the profile counts
+     *     as attribution, lowercased; null for the named-threat set
      * @param array|null $claim The claim, where one is what brought
      *     the cluster in. Kept so the card's own badge can say who
      *     asserted it, how, and when — three words on the row is the
@@ -4928,10 +4953,18 @@ class ValueProfile extends AppModel
      * @return void
      */
     private function addThreat(array &$rows, array $cluster,
-        $attachment, $label, array $eventTitles, array $claim = null
+        $attachment, $label, array $eventTitles, array $attribution = null,
+        array $claim = null
     ) {
         $row = $cluster['GalaxyCluster'];
-        if (!GalaxyCategory::isNamedThreat($row['type'])) {
+        $counted = $attribution === null
+            ? GalaxyCategory::isNamedThreat($row['type'])
+            : in_array(
+                mb_strtolower((string)$row['type']),
+                $attribution,
+                true
+            );
+        if (!$counted) {
             return;
         }
         $id = (int)$row['id'];
