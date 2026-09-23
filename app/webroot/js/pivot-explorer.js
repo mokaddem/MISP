@@ -58,8 +58,8 @@
         return baseurl + '/attributes/viewPicture/' + attr.uuid + '/webp';
     }
 
-    // Shared by the graph builder and the editor's drop handler so a dragged-in
-    // attribute renders identically to one that was referenced from the start.
+    // Shared by the graph builder and the pivots so an attribute brought in
+    // renders identically to one that was referenced from the start.
     function attributeNodeData(attr) {
         var val   = attr.value != null ? String(attr.value) : '';
         var isImg = isImageAttribute(attr);
@@ -138,8 +138,8 @@
         });
     }
 
-    // Single source of truth for "what is authored" — used by both the canvas
-    // builder and the editor tray so they never disagree. D5' seeds any element
+    // Single source of truth for "what is authored", read through the seed.
+    // D5' seeds any element
     // participating in an object reference *or* an analyst relationship. An
     // object counts if it is an endpoint itself, OR owns a child attribute that
     // some live relationship touches.
@@ -239,8 +239,7 @@
 
     // The seed (D12). Decides which resolution levels this event affords and
     // which elements each one contributes, analytically — no nodes are built.
-    // The canvas builder and the editor tray both read it, so they cannot
-    // disagree about what is drawn.
+    // The canvas builder reads it; the element pivot offers whatever it left out.
     //
     //   L0  event node + one proxy per correlated event
     //   L1  everything an object reference or analyst relationship touches
@@ -318,7 +317,7 @@
         });
     }
 
-    // Shared object node data (graph builder + editor drop handler).
+    // Shared object node data (graph builder + element pivot).
     function objectNodeData(obj) {
         return compact({
             type:            'object',
@@ -435,7 +434,7 @@
            cluster's own structure is what it says. */
         (ev.Object || []).forEach(function (obj) {
             if (isDeleted(obj)) return;
-            // Everything else lives in the editor tray, not on the canvas.
+            // Everything else is offered by the element pivot instead.
             if (!connectedObjUuids[obj.uuid] && !seed.l2Uuids[obj.uuid]) return;
             var objId = 'obj:' + obj.uuid;
 
@@ -738,6 +737,122 @@
         });
     }
 
+    /* ── the event's elements, as an origin-less pivot (D4, P0) ── */
+    // Everything the canvas does not hold yet: event-level attributes, and
+    // objects whole. Its Review tab is the searchable, paged list; ingesting
+    // is putting elements on the canvas, and undo takes them back off. A view
+    // write, so every viewer gets it.
+    var ELEMENT_PIVOT = 'event-elements';
+
+    // Lower-cased text a search matches against, built once per element. An
+    // object answers for its attributes, since it is what gets ingested.
+    var _haystacks = {};
+    function haystack(kind, rec) {
+        var key = kind + ':' + rec.uuid;
+        if (_haystacks[key] !== undefined) return _haystacks[key];
+        var parts = kind === 'object'
+            ? [rec.name, rec['meta-category'], rec.comment]
+            : [rec.value, rec.type, rec.category, rec.comment];
+        if (kind === 'object') {
+            (rec.Attribute || []).forEach(function (a) {
+                if (!isDeleted(a)) parts.push(a.value, a.type, a.object_relation);
+            });
+        }
+        _haystacks[key] = parts.filter(function (p) { return p != null; }).join('\n').toLowerCase();
+        return _haystacks[key];
+    }
+
+    function elementCategory(kind, rec) {
+        return kind === 'object' ? (rec['meta-category'] || 'object') : (rec.category || 'Other');
+    }
+
+    function elementCandidates() {
+        var ev = (_event && _event.Event) || {};
+        var drawn = function (id) {
+            return !!(_graph && typeof _graph.getNode === 'function' && _graph.getNode(id));
+        };
+        var out = [];
+        (ev.Attribute || []).forEach(function (a) {
+            if (!isDeleted(a) && !drawn('attr:' + a.uuid)) out.push({ kind: 'attribute', rec: a });
+        });
+        (ev.Object || []).forEach(function (o) {
+            if (!isDeleted(o) && !drawn('obj:' + o.uuid)) out.push({ kind: 'object', rec: o });
+        });
+        return out;
+    }
+
+    function matchesNarrowing(c, narrowing) {
+        var q = String(narrowing.q || '').trim().toLowerCase();
+        if (q && haystack(c.kind, c.rec).indexOf(q) === -1) return false;
+        if (narrowing.element && narrowing.element !== c.kind) return false;
+        if (narrowing.category && narrowing.category !== elementCategory(c.kind, c.rec)) return false;
+        return true;
+    }
+
+    function countOptions(candidates, keyOf) {
+        var counts = {};
+        candidates.forEach(function (c) {
+            var k = keyOf(c);
+            counts[k] = (counts[k] || 0) + 1;
+        });
+        return Object.keys(counts).sort().map(function (k) {
+            return { label: k, value: k, count: counts[k] };
+        });
+    }
+
+    function elementNode(c) {
+        if (c.kind === 'attribute') {
+            return { id: 'attr:' + c.rec.uuid, data: attributeNodeData(c.rec) };
+        }
+        return {
+            id:       'obj:' + c.rec.uuid,
+            data:     objectNodeData(c.rec),
+            children: (c.rec.Attribute || []).filter(function (a) { return !isDeleted(a); })
+                .map(function (a) { return { id: 'attr:' + a.uuid, data: attributeNodeData(a) }; })
+        };
+    }
+
+    function elementPivot() {
+        return {
+            id:            ELEMENT_PIVOT,
+            label:         'Event elements',
+            origin:        'none',
+            maxCandidates: NODE_BUDGET,
+            summarize: function (nodes, narrowing) {
+                var all = elementCandidates();
+                narrowing = narrowing || {};
+                return {
+                    total: all.filter(function (c) { return matchesNarrowing(c, narrowing); }).length,
+                    facets: [
+                        { key: 'q', label: 'Search', type: 'text' },
+                        { key: 'element', label: 'Element', type: 'select',
+                          options: countOptions(all, function (c) { return c.kind; }) },
+                        { key: 'category', label: 'Category', type: 'select',
+                          options: countOptions(all, function (c) { return elementCategory(c.kind, c.rec); }) }
+                    ]
+                };
+            },
+            fetch: function (nodes, narrowing) {
+                narrowing = narrowing || {};
+                return {
+                    nodes: elementCandidates()
+                        .filter(function (c) { return matchesNarrowing(c, narrowing); })
+                        .map(elementNode),
+                    edges: []
+                };
+            }
+        };
+    }
+
+    // The library caches summaries until told otherwise, and what this pivot
+    // offers is exactly what the canvas lacks.
+    function watchElementPivot(graph) {
+        if (!graph || typeof graph.on !== 'function' || !graph.pivots) return;
+        var drop = function () { graph.pivots.invalidate(ELEMENT_PIVOT); };
+        graph.on('nodeAdd', drop);
+        graph.on('nodeRemove', drop);
+    }
+
     /* ── pivotick options ──────────────────────────────────── */
     function graphOptions() {
         return {
@@ -804,7 +919,7 @@
                 d3LinkDistance: 200
             },
             // No `save`: correlations are derived, never counted unsaved.
-            pivots: [correlationPivot(), relatedEventPivot()],
+            pivots: [elementPivot(), correlationPivot(), relatedEventPivot()],
             callbacks: {
                 // A correlated event is a leaf here (PRD §4) — it cannot expand
                 // in place, so double-click hands the analyst over to its own
@@ -887,14 +1002,9 @@
                     resEl.style.display  = '';
                 }
 
-                // Build the editor first so its sidebar panel can be handed to
-                // pivotick at construction time (extraPanels are options-time only).
-                var editor = canEdit ? createEditor(event) : null;
+                var editor = canEdit ? createEditor() : null;
                 var opts   = graphOptions();
-                if (editor) {
-                    opts.UI.extraPanels = [editor.panel];
-                    Object.assign(opts.callbacks, editor.callbacks);
-                }
+                if (editor) Object.assign(opts.callbacks, editor.callbacks);
 
                 _graph = new window.Pivotick(
                     containerEl,
@@ -906,6 +1016,7 @@
                     try { editor.attach(_graph); }
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
+                watchElementPivot(_graph);
                 loadCorrelationCounts(_graph);
             })
             .catch(function (err) {
@@ -916,233 +1027,20 @@
     }
 
     /* ══════════════════════════════════════════════════════════
-       EDITOR
-       - a pivotick sidebar extraPanel listing the event's unlinked
-         attributes as draggable chips
-       - drop a chip on the canvas to stage its node
-       - draw an edge in pivotick's Create mode (v1.5.0 dropped the old
-         Edit ▸ Add edge tool and its `e` toggle for the mode rail);
-         onBeforeEdgeCreate picks a relationship and persists it before
-         the edge lands
+       EDITOR — drawing an object reference in pivotick's Create
+       mode: isValidConnection gates the gesture, onBeforeEdgeCreate
+       asks for the relationship and persists it before the edge lands.
+       Putting an element on the canvas is not an edit; that is the
+       element pivot, offered to every viewer.
        ══════════════════════════════════════════════════════════ */
-    function createEditor(event) {
-        var ev = (event && event.Event) ? event.Event : {};
-
-        var graph      = null;
-        var stageEl    = document.getElementById('pe-stage');
-
-        // DOM refs into the panel body (built once, on first render()).
-        var panelEl    = null;
-        var listEl     = null;
-        var badgeEl    = null;
-        var filterEl   = null;
-        var filterVal  = '';
-
-        var staged = {};   // uuid -> node id, once put on the canvas
-
-        /* ── unlinked inventory (what's NOT on the canvas) ──── */
-        // Same seed as the canvas builder, so the tray lists exactly the
-        // attributes/objects buildGraphData chose to omit — including the L2
-        // objects it drew, which must not be offered twice.
-        var seed         = computeSeed(ev);
-        var linkedAttr   = seed.linkedAttrUuids;
-        var connectedObj = seed.connectedObjUuids;
-        var items = [];
-        (ev.Attribute || []).forEach(function (a) {
-            if (isDeleted(a) || linkedAttr[a.uuid]) return;
-            items.push({
-                kind:  'attribute', uuid: a.uuid, attr: a,
-                label: (a.value != null ? String(a.value) : ''),
-                meta:  (a.type || '') + (a.to_ids ? ' · IDS' : ''),
-                group: a.category || 'Other'
-            });
-        });
-        (ev.Object || []).forEach(function (o) {
-            if (isDeleted(o) || connectedObj[o.uuid] || seed.l2Uuids[o.uuid]) return;
-            items.push({
-                kind:  'object', uuid: o.uuid, obj: o,
-                label: (o.name || 'Object'),
-                meta:  (o['meta-category'] || 'object'),
-                group: 'Objects'
-            });
-        });
-        var itemsByUuid = {};
-        items.forEach(function (it) { itemsByUuid[it.uuid] = it; });
-
-        /* ── drag ghost (follows the cursor during a drag) ──── */
-        var EMPTY_IMG = new Image();
-        EMPTY_IMG.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-        var ghostEl = null;
-        function moveGhost(e) {
-            if (ghostEl) { ghostEl.style.left = (e.clientX + 14) + 'px'; ghostEl.style.top = (e.clientY + 14) + 'px'; }
-        }
-        function startGhost(item) {
-            endGhost();
-            ghostEl = document.createElement('div');
-            ghostEl.className = 'pe-ghost pe-ghost-' + item.kind;
-            ghostEl.textContent = truncate(item.label, 32);
-            document.body.appendChild(ghostEl);
-            document.addEventListener('dragover', moveGhost);
-        }
-        function endGhost() {
-            if (ghostEl) { if (ghostEl.parentNode) ghostEl.parentNode.removeChild(ghostEl); ghostEl = null; }
-            document.removeEventListener('dragover', moveGhost);
-        }
+    function createEditor() {
+        var graph = null;
 
         /* ── notifications (fall back to console) ──────────── */
         function notify(kind, title, msg) {
             var n = graph && graph.notifier;
             if (n && typeof n[kind] === 'function') { n[kind](title, msg); return; }
             console.log('[pivot-explorer] ' + kind + ': ' + title + (msg ? ' — ' + msg : ''));
-        }
-
-        /* ── panel (extraPanel render) ─────────────────────── */
-        function buildPanel() {
-            panelEl = document.createElement('div');
-            panelEl.className = 'pe-tray-body';
-
-            var count = document.createElement('div');
-            count.className = 'pe-count';
-            count.textContent = 'Unlinked ';
-            badgeEl = document.createElement('span');
-            badgeEl.className = 'pe-badge';
-            count.appendChild(badgeEl);
-
-            filterEl = document.createElement('input');
-            filterEl.type = 'text';
-            filterEl.className = 'pe-filter';
-            filterEl.placeholder = 'Filter…';
-            filterEl.autocomplete = 'off';
-            filterEl.value = filterVal;
-            filterEl.addEventListener('input', function () {
-                filterVal = filterEl.value;
-                renderList();
-            });
-
-            listEl = document.createElement('div');
-            listEl.className = 'pe-tray-list';
-
-            panelEl.appendChild(count);
-            panelEl.appendChild(filterEl);
-            panelEl.appendChild(listEl);
-
-            renderList();
-            updateCount();
-            return panelEl;
-        }
-
-        function renderList() {
-            if (!listEl) return;
-            var filter = (filterVal || '').toLowerCase();
-            listEl.innerHTML = '';
-            var groups = {};
-            items.forEach(function (it) {
-                var hay = (it.label + ' ' + it.meta + ' ' + it.group).toLowerCase();
-                if (filter && hay.indexOf(filter) === -1) return;
-                (groups[it.group] = groups[it.group] || []).push(it);
-            });
-            var keys = Object.keys(groups).sort();
-            if (!keys.length) {
-                listEl.innerHTML = '<div class="pe-empty">'
-                    + (items.length ? 'No matches.' : 'Nothing unlinked.') + '</div>';
-                return;
-            }
-            keys.forEach(function (g) {
-                var lbl = document.createElement('div');
-                lbl.className = 'pe-group-label';
-                lbl.textContent = g;
-                listEl.appendChild(lbl);
-                groups[g].forEach(function (it) { listEl.appendChild(buildChip(it)); });
-            });
-        }
-
-        function buildChip(item) {
-            var isStaged = !!staged[item.uuid];
-            var chip = document.createElement('div');
-            chip.className = 'pe-chip pe-chip-' + item.kind + (isStaged ? ' pe-chip-staged' : '');
-            chip.setAttribute('draggable', isStaged ? 'false' : 'true');
-            var v = document.createElement('div');
-            v.className = 'pe-chip-val';
-            v.textContent = truncate(item.label, 48);
-            var m = document.createElement('div');
-            m.className = 'pe-chip-meta';
-            m.textContent = item.meta;
-            chip.appendChild(v); chip.appendChild(m);
-            chip.addEventListener('dragstart', function (e) {
-                e.dataTransfer.setData('text/plain', item.uuid);
-                e.dataTransfer.effectAllowed = 'copy';
-                try { e.dataTransfer.setDragImage(EMPTY_IMG, 0, 0); } catch (_) {}
-                startGhost(item);
-            });
-            chip.addEventListener('dragend', endGhost);
-            return chip;
-        }
-
-        function updateCount() {
-            if (!badgeEl) return;
-            badgeEl.textContent = items.filter(function (it) { return !staged[it.uuid]; }).length;
-        }
-
-        /* ── drop a chip onto the canvas → staged node ─────── */
-        // screenToGraphCoordinates() expects raw viewport coordinates — it
-        // subtracts the canvas rect and inverts the zoom transform itself.
-        function graphCoords(clientX, clientY) {
-            var r = graph && graph.renderer;
-            if (r && typeof r.screenToGraphCoordinates === 'function') {
-                try { return r.screenToGraphCoordinates(clientX, clientY); }
-                catch (e) { /* fall through */ }
-            }
-            return null;
-        }
-
-        function stageItem(uuid, clientX, clientY) {
-            var it = itemsByUuid[uuid];
-            if (!it || staged[uuid]) return;
-            var raw, nodeId;
-            if (it.kind === 'object') {
-                nodeId = 'obj:' + uuid;
-                var children = (it.obj.Attribute || []).filter(function (a) { return !isDeleted(a); })
-                    .map(function (a) { return { id: 'attr:' + a.uuid, data: attributeNodeData(a) }; });
-                var odata = objectNodeData(it.obj);
-                raw = { id: nodeId, children: children, data: odata };
-            } else {
-                nodeId = 'attr:' + uuid;
-                var adata = attributeNodeData(it.attr);
-                raw = { id: nodeId, data: adata };
-            }
-            var c = graphCoords(clientX, clientY);
-            if (c) { raw.fx = c.x; raw.fy = c.y; }   // pin where dropped
-            try {
-                graph.addNode(raw);
-            } catch (e) {
-                console.error('[pivot-explorer] addNode failed:', e);
-                return;
-            }
-            staged[uuid] = nodeId;
-            if (graph.simulation && typeof graph.simulation.reheat === 'function') {
-                graph.simulation.reheat();
-            }
-            renderList();
-            updateCount();
-        }
-
-        function wireDrop() {
-            if (!stageEl) return;
-            stageEl.addEventListener('dragover', function (e) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
-                stageEl.classList.add('pe-drop-active');
-            });
-            stageEl.addEventListener('dragleave', function (e) {
-                if (e.target === stageEl) stageEl.classList.remove('pe-drop-active');
-            });
-            stageEl.addEventListener('drop', function (e) {
-                e.preventDefault();
-                stageEl.classList.remove('pe-drop-active');
-                var uuid = e.dataTransfer.getData('text/plain');
-                if (uuid) stageItem(uuid, e.clientX, e.clientY);
-                endGhost();
-            });
         }
 
         /* ── edge creation → what it can be, ask, save ──────── */
@@ -1287,22 +1185,13 @@
             });
         }
 
-        /* ── public: panel + callbacks (options-time), attach (post-construction) ── */
+        /* ── public: callbacks (options-time), attach (post-construction) ── */
         return {
-            panel: {
-                title: 'Unlinked attributes',
-                alwaysVisible: true,
-                render: function () { return panelEl || buildPanel(); }
-            },
             callbacks: {
                 isValidConnection:  isValidConnection,
                 onBeforeEdgeCreate: onBeforeEdgeCreate
             },
-            attach: function (g) {
-                graph = g;
-                wireDrop();
-                updateCount();
-            }
+            attach: function (g) { graph = g; }
         };
     }
 

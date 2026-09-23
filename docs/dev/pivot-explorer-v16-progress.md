@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 13 done · 2 built and blocked upstream (5, 5d) · 9 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); **in progress while the Pivotick fix is out: 4, 6, 9 (10 done)**
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 65 cases, 225 assertions, no dependencies
+- **Status:** 14 done · 2 built and blocked upstream (5, 5d) · 8 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); **in progress while the Pivotick fix is out: 4, 6 (9, 10 done)**
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 71 cases, 250 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -41,7 +41,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 6 | Analyst-data badges + selection-reactive sidebar panel | ⬚ | 1 | |
 | 7 | Sectioned legend | ⬚ | 3, 5, 6 | |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | ⬚ | 5 | |
-| 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | ⬚ | 1 | |
+| 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | ✅ | 1 | 2026-09-23 — built as PRD §11.7's origin-less pivot, not a bespoke pane (P0). See §2 |
 | R5 | Read-only users: every persistence editor off, no editor hooks, no tray | ✅ | 0b | `5a5770d9c` (2026-09-23) — verified in the harness for both roles |
 | 10 | `possibleKinds()`; `ctx.promptData` replaces the `innerHTML` picker; delete the pending ring (D2, D2b, P0) | ✅ | 1 | 2026-09-23 — see §2. Did not need 8: ownership is read off the payload, not a `scope` field. Needed the vocabulary endpoint fixed first (`e39908012`) |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | ⬚ | 10 | |
@@ -89,6 +89,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Count endpoint (task 5e) | ✅ model + aggregation | `php -l` on every file; `CorrelationCountToolTest` 3/3 under the container's PHPUnit; the method body run from a check shell against the live models for two users × two events — counts, timings, sizes, the 404, and agreement with `RelatedEvent` (graph-endpoint PRD §7) | **The HTTP route itself** — JSON extension, ACL entry, 404 — needs the dev server on this branch |
 | Real instance, v2 (task 1b) | ✅ | Playwright, logged in, dev server on `pivotick-v2`. `correlationCounts` over HTTP: admin 1195 → 350 / 18 events, 4116 → 708 / 78; org 9 admin 1195 → 346 / 15, 4116 → 404 — identical to the check shell. Pivot Explorer: 1195 opens in 4.7 s, layout settles in ~17 s (4,743 top-level nodes, 2,362 references); 4116 opens in 21 s (L0 only, 90 nodes — the D13 payload); 2014 in 0.4 s. No console error from the explorer. Edit rights: admin → editor, plain org-1 User on an org-9 event → read-only. A drawn reference on 2014 POSTs 200, lands as `object-reference`, records `persisted: true`, survives a reload — then deleted (`objectReferences/delete/11378/1`) | Glyphs: see below |
 | Drawn edges (task 10) | ✅ | Suite 225/225 (9 new: editor gating per role, the ownership gate on both ends, refusal before any form, vocabulary sorted/defaulted/fetched once, the POST and the persisted decision, custom beats list, blank and cancel save nothing, a refused save, the free-text fallback retrying); 7 targeted mutants, 7 caught. Live, admin, event 2014, through Pivotick's click-connect: the form is Pivotick's themed modal with 262 relationships defaulting to `related-to`, the `<script>` row rendered as text (no `<script>` element in the modal); a list choice and a typed one both POST, land as `object-reference` with the typed label, no console error — references 11379/11380, then hard-deleted | The perm-only analyst kind is 10b |
+| Element pivot (task 9) | ✅ | Suite 250/250 (6 new cases: shape, what is offered, search scope, narrowing and summary = fetch, the form's facets and counts, cache invalidation; the tray tests now read the pivot's offer, and the invariant holds against it); 13 targeted mutants, 13 caught. Live, admin, through `graph.pivots` and the real panel/Review tab: 2014 offers its 1 unlinked attribute, ingest puts it on the canvas (29 → 30) and the offer drops to 0, undo takes both back. 4116 offers 28,410 objects (every attribute is inside one); unnarrowed the run is **refused on the cap** (28,410 > 1,500); `80.66.83.162` finds 5 in 197 ms on the first search (search text built then), stages in 70 ms, ingests 5, undo restores. No console error | A read-only user was not driven live — the pivot is declared regardless of edit rights, which the suite checks |
 | Pivots (tasks 5, 5d, 5f) | ✅ except edges | Suite 192/192 (8 new: declaration, cap, no `save`, `appliesTo` before/after counts, never this event, fetch bodies, container shape, stable edge ids, this event's side brought along). Live, admin, via `graph.pivots`: `correlatedAttributes` pairs = counts on 1195 (350), 4116 (708), one attribute, one event, and for the org 9 admin (346); Pivot rail button present; `related-event` potential on 23/23 related events of 2014 and 78/89 of 4116 (the other 11 have no count), each equal to 5e; a related-event run ingests its attributes into the proxy (2014: 4, 4116: 33) and undo takes them back | **Correlation edges: 90 staged, 0 landed** — upstream |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
@@ -210,6 +211,33 @@ the owner's — PRD §3.7.
   typed value winning. Pivotick has no combobox, so a list plus a text field is the closest
   honest shape. Only one kind is ever possible until 10b, so there is no link-type question.
 
+**Task 9 — the tray became a pivot.** P0 settled what PRD §11.7 had left as a candidate: Pivotick
+already has a searchable, filterable, paged table with a commit step (a pivot's Review tab), so the
+event's elements are an **origin-less pivot**, *Event elements*, and ingesting is putting them on
+the canvas. What that changed:
+
+- **The tray, its drag-and-drop, the drop ghost and all of the element's CSS are deleted.** Elements
+  no longer land where they were dropped; the library places them.
+- **Undo now covers it.** A tray drop was a programmatic `addNode`, outside the history (§4 below);
+  an ingest is a history row.
+- **Every viewer gets it, read-only users included.** Putting an element on the canvas writes
+  nothing (D2), so there was never a reason to reserve it for editors; the tray was editor-only
+  only because it lived in the editor.
+- **What it offers is what the canvas lacks**: live event-level attributes and whole objects not
+  drawn, read off the live graph, so it tracks ingests, undos and pivots. Summaries are dropped on
+  every `nodeAdd` / `nodeRemove`, since the library caches them until told.
+- **The form**: a search box (value, type, category and comment; an object answers for its live
+  attributes, since it is what gets ingested), then *Element* and *Category* selects with counts.
+  `maxCandidates` is the 1,500 budget, so an unnarrowed 28,410-object event is refused with its
+  number — D4's "search is the primitive", enforced by the library.
+- **Not server-paged.** D4 asked for server paging above a size threshold, but the whole event is
+  already in memory (D13 is not built), so paging from the server would fetch again what the page
+  holds. When D13 lands, `fetch` is the one place to change. The Review tab pages at 100 rows.
+- **The library's `UI.table`** was already the dock's first tab; nothing to add.
+- **Not exercised:** an own attribute the correlation pivot brought in on its own (a child of an
+  object L2 skipped), followed by ingesting that object here. The ids would collide; Pivotick
+  skips an id already on canvas, but whether that holds for a container's children is untested.
+
 **Tasks 5 and 5d are blocked on Pivotick, not on MISP.** `PivotManager.ingest()` lands a carried
 edge only when an endpoint is a *top-level* node the run landed: descendants of a new container are
 not counted, and children merged into a container already on canvas are merged after the edges
@@ -249,21 +277,18 @@ Fixture events, per PRD §8: **1195** (2,362 refs — the authored-spine seed ca
 
 Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a surprise.
 
-- **Editor CSS still inline** — 78 lines under `if ($canEdit)` in the `.ctp`, ~29 `.pe-*`
-  selectors. Three groups: tray (~15 lines), relationship picker (~11), drag ghost + drop
-  outline (~4). Pivotick styles only its own `pvt-*` chrome; all of this is MISP-injected
-  DOM. **The picker third is deleted by task 10**, which routes the write path through
-  pivotick's themed `promptData()` — so only the tray and ghost (~19 lines) are a genuine
-  CSS-extraction candidate.
-- **~21 hardcoded English UI strings** in `pivot-explorer.js` — `'Unlinked attributes'`,
-  `'Filter…'`, `'Unlinked '`, the empty states, four notifier messages, the picker's own labels,
-  and now the five fragments `resolutionStatement()` assembles (`'Seeded '`, `' node(s)'`,
-  `'L2 skipped (N objects not shown)'`, `'N relationships not drawable'`). Untranslatable as they
-  stand. Pivotick has no consumer-facing i18n (no `setLocale` / `translations`), so anything MISP
-  writes stays MISP's to translate. Task 10 absorbs the picker strings; ~14 remain. The statement
+- **Hardcoded English UI strings** in `pivot-explorer.js` — the pivots' labels and facet labels
+  (`'Event elements'`, `'Search'`, `'Element'`, `'Category'`, `'Correlations'`, …), the
+  relationship form's (`'Add relationship'`, `'Relationship type'`, `'Or a custom one'`), the
+  notifier messages, and the five fragments `resolutionStatement()` assembles (`'Seeded '`,
+  `' node(s)'`, `'L2 skipped (N objects not shown)'`, `'N relationships not drawable'`).
+  Untranslatable as they stand. Pivotick has no consumer-facing i18n (no `setLocale` /
+  `translations`), so anything MISP writes stays MISP's to translate. Tasks 9 and 10 deleted the
+  tray's and the picker's strings, and added about as many in the library's forms. The statement
   is the one group with a natural home already: task 8 moves it into the header, and `data-pe-*`
   is the established route for a translated string — though a sentence with counts and plurals
   wants more than one attribute.
+
 - **Dedicated graph endpoint (D13)** — deferred to
   [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
@@ -271,8 +296,5 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
 - **Pivotick: `getEdges()` reports stale provenance** — a hand-drawn edge's read-only view
   says `getSources()` = `["seed"]` while `getMutableEdge()` says `["manual"]`. No MISP code
   reads it; upstream, not a workaround here.
-- **Tray drops are outside the undo history** — `graph.addNode` is programmatic, so Ctrl+Z does
-  not take back a dragged-in chip. Consistent with v2's rule; worth knowing before task 9 builds
-  the dock pane on the same path.
 - **Phase 2 open questions** — object aggregation, lazy expansion via `childrenProvider`,
   declarative initial filter value. PRD §11.

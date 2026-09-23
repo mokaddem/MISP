@@ -122,8 +122,18 @@ function buildGraph(payload, options) {
             body: makeEl('body'),
         },
         window: {
+            // Just enough graph for the element pivot to ask what is drawn.
             Pivotick: function Pivotick(container, data, opts) {
                 constructed = { data, opts };
+                const drawn = {};
+                (function index(nodes) {
+                    (nodes || []).forEach(n => { drawn[n.id] = n; index(n.children); });
+                })(data.nodes);
+                this.getNode = id => drawn[id] || undefined;
+                this.listeners = {};
+                this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
+                this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
+                constructed.graph = this;
             },
             location: { href: '' },
         },
@@ -150,29 +160,22 @@ function buildGraph(payload, options) {
         if (!constructed) {
             throw new Error('Pivotick was never constructed. errors=' + JSON.stringify(errors));
         }
-        const panelDef = constructed.opts.UI.extraPanels && constructed.opts.UI.extraPanels[0];
-        let panel = null, tray = [], trayGroups = [], trayEmptyHtml = '';
-        if (panelDef) {
-            panel = panelDef.render();
-            tray = findByClass(panel, 'pe-chip').map(chip => ({
-                label: chip.children[0] ? chip.children[0].textContent : '',
-                meta: chip.children[1] ? chip.children[1].textContent : '',
-                kind: chip.className.indexOf('pe-chip-object') !== -1 ? 'object' : 'attribute',
-                draggable: chip.getAttribute('draggable'),
-            }));
-            trayGroups = findByClass(panel, 'pe-group-label').map(g => g.textContent);
-            const list = findByClass(panel, 'pe-tray-list')[0];
-            trayEmptyHtml = list ? list.innerHTML : '';
-        }
+        // What the element pivot offers at open, unnarrowed: everything the
+        // canvas does not hold. Still called the tray, which it replaced.
+        const elements = constructed.opts.pivots.find(p => p.id === 'event-elements');
+        const tray = elements.fetch([], {}, {}).nodes.map(n => ({
+            id: n.id, label: n.data.label, kind: n.data.type,
+        }));
         return {
             nodes: constructed.data.nodes,
             edges: constructed.data.edges,
             opts: constructed.opts,
+            graph: constructed.graph,
             resolution: byId['pe-resolution'].textContent,
             resolutionShown: byId['pe-resolution'].style.display === '',
             win: sandbox.window,
             fetchLog,
-            panel, tray, trayGroups, trayEmptyHtml, errors,
+            tray, errors,
         };
     });
 }
@@ -409,31 +412,29 @@ test('INVARIANT: every live element is either on the canvas or in the tray, neve
     ok('no element is in both places',
        ![...trayLabels].some(l => ['referenced', 'url', 'domain'].indexOf(l) !== -1));
     ok('the deleted attribute appears in neither', !canvas.has('e4') && !trayLabels.has('gone'));
-    eq('tray groups the leftovers', g.trayGroups.sort(), ['Network activity']);
-    eq('chips are draggable', [...new Set(g.tray.map(t => t.draggable))], ['true']);
 });
 
-test('an event with nothing in it builds an empty graph and says so in the tray', async () => {
+test('an event with nothing in it builds an empty graph and offers nothing', async () => {
     const g = await buildGraph(ev({}));
     eq('no nodes', g.nodes, []);
     eq('no edges', g.edges, []);
-    ok('tray states the empty case', g.trayEmptyHtml.indexOf('Nothing unlinked.') !== -1,
-       g.trayEmptyHtml);
+    eq('the element pivot counts nothing',
+       g.opts.pivots.find(p => p.id === 'event-elements').summarize([], {}).total, 0);
     eq('the statement stays silent — nothing was seeded and nothing was skipped',
        g.resolution, '');
     ok('and the line stays hidden', !g.resolutionShown);
     eq('no console errors', g.errors, []);
 });
 
-test('a read-only viewer gets no editor tray at all', async () => {
+test('a read-only viewer still gets the element pivot — putting an element on the canvas is not an edit', async () => {
     const g = await buildGraph(ev({ Object: [
         obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })] }),
         obj({ uuid: 'B' }),
         obj({ uuid: 'C' }),
     ] }), { canEdit: false });
     eq('graph still builds', ids(g.nodes), ['obj:A', 'obj:B', 'obj:C']);
-    ok('no extraPanels handed to pivotick', !g.opts.UI.extraPanels);
-    eq('no tray', g.tray, []);
+    ok('the element pivot is declared', g.opts.pivots.some(p => p.id === 'event-elements'));
+    eq('and has nothing to offer here', g.tray, []);
     eq('the statement is not editor chrome — a read-only viewer gets it too',
        g.resolution, 'Seeded L1+L2 · 3 nodes');
 });
@@ -1078,8 +1079,9 @@ const pivot = (g, id) => g.opts.pivots.find(p => p.id === id);
 
 test('both pivots are declared, capped at the canvas budget, and savable by nobody', async () => {
     const g = await withPivots();
-    eq('the two pivots', g.opts.pivots.map(p => p.id), ['correlations', 'related-event']);
-    g.opts.pivots.forEach(p => {
+    eq('the two pivots, after the element pivot', g.opts.pivots.map(p => p.id),
+       ['event-elements', 'correlations', 'related-event']);
+    g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
     });
@@ -1155,7 +1157,7 @@ test('this event\'s side of a pair comes along when it is not on the canvas', as
     const g = await withPivots();
     const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
     const own = r.nodes.filter(n => n.id.indexOf('attr:') === 0).map(n => n.id).sort();
-    eq('both source attributes are offered (the stub graph holds nothing)', own, ['attr:c1', 'attr:e1']);
+    eq('only the one not drawn: c1 is already on the canvas, inside object A', own, ['attr:e1']);
     eq('and drawn from the event payload', r.nodes.find(n => n.id === 'attr:e1').data.uuid, 'e1');
 });
 
@@ -1292,6 +1294,93 @@ test('nothing carries a pending flag any more (D2)', async () => {
     const g = await withEditor();
     ok('no styleCb', g.opts.render.defaultNodeStyle.styleCb === undefined);
     ok('no node data carries pending', JSON.stringify(g.nodes).indexOf('pending') === -1);
+});
+
+/* ─────────── task 9: the event's elements, as an origin-less pivot ─────────── */
+
+const elementsOf = g => g.opts.pivots.find(p => p.id === 'event-elements');
+const offered = (g, narrowing) => elementsOf(g).fetch([], narrowing || {}, {}).nodes.map(n => n.id).sort();
+
+// Over the budget, so L2 is skipped and objects are on offer too.
+function elementFixture() {
+    return ev({
+        Attribute: [
+            attr({ uuid: 'a1', value: 'Evil.COM', type: 'domain', category: 'Network activity' }),
+            attr({ uuid: 'a2', value: '10.0.0.1', type: 'ip-dst', category: 'Network activity', comment: 'the evil box' }),
+            attr({ uuid: 'a3', value: 'deadbeef', type: 'md5', category: 'Payload delivery' }),
+            attr({ uuid: 'a4', value: 'evil.com', deleted: true }),
+        ],
+        Object: fillers(1500).concat([
+            obj({ uuid: 'O', name: 'domain-ip', 'meta-category': 'network', Attribute: [
+                attr({ uuid: 'oc1', value: 'sub.evil.com', object_relation: 'domain' }),
+                attr({ uuid: 'oc2', value: 'hidden', deleted: true }),
+            ] }),
+        ]),
+    });
+}
+
+test('the element pivot needs no origin, refuses above the budget, and saves nothing', async () => {
+    const g = await buildGraph(ev({}));
+    const p = elementsOf(g);
+    eq('shape', [p.origin, p.maxCandidates, p.save, typeof p.appliesTo], ['none', 1500, undefined, 'undefined']);
+    eq('named for what it lists', p.label, 'Event elements');
+});
+
+test('it offers every live element the canvas lacks, objects whole', async () => {
+    const g = await buildGraph(elementFixture());
+    const ids = offered(g);
+    ok('event-level attributes, deleted ones excluded',
+       ['attr:a1', 'attr:a2', 'attr:a3'].every(i => ids.indexOf(i) !== -1) && ids.indexOf('attr:a4') === -1);
+    ok('an object, not its attributes on their own',
+       ids.indexOf('obj:O') !== -1 && ids.indexOf('attr:oc1') === -1);
+    const o = elementsOf(g).fetch([], { q: 'domain-ip' }, {}).nodes[0];
+    eq('the object arrives with its live children', o.children.map(c => c.id), ['attr:oc1']);
+    eq('drawn like any object', o.data.type, 'object');
+});
+
+test('search is case-insensitive, and reaches values, types, categories and comments', async () => {
+    const g = await buildGraph(elementFixture());
+    eq('a value, either case', offered(g, { q: 'EVIL.com' }), ['attr:a1', 'obj:O']);
+    eq('a comment', offered(g, { q: 'evil box' }), ['attr:a2']);
+    eq('a type', offered(g, { q: 'md5' }), ['attr:a3']);
+    eq('a category', offered(g, { q: 'payload' }), ['attr:a3']);
+    eq('surrounding space ignored', offered(g, { q: '  deadbeef ' }), ['attr:a3']);
+    eq('an object answers for its attributes', offered(g, { q: 'sub.evil' }), ['obj:O']);
+    eq('but not for its deleted ones', offered(g, { q: 'hidden' }), []);
+});
+
+test('element and category narrow, and the summary counts what the fetch would bring', async () => {
+    const g = await buildGraph(elementFixture());
+    const p = elementsOf(g);
+    eq('element', offered(g, { element: 'attribute' }), ['attr:a1', 'attr:a2', 'attr:a3']);
+    eq('category', offered(g, { category: 'Network activity' }), ['attr:a1', 'attr:a2']);
+    eq('together with search', offered(g, { q: 'evil', element: 'object' }), ['obj:O']);
+    [{}, { q: 'evil' }, { element: 'object' }, { category: 'Payload delivery' }].forEach(n => {
+        eq('summary = fetch for ' + JSON.stringify(n), p.summarize([], n).total, p.fetch([], n, {}).nodes.length);
+    });
+    eq('unnarrowed, the budget refuses it: 3 attributes and 1,501 objects', p.summarize([], {}).total, 1504);
+});
+
+test('the form: a search box, then element and category with their counts', async () => {
+    const g = await buildGraph(elementFixture());
+    const f = elementsOf(g).summarize([], {}).facets;
+    eq('fields', f.map(x => [x.key, x.type]), [['q', 'text'], ['element', 'select'], ['category', 'select']]);
+    eq('element counts', f[1].options, [
+        { label: 'attribute', value: 'attribute', count: 3 },
+        { label: 'object', value: 'object', count: 1501 },
+    ]);
+    eq('category counts, objects by meta-category',
+       f[2].options.map(o => [o.value, o.count]),
+       [['Network activity', 2], ['Payload delivery', 1], ['file', 1500], ['network', 1]]);
+});
+
+test('its summaries are dropped whenever a node comes or goes', async () => {
+    const g = await buildGraph(ev({}));
+    ['nodeAdd', 'nodeRemove'].forEach(evt => {
+        eq(evt + ' is watched', (g.graph.listeners[evt] || []).length, 1);
+        g.graph.listeners[evt][0]();
+    });
+    eq('each drops this pivot\'s cache', g.graph.pivots.invalidated, ['event-elements', 'event-elements']);
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

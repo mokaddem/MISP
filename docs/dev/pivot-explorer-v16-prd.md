@@ -794,6 +794,11 @@ levels it seeded and what it left out, and this is where that statement lives.
 
 #### D4 — "Unlinked attributes" becomes search + a server-paged table ✅ SETTLED
 
+> **Built as a pivot (task 9, 2026-09-23).** Under P0 the pane is Pivotick's own: an origin-less
+> pivot whose `text` facet is the search box and whose Review tab is the paged table; ingest puts
+> elements on the canvas, with undo. Paging stays in the browser until D13, because the whole
+> payload is already there. The tray and its drag-and-drop are gone.
+
 Today's sidebar panel titled **"Unlinked attributes"** (`:887`) lists every attribute and object
 not on the canvas as draggable chips. It is doing two jobs, and they scale differently:
 
@@ -1287,7 +1292,7 @@ relationships, and the events in §3.5 as fixtures):
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
-| 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | 1 |
+| 9 | ✅ "Unlinked attributes" → an origin-less pivot, *Event elements*: search + element/category facets, the Review tab as the paged list, ingest as putting on the canvas (D4 under P0, §11.7) | 1 |
 | 10 | ✅ `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5. Ownership comes from the payload, so 8 was not needed | 1 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | 10 |
 | 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4) | 10 |
@@ -1350,7 +1355,7 @@ of D13.
    to Explore. §4 keeps it out of scope; the seed/mode parameterisation is designed for it.
 6. **Analyst-data and enrichment write paths** — both gated in §2.2's taxonomy, neither built.
    Analyst assertion is the natural first one, since D8 already says it is offered everywhere.
-7. **Dock paging** on very large events (§7). Under P0, a candidate answer: the unlinked-element
+7. ✅ **Dock paging** — answered by task 9 as proposed here. Under P0, the answer: the unlinked-element
    list becomes an **origin-less pivot** (`origin: 'none'`) whose Review tab *is* the searchable,
    filterable, paged table, and whose ingest *is* putting elements on the canvas — which retires
    the tray, its drag-and-drop and D4's bespoke pane in one move.
