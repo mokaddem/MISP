@@ -49,34 +49,48 @@ class ValueFactsTool
      * @param array $types `Value::typesFor`
      * @param array $sightings `Value::sightingCountsFor`
      * @param int|null $now Override for testing
+     * @param array|null $proposed Pending proposals adding the value,
+     *     `count`, `oldest`, `newest`; given only when it has no
+     *     occurrence
      * @return array
      */
     public static function strip(array $summary, array $types,
-        array $sightings, $now = null
+        array $sightings, $now = null, array $proposed = null
     ) {
         $now = $now === null ? time() : $now;
+        $occurrencesSub = empty($types)
+            ? null
+            : sprintf(
+                __n('%s type', '%s types', count($types)),
+                count($types)
+            );
+        if ($proposed !== null) {
+            $occurrencesSub = sprintf(
+                __n('%s proposed', '%s proposed', $proposed['count']),
+                number_format($proposed['count'])
+            );
+        }
         return array(
-            self::dateFact(
-                __('First seen'),
-                $summary['oldest'],
-                $summary['dated_from'],
-                $now
-            ),
-            self::dateFact(
-                __('Last seen'),
-                $summary['newest'],
-                $summary['dated_at'],
-                $now
-            ),
+            $proposed === null
+                ? self::dateFact(
+                    __('First seen'),
+                    $summary['oldest'],
+                    $summary['dated_from'],
+                    $now
+                )
+                : self::proposedFact(__('First proposed'), $proposed['oldest']),
+            $proposed === null
+                ? self::dateFact(
+                    __('Last seen'),
+                    $summary['newest'],
+                    $summary['dated_at'],
+                    $now
+                )
+                : self::proposedFact(__('Last proposed'), $proposed['newest']),
             array(
                 'label' => __('Occurrences'),
                 'value' => number_format($summary['occurrences']),
-                'sub' => empty($types)
-                    ? null
-                    : sprintf(
-                        __n('%s type', '%s types', count($types)),
-                        count($types)
-                    ),
+                'sub' => $occurrencesSub,
                 'tab' => self::TAB_OCCURRENCES,
             ),
             array(
@@ -150,6 +164,16 @@ class ValueFactsTool
      * @param int $now
      * @return array
      */
+    private static function proposedFact($label, $stamp)
+    {
+        return array(
+            'label' => $label,
+            'value' => date('Y-m-d', $stamp),
+            'sub' => __('a proposal, not yet an occurrence'),
+            'tab' => self::TAB_OCCURRENCES,
+        );
+    }
+
     private static function dateFact($label, $stamp, $declared, $now)
     {
         if ($stamp === null) {

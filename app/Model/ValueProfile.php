@@ -1774,7 +1774,15 @@ class ValueProfile extends AppModel
             'value2_note' => ValueFactsTool::value2Note(
                 $valueModel->value2CountFor($user, $value, $options)
             ),
-            'facts' => ValueFactsTool::strip($summary, $types, $sightings),
+            'facts' => ValueFactsTool::strip(
+                $summary,
+                $types,
+                $sightings,
+                null,
+                $summary['occurrences'] === 0
+                    ? $this->pendingAdditionsFor($user, $value, $options)
+                    : null
+            ),
             'counts' => $this->forTabCounts(
                 $user,
                 $value,
@@ -1787,6 +1795,41 @@ class ValueProfile extends AppModel
                 $value,
                 $types
             ),
+        );
+    }
+
+    /**
+     * The pending proposals that would add this value as a new
+     * attribute, as a count and the span of their dates.
+     *
+     * Withdrawn proposals are left out: they no longer ask for anything.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array|null `count`, `oldest`, `newest`; null when none
+     */
+    private function pendingAdditionsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $stamps = array();
+        $proposals = $this->model('Value')->proposalsFor(
+            $user,
+            $value,
+            array_merge($options, array('reach' => array('proposed')))
+        );
+        foreach ($proposals as $proposal) {
+            if ($proposal['old_id'] === 0 && empty($proposal['deleted'])) {
+                $stamps[] = (int)$proposal['timestamp'];
+            }
+        }
+        if (empty($stamps)) {
+            return null;
+        }
+        return array(
+            'count' => count($stamps),
+            'oldest' => min($stamps),
+            'newest' => max($stamps),
         );
     }
 
@@ -8721,7 +8764,14 @@ class ValueProfile extends AppModel
     ) {
         $this->forget($value);
         $context = $this->timelineContext($user, $value, $options);
-        if (empty($context['occurrences'])) {
+        /*
+         * A value that exists only as a proposal still has something to
+         * place: the proposals the reader can already see listed under
+         * the Occurrences tab.
+         */
+        if (empty($context['occurrences'])
+            && empty($this->timelineProposalEntries($user, $value)['entries'])
+        ) {
             /*
              * **Null, and deliberately not an empty timeline.** An empty
              * one would be an axis, a set of empty bins and seven lanes
