@@ -1,12 +1,13 @@
-# Pivot Explorer v1.6.0 — Implementation Progress
+# Pivot Explorer (Pivotick v2) — Implementation Progress
 
 Delivery tracker for [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 **Task definitions live in the PRD (§9); this file tracks only state.** Update it in the
 same pass as the code, not in a catch-up sweep.
 
-- **Branch:** `worktree-pivotick-v16` (tracks `mokaddem/worktree-pivotick-v16`)
-- **Last updated:** 2026-08-31
-- **Status:** 7 done · 1 part-done and blocked · 12 not started
+- **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
+- **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
+- **Last updated:** 2026-09-23
+- **Status:** 9 done · 1 part-done and blocked · 12 not started · **§3.7's open questions gate tasks 5, 9, 10, 10c**
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 48 cases, 170 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
@@ -21,10 +22,11 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | # | Task | Status | Depends on | Commit / note |
 |---|---|---|---|---|
 | 0 | Bundle to v1.6.0 + compatibility audit | ✅ | — | `e02a24710` (2026-08-28) |
+| 0b | Bundle to v2 + audit; edge save onto `onBeforeEdgeCreate` + `isValidConnection` | ✅ | 0 | `3c4d1f0b1` bundle, `9ed240f92` write path (2026-09-23) — see §2 |
 | E | Extract inline JS out of the `.ctp` into `webroot/js/pivot-explorer.js` | ✅ | 0 | `edc6a0caa` (2026-08-31) |
 | T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
 | 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
-| 1b | Regression pass under v1.6.0 (§8.1) | 🔜 ⏸ | 0 | **Gate — blocks 2, 6, 9, 11.** Needs the dev server; see §3 |
+| 1b | Regression pass under v2 (§8.1) | 🔜 ⏸ | 0b | **Gate — blocks 2, 6, 9, 11.** Rendering half done in a headless harness (§2); the real-instance half needs the dev server — §3 |
 | 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor` / `edgeStyleMap` / `edgeFacets` (one layer) | ✅ | 1 | Built ahead of the 1b gate, deliberately. Edge stroke becomes explicit blue — see §2 |
 | 3 | Generalise `computeConnectivity()` to any authored relationship; analyst-relationship edges as a second layer (L1, D5′) | ✅ | 2 | Also fixed a pre-existing seeding bug — see §2 |
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ✅ | 2 | `7ab4f859f` (2026-08-31), shared with 3c — see §2 |
@@ -37,7 +39,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 7 | Sectioned legend | ⬚ | 3, 5, 6 | |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | ⬚ | 5 | |
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | ⬚ | 1 | |
-| 10 | `possibleKinds()` + write path onto `onBeforeEdgeCreate` / `isValidConnection` / `editors.*.enabled`; delete the `innerHTML` picker and the pending ring (D2, D2b) | ⬚ | 1, 8 | |
+| 10 | `possibleKinds()` + `editors.*.enabled`; delete the `innerHTML` picker and the pending ring (D2, D2b) | ⬚ | 1, 8 | The hooks themselves landed in 0b |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | ⬚ | 10 | |
 | 10c | `onBeforeDelete`: edge deletion behind `ctx.confirm()`, node deletion vetoed (D6) | ⬚ | 10 | |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | ⬚ | 1 | |
@@ -76,6 +78,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Task 3 — generalised seeding, analyst-relationship layer | ✅ data + config | Same suite: D5′ seeding from a relationship alone, target-type gating, tombstones on both kinds, provenance on the edge, skip cases | **Dashed-orange rendering of the new layer — §8.1** |
 | Task 3b — L0 nodes, `event-correlation` edges, `Event` as a relationship target | ✅ data + config | Same suite: proxy per `RelatedEvent`, dedupe, no self-proxy, the edge-gate on the event node, `Event`-typed analyst targets resolving to both the event and its neighbours, label/description/`event_id` shape, and `onNodeDbclick` navigating only for a foreign `event` node | **The green hexagons and dashed-green edges are visual — §8.1**; §8.7's double-click check |
 | Task 3c — the budget, L2 clusters, the resolution statement | ✅ data + config | Same suite: the boundary (1,500 fits, 1,501 skips whole), cost counted with children and without tombstones, L2 never seeding a bare attribute, the tray losing exactly the objects L2 drew, and the statement's own text in eight states | **How the statement reads in the card — §8.1**; the `hideDisconnected` collision (§7) is still unexercised |
+| v2 bundle + write path (task 0b) | ✅ | Clean `npm run build` of `d220446`, `node --check`, md5 `1183ba8c…`; every option/call `pivot-explorer.js` makes checked against `dist/types`; suite 170/170; **headless Chromium harness** — real bundle + real `pivot-explorer.js`, stubbed `fetch`, hand-built fixture (L0 pair, one reference, one L2 object, one tray attribute): renders with no console error, L0+L1+L2 seeded, both edge colours, tray drop pinned + pending, four edge gestures each checked for picker / POST / edge / history | §8.1 on the real instance with events 1195 and 4116 |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey
@@ -149,6 +152,16 @@ file split in one sitting, which is why task 1b is doing double duty.
 
 ---
 
+**Task 0b's write-path change is the only code the v2 bump needed.** v2 records a hand-drawn
+edge in `graph.history` when it lands; the v1.6 `edgeAdd` listener saved or removed it *after*
+that, so a refused save left an undo row for a vanished edge and a saved one undid as unsaved.
+The edge now lands only once `objectReferences/add` succeeds, marked `persisted: true`. Verified
+by gesture in the harness, not by the unit suite — the editor has no unit tests.
+
+**One visible regression is left open on purpose:** `render.minLabelFontSize` (9 px) hides every
+label at the opening fit on the harness fixture (zoom 0.62). The library default, so the call is
+the owner's — PRD §3.7.
+
 ## 3. Blockers
 
 **Task 1b needs the dev server, which is not ours to point.** misp-track selects which tree
@@ -157,6 +170,11 @@ job. **The user owns that switch** — read `~/git/misp-docker-2.5/.misp-track.s
 the current selection and ask; never repoint it.
 
 Credentials for the authenticated `/events/view2/{id}` render are available.
+
+**The harness did part of it (2026-09-23)**: rendering, seeding, both edge kinds, the tray drop
+and the edge gestures under v2. What still needs the real instance is real payloads (1195, 4116),
+the misp-iconify glyphs (the harness loads no font), the CSP-served worker, and the saved
+reference surviving a reload.
 
 **What 1b now owes has grown.** Beyond the bundle bump and the file split, an unopened browser has
 never seen: the grey→blue edge stroke (task 2), the dashed-orange analyst layer (task 3), the green
@@ -192,5 +210,11 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
   slow to open (~100 MB for event 4116 to draw 86 nodes).
+- **Pivotick: `getEdges()` reports stale provenance** — a hand-drawn edge's read-only view
+  says `getSources()` = `["seed"]` while `getMutableEdge()` says `["manual"]`. No MISP code
+  reads it; upstream, not a workaround here.
+- **Tray drops are outside the undo history** — `graph.addNode` is programmatic, so Ctrl+Z does
+  not take back a dragged-in chip. Consistent with v2's rule; worth knowing before task 9 builds
+  the dock pane on the same path.
 - **Phase 2 open questions** — object aggregation, lazy expansion via `childrenProvider`,
   declarative initial filter value. PRD §11.

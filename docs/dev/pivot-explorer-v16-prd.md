@@ -1,12 +1,14 @@
-# PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
+# PRD: Pivot Explorer — leveraging Pivotick on `/events/view2`
 
-**Status:** DRAFT — all decisions settled (D1–D4, D5′, D6–D13; D5 withdrawn). Ready for implementation.
+**Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn). The
+v2 bump reopens some of them — see §3.7 before building past task 3c.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
 **Working dir:** /home/sami/git/MISP
-**Branch:** `worktree-pivotick-v16` off `develop` (bundle upgrade already committed there)
-**Library:** Pivotick v1.6.0 (`app/webroot/js/pivotick.iife.js`, `app/webroot/css/pivotick.css`)
+**Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (which holds the v1.6.0 work)
+**Library:** Pivotick v2.0.1+, built from `develop` at `d220446` (`app/webroot/js/pivotick.iife.js`,
+`app/webroot/css/pivotick.css`). Written against v1.6.0; the file name keeps `v16` so links hold.
 
 ---
 
@@ -36,7 +38,8 @@ on demand**. Three consequences drive the whole design:
 
 The one library gap that did **not** close is lazy cluster expansion (`childrenProvider` /
 `onBeforeNodeExpansion`), which is what expandable correlated events need. §4 scopes that out
-and §11 keeps it on the list.
+and §11 keeps it on the list. It is still open in v2, but v2's **pivots** — fetch, stage, choose
+what lands — reach most of what it was wanted for; §3.7.
 
 ## 2. Background & Motivation
 
@@ -55,8 +58,9 @@ attributed-to that actor* — and a two-graph split puts the write capability in
 structurally cannot reach the nodes worth writing about: the single-event editor has no foreign
 nodes, and the read-only explorer has no write.
 
-Pivotick already models this correctly: `ModeRailOptions` (`GraphUI.ts:134-142`) reserves
-`explore` and `enrich` as coming-soon rail modes beside Select / Create / View, and
+Pivotick already models this correctly: v1.6.0 reserved `explore` and `enrich` as coming-soon
+rail modes beside Select / Create / View — v2 retired those slots for `addRailMode`, which lets a
+consumer register the mode itself, and ships a Pivot mode built through that same door — and
 `editors.{nodeEditor,nodeCreator,deletion,edgeEditor}.enabled` (`:640-693`) removes write
 affordances rather than vetoing them. The library's own roadmap says *modes*, not *graphs*.
 
@@ -116,7 +120,7 @@ on the pending-reference ring (`:414-419`). Every styling channel is committed.
 | Data dock | `UI.table`, `UI.dock`, `UIManager.addDockTab()` | CHANGELOG §*The dock holds more than the table* |
 | Before-write hooks | `onBeforeEdgeCreate`, `onBeforeDelete`, `isValidConnection`, … | CHANGELOG §*Every user write goes through a hook* |
 | Write-affordance removal | `editors.{nodeEditor,nodeCreator,deletion,edgeEditor}.enabled` | `GraphUI.ts:640-693` |
-| Reserved rail modes | `UI.modeRail: { explore, enrich }` (disabled "SOON") | `GraphUI.ts:134-142` |
+| Reserved rail modes | `UI.modeRail: { explore, enrich }` (disabled "SOON") — **removed in v2**, see §3.7 | `GraphUI.ts:134-142` |
 | Panel lifecycle | `ExtraPanel` re-invoked per selection; `id`/`order`/`reactive` | CHANGELOG §*Sidebar panels* |
 | Async content | every content hook may return a `Promise`; `RenderContext{signal}` | CHANGELOG §*Content renderers* |
 
@@ -139,6 +143,7 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
   1.5.0 "a `string` never
   renders as markup" change does not bite. Its `innerHTML` writes are all to its own DOM.
 - `graph.on('edgeAdd', …)` (`pivot-explorer.js:894`) and `simulation.d3LinkDistance` still exist.
+  (The `edgeAdd` write path did not survive v2 — §3.7.)
 - v1.6.0's breaking changes are confined to physics presets. As the code stands, the graph
   **configures** `d3LinkDistance: 200` (`pivot-explorer.js:441-442`), so physics stays
   `'manual'` — auto declines
@@ -233,6 +238,53 @@ carries analyst data, names one of its encodings, cannot say which event a node 
 renders nothing at all for the majority of large events — while the data for most of it is
 already in the response it fetches, and the library now has the channels to show it.
 
+### 3.7 Upgrade to Pivotick v2 (v1.6.0 → `develop` `d220446`) — performed 2026-09-23
+
+Built from a clean export of pivotick `develop` at `d220446` (v2.0.1 plus 29 unreleased commits:
+zoom-dependent node drawings, a legibility gate on labels). The IIFE still carries everything,
+the simulation worker included — it starts from a `blob:` URL, which MISP's CSP already allows
+(`worker-src blob:`, `AppController.php:891`). `node --check` passes; md5 `1183ba8c…`.
+
+**What the upgrade broke, and what was done about it:**
+
+- **Drawing an edge.** v2 records every hand-drawn edge in `graph.history` the moment it lands.
+  The v1.6 flow let the edge land, then saved or removed it from an `edgeAdd` listener — so a
+  refused, cancelled or failed save left an undo row for an edge that no longer existed, and a
+  saved one undid as though it had never been written. **Fixed:** the save moved into
+  `onBeforeEdgeCreate`, which resolves only after the POST, accepting with `persisted: true` or
+  refusing; `isValidConnection` marks a non-object source invalid during the gesture. This pulls
+  the *mechanism* of task 10 forward; its `possibleKinds()`, `promptData()` picker and
+  `editors.*.enabled` gating are still task 10.
+- **Labels on open.** `render.minLabelFontSize` (default 9 CSS px) hides a label too small to
+  read. The graph opens fitted, and on the harness fixture the fit is zoom 0.62, so a 12 px label
+  renders at 7.4 px: **nothing on the canvas is named until the analyst zooms in.** Library
+  behaviour working as designed; left at the default pending a decision (below).
+- Nothing else. Every option and call `pivot-explorer.js` makes still exists with the same
+  shape; `UI.modeRail` and `onNodeExpansion`, the two removed APIs, were never used.
+
+**Verified in a headless browser**, against the real bundle and `pivot-explorer.js` with a stubbed
+`fetch` (not the dev server — it was serving another tree): the graph renders with no console
+error; L0/L1/L2 seed as the unit suite says; both edge kinds draw in their D1 colours; a tray
+chip drops in pinned and pending; and the four edge gestures behave — non-object source (no
+picker, no edge, no history), cancelled picker (nothing), refused save (POST sent, no edge, no
+history), accepted save (edge tagged `object-reference`, one `create` history row,
+`persisted: true`). This discharges the rendering half of task 1b; it does not replace §8.1 on
+the real instance with real events.
+
+**What v2 adds that this plan should decide about** — each touches a settled decision, so none is
+applied here:
+
+| v2 feature | Touches | The question |
+|---|---|---|
+| **Pivots** (`graph.pivots`): `summarize` advertises a count, a cap *refuses* rather than truncates, results are staged in a Review tab until committed | D9, task 5, §4 non-goals | Should the on-demand correlation fetch be a pivot on the event node rather than a bespoke layer? The refusal-with-a-count gate is D9's cap, already built. |
+| Pivots on a correlated-event proxy, with container rows that ingest whole | §4 *Lazy expansion* non-goal, D12 L0 | Does "expand a related event" stop being out of scope? |
+| `ctx.addPivot` / enrichment as a pivot, with `save` writing results back | §4 *Enrichment* non-goal, §2.2 view vs structural write | `modules/queryEnrichment` is a pivot's `fetch`; persisting it is its `save`. Still out of scope? |
+| `graph.history` + `persisted` on `onBeforeDelete` (a persisted deletion is *sealed*, never undone) | D6, task 10c | D6 deletes edges behind a confirm; under v2 that deletion is permanently un-undoable in the history menu, which is the honest outcome — confirm the confirm is still wanted on top. |
+| `pivotMarkUnsaved` / `pvt-node-unsaved` | D2's removal of the pending ring | The tray still paints its own pending ring (`styleCb`). v2 has a library marker for exactly this state, but only for pivot-created nodes. |
+| `addRailMode`, `UI.*.enabled` switches (`UI.history`, `UI.editors.edgeCreator`, …) | D8, task 10 | A read-only user can still draw local edges today (the editor hooks attach only when `canEdit`). v2's `editors.edgeCreator.enabled: false` removes the tool outright. |
+| `NodeStyle.tiers` / `focusTier` (dot → chip → card by rendered size) | D10/D12 budget, L2 | Could L2 objects draw as dots past a threshold rather than being skipped above 1,500 nodes? |
+| `render.minLabelFontSize` | the open-unlabelled finding above | Keep the 9 px default, lower it, or open at a zoom where labels read? |
+
 ## 4. Goals / Non-Goals
 
 ### Goals
@@ -256,7 +308,8 @@ already in the response it fetches, and the library now has the channels to show
 - **A second entry point (pivot route).** The component is to be *parameterised* for it (seed +
   default mode) but the route is not built here. See §11.
 - **Lazy expansion of correlated events.** Needs `childrenProvider` / a fired
-  `onBeforeNodeExpansion`, which v1.6.0 did not ship. Correlated events appear as leaf proxy
+  `onBeforeNodeExpansion`, which v1.6.0 did not ship (v2 neither; it removed the never-called
+  `onNodeExpansion` and points at pivots instead — reopened in §3.7). Correlated events appear as leaf proxy
   nodes only (§6.4).
 - **Writing notes and opinions from the graph.** Read-only — they are displayed (badge + panel)
   but not authored here. Analyst **relationships** *are* written (D2b): they are the assertion an
@@ -290,8 +343,8 @@ cursor and the user's permissions, **not** by which page is open:
 
 Rejected: two graphs (one editable/event-scoped, one read-only/exploratory). The cross-event
 assertion — the most valuable product of exploration — is available in neither half of that
-split. Exploring and editing become **modes**, matching the `explore`/`enrich` rail modes
-pivotick already reserves.
+split. Exploring and editing become **modes** — in v2, rail modes registered with `addRailMode`
+beside the library's own Pivot mode.
 
 #### D5′ — Authored relationships are always seeded, uncapped ✅ SETTLED (supersedes D5)
 
@@ -1129,7 +1182,8 @@ relationships, and the events in §3.5 as fixtures):
 | # | Task | Depends on |
 |---|---|---|
 | 0 | ✅ Bundle to v1.6.0 + compatibility audit | — |
-| 1 | Regression pass on the existing graph under v1.6.0 (§8.1); refresh the stale Edit▸Add-edge comment | 0 |
+| 0b | ✅ Bundle to v2 (`develop` `d220446`) + audit; edge save moved onto `onBeforeEdgeCreate` (§3.7) | 0 |
+| 1 | Regression pass on the existing graph under v2 (§8.1); refresh the stale Edit▸Add-edge comment | 0b |
 | 2 | ✅ Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer) | 1 |
 | 3 | ✅ Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
 | 3b | ✅ L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
@@ -1142,7 +1196,7 @@ relationships, and the events in §3.5 as fixtures):
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | 1 |
-| 10 | `possibleKinds()` + write path onto `onBeforeEdgeCreate` / `isValidConnection` / `editors.*.enabled`; delete the innerHTML picker and the pending ring (D2, D2b) | 1, 8 |
+| 10 | `possibleKinds()` + `editors.*.enabled` gating on the write path (already on `onBeforeEdgeCreate` / `isValidConnection` since 0b); delete the innerHTML picker and the pending ring (D2, D2b) | 1, 8 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | 10 |
 | 10c | `onBeforeDelete`: edge deletion behind `ctx.confirm()`, node deletion vetoed (D6) | 10 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
@@ -1168,8 +1222,8 @@ for CSS.
 
 | File | Change |
 |---|---|
-| `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0) |
-| `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0) |
+| `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0, then v2 at `d220446`) |
+| `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0, then v2 at `d220446`) |
 | `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c) |
 | `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
 | `tests/js/pivot-explorer-graph.test.js` | ✅ new — zero-dependency unit suite over the seed and the graph builder |
@@ -1186,7 +1240,8 @@ No controller change, no new endpoint, no schema change in Phase 1.
    objects do not. This is the natural successor to D10's ceiling and needs a new endpoint.
 2. **Lazy expansion.** `childrenProvider` / a fired `onBeforeNodeExpansion` is the one library
    PRD from the set that did not ship (`prd/misp/async-children-provider.md`, still *Proposed*).
-   Until it lands, correlated events cannot expand in place. Highest-value remaining library ask.
+   Until it lands, correlated events cannot expand in place. Highest-value remaining library ask —
+   unless a pivot on the proxy node is enough, which §3.7 asks.
 3. **Declarative initial filter value** (library ask). `FilterOptions`/`FilterFacet` carry no
    opening value (§3.2). Not needed under D9, but any future default-off layer needs it, and it
    would let a filter apply before the first layout as v1.6.0 intends.
