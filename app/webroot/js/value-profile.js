@@ -820,24 +820,49 @@
             if (range.from === null && range.to === null) {
                 return true;
             }
-            var at = rowTime(row, key);
-            if (at === null) {
-                return false;
-            }
-            return (range.from === null || at >= range.from)
-                && (range.to === null || at <= range.to);
+            return rowOverlaps(row, key, range.from, range.to);
         });
+    }
+
+    /**
+     * Whether a row's time under `key` touches a range. A row may carry
+     * a window rather than a moment — a resolution was current from its
+     * first sighting to its last — and a window matches when any part
+     * of it falls inside.
+     *
+     * @param {Element} row
+     * @param {string} key
+     * @param {number|null} from `YmdHi`
+     * @param {number|null} to `YmdHi`
+     * @return {boolean}
+     */
+    function rowOverlaps(row, key, from, to) {
+        var span = rowTime(row, key);
+        if (span === null) {
+            return false;
+        }
+        return (from === null || span.to >= from)
+            && (to === null || span.from <= to);
     }
 
     /**
      * @param {Element} row
      * @param {string} key
-     * @return {number|null} `YmdHi`
+     * @return {{from: number, to: number}|null} `YmdHi`, equal for a
+     *     row that carries a moment
      */
     function rowTime(row, key) {
-        var match = (row.dataset.vpTimes || '')
-            .match(new RegExp('(?:^|\\s)' + key + ':(\\d{12})'));
-        return match ? parseInt(match[1], 10) : null;
+        var match = (row.dataset.vpTimes || '').match(new RegExp(
+            '(?:^|\\s)' + key + ':(\\d{12})(?:-(\\d{12}))?'
+        ));
+        if (!match) {
+            return null;
+        }
+        var from = parseInt(match[1], 10);
+        return {
+            from: from,
+            to: match[2] ? parseInt(match[2], 10) : from
+        };
     }
 
     /**
@@ -1141,6 +1166,9 @@
     // Pending selection per strip while a drag is in flight.
     var timeBrushDrag = new WeakMap();
 
+    // The period a row-counting strip is set to, as `[from, to]` labels.
+    var timeBrushPeriod = new WeakMap();
+
     /**
      * @param {Element|Document} root
      */
@@ -1252,8 +1280,12 @@
             return;
         }
         var total = 0;
-        for (var i = from; i <= to; i++) {
-            total += parseInt(bars[i].dataset.vpBucketCount, 10) || 0;
+        if (strip.dataset.vpTimebrushCount === 'rows') {
+            total = timeBrushRows(strip, bars[from], bars[to]);
+        } else {
+            for (var i = from; i <= to; i++) {
+                total += parseInt(bars[i].dataset.vpBucketCount, 10) || 0;
+            }
         }
         var span = from === to
             ? bars[from].dataset.vpBucketLabel
@@ -1263,13 +1295,46 @@
     }
 
     /**
+     * How many rows a period from one bar to another would keep. Summing
+     * the bars counts a row once per bucket it spans, which is right for
+     * events and wrong for a resolution current across three months.
+     *
+     * @param {Element} strip
+     * @param {Element} first Bar
+     * @param {Element} last Bar
+     * @return {number}
+     */
+    function timeBrushRows(strip, first, last) {
+        var list = strip.closest('[data-vp-list]');
+        if (!list) {
+            return 0;
+        }
+        var key = strip.dataset.vpTimebrush;
+        var from = boundDigits(first.dataset.vpBucketFrom, '0000');
+        var to = boundDigits(last.dataset.vpBucketTo, '2359');
+        return listRows(list).filter(function (row) {
+            return rowOverlaps(row, key, from, to);
+        }).length;
+    }
+
+    /**
      * @param {Element} strip
      */
     function captionDefault(strip) {
         var caption = timeBrushCaption(strip);
-        if (caption) {
-            caption.textContent = caption.dataset.vpCaptionDefault || '';
+        if (!caption) {
+            return;
         }
+        /*
+         * A row-counting strip has no date inputs on screen, so at rest
+         * its caption names the period it is set to. The count stays
+         * with the list's own *N of M shown*.
+         */
+        var period = timeBrushPeriod.get(strip);
+        caption.textContent = period
+            ? (period[0] === period[1]
+                ? period[0] : period[0] + ' – ' + period[1])
+            : caption.dataset.vpCaptionDefault || '';
     }
 
     /**
@@ -1403,6 +1468,7 @@
                     // read the same and mean opposite things, and this
                     // is the one the strip is in almost all the time it
                     // is on screen.
+                    timeBrushPeriod.delete(strip);
                     window.VP.brush.clear(strip);
                     captionDefault(strip);
                     return;
@@ -1425,6 +1491,15 @@
                     first <= last ? { from: first, to: last } : null,
                     bars.length
                 );
+                if (strip.dataset.vpTimebrushCount === 'rows'
+                    && first <= last
+                ) {
+                    timeBrushPeriod.set(strip, [
+                        bars[first].dataset.vpBucketLabel,
+                        bars[last].dataset.vpBucketLabel,
+                    ]);
+                    captionDefault(strip);
+                }
             }
         );
     }
@@ -4543,6 +4618,7 @@
             })
             .then(function (markup) {
                 slot.innerHTML = markup;
+                initTimeBrushes(slot);
                 var result = slot.querySelector('[data-vp-e-result]');
                 setEnrichState(
                     panel,
@@ -4865,6 +4941,13 @@
                     grid.appendChild(shape.cloneNode(true));
                 });
                 body.appendChild(grid);
+                // A clone keeps the ready flag and not the listeners.
+                grid.querySelectorAll('[data-vp-timebrush-ready]')
+                    .forEach(function (strip) {
+                        delete strip.dataset.vpTimebrushReady;
+                    });
+                initTimeBrushes(grid);
+                refreshAllLists(grid);
                 /*
                  * **A drawing that needs the width takes the row.**
                  * Asked of the drawing rather than kept as a list of

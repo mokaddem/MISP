@@ -140,6 +140,7 @@ class ResolutionTimelineRenderer extends ValueRendererBase
             'distinct' => count($merged),
             'dated' => $dated > 0,
             'months' => $months,
+            'periods' => $this->periods($merged, array_keys($months)),
             'first' => $first,
             'last' => $last,
             'sources' => $this->sources($objects),
@@ -351,6 +352,47 @@ class ResolutionTimelineRenderer extends ValueRendererBase
             $cursor = strtotime('+1 month', $cursor);
         }
         return $cursor <= $end ? $months : $dense;
+    }
+
+    /**
+     * The months the full form brushes over, each counting the
+     * resolutions whose window overlaps it.
+     *
+     * Not `months`: that one stops counting a long-lived resolution
+     * after three years, and the brush filters by overlap, so a bar
+     * drawn from it could sit empty over rows the filter keeps.
+     *
+     * @param array $rows Merged resolutions
+     * @param array $keys `Y-m` keys, ascending
+     * @return array `[{from, to, label, count}]`, `Y-m-d` bounds
+     */
+    private function periods(array $rows, array $keys)
+    {
+        $periods = array();
+        foreach ($keys as $key) {
+            $start = strtotime($key . '-01');
+            if ($start === false) {
+                continue;
+            }
+            $end = strtotime('+1 month', $start) - 1;
+            $count = 0;
+            foreach ($rows as $row) {
+                $first = $row['first'] ?? $row['last'];
+                $last = $row['last'] ?? $row['first'];
+                if ($first !== null && $first <= $end
+                    && $last >= $start
+                ) {
+                    $count++;
+                }
+            }
+            $periods[] = array(
+                'from' => date('Y-m-d', $start),
+                'to' => date('Y-m-d', $end),
+                'label' => $key,
+                'count' => $count,
+            );
+        }
+        return $periods;
     }
 
     /**
