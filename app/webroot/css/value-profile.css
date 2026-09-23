@@ -2507,6 +2507,11 @@ tr.vp-occ-deleted td {
     min-width: 0;
 }
 
+.vp-verdict-meta-note {
+    flex-basis: 100%;
+    color: var(--bs-body-color);
+}
+
 /*
  * The two disabled actions, moved down out of the hero. They sit at
  * the end of the small print, which had a quarter of its width spare

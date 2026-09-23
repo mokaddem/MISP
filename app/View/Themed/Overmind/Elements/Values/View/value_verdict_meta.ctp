@@ -75,6 +75,10 @@ if (!empty($verdict['ledger'])) {
     $parts[] = h(__('Analyst profile')) . ' ' . $named;
 }
 
+$notDefaultNote = !empty($verdict['ledger'])
+    && isset($verdict['profile_is_instance_default'])
+    && $verdict['profile_is_instance_default'] === false;
+
 $parts[] = $metaRule === null
     ? h(__('Not stored, not synchronised'))
     : h(__('Conflict rule:')) . ' <em>' . h($metaRule) . '</em>';
@@ -87,6 +91,12 @@ $parts[] = $metaRule === null
             <?php endif; ?>
             <span><?= $part ?></span>
         <?php endforeach; ?>
+        <?php if ($notDefaultNote): ?>
+            <span class="vp-verdict-meta-note"><?= h(__(
+                'This is not the instance default profile, so a colleague'
+                . ' using the default may see a different assessment.'
+            )) ?></span>
+        <?php endif; ?>
     </div>
     <?= $this->element('Values/View/value_verdict_actions', array(
         'valueB64' => $valueB64,

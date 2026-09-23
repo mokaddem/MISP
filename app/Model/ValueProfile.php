@@ -16109,9 +16109,27 @@ class ValueProfile extends AppModel
          * them can own them; `resolveFor()` memoises per request, so
          * holding it costs nothing.
          */
-        $profile = array_key_exists('profile', $options)
-            ? $options['profile']
-            : ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        /*
+         * Whether the profile is the instance's own choice. A reader on
+         * any other profile scores this value differently from a
+         * colleague who kept the default, and the page says so; a
+         * profile handed in by the caller is not the reader's, so the
+         * question has no answer there.
+         */
+        $isInstanceDefault = null;
+        if (array_key_exists('profile', $options)) {
+            $profile = $options['profile'];
+        } else {
+            $resolution = ClassRegistry::init('AnalystProfile')
+                ->resolutionFor($user);
+            $profile = $resolution['profile'];
+            if ($profile !== null) {
+                $isInstanceDefault = isset($profile['uuid'])
+                    && strtolower($profile['uuid']) === strtolower(
+                        (string)$resolution['selections']['instance']
+                    );
+            }
+        }
         $context = isset($options['context'])
             ? $options['context']
             : $this->verdictContextFor($user, $value, $profile, $options);
@@ -16150,7 +16168,8 @@ class ValueProfile extends AppModel
                 self::VERDICT_UNPRODUCED,
                 $verdict,
                 $this->verdictPanels($verdict, $context, $profile,
-                    $standing)
+                    $standing),
+                array('profile_is_instance_default' => $isInstanceDefault)
             ),
         );
     }
