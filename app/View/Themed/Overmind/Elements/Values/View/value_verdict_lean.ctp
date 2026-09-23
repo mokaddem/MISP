@@ -66,6 +66,7 @@ $leanRows = isset($verdict['lean_ledger'])
 $leanWeight = (int)(isset($verdict['lean_weight'])
     ? $verdict['lean_weight']
     : 0);
+$leanBenign = ($verdict['lean'] ?? null) === 'benign';
 $leanHeaviest = 1;
 foreach ($leanRows as $leanRow) {
     $leanHeaviest = max(
@@ -100,10 +101,10 @@ $supermajority = isset($stances['supermajority'])
 ?>
 <div class="vp-vc-lean">
     <div class="vp-vc-lean-head"
-         title="<?= h(__('The lean is counted before any signal is'
-             . ' scored: organisations are counted per side, and a'
-             . ' supermajority on either side decides the reading. No'
-             . ' points are involved.')) ?>">
+         title="<?= h(__('Organisations are counted per side, and a'
+             . ' supermajority on either side sets the reading. The'
+             . ' lean evidence weighs in only through the conflict'
+             . ' rules.')) ?>">
         <i class="fas fa-scale-balanced vp-vc-lean-mark"></i>
         <?= h(__('Lean')) ?>
         <span class="vp-vc-axis-head-sub">
@@ -213,10 +214,10 @@ $supermajority = isset($stances['supermajority'])
                     <?= h(__('Lean evidence')) ?>
                     <span class="vp-vc-lean-rows-total"
                           title="<?= h(__(
-                              'These rows sum to this. They are not'
-                              . ' part of the quality score, which'
-                              . ' weighs how much record there is'
-                              . ' rather than what it says.'
+                              'These rows sum to this. Green argues'
+                              . ' harmless, red argues threat; the sign'
+                              . ' is relative to the reading above.'
+                              . ' Not part of the quality score.'
                           )) ?>">
                         <?= h(($leanWeight > 0 ? '+' : '') . $leanWeight) ?>
                     </span>
@@ -224,10 +225,32 @@ $supermajority = isset($stances['supermajority'])
                 <?php foreach ($leanRows as $leanRow):
                     $leanUp = (int)$leanRow['contribution'] >= 0;
                     $leanPoints = abs((int)$leanRow['contribution']);
+                    /*
+                     * The colour is the side the row argues for; the
+                     * sign is measured against the reading, so a row
+                     * arguing harmless on a threat reading is green
+                     * and negative.
+                     */
+                    if ($leanUp !== $leanBenign) {
+                        $leanTip = $leanUp
+                            ? __('Argues threat (red). Positive: it'
+                                . ' supports the reading above.')
+                            : __('Argues threat (red). Negative: points'
+                                . ' here count toward harmless, and this'
+                                . ' row disputes it.');
+                    } else {
+                        $leanTip = $leanUp
+                            ? __('Argues harmless (green). Positive: it'
+                                . ' supports the reading above.')
+                            : __('Argues harmless (green). Negative:'
+                                . ' points here count toward a threat,'
+                                . ' and this row disputes it.');
+                    }
                     ?>
                     <div class="vp-vc-lean-row<?= $leanUp
                         ? ' vp-vc-lean-row-up'
-                        : ' vp-vc-lean-row-down' ?>">
+                        : ' vp-vc-lean-row-down' ?>"
+                         title="<?= h($leanTip) ?>">
                         <span class="vp-vc-lean-row-mark">
                             <?= $leanUp ? '&#9650;' : '&#9660;' ?>
                         </span>
