@@ -49,16 +49,18 @@ $highWidth = max(0, 100 - $lowWidth - $mediumWidth);
 ?>
 <div class="vi-tile" data-vi-tile="bands">
     <div class="vi-tile__label"><i class="fas fa-gauge-high vi-tile__icon" aria-hidden="true"></i><?= h(__('Quality bands')) ?></div>
-    <div class="vi-tile__value">
-        <?= h(number_format($bands['high'])) ?>
-    </div>
-    <div class="vi-bandbar" aria-hidden="true" data-vi-bandbar>
-        <i class="vi-bandbar__seg vi-bandbar__seg--low"
-           style="flex-grow: <?= h($lowWidth) ?>"></i>
-        <i class="vi-bandbar__seg vi-bandbar__seg--medium"
-           style="flex-grow: <?= h($mediumWidth) ?>"></i>
-        <i class="vi-bandbar__seg vi-bandbar__seg--high"
-           style="flex-grow: <?= h($highWidth) ?>"></i>
+    <div class="vi-tile__figure">
+        <div class="vi-tile__value">
+            <?= h(number_format($bands['high'])) ?>
+        </div>
+        <div class="vi-bandbar" aria-hidden="true" data-vi-bandbar>
+            <i class="vi-bandbar__seg vi-bandbar__seg--low"
+               style="flex-grow: <?= h($lowWidth) ?>"></i>
+            <i class="vi-bandbar__seg vi-bandbar__seg--medium"
+               style="flex-grow: <?= h($mediumWidth) ?>"></i>
+            <i class="vi-bandbar__seg vi-bandbar__seg--high"
+               style="flex-grow: <?= h($highWidth) ?>"></i>
+        </div>
     </div>
     <div class="vi-tile__sub"><?= sprintf(
         h(__(

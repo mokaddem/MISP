@@ -35,9 +35,8 @@
     <div class="vi-tile__value"><?= h(number_format($modules)) ?></div>
     <div class="vi-tile__sub"><?= sprintf(
         h(__(
-            '%s listed in the active analyst profile. A value\'s'
-            . ' Enrichment tab offers those enabled on this instance'
-            . ' for its type.'
+            '%s listed in the active analyst profile, offered on a'
+            . ' value\'s Enrichment tab when enabled for its type.'
         )),
         h(__n('module', 'modules', $modules))
     ) ?></div>

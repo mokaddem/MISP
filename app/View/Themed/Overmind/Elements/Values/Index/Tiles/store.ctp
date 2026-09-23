@@ -53,10 +53,8 @@ $hours = (int)$store['max_age_hours'];
  */
 $window = sprintf(
     h(__n(
-        'Results are reused for %s hour before a module is queried'
-        . ' again',
-        'Results are reused for %s hours before a module is queried'
-        . ' again',
+        'Each result is kept %s hour before a module is queried again',
+        'Each result is kept %s hours before a module is queried again',
         $hours
     )),
     '<b>' . h(number_format($hours)) . '</b>'

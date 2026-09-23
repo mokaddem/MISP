@@ -2036,22 +2036,22 @@
  * the row reads as a row of small cards rather than as a panel with
  * cards inside it.
  *
- * `auto-fill` rather than a column count, so adding a tile is one line
- * of markup and no layout decision: five sit abreast on a wide screen,
- * four with one below at 1024, and a phone stacks them without a media
- * query.
+ * `auto-fit` rather than a column count, so adding a tile is one line
+ * of markup and no layout decision: five sit abreast down to a ~1000px
+ * viewport, three stretch across when no profile is in force, and a
+ * phone stacks them without a media query.
  * ================================================================== */
 
 .vi-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 10px;
-    margin-bottom: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
 }
 
 .vi-tile {
     min-width: 0;
-    padding: 10px 12px;
+    padding: 12px 14px 13px;
     border: 1px solid var(--bs-border-color-translucent);
     border-radius: var(--bs-border-radius);
     background: var(--bs-body-bg);
@@ -2065,8 +2065,8 @@
 .vi-tile__label {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.72rem;
+    gap: 8px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--bs-secondary-color);
     line-height: 1.3;
@@ -2080,10 +2080,15 @@
  */
 .vi-tile__icon {
     flex: none;
-    width: 1em;
-    font-size: 0.86rem;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 0.78rem;
     color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 
@@ -2106,17 +2111,27 @@
  *
  * The 2px gap is the surface showing through, which is what keeps
  * three adjacent fills reading as three rather than as a gradient.
+ *
+ * It sits beside the figure rather than under it, so *60* and the
+ * caption's *and above is rated high* stay one sentence.
  * ================================================================== */
 
+.vi-tile__figure {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .vi-bandbar {
+    flex: 1;
     display: flex;
     gap: 2px;
-    height: 5px;
-    margin: 0 0 6px;
+    height: 6px;
+    margin-top: 4px;
 }
 
 .vi-bandbar__seg {
-    border-radius: 1px;
+    border-radius: 2px;
     /*
      * `flex-grow` carries the width and the basis is zero, so the
      * three segments divide the track in the thresholds' own
@@ -2128,12 +2143,12 @@
 }
 
 /*
- * Hollow, because *low* is the band a record lands in when nothing
- * carried it further — the same reading the row's quality bar gives an
- * unfilled segment.
+ * The faintest ink, because *low* is the band a record lands in when
+ * nothing carried it further — the same reading the row's quality bar
+ * gives an unfilled segment.
  */
 .vi-bandbar__seg--low {
-    box-shadow: inset 0 0 0 1px var(--vi-lacks);
+    background: color-mix(in srgb, var(--vi-lacks) 22%, transparent);
 }
 
 .vi-bandbar__seg--medium {
@@ -2151,10 +2166,11 @@
  * looks gappy, because every digit takes the width of a `0`.
  */
 .vi-tile__value {
-    margin: 3px 0 2px;
-    font-size: 1.55rem;
+    margin: 8px 0 4px;
+    font-size: 1.75rem;
     font-weight: 600;
     line-height: 1.1;
+    letter-spacing: -0.01em;
     color: var(--bs-body-color);
 }
 
@@ -2164,16 +2180,18 @@
  * what it says is that there is nothing to read.
  */
 .vi-tile__value--none {
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 500;
-    line-height: 1.6;
+    line-height: 1.925rem;
+    letter-spacing: 0;
     color: var(--bs-secondary-color);
 }
 
 .vi-tile__sub {
-    font-size: 0.72rem;
-    line-height: 1.45;
+    font-size: 0.75rem;
+    line-height: 1.5;
     color: var(--bs-secondary-color);
+    text-wrap: pretty;
 }
 
 /*
