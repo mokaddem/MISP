@@ -34,6 +34,7 @@
  * @var array $verdict The assessment, carrying `stances`, `decided_by`
  *                     and `rule_errors`
  */
+App::uses('ValueLean', 'Tools/ValueProfile');
 App::uses('ValueLeanReasonTool', 'Tools/ValueProfile');
 
 $reason = ValueLeanReasonTool::reasonFor($verdict);
@@ -104,7 +105,13 @@ $supermajority = isset($stances['supermajority'])
              . ' supermajority on either side decides the reading. No'
              . ' points are involved.')) ?>">
         <i class="fas fa-scale-balanced vp-vc-lean-mark"></i>
-        <?= h(__('How this reading was decided')) ?>
+        <?= h(__('Lean')) ?>
+        <span class="vp-vc-axis-head-sub">
+            <?= h(__('how this reading was decided')) ?>
+        </span>
+        <span class="vp-vc-axis-head-total">
+            <?= h(ValueLean::label($verdict['lean'] ?? 'none')) ?>
+        </span>
     </div>
     <div class="vp-vc-lean-body<?= empty($leanRows)
         ? ''
@@ -188,7 +195,7 @@ $supermajority = isset($stances['supermajority'])
         <div class="vp-vc-band-list">
         <?php
         /*
-         * And what else reads the value. Stance counts are one
+         * The lean evidence. Stance counts are one
          * organisation, one vote; these are the rows that carry a
          * weight, so both the count and the weight are on the page and
          * a reader can see which of the two decided.
@@ -203,7 +210,7 @@ $supermajority = isset($stances['supermajority'])
         <?php if (!empty($leanRows)): ?>
             <div class="vp-vc-lean-rows">
                 <div class="vp-vc-lean-rows-head">
-                    <?= h(__('What else reads the value')) ?>
+                    <?= h(__('Lean evidence')) ?>
                     <span class="vp-vc-lean-rows-total"
                           title="<?= h(__(
                               'These rows sum to this. They are not'

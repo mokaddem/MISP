@@ -2718,7 +2718,8 @@ tr.vp-occ-deleted td {
     border-top: 1px solid var(--bs-border-color);
 }
 
-.vp-vc-lean-head {
+.vp-vc-lean-head,
+.vp-ledger-head {
     display: flex;
     align-items: center;
     gap: 9px;
@@ -2728,8 +2729,23 @@ tr.vp-occ-deleted td {
     font-weight: 700;
 }
 
-.vp-vc-lean-mark {
+.vp-vc-lean-mark,
+.vp-ledger-head-mark {
     color: var(--bs-secondary-color);
+}
+
+.vp-vc-axis-head-sub {
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-axis-head-total {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-ledger-head {
+    border-top: 1px solid var(--bs-border-color);
 }
 
 .vp-vc-lean-body {

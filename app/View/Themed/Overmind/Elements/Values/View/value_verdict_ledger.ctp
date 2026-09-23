@@ -51,6 +51,20 @@ foreach ($ledger as $group) {
     }
 }
 ?>
+<div class="vp-ledger-head"
+     title="<?= h(__('What the record is worth, whatever it says about'
+         . ' the value. These rows sum to the quality score.')) ?>">
+    <i class="fas fa-list-check vp-ledger-head-mark"></i>
+    <?= h(__('Quality')) ?>
+    <span class="vp-vc-axis-head-sub">
+        <?= h(__('how the score was built')) ?>
+    </span>
+    <?php if (isset($verdict['quality'])): ?>
+        <span class="vp-vc-axis-head-total">
+            <?= h((int)$verdict['quality']) ?> / 100
+        </span>
+    <?php endif; ?>
+</div>
 <?php if (empty($ledger) && empty($conflicts)): ?>
     <div class="vp-empty">
         <i class="fas fa-list-check"></i>
