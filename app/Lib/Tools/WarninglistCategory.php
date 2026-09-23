@@ -284,19 +284,16 @@ class WarninglistCategory
     {
         if ($category === self::KNOWN) {
             return __(
-                'Category `known` means widely-used infrastructure, not'
-                . ' a false positive. The hit says an action against'
-                . ' this value will hit unrelated services too — it does'
-                . ' not say the reports are wrong.'
+                'Category `known`: widely used infrastructure, not a'
+                . ' false positive. Blocking it would also hit unrelated'
+                . ' services; the reports are not wrong.'
             );
         }
         if ($category === self::FALSE_POSITIVE) {
             return __(
-                'Category `false_positive` means reports about this'
-                . ' value are usually collateral — the sample really did'
-                . ' touch it, and it is still not the indicator. It does'
-                . ' not say the reporting organisations were wrong about'
-                . ' their incidents.'
+                'Category `false_positive`: this value often shows up'
+                . ' in real incidents without being the indicator. The'
+                . ' organisations that reported it are not wrong.'
             );
         }
         return null;

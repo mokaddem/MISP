@@ -144,9 +144,8 @@ class ValueChangersTool
                  * of evidence about the value could move.
                  */
                 'text' => sprintf(
-                    __('%1$d more points of evidence agreeing with'
-                        . ' what the record asserts — the ledger stops'
-                        . ' disputing it and %2$s'),
+                    __('%1$d more points backing what the record'
+                        . ' asserts — %2$s'),
                     abs((int)(isset($verdict['lean_weight'])
                         ? $verdict['lean_weight']
                         : 0)) + 1,
@@ -238,8 +237,7 @@ class ValueChangersTool
                 'cost' => 1,
                 'lean' => $derived['lean'],
                 'phrase' => sprintf(
-                    __('Removal from every list of category `%s` that'
-                        . ' matches it'),
+                    __('Removed from every matching `%s` list'),
                     $category
                 ),
             );
@@ -384,14 +382,12 @@ class ValueChangersTool
             'direction' => 'up',
             'text' => sprintf(
                 $this->sightingsReadable($context)
-                    ? __('A second source — one more organisation'
-                        . ' reporting it, or one sighting from anyone.'
-                        . ' No amount of further evidence from the one'
-                        . ' source takes a record past the %s band.')
-                    : __('A second source — one more organisation'
-                        . ' reporting it. No amount of further evidence'
-                        . ' from the one source takes a record past the'
-                        . ' %s band.'),
+                    ? __('A second source: one more organisation'
+                        . ' reporting it, or a sighting from anyone. More'
+                        . ' from the same source cannot lift it past %s.')
+                    : __('A second source: one more organisation'
+                        . ' reporting it. More from the same source'
+                        . ' cannot lift it past %s.'),
                 $clamp
             ),
         );
@@ -443,8 +439,8 @@ class ValueChangersTool
                 'axis' => 'quality',
                 'direction' => 'up',
                 'text' => sprintf(
-                    __('%1$d more points of evidence agreeing with the'
-                        . ' record — it reaches the %2$s band.'),
+                    __('%1$d more points would take it to the %2$s'
+                        . ' band.'),
                     $gap,
                     $target
                 ),
@@ -495,16 +491,16 @@ class ValueChangersTool
                     'direction' => 'down',
                     'text' => $removed === 1
                         ? sprintf(
-                            __('Withdraw %1$s (%2$s) and the record'
-                                . ' drops to the %3$s band.'),
+                            __('Without "%1$s" (%2$s), it drops to the'
+                                . ' %3$s band.'),
                             $rows[0]['signal'],
                             $this->signed($rows[0]['contribution']),
                             $band
                         )
                         : sprintf(
-                            __('Withdraw the %1$d heaviest supporting'
-                                . ' rows, starting with %2$s, and the'
-                                . ' record drops to the %3$s band.'),
+                            __('Without its %1$d heaviest rows, starting'
+                                . ' with "%2$s", it drops to the %3$s'
+                                . ' band.'),
                             $removed,
                             $rows[0]['signal'],
                             $band
@@ -842,14 +838,13 @@ class ValueChangersTool
     {
         switch ($lean) {
             case 'threat':
-                return __('the record reads as an asserted threat.');
+                return __('it would read as a threat.');
             case 'benign':
-                return __('the record reads as asserted benign.');
+                return __('it would read as benign.');
             case 'contested':
-                return __('the record starts contradicting itself and'
-                    . ' the lean goes contested.');
+                return __('it would become contested.');
         }
-        return __('the record has nothing left to assert.');
+        return __('it would no longer lean either way.');
     }
 
     /**

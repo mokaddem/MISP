@@ -78,7 +78,7 @@ class LifecycleContinuity extends ValueSignalBase
         return $this->row(
             $points,
             sprintf(
-                __('%d months without a month of silence'),
+                __('Longest streak: %d months in a row'),
                 $run
             ),
             sprintf(

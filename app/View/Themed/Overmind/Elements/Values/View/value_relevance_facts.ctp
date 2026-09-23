@@ -72,14 +72,11 @@ $state = $relevance['state'];
     <div class="vp-empty vp-empty-inline">
         <i class="fas fa-hourglass-half"></i>
         <?php if (($relevance['reason'] ?? null) === 'rows_not_read'): ?>
-            <span title="<?= h(__('MISP flags a value as'
-                     . ' over-correlating when it appears in so many'
-                     . ' events that reading them all would cost more'
-                     . ' than the answer is worth.')) ?>">
+            <span title="<?= h(__('MISP stops correlating a value that'
+                     . ' appears in too many events.')) ?>">
                 <?= __('This value is too common for MISP to correlate,'
-                    . ' so its reports were not read. A clock missing'
-                    . ' them could only run slow, so this axis stands'
-                    . ' down rather than guess.') ?>
+                    . ' so its reports were not read and no shelf life'
+                    . ' is shown.') ?>
             </span>
         <?php else: ?>
             <span><?= __('Nothing is recorded for this value, so there'
@@ -208,8 +205,8 @@ $state = $relevance['state'];
              */
             ?>
             <div class="vp-shelf-why">
-                <?= h(__('Nothing records when this value was seen —'
-                    . ' only when its rows were last written.')) ?>
+                <?= h(__('No occurrence says when this value was seen,'
+                    . ' only when it was last edited.')) ?>
                 <?php if ($assumed > 0): ?>
                     <?= h(sprintf(
                         __n(
@@ -227,13 +224,11 @@ $state = $relevance['state'];
                         $assumed,
                         $relevance['recorded_days']
                     )) ?>
-                    <?= h(__('That is an assumption, not a reading: it'
-                        . ' makes the value count as old sooner, and'
-                        . ' never changes the date its lifetime'
-                        . ' ends.')) ?>
+                    <?= h(__('This is an assumption: it makes the value'
+                        . ' count as old sooner, but never changes when'
+                        . ' its lifetime ends.')) ?>
                 <?php else: ?>
-                    <?= h(__('Its age is a minimum, not a'
-                        . ' measurement.')) ?>
+                    <?= h(__('It may be older than shown.')) ?>
                 <?php endif; ?>
                 <?php if (!empty($relevance['assumed_capped'])): ?>
                     <?= h(sprintf(
@@ -316,34 +311,34 @@ $state = $relevance['state'];
         );
         $ttlTitle = null;
         if ($ttl['type'] === null) {
-            $ttlLine = __('Nothing here has a type to take a lifetime'
-                . ' from, so this is the profile\'s default.');
+            $ttlLine = __('No type to take a lifetime from, so the'
+                . ' profile default applies.');
         } else {
             if (($ttl['from'] ?? null) === 'bucket'
                 && isset($bucketNames[$ttl['bucket']])
             ) {
                 $ttlLine = sprintf(
-                    __('Set for %1$s, in the %2$s bucket'),
+                    __('Lifetime of %1$s (%2$s)'),
                     $ttl['type'],
                     $bucketNames[$ttl['bucket']]
                 );
             } elseif (($ttl['from'] ?? null) === 'override') {
                 $ttlLine = sprintf(
-                    __('Set for %s, as its own override'),
+                    __('Lifetime of %s, set by its own override'),
                     $ttl['type']
                 );
             } else {
                 $ttlLine = sprintf(
-                    __('No lifetime set for %s, so this is the'
-                        . ' profile\'s default'),
+                    __('No lifetime set for %s, so the profile'
+                        . ' default applies'),
                     $ttl['type']
                 );
             }
             if (!empty($ttl['spread'])) {
                 $days = array_column($ttl['candidates'], 'days');
                 $ttlLine .= sprintf(
-                    __(' — %1$s of its %2$s types, which run %3$s to'
-                        . ' %4$s days.'),
+                    __(' — %1$s of its %2$s types (%3$s to %4$s'
+                        . ' days).'),
                     $ruleWords[$ttl['rule']] ?? $ttl['rule'],
                     count($ttl['candidates']),
                     min($days),
@@ -378,14 +373,12 @@ $state = $relevance['state'];
 
         <?php if (empty($clock['rows_read'])): ?>
             <div class="vp-shelf-why"
-                 title="<?= h(__('MISP flags a value as'
-                     . ' over-correlating when it appears in so many'
-                     . ' events that reading them all would cost more'
-                     . ' than the answer is worth.')) ?>">
+                 title="<?= h(__('MISP stops correlating a value that'
+                     . ' appears in too many events.')) ?>">
                 <?= h(__('This value is too common for MISP to'
-                    . ' correlate, so its individual reports were not'
-                    . ' read. A sighting could be newer than the date'
-                    . ' shown.')) ?>
+                    . ' correlate, so its reports were not read. A'
+                    . ' sighting could be newer than the date shown.'))
+                    ?>
             </div>
         <?php endif; ?>
 

@@ -101,10 +101,9 @@ class ConflictListedVsAsserted extends ValueEscalationBase
             : 0;
         return array(
             'prose' => sprintf(
-                __('A warninglist marks this as a false positive and'
+                __('A warninglist marks this as a false positive, yet'
                     . ' %1$d of %2$d organisations report it as a'
-                    . ' threat regardless. Both judgements are'
-                    . ' deliberate; the page will not pick one.'),
+                    . ' threat. Neither side overrides the other.'),
                 $threatOrgs,
                 $this->orgCount($context)
             ),

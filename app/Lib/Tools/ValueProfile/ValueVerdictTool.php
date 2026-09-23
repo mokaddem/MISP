@@ -862,9 +862,8 @@ class ValueVerdictTool
         if ($signal->evidence_class !== ValueSignalBase::EVIDENCE_ROW) {
             return null;
         }
-        return __('Too much data — this value is flagged as'
-            . ' over-correlating, so the rows this signal reads were'
-            . ' not fetched.');
+        return __('Not evaluated: this value is too common for MISP'
+            . ' to correlate.');
     }
 
     /**
@@ -1006,9 +1005,9 @@ class ValueVerdictTool
         if (!empty($budget['hot'])) {
             $notes[] = array(
                 'title' => __('Over-correlating value'),
-                'note' => __('MISP has flagged this value as too'
-                    . ' common to correlate, so the signals that read'
-                    . ' individual rows were not evaluated.'),
+                'note' => __('This value is too common for MISP to'
+                    . ' correlate, so the signals that read its'
+                    . ' occurrences were skipped.'),
                 'reason' => 'nodata',
                 'kind' => 'nodata',
                 'source' => 'budget',

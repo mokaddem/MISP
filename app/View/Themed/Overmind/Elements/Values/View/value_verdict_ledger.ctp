@@ -80,12 +80,10 @@ foreach ($ledger as $group) {
                     <th><?= __('Evidence') ?></th>
                     <th class="vp-ledger-contrib-col"
                         title="<?= h(__(
-                            'Points toward the weight of the record,'
-                            . ' not toward either reading of the'
-                            . ' value. A row adds where the record'
-                            . ' carries something and deducts where it'
-                            . ' does not, whatever the record'
-                            . ' concluded.'
+                            'Points toward the quality score. A row'
+                            . ' adds where the record has something and'
+                            . ' deducts where it lacks it, whichever'
+                            . ' way the value leans.'
                         )) ?>">
                         <?= __('Contribution') ?>
                     </th>

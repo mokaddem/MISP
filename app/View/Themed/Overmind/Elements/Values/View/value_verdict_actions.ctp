@@ -25,8 +25,8 @@
 <div class="vp-verdict-meta-actions">
     <button type="button" class="vp-vc-hero-action disabled"
             disabled title="<?= h(__(
-                'Disabled in this pass — the Value Profile page does'
-                . ' not write to the database yet.'
+                'Not available yet: this page does not write to the'
+                . ' database.'
             )) ?>">
         <i class="fas fa-rotate"></i>
         <?= __('Recompute') ?>
@@ -41,8 +41,8 @@
     <button type="button"
             class="vp-vc-hero-action vp-vc-hero-action-mono disabled"
             disabled title="<?= h(__(
-                'Not built yet — the assessment has no REST'
-                . ' representation until phase 10 adds one.'
+                'Not available yet: the assessment has no API'
+                . ' representation.'
             )) ?>">
         <?= __('view as JSON') ?>
     </button>

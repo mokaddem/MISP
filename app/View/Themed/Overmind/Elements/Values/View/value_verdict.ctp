@@ -60,9 +60,8 @@ $warninglist = $verdict['warninglist'] ?? null;
  * the sentence this replaces was really defending.
  */
 $qualityLabel = __(
-    'How much record stands behind this assessment — corroboration,'
-    . ' publication, attribution, temporal precision. Not how strongly'
-    . ' the record supports the reading.'
+    'How well documented the record is: corroboration, publication,'
+    . ' attribution, dates. Not whether the value is a threat.'
 );
 
 /*
@@ -334,8 +333,5 @@ foreach ($verdict['orgs'] as $org) {
 <?= $this->element('Values/View/value_verdict_orgs', array(
     'verdict' => $verdict,
     'orgColumns' => $orgColumns,
-    'orgsSub' => __(
-        'One row per organisation — consensus is a signal, so it is'
-        . ' shown per source'
-    ),
+    'orgsSub' => __('One row per organisation'),
 )) ?>

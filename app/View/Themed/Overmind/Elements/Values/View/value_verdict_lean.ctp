@@ -140,8 +140,7 @@ $supermajority = isset($stances['supermajority'])
                 </span>
                 <span class="vp-vc-lean-count vp-vc-lean-benign"
                       title="<?= h(__('Organisations whose occurrences'
-                          . ' all have to_ids unset — the record says'
-                          . ' harmless by not asserting.')) ?>">
+                          . ' all have to_ids unset.')) ?>">
                     <?= h(sprintf(
                         __n(
                             '%s reports it as harmless',

@@ -110,9 +110,8 @@ class ValueLeanReasonTool
                  */
                 return sprintf(
                     __('A warninglist marks this a false positive, and'
-                        . ' no supermajority of organisations disputes'
-                        . ' it — the threat stances run %1$s of %2$s,'
-                        . ' under this profile\'s %3$s.'),
+                        . ' only %1$s of %2$s organisations call it a'
+                        . ' threat, short of this profile\'s %3$s bar.'),
                     $threat,
                     $total,
                     $threshold
@@ -122,11 +121,11 @@ class ValueLeanReasonTool
                 return sprintf(
                     __n(
                         '%1$s of %2$s organisation asserts this is a'
-                            . ' threat, at or past this profile\'s'
-                            . ' supermajority of %3$s.',
+                            . ' threat, meeting this profile\'s %3$s'
+                            . ' bar.',
                         '%1$s of %2$s organisations assert this is a'
-                            . ' threat, at or past this profile\'s'
-                            . ' supermajority of %3$s.',
+                            . ' threat, meeting this profile\'s %3$s'
+                            . ' bar.',
                         $total
                     ),
                     $threat,
@@ -138,11 +137,11 @@ class ValueLeanReasonTool
                 return sprintf(
                     __n(
                         '%1$s of %2$s organisation reports this as'
-                            . ' harmless, at or past this profile\'s'
-                            . ' supermajority of %3$s.',
+                            . ' harmless, meeting this profile\'s %3$s'
+                            . ' bar.',
                         '%1$s of %2$s organisations report this as'
-                            . ' harmless, at or past this profile\'s'
-                            . ' supermajority of %3$s.',
+                            . ' harmless, meeting this profile\'s %3$s'
+                            . ' bar.',
                         $total
                     ),
                     $benign,
@@ -171,19 +170,15 @@ class ValueLeanReasonTool
                     : null;
                 if ($counted === 'benign') {
                     return __('The organisations report this as'
-                        . ' harmless, and the record\'s own evidence'
-                        . ' about the value argues the other way — so'
-                        . ' the record contradicts itself.');
+                        . ' harmless, but the lean evidence argues'
+                        . ' threat.');
                 }
                 if ($counted === 'threat') {
-                    return __('The organisations assert this is a'
-                        . ' threat, and the record\'s own evidence'
-                        . ' about the value disputes them — so the'
-                        . ' record contradicts itself.');
+                    return __('The organisations call this a threat,'
+                        . ' but the lean evidence argues harmless.');
                 }
-                return __('The record\'s own evidence about the value'
-                    . ' disputes the reading the organisations'
-                    . ' reached, so the record contradicts itself.');
+                return __('The lean evidence disputes what the'
+                    . ' organisations reported.');
 
             case 'no_supermajority':
                 /*
@@ -195,10 +190,8 @@ class ValueLeanReasonTool
                  * values an escalation happened to catch.
                  */
                 return sprintf(
-                    __('Neither side reaches this profile\'s'
-                        . ' supermajority of %1$s — the split is %2$s'
-                        . ' to %3$s — so the record contradicts'
-                        . ' itself.'),
+                    __('Neither side reaches this profile\'s %1$s bar'
+                        . ' (%2$s to %3$s).'),
                     $threshold,
                     $threat,
                     $benign
@@ -227,7 +220,7 @@ class ValueLeanReasonTool
             ? (float)$stances['supermajority']
             : null;
         if ($share === null) {
-            return __('supermajority');
+            return __('majority');
         }
         return sprintf(__('%s%%'), (int)round($share * 100));
     }

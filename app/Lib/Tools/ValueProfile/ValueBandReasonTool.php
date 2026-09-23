@@ -62,11 +62,8 @@ class ValueBandReasonTool
         }
 
         $band = isset($verdict['band']) ? $verdict['band'] : 'none';
-        $quality = (int)(isset($verdict['quality'])
-            ? $verdict['quality'] : 0);
         $fired = (int)(isset($verdict['signals']['fired'])
             ? $verdict['signals']['fired'] : 0);
-        $medium = (int)(isset($floors['medium']) ? $floors['medium'] : 30);
         $high = (int)(isset($floors['high']) ? $floors['high'] : 60);
 
         switch ($reason) {
@@ -81,10 +78,9 @@ class ValueBandReasonTool
                  * (`04-dispositions.md` §6).
                  */
                 return sprintf(
-                    __('The points alone would band this %1$s. This'
-                        . ' profile holds it at %2$s: a record from one'
-                        . ' source with no sightings does not pass'
-                        . ' %2$s, however much that source reports.'),
+                    __('The points alone would make this %1$s. This'
+                        . ' profile holds a single-source record with no'
+                        . ' sightings at %2$s.'),
                     self::bandWord(isset($floors['would_be'])
                         ? $floors['would_be'] : 'medium'),
                     self::bandWord($band)
@@ -93,12 +89,10 @@ class ValueBandReasonTool
             case 'min_signals':
                 return sprintf(
                     __n(
-                        'The points are past the %1$s floor of %2$s,'
-                            . ' but %1$s needs %3$s signals and %4$s'
-                            . ' fired.',
-                        'The points are past the %1$s floor of %2$s,'
-                            . ' but %1$s needs %3$s signals and %4$s'
-                            . ' fired.',
+                        'The points reach %1$s (%2$s), but %1$s needs'
+                            . ' %3$s signals and only %4$s fired.',
+                        'The points reach %1$s (%2$s), but %1$s needs'
+                            . ' %3$s signals and only %4$s fired.',
                         $fired
                     ),
                     self::bandWord('high'),
@@ -110,43 +104,9 @@ class ValueBandReasonTool
         }
 
         /*
-         * The ordinary case, and it says the floor rather than the
-         * distance to it: *9 points short of medium* is the
-         * falsifiability card's sentence, and it is already written
-         * there for the record it applies to. This one is about where
-         * the boundary is.
+         * The ordinary case says nothing: the hero's bar marks every
+         * floor already.
          */
-        switch ($band) {
-            case 'high':
-                return sprintf(
-                    __('Past this profile\'s %1$s floor of %2$s, the'
-                        . ' top band.'),
-                    self::bandWord('high'),
-                    $high
-                );
-            case 'medium':
-                return sprintf(
-                    __('Past this profile\'s %1$s floor of %2$s;'
-                        . ' %3$s starts at %4$s.'),
-                    self::bandWord('medium'),
-                    $medium,
-                    self::bandWord('high'),
-                    $high
-                );
-            case 'low':
-                return sprintf(
-                    __('Under this profile\'s %1$s floor of %2$s.'),
-                    self::bandWord('medium'),
-                    $medium
-                );
-        }
-        /*
-         * A band this file does not know. It is not `none` — that is
-         * `no_signal` above — so it is a band a profile or a later
-         * phase added, and the honest answer is to say nothing rather
-         * than to guess which floor it sits against.
-         */
-        unset($quality);
         return null;
     }
 

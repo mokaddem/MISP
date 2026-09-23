@@ -99,7 +99,7 @@ class LifecycleRecency extends ValueSignalBase
                 $this->agoPhrase($days)
             ),
             sprintf(
-                __('Recent within %1$d days, old past %2$d'),
+                __('Recent under %1$d days, old after %2$d'),
                 $recentDays,
                 $oldDays
             ),

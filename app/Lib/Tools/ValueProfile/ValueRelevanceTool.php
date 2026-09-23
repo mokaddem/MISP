@@ -564,13 +564,11 @@ class ValueRelevanceTool
     {
         $hints = array(
             'current' => __('Inside its lifetime.'),
-            'aging' => __('Still inside its lifetime, but past the'
-                . ' point where this profile stops calling it'
-                . ' current.'),
+            'aging' => __('Not expired, but no longer current under'
+                . ' this profile.'),
             'expired' => __('Past its lifetime. Re-check it before'
                 . ' acting on it.'),
-            'uncertain' => __('The age is a minimum, not a'
-                . ' measurement.'),
+            'uncertain' => __('It may be older than shown.'),
         );
         return isset($hints[$state]) ? $hints[$state] : null;
     }
@@ -1284,10 +1282,10 @@ class ValueRelevanceTool
             'direction' => 'down',
             'text' => sprintf(
                 __n(
-                    'No independent corroboration for %s more day — the'
-                        . ' assessment expires.',
-                    'No independent corroboration for %s more days — the'
-                        . ' assessment expires.',
+                    'If nobody independent confirms it within %s day,'
+                        . ' the assessment expires.',
+                    'If nobody independent confirms it within %s days,'
+                        . ' the assessment expires.',
                     $days
                 ),
                 $days

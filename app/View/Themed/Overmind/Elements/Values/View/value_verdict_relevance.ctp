@@ -55,9 +55,9 @@ if (($verdict['lean'] ?? null) === 'none'
 ?>
 <div class="vp-vc-clock">
     <div class="vp-vc-clock-head"
-         title="<?= h(__('Relevance is a clock. It is measured from the'
-             . ' last time somebody independent confirmed the value,'
-             . ' and it moves neither the lean nor the quality.')) ?>">
+         title="<?= h(__('Counts down from the last time someone'
+             . ' independent confirmed the value. It affects neither'
+             . ' the lean nor the quality.')) ?>">
         <i class="fas fa-hourglass-half vp-vc-clock-mark"></i>
         <?= h(__('How long this reading holds')) ?>
     </div>
@@ -104,16 +104,14 @@ if (($verdict['lean'] ?? null) === 'none'
         ?>
         <?php if (($relevance['state'] ?? null) !== null): ?>
             <p class="vp-vc-clock-note">
-                <?= h(__('The Sightings tab\'s Lifetime card carries'
-                    . ' the same clock in full.')) ?>
+                <?= h(__('Full history in the Sightings tab\'s'
+                    . ' Lifetime card.')) ?>
             </p>
         <?php elseif ($reason === 'rows_not_read'): ?>
             <p class="vp-vc-clock-note">
-                <?= h(__('The Sightings tab\'s Lifetime card still'
-                    . ' reads a clock from the rows it could fetch.'
-                    . ' This axis does not use it: a clock missing its'
-                    . ' newest confirmations can only under-state how'
-                    . ' fresh the value is.')) ?>
+                <?= h(__('The Sightings tab\'s Lifetime card shows a'
+                    . ' clock from the rows it could read, but it may'
+                    . ' miss the newest confirmations.')) ?>
             </p>
         <?php endif; ?>
     </div>
