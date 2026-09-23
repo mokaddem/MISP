@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `1296966` (`d220446` + the two MISP requests: pivot edges to children, `UI.emptyState`). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 21 done · 4 not started (5b, 5c, 10b, 11 — all independent) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 105 cases, 351 assertions, no dependencies
+- **Status:** 22 done · 3 not started (5b, 5c, 10b — all independent) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 106 cases, 352 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -47,7 +47,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 10 | `possibleKinds()`; `ctx.promptData` replaces the `innerHTML` picker; delete the pending ring (D2, D2b, P0) | ✅ | 1 | 2026-09-23 — see §2. Did not need 8: ownership is read off the payload, not a `scope` field. Needed the vocabulary endpoint fixed first (`e39908012`) |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | ⬚ | 10 | |
 | 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, `persisted: true`; node deletion vetoed (D6, R4) | ✅ | 10 | `b2b969730` (2026-09-23) — a soft delete by the reference's uuid, which every object-reference edge now carries; correlations and analyst relationships are spared, not refused. See §2 |
-| 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | ⬚ | 1 | |
+| 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | ✅ | 1 | `5d44f7811` (2026-09-23) — the link distance alone had pinned physics to `'manual'`. See §2 |
 
 ### Critical path
 
@@ -62,10 +62,10 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
                        ├─ 9 ✅ ── 4 ✅
                        ├─ 10 ✅ ─┬─ 10b
                        │         └─ 10c ✅
-                       └─ 11
+                       └─ 11 ✅
 ```
 
-The critical path is done. **Left, all independent:** 10b, 5b, 5c, 11. Task 4 moved off the correlation chain
+The critical path is done. **Left, all independent:** 10b, 5b, 5c. Task 4 moved off the correlation chain
 onto 9 (see §2), and 10 off 8.
 
 ---
@@ -95,6 +95,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Provenance, facets, header (task 8) | ✅ | Suite 321/321 (11 new cases: provenance on every seeded kind, an extension-event element known by id alone, a record with no `event_id`, pivot results on both sides, the element pivot's nodes and children, the declared facet set and Provenance's worded options, options read off the live graph, the identity line and its tooltip as text, a sparse identity, the correlation clause arriving with the counts and absent at zero); 13 targeted mutants, 13 caught. Live, admin: 2014's header reads *Event 2014 · Test · ADMIN · 2025-11-16* over *Seeded L0+L1+L2 · 41 nodes · 35 correlations available*; 23 proxies `foreign`, the event and its 17 elements `self`; a related-event run brings an attribute in as `foreign` with that event's id and uuid; the filter panel shows exactly the seven declared facets, Provenance offering *This event* / *Other events*; filtering to `self` leaves 6 visible top-level nodes, to `foreign` 23, reset restores all. 4116: *Seeded L0 · 90 nodes · L2 skipped (28410 objects not shown) · 708 correlations available* — 708 equal to 5e; same filter behaviour (6 / 89). No console error | Extension events were not seen live: the explorer fetches the event without `extended:1`, so today every payload element is `self` |
 | Sectioned legend (task 7) | ✅ | Suite 326/326 (1 new case: two sections, Element on `nodeTypeAccessor` with no key, Relationship on edges by `kind`, the same key as the layer facet, no provenance section); 4 targeted mutants, 4 caught. Live, admin, 2014: one card in the right column above the minimap — *Element*: event 24 · attribute 1 · object 4; *Relationship*: event-correlation 23 (dashed green line swatch) · object-reference 2 (solid blue). Clicking *event-correlation* hides those 23 edges by setting `edge:kind` = `[object-reference]` — the panel's own layer filter — and leaves the nodes; clicking again clears it. No console error | Found a library defect: four icons in `icons.ts` carry mangled SVG, which puts `< path d = … />` text into the section headers' `textContent` — invisible, filed as `pivotick/prd/misp/mangled-inline-icons.md` |
 | Deletion (task 10c) | ✅ | Suite 351/351 (9 new cases: the uuid on seeded and drawn edges, the node veto and its notice, the danger confirm's title/label/body, the soft-delete POST by uuid, cancel, narrowing to what MISP deleted with its message on the refusal, all-refused vetoing, spared correlation / analyst / uuid-less edges, notes alone, no hook for a read-only viewer); 14 targeted mutants, 14 caught. Live, admin, 2014, through `graph.editing.requestDelete` and the real modal: a throwaway reference sent as `saveReference` sends it returns its uuid, and after a reload the edge carries it; a node delete is vetoed with *Elements are not deleted here*; the edge's confirm is Pivotick's modal — *This deletes the relationship in MISP: domain-ip → pe-10c-probe → geolocation. It cannot be undone from the graph.* — with a red *Delete in MISP*; confirming removes the edge (26 → 25), the history row is `sealed`/`persisted` and undo passes over it; MISP holds the reference as `deleted: true`. Then hard-deleted. No console error from the explorer | The bulk-action and context-menu buttons were not clicked — both route through `requestDelete`, which was |
+| Physics (task 11) | ✅ | Suite 352/352 (1 new case: both options passed). Live, admin, via `graph.simulation`: auto is on for both events. 2014 (29 top-level nodes): auto's pass lands inside its deadband and is skipped, so the opening layout is today's, at rest on open. 1195 (4,743): auto re-tunes — repulsion 25, link distance 184, friction 62 — and is near rest (alpha 0.01) 7–10 s after the tab opens, an even disc with the related events at the centre. No console error | Timings were taken under load ~2.5 on a shared machine, so they are not compared with 1b's ~17 s settle |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey

@@ -1319,7 +1319,7 @@ relationships, and the events in §3.5 as fixtures):
 | 10 | ✅ `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5. Ownership comes from the payload, so 8 was not needed | 1 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | 10 |
 | 10c | ✅ `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4). A soft delete by the reference's uuid; correlations and analyst relationships are spared | 10 |
-| 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
+| 11 | ✅ `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
 `correlation` edges needed a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
