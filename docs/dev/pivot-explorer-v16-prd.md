@@ -1,7 +1,8 @@
 # PRD: Pivot Explorer — leveraging Pivotick on `/events/view2`
 
-**Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn). The
-v2 bump reopens some of them — see §3.7 before building past task 3c.
+**Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then
+revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). One count-source question is open
+(R1/R2).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -271,8 +272,8 @@ history), accepted save (edge tagged `object-reference`, one `create` history ro
 `persisted: true`). This discharges the rendering half of task 1b; it does not replace §8.1 on
 the real instance with real events.
 
-**What v2 adds that this plan should decide about** — each touches a settled decision, so none is
-applied here:
+**What v2 adds that this plan should decide about** — each touched a settled decision. Answered
+2026-09-23; the rulings are in §5 (*Rulings after the v2 bump*):
 
 | v2 feature | Touches | The question |
 |---|---|---|
@@ -284,6 +285,12 @@ applied here:
 | `addRailMode`, `UI.*.enabled` switches (`UI.history`, `UI.editors.edgeCreator`, …) | D8, task 10 | A read-only user can still draw local edges today (the editor hooks attach only when `canEdit`). v2's `editors.edgeCreator.enabled: false` removes the tool outright. |
 | `NodeStyle.tiers` / `focusTier` (dot → chip → card by rendered size) | D10/D12 budget, L2 | Could L2 objects draw as dots past a threshold rather than being skipped above 1,500 nodes? |
 | `render.minLabelFontSize` | the open-unlabelled finding above | Keep the 9 px default, lower it, or open at a zoom where labels read? |
+
+**Answers:** correlations → a pivot (R1); related events → a pivot, with the rim badge carrying
+its candidates (R2); enrichment → deferred to its own pass (R3); a persisted deletion → allowed,
+and it says it cannot be undone before it happens (R4); read-only users → no write affordance of
+any kind (R5, done); labels → Pivotick's default (R6). The unsaved-marker and tiers rows fold
+into P0 and are decided where their tasks land.
 
 ## 4. Goals / Non-Goals
 
@@ -307,16 +314,16 @@ applied here:
 
 - **A second entry point (pivot route).** The component is to be *parameterised* for it (seed +
   default mode) but the route is not built here. See §11.
-- **Lazy expansion of correlated events.** Needs `childrenProvider` / a fired
-  `onBeforeNodeExpansion`, which v1.6.0 did not ship (v2 neither; it removed the never-called
-  `onNodeExpansion` and points at pivots instead — reopened in §3.7). Correlated events appear as leaf proxy
-  nodes only (§6.4).
+- ~~**Lazy expansion of correlated events.**~~ **Back in scope as a pivot (R2).** In-place
+  expansion still needs `childrenProvider`, which v2 did not ship either; a related event is
+  instead *pivoted on*, and what it brings back is staged and chosen like any other pivot.
 - **Writing notes and opinions from the graph.** Read-only — they are displayed (badge + panel)
   but not authored here. Analyst **relationships** *are* written (D2b): they are the assertion an
   exploration produces, and D8 turns on being able to record one. Notes and opinions are a form
   problem rather than a graph problem, and the existing `analystData/add` UI already solves it.
-- **Enrichment from the graph** (either variety). The taxonomy in §2.2 exists so the design
-  accommodates it; no enrichment call is made here.
+- **Enrichment from the graph** (either variety) — **deferred, not dropped (R3).** It is the pass
+  after everything else here runs, and it will be pivots too: `modules/queryEnrichment` as a
+  pivot's `fetch`, persisting as its `save`. The taxonomy in §2.2 is what gates the two.
 - **Backend aggregation of objects.** A behemoth's L2 is *skipped*, not summarised. The
   correlation aggregate already exists (`RelatedEvent`), and feed correlations already degrade to a
   count past 10,000 hits (D1); the object one does not exist, and building it is new endpoint work.
@@ -328,6 +335,76 @@ applied here:
 - Retiring the legacy `/events/view_graph`, or touching `EventGraphTool` / `getEventGraph*`.
 
 ## 5. Design Decisions
+
+### Rulings after the v2 bump (2026-09-23)
+
+These revise the decisions below where they conflict; each names what it overrides.
+
+#### P0 — Nothing custom where Pivotick already does it ✅ RULED
+
+The governing rule for everything that follows. If the library has the feature — a gate, a
+picker, a staging area, a badge, a confirmation, a marker — MISP configures it rather than
+building its own. MISP's code is data (turning the event into nodes and edges), persistence
+(the writes to MISP) and configuration. Where the library falls short, the fix is a request in
+`~/git/pivotick/prd/`, not glue here.
+
+It reaches further than R1–R6. Custom pieces now standing, each to be replaced when its task
+lands: the relationship picker (→ `ctx.promptData`, task 10), the tray and its drag-and-drop
+(→ the dock, task 9 — see §11 for whether that is an origin-less pivot), the pending ring
+(→ removed, D2), the correlation layer and its cap (→ R1).
+
+#### R1 — Correlations are a pivot ✅ RULED (revises D9, §6.7, task 5)
+
+D9's intent stands: nothing about correlations is in the opening payload. What changes is the
+*mechanism*. Instead of a bespoke control, a bespoke layer and a client-side cap, correlations
+are a pivot registered through `pivots`: `appliesTo` the event's attributes and objects,
+`fetch` returning the correlated elements and their `correlation` edges, `maxCandidates` as
+D9's cap. The library then owns what D9 had to design: the count before the fetch, narrowing,
+a refusal that names the number instead of truncating, the Review tab where results wait until
+chosen, provenance, and undo of an ingest. **No `save`** — correlations are derived, so the
+results are never counted unsaved.
+
+**Open — the count source.** `summarize` needs a cheap count, and `/events/view/{id}.json` has
+none: `RelatedAttribute` is absent from REST by default (§3.4) and `RelatedEvent` carries no
+per-event counts. Without `summarize` the pivot is a bare Run with no gate, which is wrong for
+event 4116's 5,629. The count is the first thing the graph endpoint (D13) has to answer; the
+choice is between building that slice of D13 now or shipping R1 ungated behind it.
+
+#### R2 — Related events are a pivot, and the badge shows what they would bring ✅ RULED (revises §4, D12 L0)
+
+A correlated-event proxy (L0) is a pivot origin. Pivoting on it fetches the elements of that
+event which correlate with this one, staged for triage like R1's. The node carries the count as
+**declared potential** — `node.setPotential('related-event', n)` draws a rim badge, and clicking
+it opens Pivot mode on that pivot. Declared, never queried: the library will not call a provider
+to draw a badge. Same open question as R1 — `n` has to come from somewhere, and the payload has
+no per-event correlation count.
+
+#### R3 — Enrichment is its own later pass ✅ RULED
+
+Out of this PRD's delivery. When it comes it is a pivot (`fetch` = `modules/queryEnrichment`,
+`save` = persisting into the event), gated by §2.2's view/structural split.
+
+#### R4 — A persisted deletion says it cannot be undone ✅ RULED (amends D6)
+
+v2 seals a deletion written through to MISP: its history row is chipped **locked** and undo
+passes over it, because restoring it would put back something MISP no longer has. That is
+right, so it stays — and the analyst is told *before* the click, in D6's `ctx.confirm()`:
+`variant: 'danger'`, a confirm label that names the action, and a body saying it deletes the
+relationship in MISP and cannot be undone from the graph. `onBeforeDelete` returns
+`persisted: true` on what it wrote, which is what makes the history lock it.
+
+#### R5 — Read-only users get no write affordance ✅ RULED, DONE (`5a5770d9c`)
+
+A user who cannot edit the event is offered nothing that would reach MISP:
+`editors.{nodeEditor, nodeCreator, edgeCreator, edgeEditor, deletion}.enabled: false`, and no
+editor hooks or tray. Notes, hiding and layout stay, being canvas-only. When analyst
+relationships become writable (task 10b), a user with `perm_analyst_data` gets `edgeCreator`
+back for that kind alone (D8).
+
+#### R6 — Labels follow Pivotick's legibility default ✅ RULED
+
+`render.minLabelFontSize` stays at the library's 9 px. The graph may open with labels hidden and
+names appear as the analyst zooms in.
 
 ### All settled in review (2026-08-28 → 2026-08-31)
 
@@ -361,7 +438,7 @@ the graph and hiding orphans with `hideDisconnected`. On event 4116 that is ~398
 constructed before anything is hidden. `hideDisconnected` survives as a **user-facing switch**
 (it is on the View flyout of every graph regardless), not as a load strategy.
 
-#### D9 — Correlations load on demand, not hidden-by-default ✅ SETTLED
+#### D9 — Correlations load on demand, not hidden-by-default ✅ SETTLED (mechanism revised by R1)
 
 Correlations are **absent from the opening payload**. A control fetches them; the cap applies at
 fetch time.
@@ -766,7 +843,7 @@ open** until the endpoint lands.
 Rejected: named parameters to trim `fetchEvent` — it grows an already-large option surface for a
 partial win, and would still ship the whole event's tags and analyst data.
 
-#### D6 — Deletion removes relationships, never elements ✅ SETTLED
+#### D6 — Deletion removes relationships, never elements ✅ SETTLED (amended by R4)
 
 D6's original content — `onBeforeEdgeCreate`, `isValidConnection`, `editors.*.enabled` — was
 absorbed into **D2b** with more detail. What remained was the one unexamined part of the write
@@ -1188,21 +1265,22 @@ relationships, and the events in §3.5 as fixtures):
 | 3 | ✅ Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
 | 3b | ✅ L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
 | 3c | ✅ L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
-| 4 | D11 empty-state message + wiring for the on-demand fetch | 3c |
-| 5 | On-demand correlation fetch as a third layer, capped (D9, §6.7) | 4 |
+| 4 | D11 empty-state message, pointing at the correlation pivot | 3c, 5 |
+| 5 | Correlations as a pivot: `appliesTo` / `fetch` / `maxCandidates`, no `save` (R1) | count source (R1) |
+| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, count source |
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | 1 |
-| 10 | `possibleKinds()` + `editors.*.enabled` gating on the write path (already on `onBeforeEdgeCreate` / `isValidConnection` since 0b); delete the innerHTML picker and the pending ring (D2, D2b) | 1, 8 |
-| 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | 10 |
-| 10c | `onBeforeDelete`: edge deletion behind `ctx.confirm()`, node deletion vetoed (D6) | 10 |
+| 10 | `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5 | 1, 8 |
+| 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | 10 |
+| 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4) | 10 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
-Tasks 2, 6, 9 and 10 are mutually independent. All seed-related decisions (D5′, D9, D10, D12) are
-settled, so tasks 3–5 are unblocked.
+Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d wait on R1's count source; 4
+follows 5, because its message points at the pivot. Enrichment (R3) is not a task here.
 
 **✅ Done (prerequisite, not a task above).** The inline JS is extracted out of the `.ctp` into
 `app/webroot/js/pivot-explorer.js`, leaving the element at 117 lines of markup + CSS + config.
@@ -1252,7 +1330,10 @@ No controller change, no new endpoint, no schema change in Phase 1.
    to Explore. §4 keeps it out of scope; the seed/mode parameterisation is designed for it.
 6. **Analyst-data and enrichment write paths** — both gated in §2.2's taxonomy, neither built.
    Analyst assertion is the natural first one, since D8 already says it is offered everywhere.
-7. **Dock paging** on very large events (§7).
+7. **Dock paging** on very large events (§7). Under P0, a candidate answer: the unlinked-element
+   list becomes an **origin-less pivot** (`origin: 'none'`) whose Review tab *is* the searchable,
+   filterable, paged table, and whose ingest *is* putting elements on the canvas — which retires
+   the tray, its drag-and-drop and D4's bespoke pane in one move.
 8. **Extended-event enclosure** — does a foreign event get a container, and can object clusters
    nest inside it three levels deep (event → object → attribute)?
 9. **Badge aggregation** over an object's attributes: sum, max, or neither?

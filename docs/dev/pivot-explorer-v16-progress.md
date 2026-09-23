@@ -7,7 +7,7 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 9 done · 1 part-done and blocked · 12 not started · **§3.7's open questions gate tasks 5, 9, 10, 10c**
+- **Status:** 10 done · 1 part-done and blocked · 12 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); **one open question — the count source for R1/R2 — gates 5, 5d and 4**
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 48 cases, 170 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
@@ -31,26 +31,28 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 3 | Generalise `computeConnectivity()` to any authored relationship; analyst-relationship edges as a second layer (L1, D5′) | ✅ | 2 | Also fixed a pre-existing seeding bug — see §2 |
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ✅ | 2 | `7ab4f859f` (2026-08-31), shared with 3c — see §2 |
 | 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ✅ | 3, 3b | `7ab4f859f` (2026-08-31). **Changes what most events draw** — see §2 |
-| 4 | D11 empty-state message + wiring for the on-demand fetch | 🔜 | 3c | Unblocked; `#pe-resolution` is where the message goes |
-| 5 | On-demand correlation fetch as a third layer, capped (D9, §6.7) | ⬚ | 4 | |
+| 4 | D11 empty-state message, pointing at the correlation pivot | ⬚ | 3c, 5 | Now follows 5: the message points at the pivot |
+| 5 | Correlations as a pivot — `appliesTo` / `fetch` / `maxCandidates`, no `save` (R1) | ⏸ | count source | Needs a cheap count for `summarize`; the payload has none |
+| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | ⏸ | 3b, count source | Same count question, per related event |
 | 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ⬚ | 2 | |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | ⬚ | 2 | |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | ⬚ | 1 | |
 | 7 | Sectioned legend | ⬚ | 3, 5, 6 | |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | ⬚ | 5 | |
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | ⬚ | 1 | |
-| 10 | `possibleKinds()` + `editors.*.enabled`; delete the `innerHTML` picker and the pending ring (D2, D2b) | ⬚ | 1, 8 | The hooks themselves landed in 0b |
-| 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | ⬚ | 10 | |
-| 10c | `onBeforeDelete`: edge deletion behind `ctx.confirm()`, node deletion vetoed (D6) | ⬚ | 10 | |
+| R5 | Read-only users: every persistence editor off, no editor hooks, no tray | ✅ | 0b | `5a5770d9c` (2026-09-23) — verified in the harness for both roles |
+| 10 | `possibleKinds()`; `ctx.promptData` replaces the `innerHTML` picker; delete the pending ring (D2, D2b, P0) | ⬚ | 1, 8 | Hooks landed in 0b, read-only gating in R5. The editor role still has Pivotick's Add node / Edit node / Delete node, none of them backed by MISP — decide here |
+| 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | ⬚ | 10 | |
+| 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, `persisted: true`; node deletion vetoed (D6, R4) | ⬚ | 10 | Pivotick locks the history row itself |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | ⬚ | 1 | |
 
 ### Critical path
 
 ```
 0 ✅ ─ E ✅ ─ T ✅
-         └──── 1b ⏸ ─┬─ 2 ✅ ─┬─ 3 ✅ ─┬─ 3c ✅ ─ 4 ─ 5 ─ 8 ─ 10 ─┬─ 10b
-                      │        │        │                           └─ 10c
-                      │        ├─ 3b ✅ ─┘
+         └──── 1b ⏸ ─┬─ 2 ✅ ─┬─ 3 ✅ ─┬─ 3c ✅ ─ 5 ⏸ ─ 4 ─ 8 ─ 10 ─┬─ 10b
+                      │        │        │         (count source)      └─ 10c
+                      │        ├─ 3b ✅ ─┴─ 5d ⏸
                       │        ├─ 5b
                       │        └─ 5c
                       ├─ 6 ──────────── 7   (also needs 3, 5)
@@ -59,8 +61,10 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 ```
 
 Task 1b unblocks four independent fronts (2, 6, 9, 11). The seed chain is now complete through
-3c, so **task 4 is the next link** and the longest chain behind 1b is `4 → 5 → 8 → 10 → 10b/10c`
-— **task 10's write path is five tasks deep**, down from eight.
+3c. Under R1 the next link is **task 5, and it waits on the count source** — the one open
+question. The longest chain is `5 → 4 → 8 → 10 → 10b/10c`. Nothing on the write-path branch
+(10, 10c) needs the count: its dependency on 8 is the scope facet, so 10's P0 work — the
+`promptData` picker — could go first if the count question takes time.
 
 ---
 
