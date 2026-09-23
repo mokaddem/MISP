@@ -858,6 +858,46 @@ class Event extends AppModel
     }
 
     /**
+     * Correlation counts for an event, per attribute, object and
+     * correlated event — the same correlations getRelatedAttributes()
+     * returns, bounded by MISP.max_correlations_per_event like it.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @return array
+     */
+    public function getCorrelationCounts(array $user, $eventId)
+    {
+        $related = $this->getRelatedAttributes($user, $eventId);
+        $visible = [];
+        if (!empty($related)) {
+            $attributes = $this->Attribute->fetchAttributesSimple($user, [
+                'conditions' => [
+                    'Attribute.id' => array_keys($related),
+                    'Attribute.event_id' => $eventId,
+                    'Attribute.deleted' => 0,
+                ],
+                'fields' => ['Attribute.id', 'Attribute.uuid'],
+                'contain' => [
+                    'Event' => ['fields' => ['Event.id']],
+                    'Object' => ['fields' => ['Object.uuid']],
+                ],
+            ]);
+            foreach ($attributes as $attribute) {
+                $visible[] = [
+                    'id' => $attribute['Attribute']['id'],
+                    'uuid' => $attribute['Attribute']['uuid'],
+                    'object_uuid' => $attribute['Object']['uuid'] ?? null,
+                ];
+            }
+        }
+        App::uses('CorrelationCountTool', 'Tools');
+        $counts = CorrelationCountTool::aggregate($related, $visible);
+        $counts['limit'] = (int)(Configure::read('MISP.max_correlations_per_event') ?: 5000);
+        return $counts;
+    }
+
+    /**
      * Clean up an Event Array that was received by an XML request.
      * The structure needs to be changed a little bit to be compatible with what CakePHP expects
      *

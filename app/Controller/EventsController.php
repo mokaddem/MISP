@@ -6957,6 +6957,17 @@ class EventsController extends AppController
         return $this->RestResponse->viewData($json, 'json');
     }
 
+    public function correlationCounts($id)
+    {
+        $user = $this->Auth->user();
+        $event = $this->Event->fetchSimpleEvent($user, $id, ['fields' => ['Event.id']]);
+        if (empty($event)) {
+            throw new NotFoundException(__('Invalid event'));
+        }
+        $counts = $this->Event->getCorrelationCounts($user, (int)$event['Event']['id']);
+        return $this->RestResponse->viewData($counts, 'json');
+    }
+
     public function getEventGraphReferences($id, $type = 'event')
     {
         $validTools = array('event');

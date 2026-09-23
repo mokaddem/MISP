@@ -356,6 +356,7 @@ class ACLComponent extends Component
             'checkPublishedStatus' => array('*'),
             'checkuuid' => array('perm_sync'),
             'contact' => array('*'),
+            'correlationCounts' => array('*'),
             'csv' => array('*'),
             'cullEmptyEvents' => array(),
             'delegation_index' => array('*'),
