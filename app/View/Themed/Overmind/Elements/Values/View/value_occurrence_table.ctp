@@ -25,16 +25,12 @@ $profile = $valueProfile;
 $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
 $facets = $profile['occurrence_facets'];
+$feedsShown = !empty($profile['feeds_shown']);
 /*
  * The same plan the rail beside this table was folded with, so the
- * two cannot rank one taxonomy two ways. Defaulted rather than
- * required: a fixture-driven render predates the key, and an absent
- * plan means every column draws what it was handed.
+ * two cannot rank one taxonomy two ways.
  */
-$feedsShown = !empty($profile['feeds_shown']);
-$labelPlan = isset($profile['label_plan'])
-    ? $profile['label_plan']
-    : null;
+$labelPlan = $profile['label_plan'];
 
 $noWrites = __(
     'Disabled in this pass — the Value Profile page does not write to'
@@ -75,9 +71,7 @@ $view = $this;
  *
  * The rule lives in `ValueStatsTool` rather than here because it has two
  * callers: this stamps the token on the row, and the tool counts the
- * facet the token matches. While the counts were fixture data one side
- * was a regex and the other was slugs written down by hand, and nothing
- * would have noticed the two drifting apart.
+ * facet the token matches, so the two cannot drift apart.
  *
  * @param string $text
  * @return string

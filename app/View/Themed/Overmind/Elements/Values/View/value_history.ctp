@@ -31,7 +31,7 @@
 App::uses('AuditActionMeta', 'Tools/ValueProfile');
 
 $profile = $valueProfile;
-$history = isset($profile['history']) ? $profile['history'] : null;
+$history = $profile['history'];
 
 $panelColour = 'var(--bs-secondary-color)';
 $panelIcon = 'fas fa-history';
@@ -81,33 +81,7 @@ $deletedBadge = function () {
 };
 ?>
 
-<?php if ($history === null): ?>
-    <?php
-    /*
-     * No `history` key at all. Not "recorded and empty" and not "not
-     * recorded" — MISP has never held this value, so there is nothing
-     * for an audit log to have caught or missed, and offering the
-     * reader a setting to change would be answering a question they
-     * did not ask.
-     */
-    ?>
-    <div class="card shadow-sm mb-3 vp-panel"
-         style="--vp-panel-color: <?= h($panelColour) ?>;">
-        <?= $this->element('Values/View/value_panel_header', array(
-            'panelTitle' => __('History'),
-            'panelIcon' => $panelIcon,
-            'panelColor' => $panelColour,
-        )) ?>
-        <div class="vp-empty">
-            <i class="<?= h($panelIcon) ?>"></i>
-            <span><?= __(
-                'This value has never been stored on this instance, so'
-                . ' nothing has ever happened to it here.'
-            ) ?></span>
-        </div>
-    </div>
-
-<?php elseif (!$history['recorded']): ?>
+<?php if (!$history['recorded']): ?>
     <?php
     /*
      * State 2, and the common case rather than the edge one:
@@ -123,20 +97,12 @@ $deletedBadge = function () {
      * a short list.
      */
     /*
-     * The three facts the card lists, supplied by `forHistory` rather
-     * than reassembled from the whole profile here. This state is the
-     * only one that needs them, and it is the only state where paying
-     * for them is free: with `MISP.log_new_audit` off there is no audit
-     * read to run at all. `27-history.md` §4.
+     * The facts the card lists, supplied by `forHistory` rather than
+     * reassembled from the whole profile here. This state is the only
+     * one that needs them, and the only one where paying for them is
+     * free: with `MISP.log_new_audit` off there is no audit read to run.
      */
-    $knowable = isset($history['knowable'])
-        ? $history['knowable']
-        : array(
-            'occurrences' => 0,
-            'edited' => null,
-            'publications' => array(),
-            'sightings' => 0,
-        );
+    $knowable = $history['knowable'];
     $edited = $knowable['edited'];
     $publications = $knowable['publications'];
     ?>
@@ -285,10 +251,6 @@ $deletedBadge = function () {
      * Keyed on the corpus and not on the window, so it stays a claim
      * about the value: an empty *period* over a log that has entries is
      * the state further down, and it says something different.
-     *
-     * No demo value renders this since phase 19 — both the resolver and
-     * the flux node have logs now. §11.3 records the one-line fixture
-     * flip that reaches it.
      */
     ?>
     <div class="card shadow-sm mb-3 vp-panel"
@@ -629,9 +591,9 @@ $renderMix = function ($mix, $total) use ($vocab) {
 };
 
 /*
- * The rail's four groups. Order, heading and glyph belong here rather
- * than in the fixture — only the counts vary by value — and the notes
- * are where the group says what its number does not cover.
+ * The rail's four groups. Order, heading and glyph belong here — only the
+ * counts vary by value — and the notes are where the group says what its number
+ * does not cover.
  */
 $railGroups = array(
     array(

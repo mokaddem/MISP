@@ -243,8 +243,8 @@ if ($service['reachable']) {
          * value's: modules are matched on the type an occurrence
          * carries, and a reader who may see none has nothing to match
          * against. Deliberately not phrased as "MISP cannot classify
-         * this value" — that was the fixture's answer and it is a
-         * claim about the string, which is not what is missing.
+         * this value" — that is a claim about the string, which is not
+         * what is missing.
          */
         ?>
         <div class="vp-empty p-4">

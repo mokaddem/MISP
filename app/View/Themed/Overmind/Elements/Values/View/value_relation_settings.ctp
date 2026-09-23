@@ -52,7 +52,8 @@
  * **This is still the only panel on the page that reads the correlation
  * engine's state live.** Section one is an event join, section two
  * re-derives its own matches and section four reads a cache; the
- * Overview's correlation card is fixture-built. So what the engine did
+ * Overview's Lifecycle card only flags an over-correlating value. So
+ * what the engine did
  * or refused to do for this value is reported in this card's warn lines
  * or nowhere — which is why they survived the rows.
  * prd/value-profile-live/24-relationships.md §3.
@@ -112,11 +113,11 @@ $restricted = !empty($external['restricted']['feeds'])
  * teaches something false.
  *
  * They stay as exceptions because *this value is past the limit* is a
- * real fact with real consequences elsewhere in MISP, and this card is
- * the page's only live statement of it: the Overview's correlation
- * card is still fixture-built, and the co-occurrence panel's version
- * is inside its `suppressed` branch, which is a different condition —
- * `0.0.0.0` is past the limit and renders a full neighbourhood table.
+ * real fact with real consequences elsewhere in MISP, and beside the
+ * Overview's Lifecycle flag this card is the page's only statement of
+ * it. The co-occurrence panel's `suppressed` state is a different
+ * condition — `0.0.0.0` is past the limit and renders a full
+ * neighbourhood table.
  * Each says plainly that the sections beside it are unaffected.
  */
 $alerts = array();

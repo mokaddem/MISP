@@ -247,12 +247,11 @@ $attachChip = function ($target) use ($baseurl) {
         );
     }
 
-    if ($target['kind'] === 'note' || $target['kind'] === 'reply') {
+    if ($target['kind'] === 'reply') {
         /*
          * `reply` carries which kind it answers, because a reply to an
          * opinion is not a reply to a note and the chip is the one
-         * place that says what the row hangs off. `note` is the
-         * fixture's spelling of the same thing and keeps working.
+         * place that says what the row hangs off.
          *
          * Not a link: the item it names is the one immediately above
          * it, already on the reader's screen.
@@ -725,11 +724,7 @@ $renderItem = function ($item, $depth) use (
  * the ordering of an empty list, which is the kind of sentence that
  * makes a working page look broken.
  */
-/*
- * Proposals are a thread item since phase 26 and the fixture has none,
- * so the key is read defensively rather than assumed.
- */
-$proposals = isset($counts['proposals']) ? $counts['proposals'] : 0;
+$proposals = $counts['proposals'];
 
 $breakdown = sprintf(
     __('%1$s, %2$s'),

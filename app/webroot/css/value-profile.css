@@ -219,63 +219,6 @@ a.vp-fact:hover .vp-fact-value {
 }
 
 /* ==================================================================
- * Not-yet-implemented tab
- * ------------------------------------------------------------------
- * A dashed frame, so it never reads as an empty state or a failure.
- * ================================================================== */
-
-.vp-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-    padding: 56px 24px;
-    border: 2px dashed var(--bs-border-color);
-    border-radius: 10px;
-    background: var(--bs-body-bg);
-    text-align: center;
-}
-
-.vp-placeholder-glyph {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
-    background: var(--bs-secondary-bg);
-    color: var(--bs-secondary-color);
-    font-size: 1.25rem;
-}
-
-.vp-placeholder-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-}
-
-.vp-placeholder-note {
-    max-width: 46rem;
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-placeholder-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: var(--bs-secondary-bg);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--bs-secondary-color);
-}
-
-/* ==================================================================
  * Panel card
  * ------------------------------------------------------------------
  * Shared chrome for the lazily-loaded panels. The panel names its own
@@ -2212,33 +2155,6 @@ tr.vp-occ-deleted td {
     font-weight: 700;
 }
 
-/*
- * Which reading an organisation holds. The word carries it; the tint
- * only agrees with the word.
- */
-.vp-side {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.76rem;
-}
-
-.vp-side::before {
-    content: "";
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--bs-secondary-color);
-}
-
-.vp-side-malicious::before {
-    background: var(--bs-danger);
-}
-
-.vp-side-benign::before {
-    background: var(--bs-success);
-}
-
 /* ==================================================================
  * Verdict tab — how the score was reached
  * ------------------------------------------------------------------
@@ -2472,10 +2388,7 @@ tr.vp-occ-deleted td {
 
 /*
  * The tug of war: two weights pushing against each other, and only
- * two. A striped third wedge sat between them for the artboard's sake
- * and the engine never produced the quantity it drew — it retired in
- * phase 9 along with the foot beneath it, which had been counting
- * something else entirely under the same word.
+ * two.
  */
 .vp-tug-block {
     flex: 0 1 430px;
@@ -3805,125 +3718,6 @@ tr.vp-occ-deleted td {
     color: var(--vp-conflict);
 }
 
-.vp-ledger-disclose {
-    padding: 0;
-    border: none;
-    background: none;
-    font-size: 0.7rem;
-    color: var(--vp-conflict-ink);
-    transition: transform 0.15s ease-in-out;
-}
-
-.vp-ledger-disclose.collapsed {
-    transform: rotate(-90deg);
-}
-
-.vp-ledger-table > tbody > tr.vp-ledger-detail-row > td {
-    padding: 0 12px 10px;
-}
-
-/* ==================================================================
- * The occurrences behind a contradiction
- * ================================================================== */
-
-.vp-conflict-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.vp-conflict-table {
-    width: 100%;
-    border: 1px solid color-mix(in srgb, var(--vp-conflict) 25%,
-        var(--bs-border-color));
-    border-radius: 6px;
-    overflow: hidden;
-    background: var(--bs-body-bg);
-    border-collapse: collapse;
-}
-
-.vp-conflict-table td {
-    padding: 5px 10px;
-    border-bottom: 1px solid var(--bs-border-color);
-    font-size: 0.74rem;
-}
-
-.vp-conflict-table tr:last-child td {
-    border-bottom: none;
-}
-
-.vp-cr-event {
-    width: 62px;
-    font-family: var(--bs-font-monospace);
-    font-size: 0.68rem;
-}
-
-.vp-cr-org {
-    width: 120px;
-}
-
-.vp-cr-type {
-    width: 84px;
-    font-family: var(--bs-font-monospace);
-    font-size: 0.68rem;
-    color: var(--type);
-}
-
-.vp-cr-ids {
-    width: 70px;
-}
-
-.vp-cr-ids-badge {
-    padding: 1px 7px;
-    border-radius: 9px;
-    font-size: 0.64rem;
-    font-weight: 700;
-}
-
-.vp-cr-ids-yes {
-    background: color-mix(in srgb, var(--vp-mal) 16%, var(--bs-body-bg));
-    color: var(--vp-mal-ink);
-}
-
-.vp-cr-ids-no {
-    background: var(--bs-secondary-bg);
-    color: var(--bs-secondary-color);
-}
-
-.vp-cr-who {
-    width: 210px;
-    color: var(--bs-secondary-color);
-}
-
-.vp-conflict-actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 9px;
-}
-
-.vp-conflict-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 10px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
-    background: var(--bs-body-bg);
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--bs-body-color);
-}
-
-/*
- * How much the button above would touch, beside the button rather than
- * behind a confirm dialog nobody has opened yet.
- */
-.vp-conflict-confirm {
-    font-size: 0.7rem;
-    color: var(--vp-conflict-ink);
-}
-
 /* ==================================================================
  * Composition legend
  * ================================================================== */
@@ -4108,15 +3902,8 @@ tr.vp-occ-deleted td {
     color: inherit;
 }
 
-/* A dashed series gets a dashed key. */
 .vp-curve-swatch {
     background: var(--vp-curve-color);
-}
-
-.vp-curve-swatch-dashed {
-    background: repeating-linear-gradient(to right,
-        var(--vp-curve-color) 0 4px,
-        transparent 4px 7px);
 }
 
 /* ==================================================================
@@ -4170,7 +3957,6 @@ body[data-controller="values"] .btn:disabled,
 body[data-controller="values"] fieldset:disabled .btn,
 body[data-controller="values"] .dropdown-item.disabled,
 body[data-controller="values"] .vp-resolution:disabled,
-body[data-controller="values"] .vp-conflict-action:disabled,
 body[data-controller="values"] .vp-changer-action:disabled,
 body[data-controller="values"] .vp-vc-hero-action:disabled {
     pointer-events: auto;
@@ -7903,15 +7689,6 @@ th.vp-rel-num {
     text-transform: uppercase;
 }
 
-.vp-e-kind-cortex {
-    background: color-mix(in srgb, var(--galaxy) 16%, var(--bs-body-bg));
-    color: var(--bs-body-color);
-}
-
-[data-bs-theme="dark"] .vp-e-kind-cortex {
-    background: color-mix(in srgb, var(--galaxy) 34%, var(--bs-body-bg));
-}
-
 .vp-e-tray {
     display: flex;
     flex-direction: column;
@@ -7920,14 +7697,6 @@ th.vp-rel-num {
     padding: 10px 12px;
     border-top: 1px solid var(--bs-border-color);
     background: var(--bs-tertiary-bg);
-}
-
-.vp-e-tray-cost {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 14px;
-    font-size: 0.74rem;
 }
 
 /* ------------------------------------------------------------------
@@ -8012,11 +7781,6 @@ th.vp-rel-num {
     gap: 6px;
     color: var(--bs-secondary-color);
     font-size: 0.68rem;
-}
-
-.vp-e-svc-down {
-    color: var(--bs-danger-text-emphasis);
-    font-weight: 600;
 }
 
 /* ------------------------------------------------------------------
@@ -8369,13 +8133,6 @@ th.vp-rel-num {
 }
 
 /* A value a module returned.
- *
- * **This was a hatched bar until phase 28**, and the bar was right for
- * the tab it was drawn for: nothing had queried a third party, so the
- * fixture rendered a type and a shape and refused to invent the value
- * — "the one thing this tab must not do". Live, the value is the
- * answer, and a placeholder over real content is no longer a scruple
- * but an obstruction.
  *
  * It wraps and breaks anywhere. A returned value is arbitrary text
  * from somebody else's service — a URL, a long TXT record, a base64
@@ -9313,7 +9070,7 @@ th.vp-rel-num {
 
 /* The mean, wherever it appears: present, sourced, and never the
    lead. Struck through only when no organisation holds a position
-   within half a band of it — see `mean_orphan` in the fixture. */
+   within half a band of it (`mean_orphan`). */
 .vpa-mean {
     display: inline-flex;
     align-items: baseline;

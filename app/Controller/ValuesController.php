@@ -9,17 +9,12 @@ App::uses('ValueInputTool', 'Tools/ValueProfile');
  * Value Profile controller, mounted at /values/* via CakePHP's default
  * routing.
  *
- * The subject of these pages is a value string — `185.234.219.24`, a hash,
+ * The subject of these pages is a value string — an IP address, a hash,
  * a domain — not a single attribute row. The same value exists as many
  * attribute rows across many events, and this controller aggregates them.
  *
- * Read-only: nothing here writes. Every number is fixture data except on
- * the tabs the live campaign has converted — Occurrences (phase 22),
- * Sightings (23), Relationships (24), Timeline (25), Collaboration (26),
- * History (27) and Enrichment (28) — which it does one panel at a time,
- * so the two regimes sit side by side until it finishes.
- * `prd/value-profile-live/00-contract.md` §14.12 is the record of which
- * panels have moved.
+ * Read-only: nothing here writes. Each panel is its own lazily loaded
+ * endpoint, answered by one `ValueProfile` method.
  *
  * **One action leaves the building**, and it is the only one:
  * `viewEnrichmentRun` queries a third-party module. It still writes
@@ -678,13 +673,9 @@ class ValuesController extends AppController
         );
         /*
          * And the Assessment tab's pill, for the same reason and at a
-         * higher price. It names a lean and a quality, the tab below it
-         * now computes both, and the fixture's value is not the
-         * instance's: `8.8.8.8` drew *Nothing asserted* over a body
-         * reading *Contested* for as long as this line was missing —
-         * D11's rename found it, because the pill had been reading
-         * `disposition` off the fixture and there is no longer such a
-         * key to read.
+         * higher price. It names a lean and a quality, and the tab
+         * below it computes both: a pill that did not would contradict
+         * the body under it.
          *
          * This is the one synchronous assessment on the page. The three
          * lazy endpoints each compute their own (§2 of `10-wiring.md`
@@ -765,12 +756,8 @@ class ValuesController extends AppController
     /**
      * The Overview's preview of the Collaboration tab.
      *
-     * **Live since 2026-09-05**, and it reads the tab's own union
-     * rather than a cheaper one of its own — `ValueProfile::
-     * forAnalystPreview` has the argument. It was the last panel on
-     * this page still answering from the fixture beside panels reading
-     * the database, which `26-analyst.md` §11 call 2 recorded as the
-     * price of leaving the Overview's row to the Overview's phase.
+     * It reads the tab's own union rather than a cheaper one of its
+     * own — `ValueProfile::forAnalystPreview` has the argument.
      *
      * @param string $b64value
      * @return void
@@ -858,12 +845,10 @@ class ValuesController extends AppController
      * The Overview rail's Lifecycle card — three questions that all
      * bear on *is this still worth acting on*.
      *
-     * **The freshness third went live in phase 5 and the other two in
-     * phase 29**, which is why this card was the page's last partial
-     * one. The warninglist line resolves its categories through the
+     * The warninglist line resolves its categories through the
      * Assessment tab's own resolver so the two cannot disagree, and
-     * the correlation line is a flag rather than the count the fixture
-     * carried — `ValueProfile::forLifecycle` has both arguments.
+     * the correlation line is a flag rather than a count —
+     * `ValueProfile::forLifecycle` has both arguments.
      *
      * @param string $b64value
      * @return void
@@ -900,12 +885,6 @@ class ValuesController extends AppController
      * count and the rows it counts have to be computed from the same
      * fetch or they can disagree with each other, and two endpoints
      * against a moving attribute set is exactly how that happens.
-     *
-     * **Live since phase 22** — the first panel on this page to read the
-     * database rather than `ValueProfileFixture`. It is also why the
-     * whole-profile shape below no longer serves every endpoint: the
-     * live facade answers per panel, per
-     * prd/value-profile-live/22-occurrences.md.
      *
      * @param string $b64value
      * @return void
@@ -1037,12 +1016,10 @@ class ValuesController extends AppController
      * correlation query must not hold up the claims, which are the part
      * of this tab a person actually wrote.
      *
-     * **Live since phase 24**, and the split turned out to matter more
-     * than the fixture could show: the co-occurrence scan reads up to
-     * 20,000 attribute rows and the asserted claims read a handful of
-     * `relationships` rows, so a shared endpoint would have made the
-     * cheap, human part of this tab wait on the statistical one.
-     * prd/value-profile-live/24-relationships.md.
+     * The co-occurrence scan reads up to 20,000 attribute rows and the
+     * asserted claims read a handful of `relationships` rows, so a
+     * shared endpoint would make the cheap, human part of this tab wait
+     * on the statistical one.
      *
      * @param string $b64value
      * @return void

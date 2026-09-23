@@ -20,7 +20,7 @@ $groups = $facets['groups'];
 
 /*
  * Order, heading and glyph are the same for every value, so they live
- * here rather than in the fixture; only the counts vary. A key with no
+ * here; only the counts vary. A key with no
  * values is a group that renders nothing at all — a facet rail of
  * zeroes claims there are rows to narrow.
  */

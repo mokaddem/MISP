@@ -30,13 +30,9 @@ $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
 /*
  * Which taxonomies this reader asked to see first. The Tags column
- * draws one chip, so the plan decides what that chip is; defaulted
- * rather than required, because a fixture-driven render predates the
- * key and an absent plan is *draw them as they were merged*.
+ * draws one chip, so the plan decides what that chip is.
  */
-$labelPlan = isset($profile['label_plan'])
-    ? $profile['label_plan']
-    : null;
+$labelPlan = $profile['label_plan'];
 
 /*
  * Two things the page filters rows by, both stated on the <tr> because

@@ -9,11 +9,8 @@
  * in the order the argument is made.
  *
  * There is deliberately no single quality. The tug-of-war bar puts the
- * two weights against each other — **two wedges, not three**. The
- * fixture's striped middle one counted an `unresolved` the engine never
- * produced, while the foot printed directly under it counted the
- * ambiguities, a different quantity entirely; one word over two sources
- * is `10-wiring.md` §7.8, and they retired together in phase 9.
+ * two weights against each other — **two wedges, not three**: the
+ * engine produces no `unresolved` weight to draw between them.
  *
  * `Who says what` stays its own card: it is the same argument counted
  * a different way, by organisation rather than by signal.
@@ -304,15 +301,6 @@ foreach ($cases as $case) {
  * organisation — and on this layout the stance and the grade are the
  * columns that carry it: which organisations would have the value fire
  * a rule, and how much each one's say is worth.
- *
- * **It used to ask for `reads` alone**, a key nothing produces —
- * `ValueProfile::verdictOrgTable()` leaves it unset deliberately, and
- * says so, so that the agreeing layout drops the column rather than
- * emptying it. This layout asked unconditionally and got a header over
- * eight blank cells plus an `Undefined array key` per row
- * (`review-2026-09-13.md` §B2), on the one layout whose subject is
- * organisations disagreeing — while the two columns that would have
- * shown the disagreement were the ones it displaced.
  */
 ?>
 <?= $this->element('Values/View/value_verdict_orgs', array(

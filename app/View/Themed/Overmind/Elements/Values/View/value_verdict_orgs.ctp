@@ -10,12 +10,10 @@
  * The first five columns are the same question everywhere: how much
  * each organisation contributed and what it thinks. What differs is
  * what the layout needs after them, so the trailing columns are named
- * by the caller — `to_ids` and `reliability` where the disagreement is
- * about whether to act, `reads` where it is about what the value even
- * is.
+ * by the caller.
  *
  * @var array $verdict
- * @var array $orgColumns  Any of `to_ids`, `reliability`, `reads`
+ * @var array $orgColumns  Any of `to_ids`, `reliability`
  * @var string $orgsSub    The subtitle: why this table is here for
  *                         this particular value
  */
@@ -27,7 +25,6 @@ $orgColumns = $orgColumns ?? array('to_ids', 'reliability');
 $headings = array(
     'to_ids' => __('to_ids stance'),
     'reliability' => __('Source reliability'),
-    'reads' => __('Reads the value as'),
 );
 ?>
 <?php if (!empty($orgs)): ?>
@@ -145,13 +142,6 @@ $headings = array(
                                                 <?= h($org['reliability']) ?>
                                             </span>
                                         <?php endif; ?>
-                                    </td>
-                                <?php elseif ($column === 'reads'): ?>
-                                    <td>
-                                        <span class="vp-side vp-side-<?=
-                                            h($org['side'] ?? 'none') ?>">
-                                            <?= h($org['reads'] ?? '') ?>
-                                        </span>
                                     </td>
                                 <?php else: ?>
                                     <td><?= h($org[$column]) ?></td>

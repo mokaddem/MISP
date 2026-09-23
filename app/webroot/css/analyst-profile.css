@@ -629,9 +629,8 @@ input.num[type="number"]::-webkit-inner-spin-button {
 
 /*
  * The relevance axis has a magnitude — a shelf life — and the shipped
- * value_relevance.ctp already draws it. Quality having the only bar was
- * an accident of which axis the fixture carried a number for, not a
- * property of the assessment.
+ * value_relevance.ctp already draws it, so quality is not the only
+ * axis with a bar.
  */
 .ax-runway { margin-top: .25rem; }
 .ax-track {

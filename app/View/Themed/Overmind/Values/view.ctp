@@ -1,7 +1,7 @@
 <?php
 /**
  * Value Profile — the page whose subject is one value rather than one
- * event. Skeleton pass: real routing, real chrome, hardcoded data.
+ * event. The frame renders here; every panel is lazily loaded.
  *
  * @var array $valueProfile
  * @var string $valueB64
@@ -166,11 +166,9 @@ echo $this->element('Values/View/value_fact_strip', array(
  * enrichment answer, and the Analyst Profile's D15 settled that nothing
  * on this page runs a module without a press, so the rail could only
  * ever have been filled by running five modules on every page load.
- * It rendered inert from the skeleton pass onwards and an inert control
- * is an unfinished promise to an analyst (D23), so it is gone rather
- * than disabled. `29-overview.md` §8.1 carries the successor that was
- * weighed — a rail founded on pivots the database can actually resolve
- * — and why that is a different feature rather than this one converted.
+ * An inert control is an unfinished promise to an analyst, so it is
+ * gone rather than disabled. A rail founded on pivots the database can
+ * actually resolve would be a different feature.
  */
 
 /*
@@ -179,9 +177,7 @@ echo $this->element('Values/View/value_fact_strip', array(
  * ------------------------------------------------------------------
  * Every tab is assembled from lazily-loaded panels, one endpoint each,
  * so a slow panel never holds up the rest of the page and each one's
- * live implementation stays a local change. None is stubbed any more;
- * the whole-tab placeholder below stays because a tab that names no
- * panel should still say so rather than render an empty column.
+ * implementation stays a local change.
  */
 $counts = $profile['counts'];
 
@@ -463,8 +459,8 @@ $hasVerdictAside = $verdict['lean'] !== 'none';
  * The Relationships pill: one notion, named, and only when it is there.
  *
  * A pill rather than the parenthesised count because `(15)` on this tab
- * would read as fifteen *relationships* — the claim that got the
- * fixture's correlation badge removed in phase 24. The label carries
+ * would read as fifteen *relationships*, which nothing here counts.
+ * The label carries
  * the unit, so the number says what it counts, and it counts the notion
  * the tab is founded on rather than a total across seven of them.
  *
@@ -671,12 +667,8 @@ $tabRegistry = array(
          * whole reports — and getting it used to cost the panel's own
          * thirteen queries on every page load. `Value::sightingCountsFor`
          * is one indexed aggregate with the policy expressed as SQL, so
-         * the price is a single count on the frame's own read.
-         *
-         * The badge carried a fixture literal until 2026-08-28, which
-         * read 17 beside a panel reporting 53; it reads 53 now, off the
-         * same rule `listSightings` applies, verified against it under
-         * all four policies.
+         * the price is a single count on the frame's own read, off the
+         * same rule `listSightings` applies.
          *
          * `ValueProfile::forTabCounts` holds the rest of the reasoning.
          *
@@ -701,11 +693,9 @@ $tabRegistry = array(
         'title' => __('Relationships'),
         'icon' => 'fas fa-link',
         /*
-         * A pill naming objects, not the parenthesised count. This tab
-         * read the fixture's correlation total until phase 24, which is
-         * a number nothing on the live tab computes: co-occurrence here
-         * is an event join, not correlation output
-         * (`24-relationships.md` §3). That join's own total is still
+         * A pill naming objects, not the parenthesised count. There is
+         * no correlation total to show: co-occurrence here is an event
+         * join, not correlation output. That join's own total is
          * refused — it means running the panel's whole scan, up to
          * 20,000 attribute rows and a second on the heaviest value, on
          * every page load for a tab most readers never open.
@@ -838,13 +828,8 @@ $tabRegistry = array(
         'title' => __('Collaboration'),
         'icon' => 'misp-icon misp-icon-analyst-note misp-simple',
         /*
-         * No count, dropped by phase 26 when the panels below went
-         * live. It was a fixture literal, and §14.13 named this tab as
-         * one of the three carrying one that would start lying the day
-         * its panels stopped.
-         *
-         * Dropped rather than wired for both of the reasons the
-         * Timeline and History tabs already carry. It is the
+         * No count, for both of the reasons the Timeline and History
+         * tabs carry. It is the
          * *viewer's* count — `AnalystData::buildConditions` scopes
          * every note and opinion, and a CIRCL reader sees four items
          * on `8.8.8.8` where a site admin sees six — so two users
@@ -963,10 +948,6 @@ $tabRegistry = array(
     ),
 );
 
-/*
- * A tab that names no panels is one nobody has written yet, and says so
- * with the whole-tab placeholder rather than an empty column.
- */
 $tabs = array();
 foreach ($tabRegistry as $tab) {
     $tabs[] = array(
@@ -976,16 +957,7 @@ foreach ($tabRegistry as $tab) {
         'count' => $tab['count'] ?? null,
         'badge' => $tab['badge'] ?? null,
         'right' => $tab['right'] ?? null,
-        'left' => $tab['left'] ?? array(
-            array(
-                'element' => 'Values/View/value_placeholder',
-                'params' => array(
-                    'tabTitle' => $tab['title'],
-                    'tabIcon' => $tab['icon'],
-                    'tabNote' => $tab['note'],
-                ),
-            ),
-        ),
+        'left' => $tab['left'],
     );
 }
 

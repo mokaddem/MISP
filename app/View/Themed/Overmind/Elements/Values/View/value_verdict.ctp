@@ -34,11 +34,6 @@ $verdict = $valueProfile['verdict'];
 
 $uid = 'vp' . substr(md5($valueProfile['value'] . '-verdict'), 0, 8);
 
-$noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
-    . ' the database yet.'
-);
-
 $lean = $verdict['lean'];
 $treatment = ValueLean::treatment($lean);
 $quality = $verdict['quality'];
@@ -64,20 +59,6 @@ $qualityLabel = __(
     . ' attribution, dates. Not whether the value is a threat.'
 );
 
-/*
- * `Reads the value as` is carried only where the organisations differ
- * about what the value is rather than about what to do with it, so the
- * column follows the data instead of the layout: a benign value with
- * one organisation still treating it as an indicator needs it, and a
- * malicious value where everyone agrees on the reading does not.
- */
-$orgColumns = array('to_ids', 'reliability');
-foreach ($verdict['orgs'] as $org) {
-    if (!empty($org['reads'])) {
-        $orgColumns[] = 'reads';
-        break;
-    }
-}
 ?>
 
 <div class="card shadow-sm mb-3 vp-panel vp-vc vp-vc-agreeing
@@ -157,8 +138,8 @@ foreach ($verdict['orgs'] as $org) {
                     </span>
                 </div>
                 <?php /*
-                 * Clamped, because a quality can be negative and the
-                 * fixture's could not: the ledger sums to it exactly,
+                 * Clamped, because a quality can be negative: the
+                 * ledger sums to it exactly,
                  * so a record with more absences than substance nets
                  * below zero — `awake-weaves.cyou` closes at −1 on the
                  * dev instance, one organisation and nothing else. A
@@ -296,8 +277,6 @@ foreach ($verdict['orgs'] as $org) {
     ?>
     <?= $this->element('Values/View/value_verdict_ledger', array(
         'verdict' => $verdict,
-        'uid' => $uid,
-        'noWrites' => $noWrites,
     )) ?>
 
     <?php
@@ -332,6 +311,6 @@ foreach ($verdict['orgs'] as $org) {
 ?>
 <?= $this->element('Values/View/value_verdict_orgs', array(
     'verdict' => $verdict,
-    'orgColumns' => $orgColumns,
+    'orgColumns' => array('to_ids', 'reliability'),
     'orgsSub' => __('One row per organisation'),
 )) ?>

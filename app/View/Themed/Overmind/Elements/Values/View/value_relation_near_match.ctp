@@ -41,8 +41,8 @@ $near = $profile['relationships']['near'];
 $view = $this;
 
 /*
- * The type the engines are asked about. Every demo value is an address,
- * but an unknown value has no attribute anywhere on the instance and so
+ * The type the engines are asked about. An unknown value has no
+ * attribute anywhere on the instance and so
  * has no type for an engine to decline — which is a fourth sentence
  * again, and not the same as "the engine does not apply".
  */
@@ -128,17 +128,15 @@ $distributionBadge = function ($row) use ($view) {
  * Closeness as a share of whatever the row's scale is.
  *
  * A prefix over the address width for a network block — 32 bits for
- * IPv4 and 128 for IPv6, which the fixture could hardcode as 32 and
- * live data cannot — and the score itself for ssdeep, which is already
- * a percentage. `Similarity ≥` filters on this number, so the control
+ * IPv4 and 128 for IPv6 — and the score itself for ssdeep, which is
+ * already a percentage. `Similarity ≥` filters on this number, so the control
  * and the bar cannot disagree whichever engine wrote the row.
  *
  * @param array $row
  * @return int
  */
 $closeness = function ($row) {
-    $width = empty($row['width']) ? 32 : (int)$row['width'];
-    return (int)round(((int)$row['prefix'] / $width) * 100);
+    return (int)round(((int)$row['prefix'] / (int)$row['width']) * 100);
 };
 
 /**
@@ -377,17 +375,12 @@ if (!$offerSimilarity) {
                                                text-nowrap">
                                         <?php
                                         /*
-                                         * A live row arrives formatted,
-                                         * because a /8 of IPv6 is 2^120
-                                         * and no integer here holds it.
-                                         * The fixture's rows are plain
-                                         * integers and still need the
-                                         * separators.
+                                         * Arrives formatted, because a /8
+                                         * of IPv6 is 2^120 and no integer
+                                         * here holds it.
                                          */
                                         ?>
-                                        <?= h(is_int($row['addresses'])
-                                            ? number_format($row['addresses'])
-                                            : $row['addresses']) ?>
+                                        <?= h($row['addresses']) ?>
                                     </td>
                                 <?php endif; ?>
                                 <td class="text-nowrap">

@@ -27,17 +27,10 @@ $valueB64 = $valueB64 ?? null;
 
 /*
  * Literally true: there is no stored verdict, so the timestamp is this
- * render. The honest form of the artboard's fixed clock.
- *
- * **The engine emits it as unix seconds**, because `computed_at` is the
- * key phase 10's materialisation stores and compares — so the
- * formatting is this template's, not the tool's. Under the fixture the
- * key was null and the fallback did the formatting, which is why the
- * first live render printed `1789291994` at the top of the tab.
+ * render. The engine emits unix seconds, the key a materialised verdict
+ * would store and compare, so the formatting is this template's.
  */
-$computedAt = isset($verdict['computed_at'])
-    ? date('Y-m-d H:i:s', (int)$verdict['computed_at'])
-    : date('Y-m-d H:i:s');
+$computedAt = date('Y-m-d H:i:s', (int)$verdict['computed_at']);
 
 $parts = array(
     h(__('Computed at render,')) . ' <span class="font-monospace">'

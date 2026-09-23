@@ -5,7 +5,7 @@ App::uses('ValueFieldKind', 'Tools/ValueProfile');
 /**
  * The value-identity seam for the Value Profile page.
  *
- * The subject of that page is a value string — `185.234.219.24`, a hash,
+ * The subject of that page is a value string — an IP address, a hash,
  * a domain — which is not a row of any table. It is a set of attribute
  * rows that happen to carry the same string, so this model has no table
  * of its own and resolves the value against `attributes` instead.
@@ -2007,10 +2007,9 @@ class Value extends AppModel
      * The near-match section asks the engines about a type rather than
      * about a value — CIDR containment runs for `ip-dst` and not for
      * `sha256` — so it needs to know what this value *is* before it can
-     * say which engine declines it. The page frame carries the same
-     * array from the fixture; this is the viewer's own version of it,
-     * and a value with no occurrence the reader may see correctly has
-     * no type at all rather than a guessed one.
+     * say which engine declines it. It is the viewer's own: a value
+     * with no occurrence the reader may see correctly has no type at
+     * all rather than a guessed one.
      *
      * `type` is the stored attribute type, which is what the occurrence
      * table filters on. `as` says which half of a composite the value

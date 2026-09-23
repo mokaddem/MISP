@@ -3705,9 +3705,8 @@
          * At least one unit of headroom above the line even when
          * nothing supports the value, because the overlay is drawn in
          * that band and a value nobody has ever sighted still has a
-         * shelf life. Without it, `45.155.205.233` — three false
-         * positives and no sighting — would give the line no height to
-         * live in.
+         * shelf life. Without it, a value with false positives and no
+         * sighting would give the line no height to live in.
          */
         return { up: Math.max(1, up), down: down };
     }
@@ -6107,7 +6106,7 @@
     }
 
     /**
-     * @param {string} at `Y-m-d H:i:s`, which the fixture writes in UTC
+     * @param {string} at `Y-m-d H:i:s`, in UTC
      * @return {number} Epoch milliseconds
      */
     function tlStamp(at) {

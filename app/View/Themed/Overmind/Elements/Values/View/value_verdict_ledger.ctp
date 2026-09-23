@@ -30,8 +30,6 @@
  * and lifting them out would imply they had been netted off somewhere.
  *
  * @var array $verdict
- * @var string $uid      Namespace for the collapse targets
- * @var string $noWrites Why the actions inside a conflict are disabled
  */
 App::uses('ValueBandReasonTool', 'Tools/ValueProfile');
 
@@ -182,38 +180,12 @@ foreach ($ledger as $group) {
                             </span>
                         </td>
                     </tr>
-                    <?php foreach ($conflicts as $c => $conflict):
-                        $open = !empty($conflict['expanded'])
-                            && !empty($conflict['rows']);
-                        $rowId = $uid . '-conflict-' . $c;
-                        ?>
+                    <?php foreach ($conflicts as $conflict): ?>
                         <tr class="vp-ledger-conflict">
                             <td class="vp-ledger-dir">
-                                <?php if (!empty($conflict['rows'])): ?>
-                                    <button type="button"
-                                            class="vp-ledger-disclose<?=
-                                                $open
-                                                    ? ''
-                                                    : ' collapsed' ?>"
-                                            data-bs-toggle="collapse"
-                                            data-bs-target="#<?=
-                                                h($rowId) ?>"
-                                            aria-expanded="<?= $open
-                                                ? 'true'
-                                                : 'false' ?>"
-                                            aria-controls="<?=
-                                                h($rowId) ?>"
-                                            aria-label="<?= h(__(
-                                                'Show the occurrences'
-                                                . ' behind this'
-                                            )) ?>">
-                                        <i class="fas fa-chevron-down"></i>
-                                    </button>
-                                <?php else: ?>
-                                    <span class="vp-ledger-mark">
-                                        &#9670;
-                                    </span>
-                                <?php endif; ?>
+                                <span class="vp-ledger-mark">
+                                    &#9670;
+                                </span>
                             </td>
                             <td class="vp-ledger-signal-cell">
                                 <?= h($conflict['title']) ?>
@@ -231,27 +203,6 @@ foreach ($ledger as $group) {
                                 <?= h(__('now')) ?>
                             </td>
                         </tr>
-                        <?php if (!empty($conflict['rows'])): ?>
-                            <tr class="vp-ledger-conflict
-                                       vp-ledger-detail-row">
-                                <td></td>
-                                <td colspan="4">
-                                    <div class="collapse<?= $open
-                                        ? ' show'
-                                        : '' ?>"
-                                         id="<?= h($rowId) ?>">
-                                        <?= $this->element(
-                                            'Values/View'
-                                            . '/value_conflict_rows',
-                                            array(
-                                                'conflict' => $conflict,
-                                                'noWrites' => $noWrites,
-                                            )
-                                        ) ?>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endif; ?>
                     <?php endforeach; ?>
                 <?php endif; ?>
 

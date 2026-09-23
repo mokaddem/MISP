@@ -11,9 +11,6 @@
  * which, could not reach the one they came for, and watched the page
  * move under the cursor for as long as the slowest endpoint took.
  *
- * `value_panel_placeholder` makes the same move for a panel that is not
- * written yet; this one is for a panel that is merely not here yet.
- *
  * **The layout, the shimmer and the row split are not this file's.**
  * `genericElementsBS5/Layout/ajax_card_skeleton` owns them and any page
  * in the theme can use it. What is left here is the only part that is

@@ -297,10 +297,6 @@ class ValueProfileBuckets
      * drawn one is a fact about how far the reader has zoomed and the
      * browser is what knows it.
      *
-     * It lives here rather than in `ValueProfileFixture` because a live
-     * panel must not call a test double. The fixture delegates, so the
-     * two cannot drift.
-     *
      * @return array
      */
     public static function columnLabels()

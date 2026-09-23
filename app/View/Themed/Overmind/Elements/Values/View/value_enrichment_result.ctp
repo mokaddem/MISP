@@ -315,9 +315,8 @@ $manyObjects = count($run['objects']) > 1;
 
             <?php
             /*
-             * §8's provenance line. Live it says what the module *is*
-             * and what this press cost, where the fixture also said
-             * when it last ran. Chips rather than a run of text: they
+             * The provenance line: what the module *is* and what this
+             * press cost. Chips rather than a run of text: they
              * are five unrelated facts and a reader looks for one of
              * them at a time.
              */

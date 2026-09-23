@@ -7,17 +7,11 @@
  * `AnalystData/thread` is not reused here because it carries the add /
  * edit / delete controls, and nothing on this page writes.
  *
- * **Live since 2026-09-05**, off `ValueProfile::forAnalystPreview` and
- * therefore off the same union the tab reads. It carried the fixture's
- * notes for three phases while the tab beside it went live, which is
- * the state `26-analyst.md` §14.13 predicted would start lying — a
- * reader met one set of counts here and another one tab across.
+ * Off `ValueProfile::forAnalystPreview` and therefore off the same
+ * union the tab reads, so the counts here and one tab across agree.
  *
- * **Newest first across both kinds.** The fixture handed over a `Note`
- * array and an `Opinion` array and this card drew every note above
- * every opinion; that was the fixture's shape and not a decision, and
- * it let a card headed *the most recent* put a two-year-old note above
- * yesterday's opinion.
+ * **Newest first across both kinds**, so a card headed *the most
+ * recent* never puts a two-year-old note above yesterday's opinion.
  *
  * **The event-report count lands here** rather than as a seventh fact
  * cell, which is where `29-overview.md` §10 recommended it and §14.8
@@ -118,8 +112,7 @@ $subtitle = implode(' &nbsp;·&nbsp; ', array_filter(array(
  *
  * The organisation opens, under §18.1's rule that a chip naming a
  * record is a link to that record — the thread's meta line, the report
- * rows and the ledger already follow it, and this card could not while
- * its organisations were fixture strings with no id behind them.
+ * rows and the ledger already follow it.
  *
  * @param array $item
  * @return string

@@ -60,7 +60,7 @@ $aggregate = $standing['aggregate'];
 
 /**
  * Which way an opinion argues, named for what the reader is told
- * rather than for the fixture's own `malicious` / `benign`.
+ * rather than for the engine's own `malicious` / `benign`.
  *
  * The indirection is worth removing rather than carrying: MISP's scale
  * runs from disagreement to agreement with what the value asserts, so
@@ -147,7 +147,7 @@ $bands = array(
  * comparison and no per-column knowledge.
  *
  * @param array $org
- * @param int $index Position in the order the fixture sent
+ * @param int $index Position in the order the server sent
  * @return string Attributes, ready to interpolate
  */
 $pad = function ($number, $width = 4) {
@@ -173,7 +173,7 @@ $rowSort = function ($org, $index) use ($sideOf, $pad, $sideRank) {
             ? ''
             : date('YmdHi', strtotime($org['last'])),
         /*
-         * The row's position in the order the fixture sent — by
+         * The row's position in the order the server sent — by
          * opinion, highest first. Reordering moves the rows
          * themselves, so the third click has to restore this rather
          * than merely stop comparing.

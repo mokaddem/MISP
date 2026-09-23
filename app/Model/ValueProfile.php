@@ -41,11 +41,9 @@ App::uses('MispAttribute', 'Model');
  *
  * **Why this is per panel and not per page.**
  * `ValuesController::profileFor()` builds every tab's data and hands the
- * whole array to whichever endpoint asked for it. With a fixture that is
- * one array literal and costs nothing. Live it would be nine tabs of
- * queries per panel request and twenty-odd panel requests per tab visit,
- * so the whole-profile shape does not survive going live — see
- * prd/value-profile-live/00-contract.md §14.1.
+ * whole array to whichever endpoint asked for it. That would be nine
+ * tabs of queries per panel request and twenty-odd panel requests per
+ * tab visit.
  *
  * **Why this is not one big `Value` model.** §4 of the page's PRD
  * refused to build this feature inside `AttributesController` because
@@ -174,10 +172,9 @@ class ValueProfile extends AppModel
     const CONTEXT_GALAXY_CAP = 40;
 
     /**
-     * Most recent first. The table's order was never stated while the
-     * rows were fixture data listed in a literal; a value's newest
-     * occurrence is the one a reader opening this tab is looking for,
-     * and it is also what makes the cap's own wording true.
+     * Most recent first. A value's newest occurrence is the one a
+     * reader opening this tab is looking for, and it is also what makes
+     * the cap's own wording true.
      */
     const OCCURRENCE_ORDER = 'Attribute.timestamp DESC';
 
@@ -206,13 +203,11 @@ class ValueProfile extends AppModel
     /**
      * What a ledger row means by *recent* when it counts sightings.
      *
-     * Not a profile setting, deliberately: it is the denominator in a
-     * sentence — *"12 sightings in the last 30 days"* — rather than a
-     * judgement about what evidence is worth, and the fixture's own
-     * evidence line has printed 30 since the skeleton pass. A signal
-     * that wants to weight recency does it with points
-     * (`sightings.volume_recency`'s `stale_days`), which is where the
-     * analyst's opinion belongs.
+     * Not a profile setting, deliberately: it is the denominator in a sentence
+     * — *"12 sightings in the last 30 days"* — rather than a judgement about
+     * what evidence is worth. A signal that wants to weight recency does it
+     * with points (`sightings.volume_recency`'s `stale_days`), which is where
+     * the analyst's opinion belongs.
      */
     const VERDICT_RECENT_DAYS = 30;
 
@@ -454,8 +449,7 @@ class ValueProfile extends AppModel
      * Objects the sibling join will read.
      *
      * `0.0.0.0` sits in 32,921 distinct objects here, one per row of a
-     * flood capture. The fixture named this bound 500 and the live
-     * shape keeps it: 500 objects is 5,500 sibling rows and 70 ms.
+     * flood capture. 500 objects is 5,500 sibling rows and 70 ms.
      */
     const SIBLING_OBJECT_CAP = 500;
 
@@ -620,10 +614,7 @@ class ValueProfile extends AppModel
      *
      * The rule is about how wide a bar reads rather than anything about
      * audit logs: 45 days of daily bars and 200 of weekly ones both
-     * fit, where 437 daily bars would be 0.68px each. Held here rather
-     * than read off `ValueProfileFixture` — the fixture is what this
-     * panel is being converted away from, and a live reader that
-     * imports a constant from it has not finished moving.
+     * fit, where 437 daily bars would be 0.68px each.
      */
     const HISTORY_CHART_RULE = array(
         array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
@@ -700,8 +691,8 @@ class ValueProfile extends AppModel
     /**
      * Chips one undated kind lists before it states a remainder.
      *
-     * `443` resolves to 3,858 distinct tags and `193.161.193.99` to 77,
-     * against the fixture's handful. The strip is a strip and not a tag
+     * `443` resolves to 3,858 distinct tags and `193.161.193.99` to 77.
+     * The strip is a strip and not a tag
      * index; what it cannot hold is on the Occurrences tab, which is
      * what the count beside the chips is for.
      */
@@ -808,24 +799,21 @@ class ValueProfile extends AppModel
      * Items the Overview's preview card draws before it says how many
      * more there are.
      *
-     * Four, which is what the fixture drew and what the card's slot on
-     * a three-panel column holds without pushing the Verdict card below
-     * the fold. It is a preview and the tab is one press away: the
-     * number that matters on this card is the total in its subtitle,
-     * not how much of the thread it managed to fit.
+     * Four, which is what the card's slot on a three-panel column holds without
+     * pushing the Verdict card below the fold. It is a preview and the tab is
+     * one press away: the number that matters on this card is the total in its
+     * subtitle, not how much of the thread it managed to fit.
      */
     const ANALYST_PREVIEW_CAP = 4;
 
     /**
      * Days the brush's default window covers.
      *
-     * The fixture pinned a window per value — a fixed date to its own
-     * notion of today, 24 days against a twelve-month spine. So a recent
-     * slice of a wider chart, which is what makes the brush worth
-     * having, and choosing it from the data is what going live adds.
+     * A recent slice of a wider chart, which is what makes the brush
+     * worth having, chosen from the data.
      *
-     * 30 rather than 24 because a month is the unit the spine bins in
-     * and a reader reads back; and the window is clamped to the value's
+     * 30 because a month is the unit the spine bins in and a reader
+     * reads back; and the window is clamped to the value's
      * range rather than to the calendar, so it is never empty and never
      * degenerate. Taking the *calendar month* of the newest entry was
      * the first rule tried and it gives `143.14.244.37` — whose newest
@@ -950,20 +938,11 @@ class ValueProfile extends AppModel
      * The numbers on the tab bar, corrected where the page frame and a
      * converted tab would otherwise contradict each other.
      *
-     * Not a panel, and the only method here that is not. It was written
-     * while the frame — tab badges, fact strip, banner chips — was one
-     * call to `ValueProfileFixture` belonging to an Overview phase that
-     * had not run: harmless while every tab was fixture-backed and both
-     * halves agreed, and not harmless the moment a tab went live,
-     * because a badge and the panel two inches under it then state
-     * different numbers for one value. On `8.8.8.8` the badges read 9
-     * and 17 against 23 occurrences and 53 reports.
-     *
-     * **Phase 29 ran, and this survived it rather than being folded
-     * in.** `forFrame` calls it, so the frame is still one read from
-     * the controller's side; what it keeps is the argument below for
-     * which badges can be told truly, which is a ruling about the tab
-     * bar rather than about the fixture that used to fill it.
+     * Not a panel, and the only method here that is not. A badge and
+     * the panel two inches under it must not state different numbers
+     * for one value. `forFrame` calls it, so the frame is still one read
+     * from the controller's side; what it keeps is the argument below
+     * for which badges can be told truly.
      *
      * **Occurrences gets a real number.** One `COUNT`, and pointedly
      * the same call `forOccurrenceTable` makes for the total its own
@@ -990,12 +969,10 @@ class ValueProfile extends AppModel
      * other way round, and the reason both badges can be trusted.
      * Timeline and History still carry no badge.
      *
-     * **Relationships gets a number that names its own unit.** The
-     * fixture's badge was the *correlation* total, and nothing on the
-     * live tab computes one: co-occurrence there is an event join
-     * rather than correlation output (`24-relationships.md` §3), so the
-     * old number was not merely stale, it counted something the tab no
-     * longer claims. The join's own total — `distinct_values` — is
+     * **Relationships gets a number that names its own unit.** Not a
+     * *correlation* total: nothing on the tab computes one, because
+     * co-occurrence there is an event join rather than correlation
+     * output. The join's own total — `distinct_values` — is
      * still refused here for the sightings reason: it needs the panel's
      * whole scan, up to 20,000 attribute rows and about a second on the
      * heaviest value on the instance, on every page load.
@@ -1052,7 +1029,7 @@ class ValueProfile extends AppModel
      *
      * @param array $user
      * @param string $value
-     * @param array $counts The frame's counts, from the fixture
+     * @param array $counts The frame's counts
      * @return array The same, with the badges that can be told truly
      */
     public function forTabCounts(array $user, $value, array $counts)
@@ -1064,7 +1041,6 @@ class ValueProfile extends AppModel
             ->objectCountFor($user, $value);
         $counts['enrichment'] = $this->model('ValueEnrichmentRun')
             ->heldCountFor($user, $value);
-        unset($counts['relationships']);
         return $counts;
     }
 
@@ -1529,9 +1505,8 @@ class ValueProfile extends AppModel
             /*
              * Null rather than absent when the row carries no id: the
              * caller draws a link only where there is something to
-             * link to, and a profile assembled in memory — which is
-             * what `ValueProfileFixture` hands the engine — has no
-             * page of its own.
+             * link to, and a profile assembled in memory has no page
+             * of its own.
              */
             'id' => isset($row['id']) ? (int)$row['id'] : null,
             'name' => isset($row['name']) ? (string)$row['name'] : '',
@@ -1900,10 +1875,9 @@ class ValueProfile extends AppModel
      * uncapped `occurrenceCountFor` rather than the rows fetched.
      *
      * **`hidden` is not computed, and that is a rule rather than an
-     * omission.** `ValueStatsTool::occurrenceStats` returns five keys
-     * and the fixture carried a sixth — occurrences withheld from this
-     * viewer by distribution — plus a note stating it in words. The
-     * page does not tell a reader that records exist which it will not
+     * omission.** `ValueStatsTool::occurrenceStats` counts no
+     * occurrences withheld from this viewer by distribution. The page
+     * does not tell a reader that records exist which it will not
      * show them; the empty state says *no event you can see carries
      * this value*, which distinguishes absent from hidden without
      * quantifying the gap (§1.1 D3).
@@ -2499,9 +2473,8 @@ class ValueProfile extends AppModel
      * is how they come to disagree, and this page has been bitten by
      * that three times.
      *
-     * **The correlation line is a flag and no longer a count.** It
-     * printed *n correlations* off the fixture. Nothing live can
-     * produce that number honestly: correlations attach to attributes
+     * **The correlation line is a flag and not a count.** Nothing can
+     * produce a correlation total honestly: correlations attach to attributes
      * rather than to values, so a value's total is a union over its
      * occurrences and grows with them, and phase 24 found the
      * correlation engine has nothing to say about a value in the first
@@ -2883,18 +2856,9 @@ class ValueProfile extends AppModel
      *
      * On the Overview and not the Sightings tab, and the only panel of
      * either that this method serves. It is here rather than in the
-     * Overview's own live phase because of what it is made of: the same
-     * `sightingContext` the tab's four endpoints share, so converting it
-     * is wiring rather than new work, and leaving it on the fixture
-     * meant a card and a tab on one page that could disagree about the
-     * same value — the tab counting what the database holds and the card
-     * counting what a literal said.
-     *
-     * **The Overview's other panels stay on the fixture**, and were
-     * four rather than three until analyst-profile phase 9 took
-     * `value_verdict_card` live on 2026-09-13. This converts one card
-     * of that tab and claims nothing about the rest, which is what
-     * §14.12's note about not treating a tab as indivisible asks for.
+     * Overview's own methods because of what it is made of: the same
+     * `sightingContext` the tab's four endpoints share, so a card and a
+     * tab on one page cannot disagree about the same value.
      *
      * No relevance work, like the list: a card above the fold should
      * not wait for the axis, and the three counts it shows are not part
@@ -3057,14 +3021,6 @@ class ValueProfile extends AppModel
                 'events' => $summary['events'],
                 'orgs' => $summary['orgs'],
             ),
-            /*
-             * The element counts these when no `sighting_fanout` is
-             * supplied, which is how `ValueProfileFixture` still drives
-             * it. Live it is empty and the counts above are used: three
-             * `COUNT(DISTINCT …)` beat materialising 48,255 rows to
-             * count them, by 617 ms on `443`.
-             */
-            'occurrences' => array(),
         );
     }
 
@@ -7540,9 +7496,8 @@ class ValueProfile extends AppModel
             /*
              * There is no prose to render. Left as an empty string
              * rather than a placeholder sentence, so the block draws
-             * nothing where the fixture drew a paragraph and the panel
-             * explains the absence once, at the foot, instead of on
-             * every claim.
+             * nothing and the panel explains the absence once, at the
+             * foot, instead of on every claim.
              */
             'text' => '',
             'org' => $author === null
@@ -9070,14 +9025,6 @@ class ValueProfile extends AppModel
                         ? $audit[0]['first_add']
                         : null
                 ),
-                /*
-                 * The setting, read live. Every fixture value hard-codes
-                 * this false with the note that it defaults so, which is
-                 * true of a default instance and false of any instance
-                 * that has turned it on — so the branch the fixture has
-                 * never rendered is the one a logging instance shows,
-                 * and both have to ship.
-                 */
                 'audit_recorded' => (bool)Configure::read(
                     'MISP.log_new_audit'
                 ),
@@ -9194,9 +9141,7 @@ class ValueProfile extends AppModel
      *
      * `ValueStatsTool::sightingList` is the same call the Sightings
      * table makes, over the same `sightingContext`, so a sighting on
-     * this axis and the row for it one tab over cannot disagree — which
-     * is the property that made the fixture build this lane from the
-     * Sightings rows rather than from its own copy of the dates.
+     * this axis and the row for it one tab over cannot disagree.
      *
      * The count is the viewer's, as every count on this page is, and
      * this tab must not restate it as the instance's.
@@ -9374,10 +9319,9 @@ class ValueProfile extends AppModel
         }
         if (!isset($points['first'])) {
             /*
-             * The row the fixture could not have: a publish timestamp
-             * with no first publication. 1,429 of the events on the
-             * verification instance are in this state, which is what an
-             * event published before MISP grew the column looks like.
+             * A publish timestamp with no first publication. 1,429 of the
+             * events on the verification instance are in this state, which is
+             * what an event published before MISP grew the column looks like.
              */
             return __(
                 'Its latest publication. MISP records no first'
@@ -9397,8 +9341,7 @@ class ValueProfile extends AppModel
      * The edit lane, and which of its two shapes it takes.
      *
      * With `MISP.log_new_audit` on, one row per logged change over the
-     * value's own occurrences, objects and events — the branch no
-     * fixture value has ever rendered. With it off, one point per
+     * value's own occurrences, objects and events. With it off, one point per
      * occurrence from `attributes.timestamp`, which says *when* an
      * occurrence last changed and never *what* or *how many times*: the
      * title names the occurrence and stops, because an edit row claiming
@@ -11425,12 +11368,9 @@ class ValueProfile extends AppModel
      * is carried as `as_of` and never as `at`.
      *
      * **Every row carries a stable `key` beside its translated
-     * `kind`.** The fixture supplied `kind` through the same `__()` call
-     * the template matched on, so the two agreed in English and in any
-     * locale translating both strings identically, and stopped agreeing
-     * otherwise — the lane rendering its *absent* text while the strip
-     * below it listed the chips. The key is the half of that fix which
-     * lives here; the template matching on it is the other.
+     * `kind`**, and the template matches on the key: a match on the
+     * translated string breaks in any locale that translates the two
+     * `__()` calls differently.
      *
      * **The tags are the value's own**, from `attribute_tags` through
      * `Value::ownTagsFor`. An event tag is the event's claim and not the
@@ -11513,9 +11453,8 @@ class ValueProfile extends AppModel
     /**
      * One off-axis row, with its chips bounded and the bound stated.
      *
-     * `193.161.193.99` carries 670 attribute-tag rows against the
-     * fixture's handful, so the strip needs a bound the fixture never
-     * needed. `count` is the whole number and `chips` is what is drawn:
+     * `193.161.193.99` carries 670 attribute-tag rows, so the strip
+     * needs a bound. `count` is the whole number and `chips` is what is drawn:
      * a cap is not a permission, so the difference is something the
      * strip says out loud rather than something it hides.
      *
@@ -11605,11 +11544,10 @@ class ValueProfile extends AppModel
      * being wrong.
      *
      * **The sections are built from the entries, not from the
-     * occurrences.** The fixture walks the occurrence list and looks up
-     * each one's entries, which is right at six occurrences and is a
-     * read of 48,255 rows on `443`. Live, the window returns entries and
-     * the occurrences they name are a handful — measured at 8 on `443`
-     * and 4 on `8.8.8.8`. `27-history.md` §6.
+     * occurrences.** Walking the occurrence list is a read of 48,255
+     * rows on `443`; the window returns entries, and the occurrences
+     * they name are a handful — measured at 8 on `443` and 4 on
+     * `8.8.8.8`.
      *
      * @param array $user
      * @param string $value
@@ -11925,17 +11863,14 @@ class ValueProfile extends AppModel
             'shown' => count($all),
             'occurrences' => count($groups),
             /*
-             * **Occurrences with no entry in this period**, and the
-             * merge of what the fixture kept as two numbers. It had
-             * `silent` — never touched at all — beside `outside` —
-             * touched, but not here. §3.1 measured `silent` at zero on
-             * every value on this instance and gave the mechanism:
-             * `AuditLogBehavior` writes an `add` row when an attribute
-             * is created, so an occurrence with no history is one that
-             * predates the log. Keeping the distinction would cost a
-             * grouped read over every occurrence to report a zero, so
-             * the panel states the one thing it can state for nothing
-             * and that is true either way.
+             * **Occurrences with no entry in this period**, with no separate
+             * count of those never touched at all. That one measured zero on
+             * every value on this instance, and the mechanism is why:
+             * `AuditLogBehavior` writes an `add` row when an attribute is
+             * created, so an occurrence with no history is one that predates
+             * the log. Keeping the distinction would cost a grouped read over
+             * every occurrence to report a zero, so the panel states the one
+             * thing it can state for nothing and that is true either way.
              */
             'outside' => $visible - count($groups),
             'visible' => $visible,
@@ -12266,14 +12201,9 @@ class ValueProfile extends AppModel
      *
      * **Read from `AuditActionMeta` rather than listed here**, which is
      * the same single-source move phase 25 made for the lane grouping.
-     * The fixture's own list named ten actions; this instance writes
-     * fourteen, and five of those ten are not among them — `tag_local`,
-     * `remove_local_tag`, `galaxy_local`, `remove_local_galaxy` and
-     * `publish_sightings`. Two of the five are on `8.8.8.8`, six of its
-     * 54 attribute-scope rows, so a ninth of the richest demo value's
-     * history was arriving as an action the rail had not been told
-     * about — tallied, but sorted after the zeros. `27-history.md`
-     * §11.2.
+     * A hand-kept list misses actions such as `tag_local` or
+     * `publish_sightings`, which then arrive tallied but sorted after
+     * the zeros.
      *
      * `undelete` keeps its zero row on this instance, and that is the
      * point of zero rows: *undelete 0* tells the reader nothing was
@@ -12816,10 +12746,8 @@ class ValueProfile extends AppModel
     /**
      * One `audit_logs` row in the shape both tabs read.
      *
-     * The shape is the History tab's, which the fixture's `auditRow()`
-     * already writes and its panel already renders — so that tab goes
-     * live against a reader it inherits rather than one it negotiates
-     * with.
+     * The shape is the History tab's, so both tabs render one row the
+     * same way.
      *
      * @param array $row From `AuditLog::find`
      * @param array|null $actorScope From `auditActorScope`: null where
@@ -12971,13 +12899,10 @@ class ValueProfile extends AppModel
     /**
      * The Overview's preview of the Collaboration tab.
      *
-     * **Off `analystContext` and never its own union.** That is the
-     * whole point of converting it: `05-analyst.md` §3 left this card
-     * on the fixture and §14.13 said its numbers would start lying the
-     * day the tab went live, which is what happened — a reader met one
-     * set of counts on the Overview and a different set one tab across,
-     * the Occurrences banner problem phase 22 spent a section on. Two
-     * readings of one union cannot disagree; two unions can.
+     * **Off `analystContext` and never its own union**, so a reader
+     * never meets one set of counts on the Overview and a different set
+     * one tab across. Two readings of one union cannot disagree; two
+     * unions can.
      *
      * **The cost is the tab's, and this card can afford it** for the
      * reason the tab bar's badge could not (§11 of `26-analyst.md`, and
@@ -13051,11 +12976,9 @@ class ValueProfile extends AppModel
     /**
      * The newest few notes and opinions, in one order.
      *
-     * **Newest first across both kinds**, where the fixture carried a
-     * `Note` array and an `Opinion` array and the card drew every note
-     * above every opinion. That grouping was the fixture's shape rather
-     * than a decision, and it made a card titled *the most recent* put
-     * a two-year-old note above yesterday's opinion. One union, read
+     * **Newest first across both kinds.** Drawing every note above
+     * every opinion would have a card titled *the most recent* put a
+     * two-year-old note above yesterday's opinion. One union, read
      * newest first, is what the thread beside it already does.
      *
      * Roots only, and proposals excluded. A reply is a statement about
@@ -14335,23 +14258,21 @@ class ValueProfile extends AppModel
      *
      * The organisation's uuid where the row has one, so two
      * organisations that no longer resolve to a name cannot merge into
-     * one lane group. Falls back to the printed label, which is the
-     * fixture's only key.
+     * one lane group.
      *
      * @param array $item
      * @return string
      */
     private static function analystOrgKey(array $item)
     {
-        return isset($item['org_key']) ? $item['org_key'] : $item['org'];
+        return $item['org_key'];
     }
 
     /**
      * Whole days between a date and today, on the real clock.
      *
-     * The fixture measured against its own `TODAY` because an artboard
-     * has no clock. Live, the clock is the point: an opinion held for
-     * three months and one written yesterday are different evidence.
+     * The clock is the point: an opinion held for three months and one
+     * written yesterday are different evidence.
      *
      * @param string $date `Y-m-d`
      * @return int
@@ -14374,9 +14295,8 @@ class ValueProfile extends AppModel
      * as figures it looked up. `26-analyst.md` D3.
      *
      * The gap is *measured*, never assumed. The instance-wide
-     * distribution has nothing between 30 and 70, and the fixture was
-     * drawn around exactly that shape before anyone counted; a value
-     * with three opinions has whatever shape three opinions have, up to
+     * distribution has nothing between 30 and 70; a value with three
+     * opinions has whatever shape three opinions have, up to
      * and including no empty band at all.
      *
      * @param array $scores Every admitted opinion, unsorted
@@ -14624,9 +14544,7 @@ class ValueProfile extends AppModel
      * memory: a run is a request and its result lives in the response.
      * Everything phase 12 drew that depended on remembering — the
      * staleness chips, the group headers, the delta band, dismissals,
-     * the awaiting-review count — is not implemented here rather than
-     * implemented against a fixture. `28-enrichment.md` §5 is the
-     * auditable list of what came out.
+     * the awaiting-review count — is not implemented here.
      *
      * **Nothing here writes, and that is verified rather than
      * asserted.** `Module::queryModuleServer()` is the non-writing
@@ -15504,12 +15422,11 @@ class ValueProfile extends AppModel
     /**
      * The union over the value's types, one row per module.
      *
-     * **A value is several types and the fixture models one.**
-     * `8.8.8.8` is four — `ip-dst` 17, `ip-src` 5, `text` 2,
-     * `ip-dst|port` 2 — and three enabled modules accept some of them.
-     * A module eligible through three of those types is *one* rail row
-     * carrying three, not three rows; and `text`, which no enabled
-     * module declares, contributes nothing and is not an error.
+     * **A value is several types.** `8.8.8.8` is four — `ip-dst` 17, `ip-src`
+     * 5, `text` 2, `ip-dst|port` 2 — and three enabled modules accept some of
+     * them. A module eligible through three of those types is *one* rail row
+     * carrying three, not three rows; and `text`, which no enabled module
+     * declares, contributes nothing and is not an error.
      *
      * `types` is `getEnabledModules`' expansion map and `hover_type`
      * its hover one. A module in both is one row whose kind is a
@@ -16713,11 +16630,9 @@ class ValueProfile extends AppModel
      * for the Timeline, but per organisation and per value is an
      * aggregate nothing computes yet.
      *
-     * `reads` is left unset on purpose. `value_verdict.ctp` adds the
-     * column only when some organisation carries it, so an absent key
-     * removes a column rather than emptying one — and what an
-     * organisation *reads the value as* is a lean-side reading that
-     * belongs with the conflicted layout's cases.
+     * What an organisation *reads the value as* is not a column here:
+     * it is a lean-side reading that belongs with the conflicted
+     * layout's cases.
      *
      * @param array $context
      * @param array|null $standing The Collaboration tab's standing,
@@ -16954,13 +16869,10 @@ class ValueProfile extends AppModel
     /**
      * The rail's chart: shelf life over the last 90 days.
      *
-     * **What this card used to draw cannot be drawn.** The fixture
-     * plotted a synthesised verdict against a dashed NIDS decay score:
-     * the second is retired by D7, and the first is a *history of
-     * verdicts*, which nothing has — this page computes at render and
-     * stores nothing (`01-profile.md` §5.5), so there is no yesterday
-     * to plot. Phase 10's materialisation is the first thing that could
-     * make one, and it stores a current row rather than a series.
+     * **There is no verdict history to plot.** This page computes at render and
+     * stores nothing, so there is no yesterday to draw. Phase 10's
+     * materialisation is the first thing that could make one, and it stores a
+     * current row rather than a series.
      *
      * So the card draws the one quantity on this tab that genuinely has
      * ninety days behind it: the relevance runway, which is

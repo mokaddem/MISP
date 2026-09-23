@@ -37,7 +37,6 @@ App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
 /*
  * The spine's grain, chosen from the value's own range.
  *
- * The fixture pinned twelve monthly bins because its range was a year.
  * A value first seen last week needs finer bins and one held since 2020
  * needs coarser, so the rule is the range's — and it is this tab's own
  * rule rather than `ValueProfileBuckets`' default, because a bar here
@@ -1643,11 +1642,10 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
          * seven lanes over a value with no occurrence to date would be
          * inventing a period of silence that never happened.
          *
-         * **The sentence says nothing about why**, and that is the
-         * fixture-era wording corrected rather than carried over. It
-         * read *because MISP has never held it*, which is one of the two
-         * cases: the other is a value held only in events this reader
-         * cannot open. Naming the first would be false for the second,
+         * **The sentence says nothing about why.** *Because MISP has
+         * never held it* is one of the two cases: the other is a value
+         * held only in events this reader cannot open. Naming the first
+         * would be false for the second,
          * and naming either would make the panel answer *does this exist
          * on the instance* — on a page whose URL takes any value the
          * reader types. So one sentence, true both ways, identical for
@@ -1772,11 +1770,9 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                 <div class="vp-tl-spine" data-vp-tl-spine>
                     <?php
                     /*
-                     * Named from the grain and the range, not from the
-                     * twelve months the fixture drew: the spine now
+                     * Named from the grain and the range: the spine
                      * covers the value's whole history at whichever of
-                     * three grains the range asks for, so the fixture's
-                     * wording was false for every value but one.
+                     * three grains the range asks for.
                      */
                     ?>
                     <canvas id="vp-tl-spine" role="img"
@@ -3106,11 +3102,11 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
 
                 <?php
                 /*
-                 * **No ACL band here, deliberately.** The fixture drew
-                 * one — *four of this value's nine occurrences are on
-                 * events you cannot see* — and a note whose presence is
-                 * itself the disclosure cannot ship on a page whose URL
-                 * takes any value the reader types: it turns the page
+                 * **No ACL band here, deliberately.** A note such as
+                 * *four of this value's nine occurrences are on events
+                 * you cannot see* is itself the disclosure, and cannot
+                 * ship on a page whose URL takes any value the reader
+                 * types: it turns the page
                  * into an oracle for what exists on the instance. The
                  * panel where everything is hidden therefore renders as
                  * the panel where nothing is dated, which is a real

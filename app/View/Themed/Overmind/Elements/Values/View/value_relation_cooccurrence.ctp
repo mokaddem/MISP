@@ -42,25 +42,9 @@ App::uses('GalaxyColour', 'Tools');
 $profile = $valueProfile;
 $relations = $profile['relationships'];
 $co = $relations['cooccurrence'];
-$summary = $relations['summary'];
 $siblings = $co['siblings'];
 $facets = $co['facets'];
-/*
- * What the panel read, so it can say so. The fixture carries no scan —
- * it never had to choose which events to read — so the keys are
- * defaulted and the scan line is skipped on a fixture-driven render
- * rather than printing zeroes at the reader.
- */
-$scanned = isset($co['scan']);
-$scan = $co['scan'] ?? array(
-    'events_read' => 0,
-    'events_seen' => 0,
-    'events_oversized' => 0,
-    'events_unread' => 0,
-    'size_cap' => 0,
-    'budget' => 0,
-    'rows_read' => 0,
-);
+$scan = $co['scan'];
 
 $view = $this;
 
@@ -391,9 +375,7 @@ $tagChips = function ($tags) use ($view) {
  * neighbours render byte-identically to what it did before B5, so the
  * call sites default the key inline rather than in a statement of their
  * own — a `<?php ?>` block inside a row loop leaves its indentation in
- * the markup of every row on the tab. Defaulting is also what a
- * fixture-driven render needs: those rows are built by
- * `ValueProfileFixture` and have never carried a listing.
+ * the markup of every row on the tab.
  *
  * @param array $lists id, name, category, matched, comment
  * @return string
@@ -444,8 +426,8 @@ $weightBar = function ($weight, $max, $prefix = '') {
 };
 
 /*
- * The seven groups, in the order the bar prints them. A key the fixture
- * left out renders nothing at all, which is what `value_facet_group`
+ * The seven groups, in the order the bar prints them. A key with no
+ * values renders nothing at all, which is what `value_facet_group`
  * already enforces for a group of zeroes — which is also why the
  * sharing-group dropdown is absent from every value whose neighbours
  * are distributed by level alone.
@@ -644,23 +626,7 @@ foreach ($eventRows as $row) {
     $maxEventShared = max($maxEventShared, (int)$row['shared_values']);
 }
 
-/*
- * ----------------------------------------------------------------------
- * §10.2 — what the labels section reads
- * ----------------------------------------------------------------------
- * Defaulted rather than required, because a fixture-driven render
- * predates the key and so does any payload the fold wrote before this
- * deploy — `CACHE_SHAPE` retires those at the deploy, and this is the
- * belt to that brace.
- */
-$labels = isset($co['labels']) ? $co['labels'] : array(
-    'rows' => array(),
-    'facets' => array(),
-    'total' => 0,
-    'by_kind' => array('cluster' => 0, 'tag' => 0),
-    'cap' => 0,
-    'page_size' => 8,
-);
+$labels = $co['labels'];
 /*
  * The fold holds every label because the rail's named-threat card
  * filters them itself and a cluster reaching this value through one
@@ -682,14 +648,8 @@ $labels = isset($co['labels']) ? $co['labels'] : array(
  * interleave them. Each row says which dimension it is in and
  * `across()` does the rest, keeping the shared-event order among
  * everything the profile has no opinion about.
- *
- * The plan is defaulted for the same reason `$labels` is: a payload
- * written before this deploy carries no plan, and no plan means the
- * rows are listed exactly as the fold ranked them.
  */
-$labelPlan = ValueLabelPriority::planFor(
-    isset($profile['label_plan']) ? $profile['label_plan'] : null
-);
+$labelPlan = ValueLabelPriority::planFor($profile['label_plan']);
 $labelOrdered = $labels['rows'];
 if (ValueLabelPriority::declares($labelPlan)) {
     foreach ($labelOrdered as $labelAt => $labelRow) {
@@ -714,10 +674,8 @@ $labelRows = empty($labels['cap'])
     ? $labelOrdered
     : array_slice($labelOrdered, 0, (int)$labels['cap']);
 $labelCapped = count($labelRows) < (int)$labels['total'];
-$labelFacets = isset($labels['facets']) ? $labels['facets'] : array();
-$labelByKind = isset($labels['by_kind'])
-    ? $labels['by_kind']
-    : array('cluster' => 0, 'tag' => 0);
+$labelFacets = $labels['facets'];
+$labelByKind = $labels['by_kind'];
 
 /*
  * The scope sentence's two numbers. Labels are read over every event
@@ -725,11 +683,8 @@ $labelByKind = isset($labels['by_kind'])
  * afforded. Equal on most values, and the section only draws the
  * distinction where it arose.
  */
-$labelScope = $scanned
-    ? (int)$scan['events_seen']
-    : (int)$labels['total'];
-$labelScopeDiffers = $scanned
-    && $scan['events_read'] !== $scan['events_seen'];
+$labelScope = (int)$scan['events_seen'];
+$labelScopeDiffers = $scan['events_read'] !== $scan['events_seen'];
 
 /*
  * The header sub-line: what the section counts, in its own two units.
@@ -1075,17 +1030,12 @@ ob_start();
     <span class="vp-rel-tag me-1">
         <i class="fas fa-link"></i><?= h(__('Co-occurrence')) ?>
     </span>
-    <?php if ($co['suppressed'] && $scanned): ?>
+    <?php if ($co['suppressed']): ?>
         <?= h(__n(
             'the one event this value is in is too large to read',
             'all %d events this value is in are too large to read',
             $scan['events_seen'],
             $scan['events_seen']
-        )) ?>
-    <?php elseif ($co['suppressed']): ?>
-        <?= h(sprintf(
-            __('%s recorded occurrences · no correlation stored'),
-            number_format($summary['recorded'])
         )) ?>
     <?php elseif ($hasRows): ?>
         <span data-vp-list-shown><?= h(count($valueRows)) ?></span>
@@ -1755,63 +1705,40 @@ $headerSub = ob_get_clean();
             <i class="fas fa-circle-exclamation"></i>
             <div>
                 <span class="vp-suppressed-badge">
-                    <?= $scanned
-                        ? __('Too large to read')
-                        : __('Suppressed by MISP') ?>
+                    <?= __('Too large to read') ?>
                 </span>
-                <?php if ($scanned): ?>
-                    <div class="mt-2">
-                        <?= sprintf(
-                            __(
-                                '%1$s holds more than %2$s attributes. In'
-                                . ' an event that size every value'
-                                . ' co-occurs with every other, so a'
-                                . ' neighbour list drawn from one would'
-                                . ' describe the event rather than this'
-                                . ' value — and this panel does not draw'
-                                . ' one.'
-                            ),
-                            '<strong>' . h(__n(
-                                'The one event this value appears in',
-                                'Every one of the %d events this value'
-                                    . ' appears in',
-                                $scan['events_seen'],
-                                $scan['events_seen']
-                            )) . '</strong>',
-                            '<strong>' . h(number_format(
-                                $scan['size_cap']
-                            )) . '</strong>'
-                        ) ?>
-                    </div>
-                    <div class="mt-2">
-                        <?= h(__(
-                            'Nothing is hidden and nothing is missing.'
-                            . ' The object siblings below sit in those'
-                            . ' same events and are listed in full — an'
-                            . ' object does not get larger because the'
-                            . ' event around it did.'
-                        )) ?>
-                    </div>
-                <?php else: ?>
-                    <div class="mt-2">
-                        <?= sprintf(
-                            __(
-                                'This value occurs %1$s times — past'
-                                . ' %2$s, which is %3$d. MISP stored'
-                                . ' %4$s and recorded the value in'
-                                . ' %5$s instead.'
-                            ),
-                            '<strong>' . h(number_format(
-                                $summary['recorded']
-                            )) . '</strong>',
-                            '<code>MISP.correlation_limit</code>',
-                            $relations['settings']['correlation_limit'],
-                            '<strong>' . h(__('no correlation at all'))
-                                . '</strong>',
-                            '<code>over_correlating_values</code>'
-                        ) ?>
-                    </div>
-                <?php endif; ?>
+                <div class="mt-2">
+                    <?= sprintf(
+                        __(
+                            '%1$s holds more than %2$s attributes. In'
+                            . ' an event that size every value'
+                            . ' co-occurs with every other, so a'
+                            . ' neighbour list drawn from one would'
+                            . ' describe the event rather than this'
+                            . ' value — and this panel does not draw'
+                            . ' one.'
+                        ),
+                        '<strong>' . h(__n(
+                            'The one event this value appears in',
+                            'Every one of the %d events this value'
+                                . ' appears in',
+                            $scan['events_seen'],
+                            $scan['events_seen']
+                        )) . '</strong>',
+                        '<strong>' . h(number_format(
+                            $scan['size_cap']
+                        )) . '</strong>'
+                    ) ?>
+                </div>
+                <div class="mt-2">
+                    <?= h(__(
+                        'Nothing is hidden and nothing is missing.'
+                        . ' The object siblings below sit in those'
+                        . ' same events and are listed in full — an'
+                        . ' object does not get larger because the'
+                        . ' event around it did.'
+                    )) ?>
+                </div>
             </div>
         </div>
 
@@ -1902,7 +1829,7 @@ $headerSub = ob_get_clean();
          * specific rank needs the clause; the other two never divide.
          */
         $rankScope = '';
-        if ($co['rank'] === 'specific' && $scanned) {
+        if ($co['rank'] === 'specific') {
             $rankScope = ' ' . sprintf(
                 __n(
                     'Specificity is counted over the one event read.',
@@ -1947,117 +1874,115 @@ $headerSub = ob_get_clean();
         </div><?= $warninglistCap ?>
 
 
-        <?php if ($scanned): ?>
-            <?php
-            /*
-             * The cut this section is made of, in words. Every count
-             * above is exact over the events named here and over no
-             * others, and a reader who is not told which events were
-             * read has no way to judge a neighbour list at all.
-             *
-             * §14.6 keeps cap notices: a cap is not a permission. None
-             * of these numbers says anything about rows the reader may
-             * not see — an oversized event is oversized for everybody.
-             */
-            ?>
-            <?php
-            /*
-             * The budget is named only where it did something. It bounds
-             * the scan on every instance, but on a value whose events
-             * all fitted inside it, it describes a cut that did not
-             * happen — and this sentence's whole job is to say what was
-             * read. `events_unread` counts the events it turned away, so
-             * it is the one field that knows.
-             *
-             * The scope reads `all 3 events` and not `3 of this value's
-             * 3 events`, which is a fraction a reader has to divide
-             * before learning it means everything.
-             */
-            /*
-             * The read's age, because the rows under this panel are
-             * held for `RELATION_SCAN_TTL` and a cache that does not
-             * say how old it is is the reason a long one is a trap. The
-             * phrase is relative because that is what a reader can act
-             * on; the exact stamp is in the `title`, and it is what
-             * stays true if the tab is left open — the fragment is
-             * server-rendered, so the words freeze where they were.
-             */
-            // the phrase itself lives in Values/View/value_read_age
-            $readAt = isset($scan['read_at']) ? (int)$scan['read_at'] : 0;
-            $budgetBit = !empty($scan['events_unread']);
-            $scanScope = $scan['events_read'] === $scan['events_seen']
-                ? __n(
-                    'the one event this value is in',
-                    'all %d events this value is in',
-                    $scan['events_seen'],
-                    $scan['events_seen']
-                )
-                : sprintf(
-                    __('%1$d of this value\'s %2$d events'),
-                    $scan['events_read'],
-                    $scan['events_seen']
-                );
-            ?>
-            <div class="vp-rel-cap">
-                <i class="fas fa-circle-info"></i>
-                <span>
-                    <?= sprintf(
-                        $budgetBit
-                            ? __(
-                                'Read from %1$s, newest first, within a'
-                                . ' budget of %2$s attribute rows —'
-                                . ' %3$s read.'
-                            )
-                            : __(
-                                'Read from %1$s, newest first — %3$s'
-                                . ' read.'
-                            ),
-                        '<strong>' . h($scanScope) . '</strong>',
-                        h(number_format($scan['budget'])),
-                        h(__n(
-                            '%s row',
-                            '%s rows',
-                            $scan['rows_read'],
-                            number_format($scan['rows_read'])
-                        ))
-                    ) ?>
-                    <?php if (!empty($scan['events_oversized'])): ?>
-                        <?= h(sprintf(
-                            __n(
-                                '%1$d event was left out for holding'
-                                    . ' more than %2$s attributes.',
-                                '%1$d events were left out for holding'
-                                    . ' more than %2$s attributes each.',
-                                $scan['events_oversized'],
-                                $scan['events_oversized'],
-                                number_format($scan['size_cap'])
-                            )
-                        )) ?>
-                    <?php endif; ?>
-                    <?php if (!empty($scan['events_unread'])): ?>
-                        <?= h(sprintf(
-                            __n(
-                                '%d further event fell outside the'
-                                    . ' budget.',
-                                '%d further events fell outside the'
-                                    . ' budget.',
-                                $scan['events_unread'],
-                                $scan['events_unread']
-                            )
-                        )) ?>
-                    <?php endif; ?>
-                    <?= $this->element('Values/View/value_read_age',
-                        array('readAt' => $readAt)) ?>
-                    <button type="button"
-                            class="btn btn-sm btn-link p-0 align-baseline
-                                   vp-rel-again"
-                            data-vp-narrow-fresh>
-                        <i class="fas fa-rotate me-1"></i><?=
-                            __('Scan again') ?>
-                    </button>
-                </span>
-            </div>
-        <?php endif; ?>
+        <?php
+        /*
+         * The cut this section is made of, in words. Every count
+         * above is exact over the events named here and over no
+         * others, and a reader who is not told which events were
+         * read has no way to judge a neighbour list at all.
+         *
+         * §14.6 keeps cap notices: a cap is not a permission. None
+         * of these numbers says anything about rows the reader may
+         * not see — an oversized event is oversized for everybody.
+         */
+        ?>
+        <?php
+        /*
+         * The budget is named only where it did something. It bounds
+         * the scan on every instance, but on a value whose events
+         * all fitted inside it, it describes a cut that did not
+         * happen — and this sentence's whole job is to say what was
+         * read. `events_unread` counts the events it turned away, so
+         * it is the one field that knows.
+         *
+         * The scope reads `all 3 events` and not `3 of this value's
+         * 3 events`, which is a fraction a reader has to divide
+         * before learning it means everything.
+         */
+        /*
+         * The read's age, because the rows under this panel are
+         * held for `RELATION_SCAN_TTL` and a cache that does not
+         * say how old it is is the reason a long one is a trap. The
+         * phrase is relative because that is what a reader can act
+         * on; the exact stamp is in the `title`, and it is what
+         * stays true if the tab is left open — the fragment is
+         * server-rendered, so the words freeze where they were.
+         */
+        // the phrase itself lives in Values/View/value_read_age
+        $readAt = isset($scan['read_at']) ? (int)$scan['read_at'] : 0;
+        $budgetBit = !empty($scan['events_unread']);
+        $scanScope = $scan['events_read'] === $scan['events_seen']
+            ? __n(
+                'the one event this value is in',
+                'all %d events this value is in',
+                $scan['events_seen'],
+                $scan['events_seen']
+            )
+            : sprintf(
+                __('%1$d of this value\'s %2$d events'),
+                $scan['events_read'],
+                $scan['events_seen']
+            );
+        ?>
+        <div class="vp-rel-cap">
+            <i class="fas fa-circle-info"></i>
+            <span>
+                <?= sprintf(
+                    $budgetBit
+                        ? __(
+                            'Read from %1$s, newest first, within a'
+                            . ' budget of %2$s attribute rows —'
+                            . ' %3$s read.'
+                        )
+                        : __(
+                            'Read from %1$s, newest first — %3$s'
+                            . ' read.'
+                        ),
+                    '<strong>' . h($scanScope) . '</strong>',
+                    h(number_format($scan['budget'])),
+                    h(__n(
+                        '%s row',
+                        '%s rows',
+                        $scan['rows_read'],
+                        number_format($scan['rows_read'])
+                    ))
+                ) ?>
+                <?php if (!empty($scan['events_oversized'])): ?>
+                    <?= h(sprintf(
+                        __n(
+                            '%1$d event was left out for holding'
+                                . ' more than %2$s attributes.',
+                            '%1$d events were left out for holding'
+                                . ' more than %2$s attributes each.',
+                            $scan['events_oversized'],
+                            $scan['events_oversized'],
+                            number_format($scan['size_cap'])
+                        )
+                    )) ?>
+                <?php endif; ?>
+                <?php if (!empty($scan['events_unread'])): ?>
+                    <?= h(sprintf(
+                        __n(
+                            '%d further event fell outside the'
+                                . ' budget.',
+                            '%d further events fell outside the'
+                                . ' budget.',
+                            $scan['events_unread'],
+                            $scan['events_unread']
+                        )
+                    )) ?>
+                <?php endif; ?>
+                <?= $this->element('Values/View/value_read_age',
+                    array('readAt' => $readAt)) ?>
+                <button type="button"
+                        class="btn btn-sm btn-link p-0 align-baseline
+                               vp-rel-again"
+                        data-vp-narrow-fresh>
+                    <i class="fas fa-rotate me-1"></i><?=
+                        __('Scan again') ?>
+                </button>
+            </span>
+        </div>
 
         <?php
         /*
@@ -2248,7 +2173,7 @@ $headerSub = ob_get_clean();
                 <?php endforeach; ?>
 
                 <span class="small text-muted ms-2 vp-min-w-0">
-                    <?= $scanned ? sprintf(
+                    <?= sprintf(
                         __('Facet counts are folded from %s, not from'
                             . ' the page.'),
                         '<span class="font-monospace">'
@@ -2256,12 +2181,7 @@ $headerSub = ob_get_clean();
                                 __('all %s rows read'),
                                 number_format($scan['rows_read'])
                             )) . '</span>'
-                    ) : sprintf(
-                        __('Facet counts are a %s over the whole scope,'
-                            . ' not a count of the page.'),
-                        '<span class="font-monospace">GROUP BY</span>'
                     ) ?>
-                    <?php if ($scanned): ?>
                         <i class="fas fa-circle-info vp-cap-more"
                            title="<?= h(sprintf(
                                __('Narrowing on a count larger than the'
@@ -2269,7 +2189,6 @@ $headerSub = ob_get_clean();
                                    . ' rather than emptying the table.'),
                                number_format(count($valueRows))
                            )) ?>"></i>
-                    <?php endif; ?>
                 </span>
             </div>
 

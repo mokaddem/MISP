@@ -34,10 +34,7 @@ if (!empty($curves)) {
             'data' => array_values($curve['data']),
             'borderColor' => $curve['colour'],
             'backgroundColor' => $curve['colour'],
-            'borderWidth' => empty($curve['dashed']) ? 2 : 1.5,
-            'borderDash' => empty($curve['dashed'])
-                ? array()
-                : array(4, 3),
+            'borderWidth' => 2,
             'pointRadius' => 0,
             'pointHoverRadius' => 3,
             'tension' => 0.3,
@@ -110,10 +107,7 @@ if (!empty($curves)) {
             <div class="vp-curve-legend">
                 <?php foreach ($curves as $curve): ?>
                     <span>
-                        <span class="vp-curve-swatch<?=
-                              empty($curve['dashed'])
-                                  ? ''
-                                  : ' vp-curve-swatch-dashed' ?>"
+                        <span class="vp-curve-swatch"
                               style="--vp-curve-color: <?=
                                   h($curve['colour']) ?>;"></span>
                         <?= h($curve['label']) ?>

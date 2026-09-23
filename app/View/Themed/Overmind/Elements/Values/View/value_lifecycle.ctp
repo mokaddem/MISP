@@ -171,13 +171,12 @@ $subtitle = $state === null
 
         <?php
         /*
-         * **Drawn only when it is set.** The fixture printed
-         * *n correlations* on every value and this line is the flag
-         * alone, because nothing live can produce that number honestly:
-         * correlations attach to attributes rather than to values, so a
-         * value's total is a union over its occurrences and grows with
-         * them — and phase 24 found the correlation engine has nothing
-         * to say about a value in the first place.
+         * **Drawn only when it is set**, and the flag alone rather than *n
+         * correlations*, because nothing can produce that number honestly:
+         * correlations attach to attributes rather than to values, so a value's
+         * total is a union over its occurrences and grows with them — and phase
+         * 24 found the correlation engine has nothing to say about a value in
+         * the first place.
          *
          * `0 correlations` would be false rather than merely unhelpful,
          * since the correlations exist and are only not counted here.

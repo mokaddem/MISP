@@ -23,30 +23,13 @@
  * @var string $valueB64
  */
 /*
- * Prepared counts when the panel is live, counted from the rows when it
- * is not. Live, the numbers are three `COUNT(DISTINCT …)` over every
- * occurrence the viewer has: on `443` that set is 48,255 rows, and
- * fetching them to count three numbers cost 617 ms. `ValueProfileFixture`
- * supplies no `sighting_fanout` and still drives this element from its
- * own occurrence rows, so the guard is what keeps the double honest
- * (§14.8).
+ * Three `COUNT(DISTINCT …)` rather than the rows: on `443` that set is
+ * 48,255 occurrences, and fetching them to count cost 617 ms.
  */
-if (!empty($valueProfile['sighting_fanout'])) {
-    $fanout = $valueProfile['sighting_fanout'];
-    $visible = $fanout['occurrences'];
-    $eventCount = $fanout['events'];
-    $orgCount = $fanout['orgs'];
-} else {
-    $events = array();
-    $orgs = array();
-    foreach ($valueProfile['occurrences'] as $occurrence) {
-        $events[$occurrence['Event']['id']] = true;
-        $orgs[$occurrence['Event']['Orgc']['name']] = true;
-    }
-    $visible = count($valueProfile['occurrences']);
-    $eventCount = count($events);
-    $orgCount = count($orgs);
-}
+$fanout = $valueProfile['sighting_fanout'];
+$visible = $fanout['occurrences'];
+$eventCount = $fanout['events'];
+$orgCount = $fanout['orgs'];
 
 $noWrites = __(
     'Disabled in this pass — the Value Profile page does not write to'
