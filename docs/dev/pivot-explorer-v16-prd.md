@@ -378,6 +378,14 @@ count counted. Results come back as one container per correlated event, keyed `e
 the L0 proxy so ingest merges them into it, plus a `correlation` edge per pair. `maxCandidates` is
 1,500 — the D12 canvas budget, for the same legibility reason.
 
+**The count is on the rim too (task 15).** Each of this event's attributes and objects declares
+its count as the pivot's potential, `node.setPotential('correlations', n)` — the same declared,
+never-queried badge R2 gives a related event, opening Pivot mode on that element. It is declared
+once the counts arrive, and again on every node as it lands (an element-pivot ingest, the event's
+own side a correlation run brings along), before the render that follows. An object's badge is its
+own count, which already covers its attributes; the attributes wear theirs once it is expanded.
+Like R2's, the badge says what the pivot *would* bring, and stays after a run has brought it.
+
 It changes a number this PRD leaned on: **event 4116 has 708 correlations to offer, not
 5,629.** 5,629 is the raw table; the event view's correlation list — and so anything a pivot can
 fetch — leaves out correlation-exclusion and over-correlating values. Still well past a sane
@@ -1389,7 +1397,7 @@ library features it rebuilt by hand or left unused. One commit each:
 | 12 | Remove what the correlation pivots brought, through `graph.removeBySource` | 5, 5d |
 | 13 | ✅ Labels carry the whole value; the canvas's `textTruncate` shortens them, not a 42-character cut | — |
 | 14 | ✅ The Asserts box is Pivotick's `regex` facet, case-blind, instead of MISP's own predicate (5c) | 5c |
-| 15 | Correlated attributes and objects declare their correlation count as rim potential, like related events (R2) | 5, 5d |
+| 15 | ✅ Correlated attributes and objects declare their correlation count as rim potential, like related events (R1, R2) | 5, 5d |
 | 16 | ✅ Drop `compact()`: Pivotick skips null data values everywhere it scans (since `4d71efb`), so node and edge data pass as the payload has them | 8 |
 | 17 | The analyst panel through the library's panel lifecycle; the sidebar's fields declared | 6 |
 | 18 | Node context menu: open the element in MISP, copy its value | — |

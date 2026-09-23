@@ -998,17 +998,24 @@
         };
     }
 
-    // Declared, never queried (pivotick draws the rim badge from it): each
-    // related event wears the number of correlations its pivot would bring.
-    function declareRelatedEventPotential(graph) {
-        if (!graph || typeof graph.getNodes !== 'function') return;
-        graph.getNodes().forEach(function (n) {
-            var n2 = relatedEventCount(n.getData());
-            if (!n2) return;
-            var live = graph.getMutableNode(n.id);
-            if (live && typeof live.setPotential === 'function') live.setPotential('related-event', n2);
-        });
-        if (graph.renderer && typeof graph.renderer.update === 'function') graph.renderer.update();
+    // Declared, never queried (pivotick draws the rim badge from it): an
+    // element wears the number of correlations its pivot would bring — this
+    // event's attributes and objects for one pivot, a related event for the
+    // other. Zero declares nothing.
+    function declarePotential(node) {
+        var d = node.getData();
+        var own = ownElementCount(d);
+        if (own) node.setPotential('correlations', own);
+        var related = relatedEventCount(d);
+        if (related) node.setPotential('related-event', related);
+    }
+
+    // Once on the counts, then on each node as it lands (an ingest, an undo's
+    // redo), before the render that follows it.
+    function declareAllPotential(graph) {
+        graph.getMutableNodes().forEach(declarePotential);
+        graph.renderer.update();
+        graph.on('nodeAdd', declarePotential);
     }
 
     function loadCorrelationCounts(graph) {
@@ -1024,7 +1031,7 @@
             if (!c || !c.attributes) return;
             _counts = c;
             renderHeader();
-            declareRelatedEventPotential(graph);
+            declareAllPotential(graph);
         })
         .catch(function (err) {
             console.error('[pivot-explorer] correlation counts failed:', err);

@@ -137,6 +137,22 @@ function buildGraph(payload, options) {
                 this.getNode = id => drawn[id] || undefined;
                 this.nodeList = data.nodes.slice();
                 this.getNodes = () => this.nodeList;
+                // Live nodes, children included, carrying declared potential.
+                const live = this.live = {};
+                this.liveNode = raw => {
+                    const potentials = new Map();
+                    return live[raw.id] = {
+                        id: raw.id, getData: () => raw.data,
+                        setPotential(pivotId, count) {
+                            if (count) potentials.set(pivotId, count); else potentials.delete(pivotId);
+                        },
+                        getPotentials: () => potentials,
+                    };
+                };
+                Object.keys(drawn).forEach(id => this.liveNode(drawn[id]));
+                this.getMutableNode = id => live[id];
+                this.getMutableNodes = () => Object.keys(live).map(id => live[id]);
+                this.renderer = { updates: 0, update() { this.updates++; } };
                 this.listeners = {};
                 this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
                 this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
@@ -1174,6 +1190,37 @@ test('the related-event pivot applies to other events, never to this one', async
     ];
     eq('only the counted foreign event', p.appliesTo(nodes).map(n => n.getData().event_id), ['7']);
     eq('its summary is that event\'s count', p.summarize(p.appliesTo(nodes)), { total: 2 });
+});
+
+const potentials = (g, id) => {
+    const n = g.graph.getMutableNode(id);
+    return n ? Array.from(n.getPotentials()) : undefined;
+};
+
+test('15: every counted element declares what its pivot would bring, as rim potential', async () => {
+    const g = await withPivots();
+    eq('an unlinked attribute is not drawn yet, so declares nothing yet', potentials(g, 'attr:e1'), undefined);
+    eq('an object, its own count', potentials(g, 'obj:A'), [['correlations', 2]]);
+    eq('a child attribute, for when its object is expanded', potentials(g, 'attr:c1'), [['correlations', 2]]);
+    eq('an object nothing correlates with declares nothing', potentials(g, 'obj:B'), []);
+    eq('a related event, as R2', [potentials(g, 'event:R7'), potentials(g, 'event:R8')],
+       [[['related-event', 2]], [['related-event', 1]]]);
+    eq('never this event', potentials(g, 'event:EV-SELF'), []);
+    eq('one render to draw them', g.graph.renderer.updates, 1);
+    eq('no console errors', g.errors, []);
+});
+
+test('15: an element that lands later declares its own on arrival', async () => {
+    const g = await withPivots();
+    const land = (id, data) => {
+        const n = g.graph.liveNode({ id, data });
+        g.graph.listeners.nodeAdd.forEach(f => f(n));
+        return Array.from(n.getPotentials());
+    };
+    eq('this event\'s attribute, put on the canvas by the element pivot',
+       land('attr:e1', { type: 'attribute', uuid: 'e1' }), [['correlations', 1]]);
+    eq('a correlated attribute from elsewhere has nothing to declare',
+       land('attr:x1', { type: 'attribute', uuid: 'x1', event_id: '7' }), []);
 });
 
 test('an object origin fetches by its live attributes', async () => {
