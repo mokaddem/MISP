@@ -1,5 +1,6 @@
 <?php
 App::uses('AppModel', 'Model');
+App::uses('Value', 'Model');
 App::uses('ValueStatsTool', 'Tools/ValueProfile');
 App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 App::uses('ValueExclusionTool', 'Tools/ValueProfile');
@@ -2516,7 +2517,9 @@ class ValueProfile extends AppModel
             : ClassRegistry::init('AnalystProfile')->resolveFor($user);
         return $this->verdictWarninglist(
             $value,
-            $this->model('Value')->typesFor($user, $value, $options),
+            Value::asTypes(
+                $this->model('Value')->typesFor($user, $value, $options)
+            ),
             $profile
         );
     }
@@ -6599,7 +6602,7 @@ class ValueProfile extends AppModel
             );
         }
         $names = array();
-        foreach ($types as $type) {
+        foreach (Value::asTypes($types) as $type) {
             $names[$type['type']] = true;
         }
         /*
@@ -14512,7 +14515,9 @@ class ValueProfile extends AppModel
         array $options = array()
     ) {
         $moduleModel = $this->model('Module');
-        $types = $this->model('Value')->typesFor($user, $value);
+        $types = Value::asTypes(
+            $this->model('Value')->typesFor($user, $value)
+        );
 
         $started = microtime(true);
         $enabled = $moduleModel->getEnabledModules($user);
@@ -15592,8 +15597,9 @@ class ValueProfile extends AppModel
      */
     private function enrichmentOccurrence(array $user, $value, $type)
     {
-        $rows = $this->model('Value')->occurrencesFor($user, $value, array(
-            'types' => array($type),
+        $valueModel = $this->model('Value');
+        $rows = $valueModel->occurrencesFor($user, $value, array(
+            'types' => $valueModel->storedTypesOf($type),
             'limit' => 1,
             'order' => array('Attribute.id ASC'),
         ));
@@ -15630,7 +15636,16 @@ class ValueProfile extends AppModel
             $postData['config'] = $config;
         }
         if ($row['format'] === 'misp_standard') {
-            $postData['attribute'] = $occurrence['Attribute'];
+            /*
+             * The value, not the row it was found in: a module handed
+             * `8.8.8.8|443` for the value `443` answers about 8.8.8.8.
+             */
+            $attribute = $occurrence['Attribute'];
+            $attribute['type'] = $type;
+            $attribute['value'] = $value;
+            $attribute['value1'] = $value;
+            $attribute['value2'] = '';
+            $postData['attribute'] = $attribute;
         } else {
             $postData[$type] = $value;
         }

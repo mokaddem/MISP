@@ -2006,35 +2006,138 @@ class Value extends AppModel
      * and a value with no occurrence the reader may see correctly has
      * no type at all rather than a guessed one.
      *
+     * `type` is the stored attribute type, which is what the occurrence
+     * table filters on. `as` says which half of a composite the value
+     * sits in, by that half's type: `443` found in `8.8.8.8|443` is a
+     * `port`, not an `ip-dst|port`. Callers asking what the value *is*
+     * fold it with `asTypes()`.
+     *
      * @param array $user
      * @param string $value
      * @param array $options As conditionsFor
-     * @return array [['type' => 'ip-dst', 'count' => 7], …]
+     * @return array [['type' => 'ip-dst|port', 'count' => 7,
+     *                 'as' => ['port' => 7]], …]
      */
     public function typesFor(array $user, $value, array $options = array())
     {
         $attributes = $this->attributes();
         $conditions = $attributes->buildConditions($user);
         $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $first = 'Attribute.value1 = '
+            . $attributes->getDataSource()->value((string)$value, 'string');
         $rows = $attributes->find('all', array(
             'fields' => array(
                 'Attribute.type',
+                '(' . $first . ') AS first_half',
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
             'contain' => array('Event', 'Object'),
-            'group' => array('Attribute.type'),
-            'order' => array('occurrences DESC'),
+            'group' => array('Attribute.type', 'first_half'),
         ));
         $types = array();
         foreach ($rows as $row) {
-            $types[] = array(
-                'type' => $row['Attribute']['type'],
-                'count' => (int)$row[0]['occurrences'],
-            );
+            $type = $row['Attribute']['type'];
+            $count = (int)$row[0]['occurrences'];
+            $as = self::halfType($type, empty($row[0]['first_half']) ? 1 : 0);
+            if (!isset($types[$type])) {
+                $types[$type] = array(
+                    'type' => $type,
+                    'count' => 0,
+                    'as' => array(),
+                );
+            }
+            $types[$type]['count'] += $count;
+            $types[$type]['as'][$as] = $count
+                + ($types[$type]['as'][$as] ?? 0);
         }
+        usort($types, function ($a, $b) {
+            return $b['count'] - $a['count'];
+        });
         return $types;
+    }
+
+    /**
+     * `typesFor()` folded onto the type of the half the value sits in,
+     * most common first. `stored` keeps the attribute types behind each
+     * entry, for fetching an occurrence of it.
+     *
+     * @param array $types As typesFor returns
+     * @return array [['type' => 'port', 'count' => 9,
+     *                 'stored' => ['port', 'ip-dst|port']], …]
+     */
+    public static function asTypes(array $types)
+    {
+        $out = array();
+        foreach ($types as $type) {
+            $halves = isset($type['as'])
+                ? $type['as']
+                : array($type['type'] => $type['count']);
+            foreach ($halves as $as => $count) {
+                if (!isset($out[$as])) {
+                    $out[$as] = array(
+                        'type' => $as,
+                        'count' => 0,
+                        'stored' => array(),
+                    );
+                }
+                $out[$as]['count'] += $count;
+                $out[$as]['stored'][] = $type['type'];
+            }
+        }
+        usort($out, function ($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        return $out;
+    }
+
+    /**
+     * The attribute types a value of this type can be stored under:
+     * the type itself and every composite with a half of that type.
+     *
+     * @param string $type
+     * @return array
+     */
+    public function storedTypesOf($type)
+    {
+        $stored = array($type);
+        $composites = $this->attributes()->getCompositeTypes();
+        foreach ($composites as $composite) {
+            if (self::halfType($composite, 0) === $type
+                || self::halfType($composite, 1) === $type
+            ) {
+                $stored[] = $composite;
+            }
+        }
+        return $stored;
+    }
+
+    /**
+     * The type of one half of a composite type; a plain type is its
+     * own half.
+     *
+     * @param string $type
+     * @param int $half 0 for value1, 1 for value2
+     * @return string
+     */
+    public static function halfType($type, $half)
+    {
+        if ($type === 'malware-sample') {
+            $type = 'filename|md5';
+        }
+        $parts = explode('|', $type);
+        if (count($parts) !== 2) {
+            return $type;
+        }
+        $part = $parts[$half ? 1 : 0];
+        if ($part === 'ip') {
+            return 'ip-dst';
+        }
+        if ($part === 'value') {
+            return 'text';
+        }
+        return $part;
     }
 
     /**
