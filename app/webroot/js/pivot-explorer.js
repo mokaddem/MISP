@@ -644,6 +644,15 @@
             UI: {
                 mode: 'full',
                 theme: 'dark',
+                // Nothing that would reach MISP is offered to a user who cannot
+                // write it; notes, hides and layout stay, being canvas-only.
+                editors: canEdit ? {} : {
+                    nodeEditor:  { enabled: false },
+                    nodeCreator: { enabled: false },
+                    edgeCreator: { enabled: false },
+                    edgeEditor:  { enabled: false },
+                    deletion:    { enabled: false }
+                },
                 // The layer switch. Declaring the facet is what makes edges
                 // filterable at all — pivotick never derives edge facets.
                 filter: {
