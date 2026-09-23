@@ -6968,6 +6968,21 @@ class EventsController extends AppController
         return $this->RestResponse->viewData($counts, 'json');
     }
 
+    public function correlatedAttributes($id)
+    {
+        $this->request->allowMethod(['post']);
+        $user = $this->Auth->user();
+        $event = $this->Event->fetchSimpleEvent($user, $id, ['fields' => ['Event.id']]);
+        if (empty($event)) {
+            throw new NotFoundException(__('Invalid event'));
+        }
+        $data = $this->request->data;
+        $uuids = isset($data['attribute_uuids']) && is_array($data['attribute_uuids']) ? $data['attribute_uuids'] : [];
+        $eventIds = isset($data['event_ids']) && is_array($data['event_ids']) ? $data['event_ids'] : [];
+        $pairs = $this->Event->getCorrelatedAttributes($user, (int)$event['Event']['id'], $uuids, $eventIds);
+        return $this->RestResponse->viewData($pairs, 'json');
+    }
+
     public function getEventGraphReferences($id, $type = 'event')
     {
         $validTools = array('event');

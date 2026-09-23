@@ -898,6 +898,82 @@ class Event extends AppModel
     }
 
     /**
+     * The correlations getCorrelationCounts() counts, as pairs: one of the
+     * event's attributes and the attribute it correlates with elsewhere.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @param array $attributeUuids only these of the event's attributes; all when empty
+     * @param array $relatedEventIds only correlations into these events; all when empty
+     * @return array list of ['source_uuid', 'Attribute', 'Event', 'Object']
+     */
+    public function getCorrelatedAttributes(array $user, $eventId, array $attributeUuids = [], array $relatedEventIds = [])
+    {
+        $related = $this->getRelatedAttributes($user, $eventId);
+        if (empty($related)) {
+            return [];
+        }
+        $conditions = [
+            'Attribute.id' => array_keys($related),
+            'Attribute.event_id' => $eventId,
+            'Attribute.deleted' => 0,
+        ];
+        if (!empty($attributeUuids)) {
+            $conditions['Attribute.uuid'] = array_values($attributeUuids);
+        }
+        $sources = $this->Attribute->fetchAttributesSimple($user, [
+            'conditions' => $conditions,
+            'fields' => ['Attribute.id', 'Attribute.uuid'],
+            'contain' => ['Event' => ['fields' => ['Event.id']], 'Object' => ['fields' => ['Object.id']]],
+        ]);
+
+        $wanted = array_flip(array_map('strval', $relatedEventIds));
+        $pairs = [];
+        foreach ($sources as $source) {
+            foreach ($related[$source['Attribute']['id']] as $row) {
+                if (!empty($wanted) && !isset($wanted[(string)$row['id']])) {
+                    continue;
+                }
+                $pairs[] = [$source['Attribute']['uuid'], $row['attribute_id']];
+            }
+        }
+        if (empty($pairs)) {
+            return [];
+        }
+
+        $targets = $this->Attribute->fetchAttributesSimple($user, [
+            'conditions' => [
+                'Attribute.id' => array_unique(array_column($pairs, 1)),
+                'Attribute.deleted' => 0,
+            ],
+            'fields' => ['Attribute.id', 'Attribute.uuid', 'Attribute.type', 'Attribute.category', 'Attribute.value'],
+            'contain' => [
+                'Event' => ['fields' => ['Event.id', 'Event.uuid', 'Event.info']],
+                'Object' => ['fields' => ['Object.uuid', 'Object.name']],
+            ],
+        ]);
+        $byId = [];
+        foreach ($targets as $target) {
+            $byId[$target['Attribute']['id']] = $target;
+        }
+
+        $result = [];
+        foreach ($pairs as [$sourceUuid, $targetId]) {
+            if (!isset($byId[$targetId])) {
+                continue;
+            }
+            $target = $byId[$targetId];
+            $result[] = [
+                'source_uuid' => $sourceUuid,
+                'Attribute' => $target['Attribute'],
+                'Event' => $target['Event'],
+                'Object' => !empty($target['Object']['uuid']) ? $target['Object'] : null,
+            ];
+        }
+        return $result;
+    }
+
+    /**
      * Clean up an Event Array that was received by an XML request.
      * The structure needs to be changed a little bit to be compatible with what CakePHP expects
      *
