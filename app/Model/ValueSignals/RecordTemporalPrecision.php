@@ -3,32 +3,27 @@
 /**
  * Whether the record can date its own observations.
  *
- * The signal D11 added, and the quality reading of the fact that makes
- * the relevance axis say *timeline uncertain* (`06-staleness.md` §3.6):
- * no `first_seen` on any occurrence, so nothing records when the value
- * was seen — only when its row was last written.
+ * The quality reading of the fact that makes the relevance axis say
+ * *timeline uncertain*: no `first_seen` on any occurrence, so nothing
+ * records when the value was seen — only when its row was last
+ * written.
  *
- * The example that forced the three-axis model was a phishing URL
- * encoded two months after the incident. Relevance says *the timeline
- * is uncertain*; this says the quieter thing next to it — **a record
- * that cannot date its own observations is a weaker record** — and the
- * two readings finally have separate homes.
+ * Take a phishing URL encoded two months after the incident.
+ * Relevance says *the timeline is uncertain*; this says the quieter
+ * thing next to it — **a record that cannot date its own observations
+ * is a weaker record** — and the two readings have separate homes.
  *
- * **It measured two facts until 2026-09-11.** The second was an
- * encoding lag, `Event.date` against `Attribute.timestamp`, worth a
- * further -4. It is gone, and the reason is that neither column means
- * what it was read as: `timestamp` is last-modified — an edit, a tag,
- * a sync update or a delete bumps it — and `Event.date` is typed by an
- * analyst, so it carries the same delay the measurement was looking
- * for. MISP stores no created date for an attribute at all. This
- * signal was the one path by which that number reached the ledger, so
- * dropping it takes it out of the verdict rather than merely off a
- * page.
+ * **It does not measure encoding lag.** `Event.date` against
+ * `Attribute.timestamp` looks like one and is not: `timestamp` is
+ * last-modified — an edit, a tag, a sync update or a delete bumps it —
+ * and `Event.date` is typed by an analyst, so it carries the same delay
+ * the measurement would be looking for. MISP stores no created date for
+ * an attribute at all.
  *
  * **Aggregate evidence, not row evidence.** The fact arrives as a
  * single-row `SUM` over `first_seen`, so it is cheap at any
- * cardinality and is read whole-history like every other aggregate
- * (§2.3). A hot value keeps this row when the sighting and galaxy
+ * cardinality and is read whole-history like every other aggregate.
+ * A hot value keeps this row when the sighting and galaxy
  * signals bow out, which is the right way round: what it measures is
  * how honest the record's dates are, and that is exactly the sort of
  * thing worth knowing about a value too big to read.

@@ -7,11 +7,10 @@
  * instance's own events, which is why it belongs in the ledger at all.
  * It is also the signal most easily double-counted: a feed that mirrors
  * the same OSINT the instance already ingested is not an independent
- * voice, and the fixture's `not_counted` says so in as many words —
- * *"feeds that merely mirror CIRCL OSINT are not independent
- * corroboration and score once, not three times"*.
+ * voice — three mirrors of one OSINT source are one piece of
+ * corroboration, not three.
  *
- * That dedupe is the `feeds.mirrored` exclusion's job (phase 4), and
+ * That dedupe is the `feeds.mirrored` exclusion's job, and
  * this signal reads whatever survives it. What it owns is the cap: two
  * feeds is corroboration, twelve feeds is a popular blocklist entry,
  * and the difference between those two is not five times as much

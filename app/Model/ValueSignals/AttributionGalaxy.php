@@ -8,13 +8,12 @@
  * strongest editorial statement MISP's data model carries — so it is
  * worth more than another count of the same rows.
  *
- * **Absence fires here, and this is the case §4.2 was written for.**
- * On the benign value the fixture scores *"No galaxy and no technique
- * on any occurrence"* toward benign: nine occurrences, four
- * organisations, and nobody willing to attribute it to anything is
- * evidence rather than a gap. It fires only where the profile carries
- * an `absent` key and only on genuine absence — a cluster set an
- * exclusion emptied leaves the row silent.
+ * **Absence fires here, and this is the case absence keys exist for.**
+ * *"No galaxy and no technique on any occurrence"* scores toward
+ * benign: nine occurrences, four organisations, and nobody willing to
+ * attribute it to anything is evidence rather than a gap. It fires
+ * only where the profile carries an `absent` key and only on genuine
+ * absence — a cluster set an exclusion emptied leaves the row silent.
  *
  * **An absence says where it looked.** *Occurrence* is the whole of
  * the distinction this signal rests on, and a row that leans on the
@@ -24,27 +23,24 @@
  * sentences. So where the carrying events name a threat the count is
  * put in the row and the reason under it. **Nothing about the score
  * changes** — the event labels are not an attribution of the value and
- * are not paid for, which is the point the wording now makes out loud
+ * are not paid for, which is the point the wording makes out loud
  * rather than by omission.
  *
  * **One point per cluster, not per occurrence.** The same actor tag on
- * a hundred occurrences is one attribution repeated; the fixture's
- * flux value shows the trap plainly with *"QakBot, on 107
- * occurrences"*, where a per-occurrence weight would have paid 107
- * times for one judgement. The occurrence count belongs in the prose,
+ * a hundred occurrences is one attribution repeated; on *"QakBot, on
+ * 107 occurrences"* a per-occurrence weight would pay 107 times for
+ * one judgement. The occurrence count belongs in the prose,
  * where it is context rather than arithmetic.
  *
  * **Not every cluster is an attribution, and the profile says which
- * are** (D43). The context splits a value's galaxy tags into techniques
- * and clusters on *is this ATT&CK-shaped*, so `clusters` is every
- * galaxy that is not — sectors, countries, countermeasures and
- * typologies included. This signal consulted no category table at all,
- * so on a value tagged `sector:banking`, `country:lu` and a
- * `preventive-measure` it paid three times over and called it
- * attribution. `galaxies.attribution` is the eligibility filter it
- * never had; a profile declaring none leaves it counting what it
- * counted before, which is what a document forked before the section
- * existed needs.
+ * are.** The context splits a value's galaxy tags into techniques and
+ * clusters on *is this ATT&CK-shaped*, so `clusters` is every galaxy
+ * that is not — sectors, countries, countermeasures and typologies
+ * included. Unfiltered, a value tagged `sector:banking`, `country:lu`
+ * and a `preventive-measure` would be paid three times over and called
+ * attribution. `galaxies.attribution` is the eligibility filter; a
+ * profile declaring none counts every cluster, which is what a profile
+ * written before the section existed needs.
  */
 class AttributionGalaxy extends ValueSignalBase
 {

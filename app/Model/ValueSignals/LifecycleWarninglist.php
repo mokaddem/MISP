@@ -3,10 +3,10 @@
 /**
  * Whether MISP already knows this value is not worth acting on.
  *
- * The heaviest single row the fixture carries (+38 on the benign
- * value), and the one whose meaning depends entirely on **which kind of
- * list matched** — which is why the category resolution is a profile
- * section of its own (`07-reference.md` §3).
+ * Typically the heaviest single row on a benign value, and the one
+ * whose meaning depends entirely on **which kind of list matched** —
+ * which is why the category resolution is a profile section of its
+ * own.
  *
  * Two readings, and conflating them is the mistake this signal exists
  * to avoid:
@@ -20,22 +20,21 @@
  *   attributed to one tenant. The default weight is therefore **zero**
  *   — the row is on the page saying so, counted for neither side, and
  *   the contradiction with wide reporting is named by an escalation
- *   rather than netted off in arithmetic (`04-dispositions.md` §4).
+ *   rather than netted off in arithmetic.
  *
- * **A category nothing sets, today.** `07-reference.md` §3.1 verified
- * that 0 of 89 upstream lists carry a `category` *and* that
- * `Warninglist::__updateList()` drops the field on import, so the
- * resolution comes from the profile's `reference.warninglist_category`
- * override map, from a hardcoded name map phase 6 ships, and only then
- * from the table's own column. Where nothing resolves, an unresolved
- * hit reads as `false_positive` — which is what MISP's own warning
- * banner has always meant by a hit, and the honest default until the
- * upstream PR lands.
+ * **A category nothing sets, today.** Upstream lists carry no
+ * `category` and `Warninglist::__updateList()` drops the field on
+ * import, so the resolution comes from the profile's
+ * `reference.warninglist_category` override map, then from
+ * `WarninglistCategory`'s name map, and only then from the table's own
+ * column. Where nothing resolves, an unresolved hit reads as
+ * `false_positive` — which is what MISP's own warning banner has always
+ * meant by a hit, and the honest default until upstream lists carry
+ * the field.
  *
  * Absence fires as `no_hit`: *"no warninglist hit, 84 lists checked"*
- * is the row the fixture's malicious value carries, and the lists
- * checked is half of it — a hit against nothing is only meaningful
- * beside how much was looked at.
+ * — and the lists checked is half of it: a hit against nothing is only
+ * meaningful beside how much was looked at.
  */
 class LifecycleWarninglist extends ValueSignalBase
 {
@@ -45,17 +44,17 @@ class LifecycleWarninglist extends ValueSignalBase
     public $reads = array('warninglist');
     public $absence_key = 'no_hit';
     /*
-     * The other of D11 §2.1's two ledger-borne lean sources. A hit
-     * reads the value — *this is not an indicator*, or *this is shared
-     * infrastructure* — so a hit anchors.
+     * One of the two ledger-borne lean sources, with false-positive
+     * sightings. A hit reads the value — *this is not an indicator*,
+     * or *this is shared infrastructure* — so a hit anchors.
      *
      * **`no_hit` does not, and that is the whole reason the axis is
      * per-row.** *Nothing matched, 8 lists checked* is the control
      * case: it says the value is on no list MISP ships, which is not
      * the same statement as *the value is a threat*. Anchored, it
-     * became one — on a benign lean its `+6` inverted to `−6` and, on
-     * its own, tipped rule 7 into calling an uncontested value
-     * contested. It is a quality row: what it measures is that the
+     * would become one — on a benign lean its `+6` would invert to
+     * `−6` and could, on its own, make an uncontested value read as
+     * disputed. It is a quality row: what it measures is that the
      * record survived the check.
      */
     public $axis = self::AXIS_LEAN;

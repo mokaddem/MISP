@@ -3,11 +3,10 @@
 /**
  * Somebody who looked at this value said it was wrong.
  *
- * The clearest negative evidence MISP holds, and the row that carries
- * the benign fixture value: eleven false-positive sightings on
- * `8.8.8.8`, worth −26 threat-signed, which the benign lean's polarity
- * renders as **+26 supporting benign** without the declaration
- * changing (§2, `04-dispositions.md` §2).
+ * The clearest negative evidence MISP holds: eleven false-positive
+ * sightings on `8.8.8.8` are worth −26 threat-signed, which the benign
+ * lean's polarity renders as **+26 supporting benign** without the
+ * declaration changing.
  *
  * **Capped, because a false positive is a judgement and not a
  * measurement.** One organisation can file forty; the cap is what stops
@@ -18,16 +17,15 @@
  * **Silent on absence, deliberately.** No false positive is the normal
  * state of nearly every value on an instance, and a ledger row saying
  * so on all of them is noise that would drown the rows that mean
- * something. The catalogue's *fires on absence: no* (§6) is this
- * decision.
+ * something.
  *
- * **Trust-weighted** (`07-reference.md` §2.4) — a false positive from
+ * **Trust-weighted** — a false positive from
  * a `D`-graded source is weaker evidence, and the weighting reaches
  * both halves of the arithmetic: the filings become a weighted count of
  * filings, and the extra-organisation term becomes `Σ factor − 1`,
  * which is `orgs − 1` exactly when nobody is graded. That second half
- * is what makes a `G` grade mean what §2.3 says it means — an
- * organisation whose evidence counts for nothing contributes no
+ * is what makes a `G` grade mean what it says — an organisation
+ * whose evidence counts for nothing contributes no
  * filings *and* does not count as another voice, so it cannot
  * whitewash a value it controls by filing from one desk.
  */
@@ -38,7 +36,7 @@ class SightingsFalsePositive extends ValueSignalBase
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('sightings');
     /*
-     * One of D11 §2.1's two ledger-borne lean sources, so it anchors:
+     * One of the two ledger-borne lean sources, so it anchors:
      * an organisation filing a false positive is saying what the value
      * *is*, not how well documented it is. Its silence on absence is
      * what makes it safe to anchor — there is no *nobody called it a
@@ -171,7 +169,7 @@ class SightingsFalsePositive extends ValueSignalBase
      * cannot attribute under id `0` — read as `unrated`, so they weigh
      * what they weighed before anybody was graded.
      *
-     * A context built before phase 6 has no map, and falls back to the
+     * A context built without a per-org map falls back to the
      * whole count as one unattributed block: the same number the
      * unweighted path computes, so an old context cannot change a
      * score by being old.

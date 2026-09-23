@@ -3,19 +3,19 @@
 /**
  * Whether the reporting is continuous or a single burst.
  *
- * The flux value's +12 row — *"fourteen months without a month of
- * silence"* — and a genuinely different reading from *how much* and
- * *how recently*. A hundred reports inside one week and a hundred
- * spread evenly over two years are the same volume and not the same
- * kind of evidence: the second is infrastructure somebody keeps
- * finding, the first is one incident reported many times.
+ * *"Fourteen months without a month of silence"* is a genuinely
+ * different reading from *how much* and *how recently*. A hundred
+ * reports inside one week and a hundred spread evenly over two years
+ * are the same volume and not the same kind of evidence: the second is
+ * infrastructure somebody keeps finding, the first is one incident
+ * reported many times.
  *
  * **The longest unbroken run of months, not the span.** A value
  * reported in 2023 and again last week has a two-year span and no
  * continuity at all; counting the run is what makes the row's own
  * sentence true.
  *
- * **Aggregate evidence, so never windowed** (§2.3). The months come
+ * **Aggregate evidence, so never windowed.** The months come
  * from a grouped count over occurrence timestamps, which is cheap at
  * any cardinality — and a 90-day window would cap every long-lived
  * value at three months of continuity, turning the signal's own

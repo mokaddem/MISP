@@ -4,11 +4,10 @@
  * How much of the reporting was actually published.
  *
  * A draft event is a claim its own organisation has not yet stood
- * behind, so the same evidence in a published event is worth more. The
- * fixture carries this row twice — *"5 of 7 events are published"* and
- * *"121 of 137 events are published"* — and D14 uses the pair as its
- * evidence that a band tracks the signal rather than the number: both
- * are `moderate` at +9 and +7.
+ * behind, so the same evidence in a published event is worth more.
+ * *"5 of 7 events are published"* and *"121 of 137 events are
+ * published"* land at +9 and +7 and share the `moderate` band: the
+ * band tracks the signal rather than the number.
  *
  * **Scaled rather than banded**, because the ratio is the evidence: a
  * value published in five of seven events is not in the same position

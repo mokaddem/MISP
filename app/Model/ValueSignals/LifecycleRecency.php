@@ -5,7 +5,7 @@
  *
  * The quality reading of age, and deliberately not the relevance axis.
  * Relevance asks *does this still matter today* and answers with a TTL,
- * a runway and an expiry (`06-staleness.md`); this asks the narrower
+ * a runway and an expiry; this asks the narrower
  * question a ledger can answer — **is the record still being added
  * to** — and pays a few points for a yes.
  *

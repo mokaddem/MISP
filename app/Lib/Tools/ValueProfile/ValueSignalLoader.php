@@ -3,10 +3,10 @@
 /**
  * The directory read that makes a signal available.
  *
- * D12 (prd/analyst-profile/03-signals.md §8): signal implementations are
- * **discovered from the filesystem, not registered in code**. An admin
+ * Signal implementations are **discovered from the filesystem, not
+ * registered in code**. An admin
  * drops a PHP file in `app/Lib/ValueSignals/` and it is picked up;
- * nothing anywhere holds a list of the eleven shipped ones.
+ * nothing anywhere holds a list of the shipped ones.
  *
  * MISP has built this loader twice and this follows both rather than
  * inventing a third shape. `Workflow` scans two roots — a shipped one
@@ -23,22 +23,22 @@
  *
  * The five rules a directory that executes its contents needs:
  *
- * 1. **Discovery is not activation** (§8.3). This class says what
+ * 1. **Discovery is not activation.** This class says what
  *    exists; a profile's `signals` list says what runs. A copied file
  *    moves no score on the instance until someone edits a profile.
- * 2. **A colliding id is refused, not overridden** (§8.4). Shipped
+ * 2. **A colliding id is refused, not overridden.** Shipped
  *    files load first and keep their ids; a custom file naming one is
  *    logged and skipped. A silent override would mean two instances
  *    rendering the same ledger row from two different computations.
- * 3. **A broken file is an honest state, never a fatal** (§8.5). It
+ * 3. **A broken file is an honest state, never a fatal.** It
  *    does not parse, the class is missing, the class is not a signal:
  *    logged, skipped, the id unavailable, and the reason kept for the
  *    editor.
- * 4. **One scan per request, and no cache across requests** (§8.6).
+ * 4. **One scan per request, and no cache across requests.**
  *    An admin who drops a file expects the next page load to see it,
  *    and a Redis-cached catalogue would mean waiting on a key they have
  *    never heard of.
- * 5. **Nothing in the UI ever writes one of these files** (§8.7). No
+ * 5. **Nothing in the UI ever writes one of these files.** No
  *    upload, no in-browser editor. Signals arrive by whatever mechanism
  *    the admin already uses to deploy code.
  */
@@ -149,7 +149,7 @@ class ValueSignalLoader
 
     /**
      * One implementation, or null when this instance does not have it —
-     * §4.4's honest state, which the engine renders in `not_counted`
+     * an honest state, which the engine renders in `not_counted`
      * rather than dropping the row.
      *
      * @param string $id
@@ -310,7 +310,7 @@ class ValueSignalLoader
              * `WorkflowDuplicatedModuleIDException` here; this logs and
              * skips, because a page that renders an assessment must not
              * be taken down by a file in a directory an admin can
-             * write to — §8.5's rule outranks the precedent's.
+             * write to — rule 3 outranks the precedent's.
              */
             self::fail(
                 $subject,

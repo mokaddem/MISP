@@ -3,19 +3,18 @@
 /**
  * How much this value has been seen, and how recently.
  *
- * Volume and recency in one row rather than two, because that is how
- * the fixture reports it — *"47 sightings from 4 orgs, last 2 days
- * ago"* — and because they are not independent readings: four hundred
+ * Volume and recency in one row rather than two — *"47 sightings from
+ * 4 orgs, last 2 days ago"* — because they are not independent
+ * readings: four hundred
  * sightings that all stopped a year ago is one statement, not a strong
  * one and a weak one to be netted.
  *
  * **Logarithmic in volume, and that is the judgement.** The step from
  * 1 sighting to 10 says far more than the step from 400 to 410, so the
  * contribution saturates: `saturation` is the count at which the signal
- * is fully paid, and everything beyond it is worth the cap. Measured
- * against the fixture, `cap 24` with `saturation 50` puts
- * `185.234.219.24`'s 47 sightings at +24 and the flux value's 418 at
- * +24 — which is what the fixture authored for both.
+ * is fully paid, and everything beyond it is worth the cap: with
+ * `cap 24` and `saturation 50`, 47 sightings and 418 both land at
+ * +24.
  *
  * **Recency is a factor, not an addend**, so it cannot rescue a value
  * nobody has seen: a stale sighting history scales the whole row down
@@ -23,9 +22,9 @@
  *
  * Absence fires as `none_recent`, and only on genuine absence — a
  * sighting set an exclusion emptied is not a value nobody sighted, and
- * `ValueSignalBase::absenceFires()` is where that rule lives (§4.2).
+ * `ValueSignalBase::absenceFires()` is where that rule lives.
  *
- * **Trust-weighted** (`07-reference.md` §2.4) — a sighting is
+ * **Trust-weighted** — a sighting is
  * attributable to an organisation, so the count that feeds the
  * saturation curve becomes a *weighted* count of sightings. It goes in
  * before the logarithm rather than after it, because a factor applied
@@ -152,7 +151,7 @@ class SightingsVolumeRecency extends ValueSignalBase
             );
         }
         /*
-         * §2.5, and the reason this row names a *quantity* where
+         * Why this row names a *quantity* where
          * `reporting.independent_orgs` names grades: the count that
          * fed the curve is not on the page anywhere else, so a reader
          * comparing *"47 sightings"* against the points has no way to
@@ -188,9 +187,9 @@ class SightingsVolumeRecency extends ValueSignalBase
      * reads as `unrated`, so they weigh exactly what they weighed
      * before anybody was graded.
      *
-     * A context built before phase 6 carries no `by_org` map at all; it
-     * falls back to the whole total as one unattributed block, which
-     * is the same number the unweighted path computes.
+     * A context that carries no `by_org` map falls back to the whole
+     * total as one unattributed block, which is the same number the
+     * unweighted path computes.
      *
      * @param array $sightings The context's sightings block
      * @return array orgId => count

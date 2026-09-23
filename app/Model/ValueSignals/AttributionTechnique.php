@@ -6,8 +6,8 @@
  * Weaker than an actor attribution and separate from it, because it
  * answers a different question: *"what was it used to do"* rather than
  * *"who used it"*. A technique also travels further — an analyst tags
- * `T1071.001` on anything speaking HTTP to a C2 — so the fixture keeps
- * it at `weak` and +5 next to the galaxy row's +14.
+ * `T1071.001` on anything speaking HTTP to a C2 — so the shipped
+ * weights keep it below the galaxy row.
  *
  * **Silent on absence.** Most occurrences of most values carry no
  * technique, and the absence argues nothing: the value may simply

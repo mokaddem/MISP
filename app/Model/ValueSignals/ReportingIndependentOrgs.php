@@ -3,13 +3,13 @@
 /**
  * How many organisations independently hold an occurrence of this value.
  *
- * The heaviest row in the fixture's malicious ledger (+28 from four
+ * Often the heaviest row on a malicious value (+28 from four
  * organisations) and the page's own argument for what corroboration
  * means: an organisation is one voice however many events it puts the
  * value in, which is the same independence rule the lean derivation
- * applies to `to_ids` stances (`04-dispositions.md` §3).
+ * applies to `to_ids` stances.
  *
- * **Aggregate evidence, so never windowed** (§2.3). A `COUNT DISTINCT`
+ * **Aggregate evidence, so never windowed.** A `COUNT DISTINCT`
  * over the orgs holding an occurrence is cheap at any cardinality, and
  * bounding it to 90 days would make a long-lived value look narrowly
  * reported for no reason but its age.
@@ -17,9 +17,9 @@
  * One organisation still fires. *"1 organisation reported it"* is the
  * median value's own row, and it is worth `per_org` rather than
  * nothing — what makes the median record thin is the rest of the
- * ledger, not a signal refusing to speak (§7.4).
+ * ledger, not a signal refusing to speak.
  *
- * **Trust-weighted** (`07-reference.md` §2.4), and the heaviest row on
+ * **Trust-weighted**, and the heaviest row on
  * the page is the reason: the count of organisations becomes a *sum of
  * their grades*, so four organisations graded `B/B/C/D` contribute
  * `7 × (1.10 + 1.10 + 1.00 + 0.75)` rather than `7 × 4`. Capped after

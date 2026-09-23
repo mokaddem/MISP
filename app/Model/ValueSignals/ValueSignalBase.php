@@ -5,11 +5,11 @@
  * facts and returns one ledger row, or nothing.
  *
  * Signals are **discovered from the filesystem** rather than registered
- * anywhere in code (D12, prd/analyst-profile/03-signals.md §8). The
- * shipped catalogue lives beside this file; an instance admin drops
- * their own in `app/Lib/ValueSignals/`, which no upgrade touches. A
- * dropped file changes no score until a profile references its `id` —
- * discovery makes a signal *available*, a profile makes it *active*.
+ * anywhere in code. The shipped catalogue lives beside this file; an
+ * instance admin drops their own in `app/Lib/ValueSignals/`, which no
+ * upgrade touches. A dropped file changes no score until a profile
+ * references its `id` — discovery makes a signal *available*, a
+ * profile makes it *active*.
  *
  * **The profile owns the points, the implementation owns the
  * sentence.** An implementation never decides what a piece of evidence
@@ -22,24 +22,23 @@
  * lean and never flips its own sign. `ValueVerdictTool` multiplies by
  * the lean's polarity at assembly, which is what lets one declaration
  * render `+38` supporting a benign lean and `−38` disputing a threat
- * one (§2, `04-dispositions.md` §2).
+ * one.
  *
  * **And it multiplies only the rows that read the value** — the axis
  * below. A signal measuring *the record* rather than *the value* has
  * no side to take, so its declared points are already the right sign
  * for the only thing it can mean: more corroboration, more
  * publication, more precision is a better record whatever the record
- * says. Anchoring those was `review-2026-09-13.md` §A1 — it made
- * four organisations corroborating a value read as an argument
- * against its benign lean, and made the emptiest record the
- * best-scoring one.
+ * says. Anchoring those would make four organisations corroborating a
+ * value read as an argument against its benign lean, and the emptiest
+ * record the best-scoring one.
  *
  * ## The row to return
  *
  * ```php
  * return array(
  *     'signal'       => __('4 independent organisations reported it'),
- *     'evidence'     => 'CIRCL, CthulhuSPRL.be, Team-CIRCL, ORGNAME',
+ *     'evidence'     => 'ORG-A, ORG-B, ORG-C, ORG-D',
  *     'contribution' => 28,          // threat-signed integer
  *     'tab'          => 'occurrences', // where the evidence is read
  *     'as_of'        => '2025-08-19',
@@ -48,21 +47,21 @@
  *
  * `kind`, `direction` and `weight` are the engine's: the group comes
  * from the profile or from `$this->group`, the direction is the sign of
- * the anchored row, and the weight is the profile's editorial band
- * (D14). `contribution` **must** be an integer — the engine rejects a
- * float, a string or an array, because the exact-sum invariant
- * (`01-profile.md` §5.1) is the one thing that may not fail quietly.
+ * the anchored row, and the weight is the profile's editorial band.
+ * `contribution` **must** be an integer — the engine rejects a float, a
+ * string or an array, because the ledger summing exactly to its total
+ * is the one thing that may not fail quietly.
  *
  * Return `null` to stay silent: evaluated, nothing to say, no row and no
- * note (§4.2). Absence is only allowed to *fire* where the
- * implementation declares an `$absence_key` and the profile carries it
- * in `points` — *"no galaxy on any occurrence"* is a real signal, and a
- * warninglist that matched nothing is not.
+ * note. Absence is only allowed to *fire* where the implementation
+ * declares an `$absence_key` and the profile carries it in `points` —
+ * *"no galaxy on any occurrence"* is a real signal, and a warninglist
+ * that matched nothing is not.
  *
  * ## The context
  *
  * Built once per assessment and shared by every signal, already scoped
- * to the viewer. Keys, with the evidence class each belongs to (§2.3):
+ * to the viewer. Keys, with the evidence class each belongs to:
  *
  * ```
  * value        string        the value itself
@@ -94,16 +93,16 @@
  *
  * `excluded` is why absence keys check it: a sightings signal seeing
  * zero rows *because an exclusion emptied the set* is not seeing a value
- * nobody sighted (§4.2, `05-exclusions.md` §2.1). `missing` is how a
- * fact that could not be read reaches `not_counted` instead of being
- * scored as absent — the engine reads it against `$reads`.
+ * nobody sighted. `missing` is how a fact that could not be read
+ * reaches `not_counted` instead of being scored as absent — the engine
+ * reads it against `$reads`.
  *
  * `corroboration` is the relevance axis's, and it is classed
  * **aggregate** although it is folded from rows — because the clock is
- * whole-history by declaration and does not see `evidence.window`
- * (`06-staleness.md` §3.3). No signal here reads it: relevance is its
- * own axis and emits no ledger row (D11), so it is documented for the
- * shape rather than offered as evidence.
+ * whole-history by declaration and does not see `evidence.window`. No
+ * signal here reads it: relevance is its own axis and emits no ledger
+ * row, so it is documented for the shape rather than offered as
+ * evidence.
  */
 abstract class ValueSignalBase
 {
@@ -127,21 +126,21 @@ abstract class ValueSignalBase
     /**
      * A row that **reads the value**: it states what the record says
      * this thing is, so it takes the lean's polarity and it is what
-     * rule 7 weighs when it asks whether a record disputes its own
-     * assertion.
+     * `ValueVerdictTool` weighs when it asks whether a record disputes
+     * its own assertion.
      *
-     * D11 §2.1's sources, and only those: the warninglist category and
-     * false-positive sightings. (`to_ids` stance is the third and it
-     * is not a ledger row at all — §6 promoted it out of the catalogue
-     * into the lean derivation.)
+     * Two sources, and only those: the warninglist category and
+     * false-positive sightings. (`to_ids` stance is the third lean
+     * source and it is not a ledger row at all — it feeds the lean
+     * derivation directly.)
      */
     const AXIS_LEAN = 'lean';
 
     /**
      * A row that **weighs the record**: corroboration breadth, org
-     * trust, attribution, published ratio, temporal precision — D11
-     * §2.3's list. It takes no polarity, because *how much record
-     * there is* is the same question whatever the record concluded.
+     * trust, attribution, published ratio, temporal precision. It takes
+     * no polarity, because *how much record there is* is the same
+     * question whatever the record concluded.
      *
      * The default, so a drop-in signal that declares nothing is
      * treated as the thing nearly every signal is.
@@ -190,20 +189,18 @@ abstract class ValueSignalBase
      * The keys this signal reads from `config` — its thresholds, in the
      * same shape as `points_schema`.
      *
-     * §3 splits the two: `points` is what evidence is worth, `config`
-     * is the implementation's non-points parameters, and
-     * `lifecycle.staleness` putting a TTL table in `config` is the
-     * spec's own example. The editor has to render both or a signal
-     * whose threshold lives in `config` is configurable only by hand,
-     * which is the half-usable drop-in `points_schema` exists to
-     * prevent — so `config` gets a schema too. Added by phase 2 to
-     * §8.2's base shape.
+     * `points` is what evidence is worth, `config` is the
+     * implementation's non-points parameters — a TTL table, a window,
+     * a threshold. The editor has to render both or a signal whose
+     * threshold lives in `config` is configurable only by hand, which
+     * is the half-usable drop-in `points_schema` exists to prevent —
+     * so `config` gets a schema too.
      */
     public $config_schema = array();
 
     /**
      * The `points` key that fires on genuine absence, or null when
-     * absence is silent (§4.2).
+     * absence is silent.
      */
     public $absence_key = null;
 
@@ -235,13 +232,13 @@ abstract class ValueSignalBase
      *  against `$context['missing']`. */
     public $reads = array();
 
-    /** EVIDENCE_AGGREGATE or EVIDENCE_ROW — declared so §2.3's budget
-     *  is enforceable rather than aspirational. */
+    /** EVIDENCE_AGGREGATE or EVIDENCE_ROW — declared so the evidence
+     *  budget is enforceable rather than aspirational. */
     public $evidence_class = self::EVIDENCE_AGGREGATE;
 
     /**
-     * AXIS_LEAN or AXIS_QUALITY — which of D11's axes this signal's
-     * rows belong to, and therefore whether the engine anchors them.
+     * AXIS_LEAN or AXIS_QUALITY — which axis this signal's rows
+     * belong to, and therefore whether the engine anchors them.
      *
      * A signal whose poles are not all one axis overrides it per row:
      * `row()` takes an axis, and `lifecycle.warninglist` is the one
@@ -297,12 +294,12 @@ abstract class ValueSignalBase
     /**
      * Whether a `points` map makes sense for this implementation.
      *
-     * Per-implementation validation, as §3 requires, derived from
-     * `points_schema` so that an implementation declaring its keys gets
-     * it for free. An unknown key is *not* an error: a profile written
-     * against a later version of a signal has to survive a downgrade,
-     * and §4.4's rule for a whole missing signal applies no less to one
-     * of its keys.
+     * Per-implementation validation, derived from `points_schema` so
+     * that an implementation declaring its keys gets it for free. An
+     * unknown key is *not* an error: a profile written against a later
+     * version of a signal has to survive a downgrade, and a missing
+     * key is no worse than a missing signal, which is reported rather
+     * than refused.
      *
      * @param array $points
      * @return array Error strings, empty when the map is usable
@@ -423,8 +420,8 @@ abstract class ValueSignalBase
     /**
      * Whether the profile asked this signal to fire on absence.
      *
-     * Two conditions, and the second is §4.2's: the implementation has
-     * an absence key, the profile carries it, **and** no exclusion
+     * The implementation has an absence key, the profile carries it,
+     * **and** no exclusion
      * emptied the input set. A signal whose evidence was excluded stays
      * silent and lets the exclusion's own `not_counted` entry do the
      * explaining.
