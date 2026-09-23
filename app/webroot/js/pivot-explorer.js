@@ -1279,6 +1279,61 @@
                 field('Authors', d.authors), field('UUID', d.uuid)].filter(Boolean);
     }
 
+    /* ── node context menu ─────────────────────────────────── */
+    // Appended after the library's own entries, *Pivot ▸* among them. MISP's
+    // pages open in a new tab, so the canvas the analyst built survives.
+    function menuData(element) {
+        var n = Array.isArray(element) ? (element.length === 1 ? element[0] : null) : element;
+        return (n && typeof n.getData === 'function') ? (n.getData() || {}) : null;
+    }
+
+    // Another event's page, for anything on the canvas that belongs to one.
+    function foreignEventId(d) {
+        if (!d || !d.event_id || String(d.event_id) === String(eventId)) return null;
+        return (d.type === 'event' || d.type === 'attribute' || d.type === 'object') ? d.event_id : null;
+    }
+
+    function openInTab(path) {
+        window.open(baseurl + path, '_blank', 'noopener');
+    }
+
+    function copyValue(value) {
+        var notifier = _graph && _graph.notifier;
+        var clip = window.navigator && window.navigator.clipboard;
+        if (!clip) {
+            if (notifier) notifier.error('Copy failed', 'This browser gives the page no clipboard.');
+            return;
+        }
+        clip.writeText(value).then(function () {
+            if (notifier) notifier.success('Copied', truncate(value, 80));
+        }, function () {
+            if (notifier) notifier.error('Copy failed', 'The browser refused the clipboard.');
+        });
+    }
+
+    function nodeMenu() {
+        return [
+            {
+                text:      'Open its event',
+                iconClass: 'fas fa-external-link-alt',
+                visible:   function (el) { return !!foreignEventId(menuData(el)); },
+                onclick:   function (e, el) { openInTab('/events/view2/' + foreignEventId(menuData(el))); }
+            },
+            {
+                text:      'Browse feed',
+                iconClass: 'fas fa-rss',
+                visible:   function (el) { var d = menuData(el); return !!d && d.type === 'feed' && !!d.source_id; },
+                onclick:   function (e, el) { openInTab('/feeds/previewIndex/' + menuData(el).source_id); }
+            },
+            {
+                text:      'Copy value',
+                iconClass: 'fas fa-copy',
+                visible:   function (el) { var d = menuData(el); return !!d && d.type === 'attribute' && d.value !== ''; },
+                onclick:   function (e, el) { copyValue(menuData(el).value); }
+            }
+        ];
+    }
+
     /* ── filter panel ──────────────────────────────────────── */
     // Declaring any node facet replaces pivotick's derivation from every data
     // key, so the panel names the ones an analyst filters on. Provenance is
@@ -1401,6 +1456,7 @@
                     nodePropertiesMap: nodeProperties,
                     edgePropertiesMap: edgeProperties
                 },
+                contextMenu: { menuNode: { menu: nodeMenu() } },
                 // Only drawing or deleting a relationship reaches MISP, so
                 // creating or editing a node or an edge's data is offered to
                 // nobody. A user who can write neither a reference nor an

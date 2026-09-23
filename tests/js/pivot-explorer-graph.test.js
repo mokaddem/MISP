@@ -167,6 +167,9 @@ function buildGraph(payload, options) {
                 constructed.graph = this;
             },
             location: { href: '' },
+            opened: [],
+            open(url, target, features) { this.opened.push([url, target, features]); },
+            navigator: options.navigator || {},
         },
         Image: function () { return { src: '' }; },
         fetch: (url, init) => {
@@ -1922,6 +1925,74 @@ test('17: an edge reads by the kind of link and what it asserts', async () => {
     eq('every derived kind has a name', ['event-correlation', 'correlation', 'feed-correlation', 'server-correlation']
        .map(k => edgeProps(g, { kind: k, label: '' })[0]),
        ['Link: Event correlation', 'Link: Correlation', 'Link: Seen in a feed', 'Link: Seen on a server']);
+});
+
+/* ─────────────────── task 18: the node context menu ─────────────────── */
+
+const menuItem = (g, text) => g.opts.UI.contextMenu.menuNode.menu.find(i => i.text === text);
+const shows = (g, text, data) => menuItem(g, text).visible(data === null ? null : pnode(data));
+
+test('18: MISP adds three entries to the node menu, after the library\'s own', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    eq('in this order', g.opts.UI.contextMenu.menuNode.menu.map(i => [i.text, i.iconClass]), [
+        ['Open its event', 'fas fa-external-link-alt'], ['Browse feed', 'fas fa-rss'], ['Copy value', 'fas fa-copy']]);
+    ok('no topbar of ours, and the other menus left alone',
+       !g.opts.UI.contextMenu.menuNode.topbar && Object.keys(g.opts.UI.contextMenu).length === 1);
+});
+
+test('18: another event\'s page opens in a new tab, for whatever belongs to one', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }), { baseurl: '/misp' });
+    eq('a related event, a correlated attribute or object — never this event or a source', [
+        shows(g, 'Open its event', { type: 'event', event_id: '7' }),
+        shows(g, 'Open its event', { type: 'attribute', event_id: '7', scope: 'foreign' }),
+        shows(g, 'Open its event', { type: 'object', event_id: '7', scope: 'foreign' }),
+        shows(g, 'Open its event', { type: 'event', event_id: '1' }),
+        shows(g, 'Open its event', { type: 'attribute', event_id: '1', scope: 'self' }),
+        shows(g, 'Open its event', { type: 'feed', source_id: '3' }),
+        shows(g, 'Open its event', null),
+    ], [true, true, true, false, false, false, false]);
+    menuItem(g, 'Open its event').onclick({}, pnode({ type: 'attribute', event_id: '7' }));
+    eq('view2, in a new tab, without an opener', g.win.opened, [['/misp/events/view2/7', '_blank', 'noopener']]);
+    ok('the page itself stays', g.win.location.href === '');
+    eq('a multi-selection is not one element', shows(g, 'Open its event', undefined) === false
+       && menuItem(g, 'Open its event').visible([pnode({ type: 'event', event_id: '7' }), pnode({ type: 'event', event_id: '8' })]),
+       false);
+});
+
+test('18: a feed opens on its preview, which every role may read', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }), { baseurl: '/misp' });
+    eq('feeds only', [shows(g, 'Browse feed', { type: 'feed', source_id: '3' }),
+                      shows(g, 'Browse feed', { type: 'server', source_id: '3' }),
+                      shows(g, 'Browse feed', { type: 'attribute' })], [true, false, false]);
+    menuItem(g, 'Browse feed').onclick({}, pnode({ type: 'feed', source_id: '3' }));
+    eq('previewIndex', g.win.opened, [['/misp/feeds/previewIndex/3', '_blank', 'noopener']]);
+});
+
+test('18: an attribute\'s value copies whole, and says so', async () => {
+    const copied = [];
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }), {
+        navigator: { clipboard: { writeText: v => { copied.push(v); return Promise.resolve(); } } },
+    });
+    eq('attributes with a value only', [shows(g, 'Copy value', { type: 'attribute', value: 'x' }),
+                                        shows(g, 'Copy value', { type: 'attribute', value: '' }),
+                                        shows(g, 'Copy value', { type: 'object', name: 'x' })], [true, false, false]);
+    const long = 'z'.repeat(120);
+    menuItem(g, 'Copy value').onclick({}, pnode({ type: 'attribute', value: long }));
+    await new Promise(r => setTimeout(r, 0));
+    eq('the whole value', copied, [long]);
+    eq('a notice, shortened', g.graph.notices.map(n => [n.level, n.title, n.msg.length]), [['success', 'Copied', 80]]);
+});
+
+test('18: a refused or missing clipboard says so', async () => {
+    const refused = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }), {
+        navigator: { clipboard: { writeText: () => Promise.reject(new Error('no')) } },
+    });
+    menuItem(refused, 'Copy value').onclick({}, pnode({ type: 'attribute', value: 'v' }));
+    await new Promise(r => setTimeout(r, 0));
+    eq('refused', refused.graph.notices.map(n => [n.level, n.title]), [['error', 'Copy failed']]);
+    const none = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    menuItem(none, 'Copy value').onclick({}, pnode({ type: 'attribute', value: 'v' }));
+    eq('absent', none.graph.notices.map(n => [n.level, n.title]), [['error', 'Copy failed']]);
 });
 
 /* ─────────────────── task 4: the empty canvas (D11) ─────────────────── */

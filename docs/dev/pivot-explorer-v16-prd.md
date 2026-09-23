@@ -1150,6 +1150,15 @@ double-click navigates to that event's own `view2`. ✅ Built in task 3b, naviga
 `callbacks.onNodeDbclick` sends the analyst to `/events/view2/{id}` for any `event` node but the
 one the graph was seeded from. ✅ Task 8 gave them `data.scope: 'foreign'` and the header.
 
+**The node menu (task 18)** makes that discoverable without navigating away. MISP appends three
+entries after the library's own, *Pivot ▸* among them (Pivotick's, one click per applicable pivot):
+*Open its event* on a related event or on an attribute or object a pivot brought from another
+event, *Browse feed* on a feed (`/feeds/previewIndex/{id}`, which every role may read — a feed's
+`view` is host-org only), and *Copy value* on an attribute, confirmed through the notifier. The two
+pages open in a new tab, so the canvas survives; double-click still navigates in place. None is
+gated on edit rights: none writes. This event's own elements get no *open* entry — their MISP view
+redirects to the page the analyst is on.
+
 ✅ **Built in task 8.** Every node carries `scope`, `event_id` (for an attribute or object, the
 event it belongs to) and `event_uuid` where the payload knows it — extension events are listed
 without one. Pivot results carry it too: a correlated attribute is foreign with its event's id and
@@ -1411,7 +1420,7 @@ library features it rebuilt by hand or left unused. One commit each:
 | 15 | ✅ Correlated attributes and objects declare their correlation count as rim potential, like related events (R1, R2) | 5, 5d |
 | 16 | ✅ Drop `compact()`: Pivotick skips null data values everywhere it scans (since `4d71efb`), so node and edge data pass as the payload has them | 8 |
 | 17 | ✅ The sidebar's Properties declared under MISP's names; the analyst panel's title counts the selection's notes (§6.2). Its lifecycle was the library's already | 6 |
-| 18 | Node context menu: open the element in MISP, copy its value | — |
+| 18 | ✅ Node context menu: open its event or feed in a new tab, copy an attribute's value; *Pivot ▸* is the library's (§6.4) | — |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
 `correlation` edges needed a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
