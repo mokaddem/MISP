@@ -3,8 +3,7 @@
  * The opinion distribution, as a rail card.
  *
  * A histogram rather than a mean, and the note saying why: the mean of
- * a bimodal distribution is a value nobody holds. Beside the two cases,
- * because the two clusters in this chart *are* the two cases.
+ * a bimodal distribution is a value nobody holds.
  *
  * CSS bars rather than a chart library. Ten bars with no axis beyond
  * 0 / 50 / 100 is a shape, not a plot — the reader needs to see two
@@ -46,13 +45,11 @@ if (!empty($opinions['buckets'])) {
                 <?php foreach ($opinions['buckets'] as $b => $bucket):
                     $count = (int)$bucket['count'];
                     /*
-                     * An opinion below the midpoint argues the value is
-                     * benign and one above it argues malicious, so the
-                     * bars carry the same two colours the cases do.
-                     * That is what makes the split legible as a split
-                     * rather than as a lumpy distribution.
+                     * An opinion is agreement with what the record
+                     * asserts: above the midpoint is green and below it
+                     * red, as MISP's own opinion scale draws it.
                      */
-                    $side = $b < 5 ? 'ben' : 'mal';
+                    $side = $b < 5 ? 'mal' : 'ben';
                     ?>
                     <span class="vp-hist-bar vp-hist-bar-<?= $side ?><?=
                         $count === 0 ? ' vp-hist-bar-empty' : '' ?>"
