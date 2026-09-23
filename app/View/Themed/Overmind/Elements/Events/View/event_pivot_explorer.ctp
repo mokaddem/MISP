@@ -2,7 +2,7 @@
     $eventId  = $data['Event']['id'] ?? '';
     // Editor chrome is only emitted when the viewer may modify the event
     // (same ACL the ObjectReferences add endpoint enforces server-side).
-    $canEdit  = !empty($mayModify);
+    $canEdit  = $this->Acl->canModifyEvent($data);
 
     // Behaviour lives in webroot/js/pivot-explorer.js, which reads its
     // config from the data-pe-* attributes on #pe-card below.
