@@ -1038,17 +1038,15 @@
         };
     }
 
-    function renderEmptyState(el, statement) {
-        el.innerHTML = '';
+    function emptyStateContent(statement) {
         var box = document.createElement('div');
-        box.className = 'pe-empty-box';
         var h = document.createElement('div');
         h.className = 'fw-semibold';
         h.textContent = statement.title;
         box.appendChild(h);
         if (statement.detail) {
             var p = document.createElement('div');
-            p.className = 'small opacity-75 mt-1';
+            p.className = 'mt-1';
             p.textContent = statement.detail;
             box.appendChild(p);
         }
@@ -1064,18 +1062,15 @@
             });
             box.appendChild(btn);
         }
-        el.appendChild(box);
+        return box;
     }
 
-    // Shown while the canvas holds nothing, so an ingest hides it and undoing
-    // that ingest brings it back.
-    function watchEmptyCanvas(graph, ev) {
-        var el = document.getElementById('pe-empty');
-        if (!el || !graph || typeof graph.getNodes !== 'function') return;
-        renderEmptyState(el, emptyStatement(ev, !graph.getNodes().length));
-        function update() { el.style.display = graph.getNodes().length ? 'none' : ''; }
-        update();
-        if (typeof graph.on === 'function') graph.on('dataBatchChanged', update);
+    // Pivotick shows the card while the canvas is empty and re-renders it on
+    // each appearance; `initial` is whether the graph has ever held a node.
+    function emptyStateOption(ev) {
+        return {
+            render: function (ctx) { return emptyStateContent(emptyStatement(ev, ctx.initial)); }
+        };
     }
 
     /* ── pivotick options ──────────────────────────────────── */
@@ -1231,6 +1226,7 @@
                 var editor = canEdit ? createEditor() : null;
                 var opts   = graphOptions();
                 if (editor) Object.assign(opts.callbacks, editor.callbacks);
+                opts.UI.emptyState = emptyStateOption((event && event.Event) || {});
                 // Only an event with something to show gets the panel (§8.10).
                 if (eventHasAnalystData((event && event.Event) || {})) {
                     opts.UI.extraPanels = [analystPanel()];
@@ -1246,9 +1242,7 @@
                     try { editor.attach(_graph); }
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
-                watchElementPivot(_graph);
-                watchEmptyCanvas(_graph, (event && event.Event) || {});
-                loadCorrelationCounts(_graph);
+                watchElementPivot(_graph);                loadCorrelationCounts(_graph);
             })
             .catch(function (err) {
                 console.error('[pivot-explorer] graph build failed:', err);

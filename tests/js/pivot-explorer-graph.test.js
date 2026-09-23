@@ -106,7 +106,6 @@ function buildGraph(payload, options) {
         'pe-card': card,
         'pe-stage': makeEl('div'),
         'pe-resolution': makeEl('div'),
-        'pe-empty': makeEl('div'),
         'pivot-explorer-loader': makeEl('div'),
         'pivot-explorer-graph': makeEl('div'),
         'tab-pivot-explorer': pane,
@@ -179,7 +178,6 @@ function buildGraph(payload, options) {
             graph: constructed.graph,
             resolution: byId['pe-resolution'].textContent,
             resolutionShown: byId['pe-resolution'].style.display === '',
-            empty: byId['pe-empty'],
             win: sandbox.window,
             fetchLog,
             tray, errors,
@@ -1498,14 +1496,15 @@ test('clicking the badge selects its node and opens the sidebar', async () => {
 });
 
 /* ─────────────────── task 4: the empty canvas (D11) ─────────────────── */
+// Pivotick shows and hides the card (UI.emptyState); MISP owns what it says.
 
-const emptyText = g => panelText(g.empty);
-const emptyButton = g => findByClass(g.empty, 'btn')[0];
+const emptyCard = (g, initial) => g.opts.UI.emptyState.render({ initial: initial !== false, graph: g.graph });
+const emptyText = (g, initial) => panelText(emptyCard(g, initial));
+const emptyButton = (g, initial) => findByClass(emptyCard(g, initial), 'btn')[0];
 
-test('a canvas with nothing on it says why, and where the contents are', async () => {
+test('an empty seed says why, and where the contents are', async () => {
     const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' }), attr({ uuid: 'a2' }), attr({ uuid: 'gone', deleted: true })] }));
     eq('nothing drawn', g.nodes, []);
-    eq('shown', g.empty.style.display, '');
     const t = emptyText(g);
     ok('it names what is missing, correlations included', t.indexOf('Nothing in this event is related yet') !== -1
        && t.indexOf('No object references, analyst relationships or correlations') !== -1, t);
@@ -1535,29 +1534,20 @@ test('an event with no content at all offers nothing to browse', async () => {
     ok('no button', !emptyButton(g));
 });
 
-test('a drawn graph hides it, and it follows the canvas as nodes come and go', async () => {
-    const drawn = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
-    eq('hidden when anything is drawn', drawn.empty.style.display, 'none');
-    drawn.graph.nodeList.length = 0;
-    drawn.graph.listeners.dataBatchChanged.forEach(f => f());
-    eq('emptied by hand, it shows', drawn.empty.style.display, '');
-    ok('without claiming nothing is related', emptyText(drawn).indexOf('The canvas is empty') !== -1
-       && emptyText(drawn).indexOf('related') === -1, emptyText(drawn));
-    ok('and still points at the elements', emptyText(drawn).indexOf("The event's 1 object is listed under Event elements") !== -1, emptyText(drawn));
-
-    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' })] }));
-    const fire = () => g.graph.listeners.dataBatchChanged.forEach(f => f());
-    g.graph.nodeList.push({ id: 'attr:a1' });
-    fire();
-    eq('an ingest hides it', g.empty.style.display, 'none');
-    g.graph.nodeList.pop();
-    fire();
-    eq('undoing the ingest brings it back', g.empty.style.display, '');
+test('a canvas emptied by hand is not told that nothing is related', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    const t = emptyText(g, false);
+    ok('it says the canvas is empty', t.indexOf('The canvas is empty') !== -1 && t.indexOf('related') === -1, t);
+    ok('and still points at the elements', t.indexOf("The event's 1 object is listed under Event elements") !== -1, t);
+    ok('with the same action', !!emptyButton(g, false));
 });
 
 test('the statement is text, never markup', async () => {
     const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' })] }));
-    eq('no innerHTML beyond the clear', g.empty.innerHTML, '');
+    const card = emptyCard(g);
+    ok('no innerHTML anywhere in the card', (function noHtml(el) {
+        return !el._html && (el.children || []).every(noHtml);
+    })(card));
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */
