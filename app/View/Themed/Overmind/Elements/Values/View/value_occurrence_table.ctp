@@ -31,6 +31,7 @@ $facets = $profile['occurrence_facets'];
  * required: a fixture-driven render predates the key, and an absent
  * plan means every column draws what it was handed.
  */
+$feedsShown = !empty($profile['feeds_shown']);
 $labelPlan = isset($profile['label_plan'])
     ? $profile['label_plan']
     : null;
@@ -250,6 +251,9 @@ $sortKeys = function ($row) {
         'vp-sort-type' => mb_strtolower($attribute['type']),
         'vp-sort-category' => mb_strtolower($attribute['category']),
         'vp-sort-ids' => empty($attribute['to_ids']) ? '0' : '1',
+        'vp-sort-feeds' => empty($row['Feed'])
+            ? ''
+            : $pad(count($row['Feed']), 4),
         // By audience, tightest first — the order `ValueStatsTool`
         // resolved the chain by, which is why it hands back a rank.
         'vp-sort-distribution' => $pad($effective['rank'], 2),
@@ -339,6 +343,25 @@ $rowClass = function ($row) {
  * @param array $row
  * @return string
  */
+$feedCell = function ($row) use ($baseurl) {
+    if (empty($row['Feed'])) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    $names = array_column($row['Feed'], 'name');
+    $first = $row['Feed'][0];
+    $label = count($names) === 1
+        ? h($first['name'])
+        : h(sprintf(
+            __n('%s feed', '%s feeds', count($names)),
+            count($names)
+        ));
+    return '<a class="badge bg-info-subtle text-info-emphasis'
+        . ' border border-info-subtle text-decoration-none"'
+        . ' href="' . h($baseurl . '/feeds/previewIndex/' . $first['id'])
+        . '" title="' . h(implode(', ', $names)) . '">'
+        . '<i class="fas fa-rss me-1"></i>' . $label . '</a>';
+};
+
 $stateCell = function ($row) {
     $badges = array();
     if (!empty($row['proposal_count'])) {
@@ -405,7 +428,7 @@ $organisationCell = function ($row) use ($view) {
 
 /*
  * ------------------------------------------------------------------
- * Twelve columns, nine of them shown
+ * Thirteen columns, ten of them shown
  * ------------------------------------------------------------------
  * Stated once, so the Columns menu, the header's ratio and the table
  * itself cannot come to disagree about which columns exist. `shown` is
@@ -482,6 +505,17 @@ $columns = array(
             'data_path' => 'Attribute.to_ids',
             // This page reports the flag; the event that owns it sets it.
             'readonly' => true,
+        ),
+    ),
+    array(
+        'key' => 'feeds',
+        'label' => __('Feeds'),
+        'shown' => $feedsShown,
+        'field' => array(
+            'name' => __('Feeds'),
+            'element' => 'custom',
+            'function' => $feedCell,
+            'class' => 'text-nowrap',
         ),
     ),
     array(

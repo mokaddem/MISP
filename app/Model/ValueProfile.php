@@ -2622,6 +2622,7 @@ class ValueProfile extends AppModel
         $this->attachClusters($user, $rows);
         $this->attachProposalCounts($rows);
         $this->attachEffectiveDistribution($user, $rows);
+        $this->attachFeedHits($user, $rows);
 
         $stats = ValueStatsTool::occurrenceStats($rows, $total);
         /*
@@ -2663,6 +2664,9 @@ class ValueProfile extends AppModel
             'occurrences' => $rows,
             'occurrence_stats' => $stats,
             'label_plan' => $plan,
+            'feeds_shown' => !empty(
+                $user['Role']['perm_view_feed_correlations']
+            ),
             /*
              * Null rather than a set of zero groups on a value with no
              * occurrence the viewer may see: a rail of zeroes is a lie
@@ -3678,6 +3682,39 @@ class ValueProfile extends AppModel
                 ValueStatsTool::effectiveDistribution($row, $names);
         }
         unset($row);
+    }
+
+    /**
+     * The cached feeds each row's value hits, as the event view finds
+     * them: the same call, so the two agree, and it enforces
+     * `perm_view_feed_correlations` itself.
+     *
+     * @param array $user
+     * @param array $rows
+     * @return void
+     */
+    private function attachFeedHits(array $user, array &$rows)
+    {
+        if (empty($rows)) {
+            return;
+        }
+        $event = array();
+        $keys = array_keys($rows);
+        $attached = $this->model('Feed')->attachFeedCorrelations(
+            array_column($rows, 'Attribute'),
+            $user,
+            $event
+        );
+        foreach (array_values($attached) as $i => $attribute) {
+            $feeds = array();
+            foreach ($attribute['Feed'] ?? array() as $feed) {
+                $feeds[] = array(
+                    'id' => (int)$feed['id'],
+                    'name' => (string)$feed['name'],
+                );
+            }
+            $rows[$keys[$i]]['Feed'] = $feeds;
+        }
     }
 
     /**
