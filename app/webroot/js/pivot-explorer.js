@@ -705,7 +705,10 @@
                 // pivotick at construction time (extraPanels are options-time only).
                 var editor = canEdit ? createEditor(event) : null;
                 var opts   = graphOptions();
-                if (editor) opts.UI.extraPanels = [editor.panel];
+                if (editor) {
+                    opts.UI.extraPanels = [editor.panel];
+                    Object.assign(opts.callbacks, editor.callbacks);
+                }
 
                 _graph = new window.Pivotick(
                     containerEl,
@@ -731,9 +734,9 @@
          attributes as draggable chips
        - drop a chip on the canvas to stage its node
        - draw an edge in pivotick's Create mode (v1.5.0 dropped the old
-         Edit ▸ Add edge tool and its `e` toggle for the mode rail); we
-         intercept edgeAdd to validate the source, pick a relationship,
-         and persist
+         Edit ▸ Add edge tool and its `e` toggle for the mode rail);
+         onBeforeEdgeCreate picks a relationship and persists it before
+         the edge lands
        ══════════════════════════════════════════════════════════ */
     function createEditor(event) {
         var ev = (event && event.Event) ? event.Event : {};
@@ -958,40 +961,38 @@
         }
 
         /* ── edge creation → validate, pick relationship, save ─ */
-        function resolveNode(ref) {
-            if (ref && typeof ref.getData === 'function') return ref;
-            if (typeof graph.getNode === 'function') return graph.getNode(ref);
-            return null;
-        }
-        function edgeId(edge) {
-            return typeof edge.getId === 'function' ? edge.getId() : edge.id;
+        function nodeData(n) {
+            return n && typeof n.getData === 'function' ? n.getData() : null;
         }
 
-        function onEdgeAdd(edge) {
-            // Only user-drawn edges reach here — the listener is attached after
-            // the graph (with its referenced edges) is already built.
-            var fromNode = resolveNode(edge.from !== undefined ? edge.from : edge.source);
-            var toNode   = resolveNode(edge.to   !== undefined ? edge.to   : edge.target);
-            var fromData = fromNode && fromNode.getData ? fromNode.getData() : null;
-            var toData   = toNode   && toNode.getData   ? toNode.getData()   : null;
-            var eid      = edgeId(edge);
+        // MISP references are owned by an object → the source must be an object.
+        // A note (no getData) is linking itself, which is not ours to judge.
+        function isValidConnection(source) {
+            if (!source || typeof source.getData !== 'function') return true;
+            var d = source.getData();
+            return !!d && d.type === 'object';
+        }
 
-            if (!fromData || !toData) return;
+        // The edge only lands once the reference is saved, so the history
+        // records it as persisted and a refused save leaves nothing behind.
+        function onBeforeEdgeCreate(ctx) {
+            if (ctx.kind !== 'edge') return true;
+            var fromData = nodeData(ctx.source);
+            var toData   = nodeData(ctx.target);
+            if (!fromData || !toData || fromData.type !== 'object') return false;
 
-            // MISP references are owned by an object → the source must be an object.
-            if (fromData.type !== 'object') {
-                notify('error', 'Invalid source', 'A relationship must start from an object node.');
-                if (typeof graph.removeEdge === 'function') graph.removeEdge(eid);
-                return;
-            }
-
-            var sourceUuid = fromData.uuid;
-            var targetUuid = toData.uuid;
-
-            showRelationshipPicker(function (rel) {
-                saveReference(sourceUuid, targetUuid, rel, edge, eid);
-            }, function () {   // cancelled
-                if (typeof graph.removeEdge === 'function') graph.removeEdge(eid);
+            return new Promise(function (resolve) {
+                showRelationshipPicker(function (rel) {
+                    saveReference(fromData.uuid, toData.uuid, rel).then(function (ok) {
+                        resolve(ok ? {
+                            accept:    true,
+                            data:      { kind: 'object-reference', label: rel },
+                            persisted: true
+                        } : false);
+                    });
+                }, function () {   // cancelled
+                    resolve(false);
+                });
             });
         }
 
@@ -1004,8 +1005,8 @@
             if (live && live.updateData) live.updateData({ pending: undefined });
         }
 
-        function saveReference(sourceUuid, targetUuid, rel, edge, eid) {
-            fetch(baseurl + '/objectReferences/add/' + encodeURIComponent(sourceUuid) + '.json', {
+        function saveReference(sourceUuid, targetUuid, rel) {
+            return fetch(baseurl + '/objectReferences/add/' + encodeURIComponent(sourceUuid) + '.json', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -1031,20 +1032,15 @@
                 return res.json().catch(function () { return {}; });
             })
             .then(function () {
-                // Tag it like a built edge, or it draws in the default stroke and
-                // stays invisible to the `kind` layer filter until the next reload.
-                var saved = { kind: 'object-reference', label: rel };
-                if (edge.updateData) edge.updateData(saved);
-                else if (edge.setData) edge.setData(saved);
                 clearPending(sourceUuid);   // a staged object can be the source
                 clearPending(targetUuid);
-                if (graph.simulation && graph.simulation.reheat) graph.simulation.reheat();
                 notify('success', 'Relationship added', rel);
+                return true;
             })
             .catch(function (err) {
                 console.error('[pivot-explorer] save failed:', err);
-                if (typeof graph.removeEdge === 'function') graph.removeEdge(eid);
                 notify('error', 'Save failed', String(err && err.message || err));
+                return false;
             });
         }
 
@@ -1089,17 +1085,20 @@
             });
         }
 
-        /* ── public: panel def (options-time) + attach (post-construction) ── */
+        /* ── public: panel + callbacks (options-time), attach (post-construction) ── */
         return {
             panel: {
                 title: 'Unlinked attributes',
                 alwaysVisible: true,
                 render: function () { return panelEl || buildPanel(); }
             },
+            callbacks: {
+                isValidConnection:  isValidConnection,
+                onBeforeEdgeCreate: onBeforeEdgeCreate
+            },
             attach: function (g) {
                 graph = g;
                 wireDrop();
-                if (typeof graph.on === 'function') graph.on('edgeAdd', onEdgeAdd);
                 updateCount();
             }
         };
