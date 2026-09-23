@@ -883,6 +883,10 @@ Hide**, and the two mean entirely different things.
   distinguish nodes from edges, so node deletes are **vetoed in `onBeforeDelete`** with an
   explanation.
 - **Every edge deletion goes behind `ctx.confirm()`**, naming the specific relationship.
+- **Built (task 10c):** a soft delete by the reference's uuid, which every object-reference edge
+  carries. An edge MISP cannot find again — a correlation, or an analyst relationship until 10b
+  gives it a write path — is spared from the decision, not deleted and not a veto. Notes are
+  canvas-only and pass through.
 
 Rationale for refusing node deletion:
 
@@ -1155,14 +1159,15 @@ callbacks: {
     // { nodes, edges, notes, cascadingEdges, origin, confirm }
     onBeforeDelete: async (ctx) => {
         if (ctx.nodes.length) {
-            notify('Remove a node from the canvas with Hide. '
-                 + 'Attributes and objects are deleted from the event view.');
+            notify('Hide takes one off the canvas; the event view deletes it from MISP.');
             return false;                          // node deletion is never offered (D6)
         }
-        if (!ctx.edges.length) return false;
-        const labels = ctx.edges.map(describeRelationship).join(', ');
-        if (!await ctx.confirm({ body: 'Delete ' + labels + '?' })) return false;
-        return { edges: await deleteRelationships(ctx.edges) };   // narrow to what persisted
+        const refs = ctx.edges.filter(isDeletable);    // object-reference with a uuid
+        if (!refs.length) return ctx.edges.length ? { accept: true, edges: [] } : true;  // notes
+        if (!await ctx.confirm({ variant: 'danger', confirmLabel: 'Delete in MISP',
+                                 body: confirmBody(refs) })) return false;   // R4
+        const done = await deleteReferences(refs);     // soft delete, by uuid
+        return done.length ? { accept: true, edges: done, persisted: true } : false;
     },
 }
 ```
@@ -1313,7 +1318,7 @@ relationships, and the events in §3.5 as fixtures):
 | 9 | ✅ "Unlinked attributes" → an origin-less pivot, *Event elements*: search + element/category facets, the Review tab as the paged list, ingest as putting on the canvas (D4 under P0, §11.7) | 1 |
 | 10 | ✅ `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5. Ownership comes from the payload, so 8 was not needed | 1 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | 10 |
-| 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4) | 10 |
+| 10c | ✅ `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4). A soft delete by the reference's uuid; correlations and analyst relationships are spared | 10 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their

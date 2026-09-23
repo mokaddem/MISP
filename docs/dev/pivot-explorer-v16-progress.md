@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `1296966` (`d220446` + the two MISP requests: pivot edges to children, `UI.emptyState`). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 20 done · 6 not started (5b, 5c, 10b, 10c, 11 — all independent) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 96 cases, 326 assertions, no dependencies
+- **Status:** 21 done · 4 not started (5b, 5c, 10b, 11 — all independent) · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 105 cases, 351 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -46,7 +46,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | R5 | Read-only users: every persistence editor off, no editor hooks, no tray | ✅ | 0b | `5a5770d9c` (2026-09-23) — verified in the harness for both roles |
 | 10 | `possibleKinds()`; `ctx.promptData` replaces the `innerHTML` picker; delete the pending ring (D2, D2b, P0) | ✅ | 1 | 2026-09-23 — see §2. Did not need 8: ownership is read off the payload, not a `scope` field. Needed the vocabulary endpoint fixed first (`e39908012`) |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | ⬚ | 10 | |
-| 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, `persisted: true`; node deletion vetoed (D6, R4) | ⬚ | 10 | Pivotick locks the history row itself |
+| 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, `persisted: true`; node deletion vetoed (D6, R4) | ✅ | 10 | `b2b969730` (2026-09-23) — a soft delete by the reference's uuid, which every object-reference edge now carries; correlations and analyst relationships are spared, not refused. See §2 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | ⬚ | 1 | |
 
 ### Critical path
@@ -61,11 +61,11 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
                        ├─ 6 ✅ ─────── 7 ✅
                        ├─ 9 ✅ ── 4 ✅
                        ├─ 10 ✅ ─┬─ 10b
-                       │         └─ 10c
+                       │         └─ 10c ✅
                        └─ 11
 ```
 
-The critical path is done. **Left, all independent:** 10b, 10c, 5b, 5c, 11. Task 4 moved off the correlation chain
+The critical path is done. **Left, all independent:** 10b, 5b, 5c, 11. Task 4 moved off the correlation chain
 onto 9 (see §2), and 10 off 8.
 
 ---
@@ -94,6 +94,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Pivots (tasks 5, 5d, 5f) | ✅ | Suite 192/192 (8 new: declaration, cap, no `save`, `appliesTo` before/after counts, never this event, fetch bodies, container shape, stable edge ids, this event's side brought along). Live, admin, via `graph.pivots`: `correlatedAttributes` pairs = counts on 1195 (350), 4116 (708), one attribute, one event, and for the org 9 admin (346); Pivot rail button present; `related-event` potential on 23/23 related events of 2014 and 78/89 of 4116 (the other 11 have no count), each equal to 5e; a related-event run ingests its attributes into the proxy (2014: 4, 4116: 33) and undo takes them back | **Edges, re-run on `1296966`:** every pair lands, both ends on canvas, undo clean — 2014 related-event 1 → 1; 4116 related-event × 5 events 29 → 29 (this event's side arriving as top-level nodes, L2 being skipped); 1195 correlations × 20 origins 57 → 57. No console error |
 | Provenance, facets, header (task 8) | ✅ | Suite 321/321 (11 new cases: provenance on every seeded kind, an extension-event element known by id alone, a record with no `event_id`, pivot results on both sides, the element pivot's nodes and children, the declared facet set and Provenance's worded options, options read off the live graph, the identity line and its tooltip as text, a sparse identity, the correlation clause arriving with the counts and absent at zero); 13 targeted mutants, 13 caught. Live, admin: 2014's header reads *Event 2014 · Test · ADMIN · 2025-11-16* over *Seeded L0+L1+L2 · 41 nodes · 35 correlations available*; 23 proxies `foreign`, the event and its 17 elements `self`; a related-event run brings an attribute in as `foreign` with that event's id and uuid; the filter panel shows exactly the seven declared facets, Provenance offering *This event* / *Other events*; filtering to `self` leaves 6 visible top-level nodes, to `foreign` 23, reset restores all. 4116: *Seeded L0 · 90 nodes · L2 skipped (28410 objects not shown) · 708 correlations available* — 708 equal to 5e; same filter behaviour (6 / 89). No console error | Extension events were not seen live: the explorer fetches the event without `extended:1`, so today every payload element is `self` |
 | Sectioned legend (task 7) | ✅ | Suite 326/326 (1 new case: two sections, Element on `nodeTypeAccessor` with no key, Relationship on edges by `kind`, the same key as the layer facet, no provenance section); 4 targeted mutants, 4 caught. Live, admin, 2014: one card in the right column above the minimap — *Element*: event 24 · attribute 1 · object 4; *Relationship*: event-correlation 23 (dashed green line swatch) · object-reference 2 (solid blue). Clicking *event-correlation* hides those 23 edges by setting `edge:kind` = `[object-reference]` — the panel's own layer filter — and leaves the nodes; clicking again clears it. No console error | Found a library defect: four icons in `icons.ts` carry mangled SVG, which puts `< path d = … />` text into the section headers' `textContent` — invisible, filed as `pivotick/prd/misp/mangled-inline-icons.md` |
+| Deletion (task 10c) | ✅ | Suite 351/351 (9 new cases: the uuid on seeded and drawn edges, the node veto and its notice, the danger confirm's title/label/body, the soft-delete POST by uuid, cancel, narrowing to what MISP deleted with its message on the refusal, all-refused vetoing, spared correlation / analyst / uuid-less edges, notes alone, no hook for a read-only viewer); 14 targeted mutants, 14 caught. Live, admin, 2014, through `graph.editing.requestDelete` and the real modal: a throwaway reference sent as `saveReference` sends it returns its uuid, and after a reload the edge carries it; a node delete is vetoed with *Elements are not deleted here*; the edge's confirm is Pivotick's modal — *This deletes the relationship in MISP: domain-ip → pe-10c-probe → geolocation. It cannot be undone from the graph.* — with a red *Delete in MISP*; confirming removes the edge (26 → 25), the history row is `sealed`/`persisted` and undo passes over it; MISP holds the reference as `deleted: true`. Then hard-deleted. No console error from the explorer | The bulk-action and context-menu buttons were not clicked — both route through `requestDelete`, which was |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey
@@ -218,7 +219,7 @@ the owner's — PRD §3.7.
 - **Node creation, node editing and edge editing are off for everyone**, editors included. None of
   them writes anything to MISP: a created node would be a phantom, and an edited label would
   disagree with the saved reference. Drawing an edge and deleting stay for editors (deletion's
-  MISP backing is 10c).
+  MISP backing is 10c, below).
 - **"Is this one of this event's elements" is answered from the payload**, not from task 8's
   `scope` field: a node is own if its uuid is a live attribute or object of the event. That is
   what made 10 independent of 8. A correlated attribute a pivot brings in fails it, so it can
@@ -231,6 +232,24 @@ the owner's — PRD §3.7.
 - **The form is declarative**: a select (defaulting to `related-to`) and a free-text field, the
   typed value winning. Pivotick has no combobox, so a list plus a text field is the closest
   honest shape. Only one kind is ever possible until 10b, so there is no link-type question.
+
+**Task 10c — what was decided while building it.**
+
+- **Every object-reference edge carries the reference's `uuid`.** Seeded ones take it from the
+  payload; a drawn one from the `ObjectReference` the add call returns, which it previously
+  ignored. Without it a drawn edge could not be deleted until the page was reloaded.
+- **A soft delete**, `POST /objectReferences/delete/{uuid}.json` with no hard flag — what the event
+  view does, and what lets the deletion reach synced instances.
+- **Only an edge MISP can find again is deleted**: kind `object-reference` with a uuid. Correlations
+  are derived, and analyst relationships have no write path until 10b, so both are *spared* —
+  narrowed out of the decision with an info notice — rather than vetoing the whole gesture. A
+  selection of nothing deletable still lets its notes go, without a confirm.
+- **Notes pass straight through.** The §6.6 sketch returned `false` when no edge was named, which
+  would have made canvas notes undeletable.
+- **The decision narrows to what MISP deleted**, and is `persisted: true`; each refusal is reported
+  with MISP's own message. If every delete fails, the gesture is vetoed and nothing leaves.
+- **A node in the selection vetoes the whole gesture**, with a warning naming Hide and the event
+  view — the PRD's rule, kept whole rather than silently deleting only the edges alongside it.
 
 **Task 9 — the tray became a pivot.** P0 settled what PRD §11.7 had left as a candidate: Pivotick
 already has a searchable, filterable, paged table with a commit step (a pivot's Review tab), so the
