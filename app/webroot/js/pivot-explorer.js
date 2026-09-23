@@ -496,8 +496,9 @@
                 if (isDeleted(ref)) return;
                 var prefix   = (String(ref.referenced_type) === '1') ? 'obj:' : 'attr:';
                 var targetId = prefix + ref.referenced_uuid;
-                addEdge(objId, targetId, ref.relationship_type || 'related-to',
-                        'object-reference', { uuid: ref.uuid });
+                var rel      = ref.relationship_type || 'related-to';
+                addEdge(objId, targetId, rel, 'object-reference',
+                        { uuid: ref.uuid, relationship_type: rel });
             });
         });
 
@@ -517,9 +518,10 @@
                 relationshipsSkipped++;
                 return;
             }
-            addEdge(sourceId, targetId, rel.relationship_type || 'related-to',
-                    'analyst-relationship',
-                    { authors: rel.authors, orgc: rel.orgc_uuid, uuid: rel.uuid });
+            var type = rel.relationship_type || 'related-to';
+            addEdge(sourceId, targetId, type, 'analyst-relationship',
+                    { authors: rel.authors, orgc: rel.orgc_uuid, uuid: rel.uuid,
+                      relationship_type: type });
         });
 
         /* What the graph must be able to say about itself (D12, §7): which
@@ -1143,6 +1145,15 @@
         };
     }
 
+    // Case-blind, unlike pivotick's 'partial': types are free text, and
+    // `by` should find `Characterized_By` as well as `dropped-by`.
+    function assertsMatches(edge, value) {
+        var d = edge.getData ? edge.getData() : null;
+        if (!d || d.relationship_type == null) return false;
+        return String(d.relationship_type).toLowerCase()
+            .indexOf(String(value == null ? '' : value).toLowerCase()) !== -1;
+    }
+
     function nodeFacets() {
         return [
             { key: 'scope', label: 'Provenance', type: 'multiselect', options: [
@@ -1263,12 +1274,16 @@
                         { title: 'Relationship', scope: 'edge', key: 'kind' }
                     ]
                 },
-                // The layer switch. Declaring the facet is what makes edges
-                // filterable at all — pivotick never derives edge facets.
+                // The layer switch, then what an edge asserts. The latter is
+                // a substring box, not a list: references alone use ~143
+                // types (D1). Derived edges assert nothing and carry no
+                // relationship_type, so a typed filter hides them.
                 filter: {
                     facets: nodeFacets(),
                     edgeFacets: [
-                        { key: 'kind', label: 'Relationship', type: 'multiselect' }
+                        { key: 'kind', label: 'Relationship', type: 'multiselect' },
+                        { key: 'relationship_type', label: 'Asserts', type: 'text',
+                          predicate: assertsMatches }
                     ]
                 }
             }
@@ -1490,7 +1505,7 @@
                     : saveRelationship(fromData, toData, rel);
                 return save.then(function (saved) {
                     if (!saved) return false;
-                    var data = { kind: kind, label: rel };
+                    var data = { kind: kind, label: rel, relationship_type: rel };
                     if (saved.uuid) data.uuid = saved.uuid;
                     if (saved.orgc_uuid) data.orgc = saved.orgc_uuid;
                     if (saved.authors) data.authors = saved.authors;

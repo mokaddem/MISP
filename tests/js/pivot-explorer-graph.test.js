@@ -497,9 +497,44 @@ test('the edge-kind dimension is declared for pivotick', async () => {
        r.edgeStyleMap['event-correlation'], { strokeColor: '#6fbe80', dashed: true });
 
     const facets = g.opts.UI.filter.edgeFacets;
-    eq('one edge facet — the layer switch', facets.length, 1);
-    eq('it is the kind facet', facets[0],
+    eq('two edge facets — the layer switch, then what an edge asserts', facets.length, 2);
+    eq('the first is the kind facet', facets[0],
        { key: 'kind', label: 'Relationship', type: 'multiselect' });
+});
+
+test('5c: relationship_type is the second edge dimension, a substring box', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B', relationship_type: 'child-of' })],
+              Relationship: [arel({ object_uuid: 'A', related_object_uuid: 'B',
+                                    relationship_type: 'seen-with' })] }),
+        obj({ uuid: 'B', ObjectReference: [ref({ referenced_uuid: 'A', relationship_type: '' })] }),
+    ] }));
+    const facet = g.opts.UI.filter.edgeFacets[1];
+    eq('declared as a text box — not a 143-row list',
+       [facet.key, facet.label, facet.type], ['relationship_type', 'Asserts', 'text']);
+    const hit = (type, q) => facet.predicate({ getData: () => ({ relationship_type: type }) }, q);
+    eq('a substring anywhere in the type', [hit('dropped-by', '-by'), hit('child-of', 'ild'), hit('child-of', '-by')],
+       [true, true, false]);
+    eq('blind to case either way', [hit('Characterized_By', 'by'), hit('dropped-by', 'BY')], [true, true]);
+    eq('an edge asserting nothing never matches',
+       [facet.predicate({ getData: () => ({ kind: 'correlation', label: '' }) }, 'x'),
+        facet.predicate({ getData: () => null }, 'x'), facet.predicate({}, 'x')], [false, false, false]);
+    eq('every authored edge carries the type it asserts, the default included',
+       g.edges.map(e => e.data.kind + ':' + e.data.relationship_type).sort(),
+       ['analyst-relationship:seen-with', 'object-reference:child-of', 'object-reference:related-to']);
+    eq('and it is the label drawn', g.edges.map(e => e.data.label === e.data.relationship_type),
+       [true, true, true]);
+});
+
+test('5c: derived edges assert nothing, so carry no relationship_type', async () => {
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1' })],
+        RelatedEvent: [{ Event: { id: '77', uuid: 'R1', info: 'other', Orgc: { name: 'o' } } }],
+    }));
+    const derived = g.edges.filter(e => e.data.kind === 'event-correlation');
+    ok('there are event-correlation edges', derived.length > 0, String(derived.length));
+    derived.forEach(e => ok('no relationship_type on ' + e.from + '->' + e.to,
+                            !('relationship_type' in e.data), JSON.stringify(e.data)));
 });
 
 test('INVARIANT: every kind the builder emits resolves to a styled kind', async () => {
@@ -1280,7 +1315,7 @@ test('saving: the chosen type is POSTed and the edge lands persisted', async () 
     const g = await withEditor();
     const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.attrE1, { relationship_type: 'drops' }));
     eq('POST body', g.posts, [{ ObjectReference: { referenced_uuid: 'e1', relationship_type: 'drops', comment: '' } }]);
-    eq('decision', d, { accept: true, data: { kind: 'object-reference', label: 'drops' }, persisted: true });
+    eq('decision', d, { accept: true, data: { kind: 'object-reference', label: 'drops', relationship_type: 'drops' }, persisted: true });
     ok('to the source object', g.fetchLog.some(f => /\/misp\/objectReferences\/add\/A\.json$/.test(f.url)));
 });
 
@@ -1375,7 +1410,7 @@ test('a seeded reference edge knows its reference, so it can be found again in M
 test('a drawn reference takes the uuid MISP gave it', async () => {
     const g = await withDeletes();
     const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { relationship_type: 'drops' }));
-    eq('decision', d, { accept: true, data: { kind: 'object-reference', label: 'drops', uuid: 'R-NEW' }, persisted: true });
+    eq('decision', d, { accept: true, data: { kind: 'object-reference', label: 'drops', relationship_type: 'drops', uuid: 'R-NEW' }, persisted: true });
 });
 
 test('deleting a node is refused, and says where it is done instead', async () => {
@@ -1529,7 +1564,8 @@ test('saving an analyst relationship: addressed by MISP type, landing with what 
     ok('to the source, typed', g.fetchLog.some(f => /\/misp\/analystData\/add\/Relationship\/e1\/Attribute\.json$/.test(f.url)));
     eq('body', g.adds, [{ Relationship: { related_object_uuid: 'x1', related_object_type: 'Attribute', relationship_type: 'seen-with' } }]);
     eq('decision', d, { accept: true,
-        data: { kind: 'analyst-relationship', label: 'seen-with', uuid: 'AR-NEW', orgc: 'ORG-ME', authors: 'me@x' },
+        data: { kind: 'analyst-relationship', label: 'seen-with', relationship_type: 'seen-with',
+                uuid: 'AR-NEW', orgc: 'ORG-ME', authors: 'me@x' },
         persisted: true });
     await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(foreign.event, own.objA, { custom: 'about' }));
     eq('an event source and an object target', g.adds[1].Relationship.related_object_type, 'Object');
@@ -1893,7 +1929,8 @@ test('the filter panel declares its facets, provenance first', async () => {
     eq('provenance names both sides in words', facets[0].options,
        [{ label: 'This event', value: 'self' }, { label: 'Other events', value: 'foreign' }]);
     eq('provenance is labelled as such', facets[0].label, 'Provenance');
-    eq('the edge layer switch is unchanged', g.opts.UI.filter.edgeFacets.map(f => f.key), ['kind']);
+    eq('the edge facets are unchanged', g.opts.UI.filter.edgeFacets.map(f => f.key),
+       ['kind', 'relationship_type']);
 });
 
 test('the legend keys elements and relationships, the latter on the layer facet', async () => {
