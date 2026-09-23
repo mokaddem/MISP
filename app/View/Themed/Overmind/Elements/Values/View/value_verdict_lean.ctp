@@ -67,6 +67,11 @@ $leanWeight = (int)(isset($verdict['lean_weight'])
     ? $verdict['lean_weight']
     : 0);
 $leanBenign = ($verdict['lean'] ?? null) === 'benign';
+$leanScale = $leanBenign
+    ? __('On this value, + points push toward harmless and − points'
+        . ' toward threat.')
+    : __('On this value, + points push toward threat and − points'
+        . ' toward harmless.');
 $leanHeaviest = 1;
 foreach ($leanRows as $leanRow) {
     $leanHeaviest = max(
@@ -215,9 +220,9 @@ $supermajority = isset($stances['supermajority'])
                     <span class="vp-vc-lean-rows-total"
                           title="<?= h(__(
                               'These rows sum to this. Green argues'
-                              . ' harmless, red argues threat; the sign'
-                              . ' is relative to the reading above.'
-                              . ' Not part of the quality score.'
+                              . ' harmless, red argues threat.'
+                          ) . ' ' . $leanScale . ' ' . __(
+                              'Not part of the quality score.'
                           )) ?>">
                         <?= h(($leanWeight > 0 ? '+' : '') . $leanWeight) ?>
                     </span>
@@ -231,21 +236,10 @@ $supermajority = isset($stances['supermajority'])
                      * arguing harmless on a threat reading is green
                      * and negative.
                      */
-                    if ($leanUp !== $leanBenign) {
-                        $leanTip = $leanUp
-                            ? __('Argues threat (red). Positive: it'
-                                . ' supports the reading above.')
-                            : __('Argues threat (red). Negative: points'
-                                . ' here count toward harmless, and this'
-                                . ' row disputes it.');
-                    } else {
-                        $leanTip = $leanUp
-                            ? __('Argues harmless (green). Positive: it'
-                                . ' supports the reading above.')
-                            : __('Argues harmless (green). Negative:'
-                                . ' points here count toward a threat,'
-                                . ' and this row disputes it.');
-                    }
+                    $leanTip = ($leanUp !== $leanBenign
+                        ? __('Argues threat (red).')
+                        : __('Argues harmless (green).'))
+                        . ' ' . $leanScale;
                     ?>
                     <div class="vp-vc-lean-row<?= $leanUp
                         ? ' vp-vc-lean-row-up'
