@@ -1867,6 +1867,63 @@ test('clicking the badge selects its node and opens the sidebar', async () => {
     eq('sidebar shown', g.graph.UIManager.sidebar.shown, 1);
 });
 
+test('17: the panel\'s title counts what was said about the selection', async () => {
+    const g = await buildGraph(analystFixture());
+    const title = g.opts.UI.extraPanels[0].title;
+    eq('with a count', title(pnode(nodeById(g.nodes, 'attr:c1').data)), 'Notes & opinions (5)');
+    eq('without', [title(pnode({ type: 'attribute', uuid: 'c2' })), title(null), title([pnode({ analyst_count: 2 })])],
+       ['Notes & opinions', 'Notes & opinions', 'Notes & opinions']);
+});
+
+/* ─────────── task 17: the sidebar's properties, under MISP's names ─────────── */
+
+const props = (g, data) => g.opts.UI.propertiesPanel.nodePropertiesMap(pnode(data))
+    .map(p => p.name + ': ' + p.value);
+const edgeProps = (g, data) => g.opts.UI.propertiesPanel.edgePropertiesMap({ getData: () => data })
+    .map(p => p.name + ': ' + p.value);
+
+test('17: an attribute reads by value, type and category, then where it belongs', async () => {
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1', value: '1.2.3.4', to_ids: true, comment: 'c2 box', FeedHit: true })],
+        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })],
+                       Attribute: [attr({ uuid: 'c1', object_relation: 'ip', value: 'v' })] })],
+    }));
+    eq('event-level, flagged and commented', props(g, byId(g.nodes, 'attr:e1').data), [
+        'Value: 1.2.3.4', 'Type: ip-dst', 'Category: Network activity', 'IDS flag: Yes', 'Comment: c2 box',
+        'Event: This event', 'Seen in a feed: Yes — too many hits in this event to name which', 'UUID: e1']);
+    eq('an object\'s attribute, with its relation; blank fields left out',
+       props(g, byId(g.nodes, 'obj:A').children[0].data), [
+        'Value: v', 'Type: ip-dst', 'Category: Network activity', 'Object relation: ip', 'IDS flag: No',
+        'Event: This event', 'UUID: c1']);
+    eq('from another event, by its id', props(g, { type: 'attribute', value: 'x', scope: 'foreign', event_id: '7' }),
+       ['Value: x', 'Event: Event 7']);
+});
+
+test('17: objects, events and sources each read by their own fields', async () => {
+    const g = await buildGraph(ev({ info: 'Seed', date: '2025-01-02', Orgc: { name: 'CIRCL' },
+        RelatedEvent: [relEvent({ uuid: 'R', id: '7', info: 'Other' })],
+        Object: [obj({ uuid: 'A', name: 'domain-ip', 'meta-category': 'network' })] }));
+    eq('object', props(g, byId(g.nodes, 'obj:A').data),
+       ['Template: domain-ip', 'Meta-category: network', 'Event: This event', 'UUID: A']);
+    eq('event', props(g, byId(g.nodes, 'event:EV-SELF').data),
+       ['Info: Seed', 'Date: 2025-01-02', 'Organisation: CIRCL', 'Event ID: 1', 'UUID: EV-SELF']);
+    eq('feed', props(g, { type: 'feed', provider: 'CIRCL', url: 'https://x', source_format: 'misp',
+                          feed_events: 3, source_id: '1', scope: 'foreign' }),
+       ['Provider: CIRCL', 'URL: https://x', 'Format: misp', 'Events: 3', 'Feed ID: 1']);
+    eq('server, with only a name', props(g, { type: 'server', source_id: '4', scope: 'foreign' }), ['Server ID: 4']);
+    eq('anything else, nothing', props(g, { type: 'note' }), []);
+});
+
+test('17: an edge reads by the kind of link and what it asserts', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    eq('an analyst relationship', edgeProps(g, { kind: 'analyst-relationship', relationship_type: 'seen-with',
+                                                  authors: 'alice', uuid: 'U1', orgc: 'o' }),
+       ['Link: Analyst relationship', 'Relationship: seen-with', 'Authors: alice', 'UUID: U1']);
+    eq('every derived kind has a name', ['event-correlation', 'correlation', 'feed-correlation', 'server-correlation']
+       .map(k => edgeProps(g, { kind: k, label: '' })[0]),
+       ['Link: Event correlation', 'Link: Correlation', 'Link: Seen in a feed', 'Link: Seen on a server']);
+});
+
 /* ─────────────────── task 4: the empty canvas (D11) ─────────────────── */
 // Pivotick shows and hides the card (UI.emptyState); MISP owns what it says.
 

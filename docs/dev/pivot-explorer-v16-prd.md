@@ -1089,6 +1089,17 @@ so no fetch; a later thread fetch may return a `Promise` and `ctx.signal` cancel
 one. `callbacks.onBadgeClick` selects the node and opens the panel — a badge with no `onClick`
 lets its click fall through, so declaring one is required for interactivity.
 
+**The sidebar around it (task 17).** The panel's title follows the selection — *Notes &
+opinions (5)* — through the same selection-reactive `title` a panel's `render` has. The
+Properties panel above it is declared (`UI.propertiesPanel.nodePropertiesMap` /
+`edgePropertiesMap`) instead of listing every data key under its own name: an attribute reads
+Value, Type, Category, Object relation, IDS flag, Comment, Event (*This event* or *Event N*),
+the degraded feed flag and UUID; an object Template, Meta-category, Event, UUID; an event Info,
+Date, Organisation, Event ID, UUID; a feed or server Provider, URL, Format, Events and its ID; an
+edge the kind of link by name, what it asserts, its authors and UUID. Blank fields are left out.
+The header keeps the library's default mapping, `label` over `description`, which is already
+MISP's.
+
 ### 6.3 Sectioned legend (D3)
 
 ```js
@@ -1399,7 +1410,7 @@ library features it rebuilt by hand or left unused. One commit each:
 | 14 | ✅ The Asserts box is Pivotick's `regex` facet, case-blind, instead of MISP's own predicate (5c) | 5c |
 | 15 | ✅ Correlated attributes and objects declare their correlation count as rim potential, like related events (R1, R2) | 5, 5d |
 | 16 | ✅ Drop `compact()`: Pivotick skips null data values everywhere it scans (since `4d71efb`), so node and edge data pass as the payload has them | 8 |
-| 17 | The analyst panel through the library's panel lifecycle; the sidebar's fields declared | 6 |
+| 17 | ✅ The sidebar's Properties declared under MISP's names; the analyst panel's title counts the selection's notes (§6.2). Its lifecycle was the library's already | 6 |
 | 18 | Node context menu: open the element in MISP, copy its value | — |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their

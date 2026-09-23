@@ -831,8 +831,13 @@
         return wrap;
     }
 
+    function analystPanelTitle(selection) {
+        var d = (selection && !Array.isArray(selection) && selection.getData) ? selection.getData() : null;
+        return 'Notes & opinions' + (d && d.analyst_count ? ' (' + d.analyst_count + ')' : '');
+    }
+
     function analystPanel() {
-        return { id: 'analyst-data', title: 'Notes & opinions', render: renderAnalystPanel };
+        return { id: 'analyst-data', title: analystPanelTitle, render: renderAnalystPanel };
     }
 
     /* ── pivots: correlations (R1) and related events (R2) ──── */
@@ -1221,6 +1226,59 @@
         };
     }
 
+    /* ── sidebar properties ────────────────────────────────── */
+    // The fields an analyst reads an element by, under MISP's names, rather
+    // than every data key under its own. Blank fields are left out.
+    var KIND_LABELS = {
+        'object-reference':     'Object reference',
+        'analyst-relationship': 'Analyst relationship',
+        'event-correlation':    'Event correlation',
+        'correlation':          'Correlation',
+        'feed-correlation':     'Seen in a feed',
+        'server-correlation':   'Seen on a server'
+    };
+
+    function field(name, value) {
+        return (value == null || value === '') ? null : { name: name, value: String(value) };
+    }
+
+    function belongsTo(d) {
+        if (d.scope === 'self') return 'This event';
+        return d.event_id ? 'Event ' + d.event_id : null;
+    }
+
+    function nodeProperties(node) {
+        var d = node.getData() || {};
+        var rows = [];
+        if (d.type === 'attribute') {
+            rows = [
+                field('Value', d.value), field('Type', d['attr-type']), field('Category', d.category),
+                field('Object relation', d.object_relation),
+                field('IDS flag', d.to_ids == null ? null : (d.to_ids ? 'Yes' : 'No')),
+                field('Comment', d.comment), field('Event', belongsTo(d)),
+                field('Seen in a feed', d.feed_hit ? 'Yes — too many hits in this event to name which' : null),
+                field('UUID', d.uuid)
+            ];
+        } else if (d.type === 'object') {
+            rows = [field('Template', d.name), field('Meta-category', d['meta-category']),
+                    field('Event', belongsTo(d)), field('UUID', d.uuid)];
+        } else if (d.type === 'event') {
+            rows = [field('Info', d.info), field('Date', d.date), field('Organisation', d.org),
+                    field('Event ID', d.event_id), field('UUID', d.uuid)];
+        } else if (d.type === 'feed' || d.type === 'server') {
+            rows = [field('Provider', d.provider), field('URL', d.url), field('Format', d.source_format),
+                    field('Events', d.feed_events),
+                    field(d.type === 'feed' ? 'Feed ID' : 'Server ID', d.source_id)];
+        }
+        return rows.filter(Boolean);
+    }
+
+    function edgeProperties(edge) {
+        var d = edge.getData() || {};
+        return [field('Link', KIND_LABELS[d.kind] || d.kind), field('Relationship', d.relationship_type),
+                field('Authors', d.authors), field('UUID', d.uuid)].filter(Boolean);
+    }
+
     /* ── filter panel ──────────────────────────────────────── */
     // Declaring any node facet replaces pivotick's derivation from every data
     // key, so the panel names the ones an analyst filters on. Provenance is
@@ -1339,6 +1397,10 @@
             UI: {
                 mode: 'full',
                 theme: 'dark',
+                propertiesPanel: {
+                    nodePropertiesMap: nodeProperties,
+                    edgePropertiesMap: edgeProperties
+                },
                 // Only drawing or deleting a relationship reaches MISP, so
                 // creating or editing a node or an edge's data is offered to
                 // nobody. A user who can write neither a reference nor an
@@ -1455,10 +1517,6 @@
        ══════════════════════════════════════════════════════════ */
     // Canvas node type → AnalystData::valid_targets name.
     var ANALYST_TYPES = { attribute: 'Attribute', object: 'Object', event: 'Event' };
-    var KIND_LABELS = {
-        'object-reference':     'Object reference',
-        'analyst-relationship': 'Analyst relationship'
-    };
 
     function createEditor() {
         var graph = null;
