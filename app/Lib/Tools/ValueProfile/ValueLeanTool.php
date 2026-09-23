@@ -307,7 +307,7 @@ class ValueLeanTool
                 'evidence' => isset($outcome['evidence'])
                     ? $outcome['evidence']
                     : '',
-                'source' => $rule->source,
+                'tab' => $rule->tab,
                 /*
                  * `id` and `prose` again, under the keys the templates
                  * read a rule block by.
