@@ -570,6 +570,14 @@ distinct values (`analysed-with` 6,968, then a long tail through `opened`, `incl
 concedes the pattern — its table row filters switch from a dropdown to a text box past 50 distinct
 values. A substring box ("everything `*-of`") is the usable form.
 
+**Built (task 5c) as a case-blind substring match**, through the facet's `predicate` rather than
+Pivotick's `matchMode: 'partial'`, which is a case-sensitive `includes`. Types are free text —
+the dev instance carries `Characterized_By` beside `dropped-by` — so `by` must find both. The
+value lives in `data.relationship_type` on every object-reference and analyst-relationship edge,
+seeded or drawn, next to the `label` that displays it. Derived kinds (`event-correlation`,
+`correlation`, later `feed-correlation`) assert nothing and carry no such field, so any typed
+filter hides them — asking "what asserts `-by`" is asking about authored edges.
+
 **The six `kind` values:**
 
 | `kind` | Source | In payload? |
@@ -1006,7 +1014,8 @@ render: {
 },
 UI: { filter: { edgeFacets: [
     { key: 'kind',              label: 'Relationship', type: 'multiselect' },
-    { key: 'relationship_type', label: 'Asserts',      type: 'text' },
+    { key: 'relationship_type', label: 'Asserts',      type: 'text',
+      predicate: assertsMatches },   // case-blind substring on data.relationship_type
 ]}},
 ```
 
@@ -1070,7 +1079,8 @@ UI: {
         ],
         edgeFacets: [
             { key: 'kind',              label: 'Relationship', type: 'multiselect' },
-            { key: 'relationship_type', label: 'Asserts',      type: 'text' },
+            { key: 'relationship_type', label: 'Asserts',      type: 'text',
+              predicate: assertsMatches },
         ],
     },
 }
