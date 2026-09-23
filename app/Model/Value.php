@@ -314,6 +314,7 @@ class Value extends AppModel
         $attributes = $this->attributes();
         $conditions = $attributes->buildConditions($user);
         $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
         return (int)$attributes->find('count', array(
             'conditions' => $conditions,
             'recursive' => -1,
@@ -397,7 +398,9 @@ class Value extends AppModel
      *
      * @param array $user
      * @param string $value
-     * @param array $options As conditionsFor
+     * @param array $options As conditionsFor, plus `with_deleted` to
+     *     count soft-deleted occurrences, which only a table that can
+     *     show them needs
      * `published` counts the events among `events` that are published,
      * so the two are over one row set and the pair reads coherently.
      * `recordSummaryFor` carries a `published` of its own over a
@@ -412,6 +415,9 @@ class Value extends AppModel
         $attributes = $this->attributes();
         $conditions = $attributes->buildConditions($user);
         $conditions['AND'][] = $this->conditionsFor($value, $options);
+        if (empty($options['with_deleted'])) {
+            $conditions['AND'][] = array('Attribute.deleted' => 0);
+        }
         $row = $attributes->find('first', array(
             'fields' => array(
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
@@ -2023,6 +2029,7 @@ class Value extends AppModel
         $attributes = $this->attributes();
         $conditions = $attributes->buildConditions($user);
         $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
         $first = 'Attribute.value1 = '
             . $attributes->getDataSource()->value((string)$value, 'string');
         $rows = $attributes->find('all', array(
@@ -2165,6 +2172,7 @@ class Value extends AppModel
         $attributes = $this->attributes();
         $conditions = $attributes->buildConditions($user);
         $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
         $params = array(
             'fields' => array(
                 'Attribute.event_id',

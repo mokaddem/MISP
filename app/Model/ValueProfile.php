@@ -1873,7 +1873,11 @@ class ValueProfile extends AppModel
         array $options = array()
     ) {
         $valueModel = $this->model('Value');
-        $summary = $valueModel->occurrenceSummaryFor($user, $value, $options);
+        $summary = $valueModel->occurrenceSummaryFor(
+            $user,
+            $value,
+            array_merge($options, array('with_deleted' => true))
+        );
         $rows = $valueModel->occurrencesFor(
             $user,
             $value,
@@ -2550,7 +2554,11 @@ class ValueProfile extends AppModel
         array $options = array()
     ) {
         $valueModel = $this->model('Value');
-        $summary = $valueModel->occurrenceSummaryFor($user, $value, $options);
+        $summary = $valueModel->occurrenceSummaryFor(
+            $user,
+            $value,
+            array_merge($options, array('with_deleted' => true))
+        );
         $total = $summary['occurrences'];
         $rows = $valueModel->occurrencesFor(
             $user,
