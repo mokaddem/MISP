@@ -133,6 +133,9 @@ function buildGraph(payload, options) {
                 this.listeners = {};
                 this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
                 this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
+                this.selected = [];
+                this.selectElement = n => { this.selected.push(n); };
+                this.UIManager = { sidebar: { shown: 0, showSidebar() { this.shown++; } } };
                 constructed.graph = this;
             },
             location: { href: '' },
@@ -1381,6 +1384,113 @@ test('its summaries are dropped whenever a node comes or goes', async () => {
         g.graph.listeners[evt][0]();
     });
     eq('each drops this pivot\'s cache', g.graph.pivots.invalidated, ['event-elements', 'event-elements']);
+});
+
+/* ─────────────── task 6: analyst-data badges and panel ─────────────── */
+
+const note = o => Object.assign({ note_type_name: 'Note', note: 'n', authors: 'a@x', created: '2025-03-11 14:06:56', Orgc: { name: 'CIRCL' } }, o);
+const opinion = o => Object.assign({ note_type_name: 'Opinion', opinion: '50', comment: '', authors: 'a@x', created: '2025-03-12 09:00:00', Orgc: { name: 'CIRCL' } }, o);
+
+function analystFixture() {
+    return ev({
+        Note: [note({ note: 'about the event' })],
+        RelatedEvent: [relEvent({ uuid: 'R7', id: '7' })],
+        Object: [
+            obj({ uuid: 'A', Opinion: [opinion({ opinion: '10', comment: 'Clearly a FP' })], Attribute: [
+                attr({ uuid: 'c1', value: 'noted',
+                       Note: [note({ note: '<b>first</b>', Opinion: [opinion({ opinion: '0' })] }), note({ note: 'second' })],
+                       Opinion: [opinion({ opinion: '80' }), opinion({ opinion: '70' })],
+                       Relationship: [arel({ related_object_uuid: 'c2', related_object_type: 'Attribute' })] }),
+                attr({ uuid: 'c2', value: 'quiet' }),
+            ] }),
+            obj({ uuid: 'B', Opinion: [opinion({ opinion: '55' })] }),
+            obj({ uuid: 'C', Note: [note()] }),
+        ].concat(['40', '41', '60', '61'].map(v =>
+            obj({ uuid: 'at' + v, Opinion: [opinion({ opinion: v })] }))),
+    });
+}
+
+const nodeById = (nodes, id) => {
+    for (const n of nodes || []) {
+        if (n.id === id) return n;
+        const c = nodeById(n.children, id);
+        if (c) return c;
+    }
+    return null;
+};
+const badgesOf = (g, data) => g.opts.render.defaultNodeStyle.badges(pnode(data));
+
+test('an element wears one badge: everything said about it, coloured by its own opinions', async () => {
+    const g = await buildGraph(analystFixture());
+    const c1 = nodeById(g.nodes, 'attr:c1').data;
+    eq('two notes, two opinions, and an opinion on a note — not the relationship, which is an edge', c1.analyst_count, 5);
+    eq('mean of its own opinions, 75: endorsed — the 0 on a note does not count', c1.analyst_mood, 'endorsed');
+    eq('an object\'s 10 is disputed', nodeById(g.nodes, 'obj:A').data.analyst_mood, 'disputed');
+    eq('55 is neutral', nodeById(g.nodes, 'obj:B').data.analyst_mood, 'neutral');
+    eq('notes alone have no mood', nodeById(g.nodes, 'obj:C').data.analyst_mood, 'none');
+    eq('the band edges: 40 | 41 … 60 | 61', ['40', '41', '60', '61'].map(v => nodeById(g.nodes, 'obj:at' + v).data.analyst_mood),
+       ['disputed', 'neutral', 'neutral', 'endorsed']);
+    eq('the event node carries its own', nodeById(g.nodes, 'event:EV-SELF').data.analyst_count, 1);
+    const b = badgesOf(g, c1);
+    eq('one badge, north-west, clear of the expand corners',
+       b.map(x => [x.position, x.text, x.color]), [['nw', '5', '#6fbe80']]);
+    eq('it says what it counts', b[0].title, '5 notes and opinions — endorsed');
+    eq('colours', ['disputed', 'neutral', 'none'].map(m => badgesOf(g, { analyst_count: 1, analyst_mood: m })[0].color),
+       ['#b94a48', '#999', '#999']);
+    eq('singular', badgesOf(g, { analyst_count: 1, analyst_mood: 'none' })[0].title, '1 note or opinion');
+});
+
+test('an object does not add up its attributes\' badges', async () => {
+    const g = await buildGraph(analystFixture());
+    eq('A counts only its own opinion', nodeById(g.nodes, 'obj:A').data.analyst_count, 1);
+});
+
+test('nothing said, nothing changed: no fields, no badge', async () => {
+    const g = await buildGraph(analystFixture());
+    const c2 = nodeById(g.nodes, 'attr:c2').data;
+    ok('no analyst fields at all', !('analyst_count' in c2) && !('analyst_mood' in c2));
+    eq('an empty badge list', badgesOf(g, c2), []);
+});
+
+test('the panel exists only where there is analyst data to show', async () => {
+    const quiet = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    ok('an event without any gets no sidebar panel', !quiet.opts.UI.extraPanels);
+    const deep = await buildGraph(ev({ Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c', Note: [note()] })] })] }));
+    eq('one note on one object attribute is enough', deep.opts.UI.extraPanels.map(p => p.id), ['analyst-data']);
+});
+
+const panelText = el => (el.children || []).map(c => c.tagName === '#text' ? c._text : panelText(c)).join('|');
+
+test('the panel lists what was said about the selected element, as text', async () => {
+    const g = await buildGraph(analystFixture());
+    const panel = g.opts.UI.extraPanels[0];
+    ok('reactive by default, hidden with nothing selected', panel.reactive === undefined && !panel.alwaysVisible);
+    const out = panel.render(pnode({ type: 'attribute', uuid: 'c1' }));
+    const entries = findByClass(out, 'pe-analyst-entry');
+    eq('five entries, replies after what they answer', entries.length, 5);
+    const t = panelText(out);
+    ok('a note\'s text, left as text', t.indexOf('<b>first</b>') !== -1, t);
+    ok('an opinion names its band and value', t.indexOf('Agree (80/100)') !== -1 && t.indexOf('Strongly disagree (0/100)') !== -1, t);
+    ok('who and when', t.indexOf('CIRCL · 2025-03-11') !== -1, t);
+    ok('the reply is marked', t.indexOf('Opinion · reply') !== -1 || t.indexOf('Strongly disagree (0/100) · reply') !== -1, t);
+    eq('and indented one step', entries.map(e => e.style.cssText.indexOf('0.9rem') !== -1), [false, true, false, false, false]);
+});
+
+test('the panel for anything else says so', async () => {
+    const g = await buildGraph(analystFixture());
+    const render = g.opts.UI.extraPanels[0].render;
+    ok('an element nobody commented on', panelText(render(pnode({ type: 'attribute', uuid: 'c2' }))).indexOf('No notes or opinions') !== -1);
+    ok('a correlated element from another event', panelText(render(pnode({ type: 'attribute', uuid: 'x1' }))).indexOf('No notes or opinions') !== -1);
+    ok('a multi-selection', panelText(render([pnode({ uuid: 'c1' }), pnode({ uuid: 'A' })])).indexOf('single element') !== -1);
+    ok('this event, through its node', findByClass(render(pnode({ type: 'event', uuid: 'EV-SELF' })), 'pe-analyst-entry').length === 1);
+});
+
+test('clicking the badge selects its node and opens the sidebar', async () => {
+    const g = await buildGraph(analystFixture());
+    const n = pnode(nodeById(g.nodes, 'attr:c1').data);
+    badgesOf(g, n.getData())[0].onClick({}, n);
+    eq('selected', g.graph.selected, [n]);
+    eq('sidebar shown', g.graph.UIManager.sidebar.shown, 1);
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

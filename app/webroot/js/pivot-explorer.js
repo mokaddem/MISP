@@ -63,7 +63,7 @@
     function attributeNodeData(attr) {
         var val   = attr.value != null ? String(attr.value) : '';
         var isImg = isImageAttribute(attr);
-        return compact({
+        return compact(Object.assign({
             type:            'attribute',
             label:           truncate(val, 42),
             description:     (attr.object_relation ? attr.object_relation + ' · ' : '')
@@ -77,7 +77,7 @@
             uuid:            attr.uuid,
             image:           isImg || undefined,
             imageUrl:        isImg ? attributeImageUrl(attr) : undefined
-        });
+        }, analystFields(attr)));
     }
 
     // Soft-deleted records (deleted=1) are tombstones — refs create no edge and
@@ -305,7 +305,7 @@
         var meta = [];
         if (e.date) meta.push(String(e.date));
         if (org)    meta.push(org);
-        return compact({
+        return compact(Object.assign({
             type:        'event',
             label:       truncate(info || ('Event ' + (e.id || '')), 42),
             description: meta.join(' · ') || 'Event',
@@ -314,19 +314,19 @@
             org:         org || undefined,
             event_id:    e.id,
             uuid:        e.uuid
-        });
+        }, analystFields(e)));
     }
 
     // Shared object node data (graph builder + element pivot).
     function objectNodeData(obj) {
-        return compact({
+        return compact(Object.assign({
             type:            'object',
             label:           truncate(obj.name || 'Object', 42),
             description:     obj['meta-category'] ? (obj['meta-category'] + ' object') : 'Object',
             name:            obj.name,
             'meta-category': obj['meta-category'],
             uuid:            obj.uuid
-        });
+        }, analystFields(obj)));
     }
 
     /* ── misp-iconify (webfont) integration ────────────────── */
@@ -542,6 +542,160 @@
                        + ' not drawable');
         }
         return parts.join(' · ');
+    }
+
+    /* ── analyst data: one folded badge, detail in the sidebar (D2, §6.2) ── */
+    // Notes and opinions on an element, and the notes and opinions left on
+    // those in turn — everything somebody has said about it. Relationships are
+    // not counted: they are drawn as edges.
+    function analystRecords(rec) {
+        var out = [];
+        (function walk(r, depth) {
+            ['Note', 'Opinion'].forEach(function (k) {
+                (r[k] || []).forEach(function (a) {
+                    out.push({ kind: k, rec: a, depth: depth });
+                    walk(a, depth + 1);
+                });
+            });
+        })(rec, 0);
+        return out;
+    }
+
+    // The existing bands (opinion_scale.ctp): under 41 disagree, over 60
+    // agree. Only opinions on the element itself decide its colour; an
+    // opinion on a note is about the note.
+    function opinionMood(values) {
+        if (!values.length) return 'none';
+        var mean = values.reduce(function (s, v) { return s + v; }, 0) / values.length;
+        return mean < 41 ? 'disputed' : (mean > 60 ? 'endorsed' : 'neutral');
+    }
+
+    function opinionLabel(v) {
+        return v >= 81 ? 'Strongly agree' : v >= 61 ? 'Agree' : v >= 41 ? 'Neutral'
+             : v >= 21 ? 'Disagree' : 'Strongly disagree';
+    }
+
+    // The two fields a node carries, flat so the filter builder can index
+    // them. Absent — not zero — without analyst data, so such a node's data
+    // is exactly what it was before.
+    function analystFields(rec) {
+        var all = analystRecords(rec);
+        if (!all.length) return {};
+        var own = (rec.Opinion || []).map(function (o) { return Number(o.opinion); })
+            .filter(function (v) { return !isNaN(v); });
+        return { analyst_count: all.length, analyst_mood: opinionMood(own) };
+    }
+
+    var MOOD_COLOR = { disputed: '#b94a48', endorsed: '#6fbe80', neutral: '#999', none: '#999' };
+
+    function analystBadges(node) {
+        var d = node && node.getData ? node.getData() : null;
+        if (!d || !d.analyst_count) return [];
+        var n = d.analyst_count;
+        return [{
+            position: 'nw',
+            text:     String(n),
+            color:    MOOD_COLOR[d.analyst_mood] || MOOD_COLOR.none,
+            title:    n + (n === 1 ? ' note or opinion' : ' notes and opinions')
+                      + (d.analyst_mood !== 'none' ? ' — ' + d.analyst_mood : ''),
+            onClick:  function (e, clicked) { showAnalystData(clicked); }
+        }];
+    }
+
+    // Every record of this event that can carry analyst data, by uuid.
+    var _analystIndex = null, _analystIndexFor = null;
+    function analystSource(uuid) {
+        if (!_analystIndex || _analystIndexFor !== _event) {
+            var ev = (_event && _event.Event) || {};
+            _analystIndex = {};
+            if (ev.uuid) _analystIndex[ev.uuid] = ev;
+            (ev.Attribute || []).forEach(function (a) { _analystIndex[a.uuid] = a; });
+            (ev.Object || []).forEach(function (o) {
+                _analystIndex[o.uuid] = o;
+                (o.Attribute || []).forEach(function (a) { _analystIndex[a.uuid] = a; });
+            });
+            _analystIndexFor = _event;
+        }
+        return _analystIndex[uuid] || null;
+    }
+
+    function eventHasAnalystData(ev) {
+        if (analystRecords(ev).length) return true;
+        return (ev.Attribute || []).some(function (a) { return analystRecords(a).length; })
+            || (ev.Object || []).some(function (o) {
+                return analystRecords(o).length
+                    || (o.Attribute || []).some(function (a) { return analystRecords(a).length; });
+            });
+    }
+
+    function showAnalystData(node) {
+        if (!_graph || !node) return;
+        if (typeof _graph.selectElement === 'function') _graph.selectElement(node);
+        var sidebar = _graph.UIManager && _graph.UIManager.sidebar;
+        if (sidebar && typeof sidebar.showSidebar === 'function') sidebar.showSidebar();
+    }
+
+    function el(tag, cls, textContent) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (textContent != null) e.textContent = textContent;
+        return e;
+    }
+
+    // One entry: who, when, and what they said. Replies are indented a step
+    // under what they answer; the list itself stays flat (§4).
+    function analystEntry(item) {
+        var a = item.rec, row = el('div', 'pe-analyst-entry');
+        row.style.cssText = 'margin:0 0 .6rem ' + (item.depth * .9) + 'rem;';
+        var head = [];
+        if (item.kind === 'Opinion') {
+            var v = Number(a.opinion);
+            head.push(isNaN(v) ? 'Opinion' : opinionLabel(v) + ' (' + v + '/100)');
+        } else {
+            head.push('Note');
+        }
+        if (item.depth) head.push('reply');
+        var meta = [(a.Orgc && a.Orgc.name) || a.authors, a.created && String(a.created).slice(0, 10)]
+            .filter(Boolean).join(' · ');
+        var h = el('div', null, head.join(' · '));
+        h.style.cssText = 'font-weight:600;';
+        row.appendChild(h);
+        if (meta) {
+            var m = el('div', null, meta);
+            m.style.cssText = 'font-size:.75em;opacity:.65;';
+            row.appendChild(m);
+        }
+        var body = item.kind === 'Opinion' ? a.comment : a.note;
+        if (body) {
+            var b = el('div', null, String(body));
+            b.style.cssText = 'white-space:pre-wrap;word-break:break-word;';
+            row.appendChild(b);
+        }
+        return row;
+    }
+
+    function renderAnalystPanel(selection) {
+        var wrap = el('div', 'pe-analyst');
+        wrap.style.cssText = 'font-size:.85rem;';
+        if (Array.isArray(selection)) {
+            wrap.appendChild(el('div', null, 'Select a single element to read what was said about it.'));
+            return wrap;
+        }
+        var d = selection && selection.getData ? selection.getData() : null;
+        var rec = d && d.uuid && analystSource(d.uuid);
+        var items = rec ? analystRecords(rec) : [];
+        if (!items.length) {
+            var none = el('div', null, 'No notes or opinions on this element.');
+            none.style.cssText = 'opacity:.65;';
+            wrap.appendChild(none);
+            return wrap;
+        }
+        items.forEach(function (item) { wrap.appendChild(analystEntry(item)); });
+        return wrap;
+    }
+
+    function analystPanel() {
+        return { id: 'analyst-data', title: 'Notes & opinions', render: renderAnalystPanel };
     }
 
     /* ── pivots: correlations (R1) and related events (R2) ──── */
@@ -891,7 +1045,8 @@
                         var d = node.getData();
                         return (d && d.image) ? d.imageUrl : undefined;
                     },
-                    textVerticalShift: -1
+                    textVerticalShift: -1,
+                    badges: analystBadges
                 },
                 // D1's first edge dimension. Two kinds so far; correlations and
                 // feed/server kinds arrive with their layers (PRD tasks 5, 5b).
@@ -1005,6 +1160,10 @@
                 var editor = canEdit ? createEditor() : null;
                 var opts   = graphOptions();
                 if (editor) Object.assign(opts.callbacks, editor.callbacks);
+                // Only an event with something to show gets the panel (§8.10).
+                if (eventHasAnalystData((event && event.Event) || {})) {
+                    opts.UI.extraPanels = [analystPanel()];
+                }
 
                 _graph = new window.Pivotick(
                     containerEl,

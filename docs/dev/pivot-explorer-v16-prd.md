@@ -1289,7 +1289,7 @@ relationships, and the events in §3.5 as fixtures):
 | 5d | ✅ built, ⏸ edges: related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, 5e, 5f, pivotick fix |
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
-| 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
+| 6 | ✅ Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
 | 9 | ✅ "Unlinked attributes" → an origin-less pivot, *Event elements*: search + element/category facets, the Review tab as the paged list, ingest as putting on the canvas (D4 under P0, §11.7) | 1 |
@@ -1361,6 +1361,6 @@ of D13.
    the tray, its drag-and-drop and D4's bespoke pane in one move.
 8. **Extended-event enclosure** — does a foreign event get a container, and can object clusters
    nest inside it three levels deep (event → object → attribute)?
-9. **Badge aggregation** over an object's attributes: sum, max, or neither?
+9. ✅ **Badge aggregation** — neither (task 6): an object's badge is the object's own; its attributes wear theirs.
 10. **Physics `'auto'`** (D7 deferred) — worth an isolated before/after on a large event.
 11. **`RelatedAttribute` cost.** Measure on a heavily-correlated event before shipping task 5.
