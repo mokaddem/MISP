@@ -412,7 +412,8 @@ A user who cannot edit the event is offered nothing that would reach MISP:
 `editors.{nodeEditor, nodeCreator, edgeCreator, edgeEditor, deletion}.enabled: false`, and no
 editor hooks or tray. Notes, hiding and layout stay, being canvas-only. When analyst
 relationships become writable (task 10b), a user with `perm_analyst_data` gets `edgeCreator`
-back for that kind alone (D8).
+back for that kind alone (D8). **Done in 10b:** `perm_add` and `perm_analyst_data` — the
+`analystData/add` ACL — give back `edgeCreator` and `deletion`, and the hooks.
 
 #### R6 — Labels follow Pivotick's legibility default ✅ RULED
 
@@ -728,6 +729,11 @@ So the relationship-type field depends on the chosen link type, which the declar
 `promptData({ fields })` form cannot express. The two-kind case needs `promptData`'s custom
 variant (`render` + `getValues`); the one-kind case can stay declarative.
 
+**Built otherwise (task 10b), under P0:** both cases stay declarative. An analyst relationship's
+type is free text, so a name picked from the reference vocabulary is equally valid for it; the
+two-kind form is the one-kind form with a *Link type* select in front, defaulting to
+`object-reference`. No custom form markup.
+
 **A latent stored-XSS is removed on the way.** The current picker builds its `<option>` list by
 string concatenation into `innerHTML` (`:847-850`). It is fed from the hardcoded 25-entry array
 today, so nothing is exploitable — but `object_relationships` contains a row literally named
@@ -884,9 +890,10 @@ Hide**, and the two mean entirely different things.
   explanation.
 - **Every edge deletion goes behind `ctx.confirm()`**, naming the specific relationship.
 - **Built (task 10c):** a soft delete by the reference's uuid, which every object-reference edge
-  carries. An edge MISP cannot find again — a correlation, or an analyst relationship until 10b
-  gives it a write path — is spared from the decision, not deleted and not a veto. Notes are
-  canvas-only and pass through.
+  carries. An edge MISP cannot find again, or would refuse to delete — a correlation, an
+  analyst relationship of another org (task 10b: `canEditAnalystData` is creator org or site
+  admin) — is spared from the decision, not deleted and not a veto. An analyst relationship is
+  hard-deleted, as MISP's own views do. Notes are canvas-only and pass through.
 
 Rationale for refusing node deletion:
 
@@ -1317,7 +1324,7 @@ relationships, and the events in §3.5 as fixtures):
 | 8 | ✅ `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c). The whole node-facet set is declared, since declaring one replaces derivation | 5 |
 | 9 | ✅ "Unlinked attributes" → an origin-less pivot, *Event elements*: search + element/category facets, the Review tab as the paged list, ingest as putting on the canvas (D4 under P0, §11.7) | 1 |
 | 10 | ✅ `possibleKinds()`; replace the `innerHTML` picker with `ctx.promptData`; delete the pending ring (D2, D2b, P0). Hooks landed in 0b, read-only gating in R5. Ownership comes from the payload, so 8 was not needed | 1 |
-| 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5) | 10 |
+| 10b | ✅ Analyst-relationship persistence (`analystData/add`) as the second write target (D2b); `edgeCreator` for `perm_analyst_data` alone (R5). Deletion too, by creator org, as 10c's inverse | 10 |
 | 10c | ✅ `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4). A soft delete by the reference's uuid; correlations and analyst relationships are spared | 10 |
 | 11 | ✅ `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
