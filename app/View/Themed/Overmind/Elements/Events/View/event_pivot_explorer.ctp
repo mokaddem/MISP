@@ -3,6 +3,9 @@
     // Drawing references is only offered when the viewer may modify the
     // event (same ACL the ObjectReferences add endpoint enforces).
     $canEdit  = $this->Acl->canModifyEvent($data);
+    // Analyst relationships are gated on role alone, as analystData/add is.
+    $canAnalyst = !empty($me['Role']['perm_add'])
+        && !empty($me['Role']['perm_analyst_data']);
 
     // Behaviour lives in webroot/js/pivot-explorer.js, which reads its
     // config from the data-pe-* attributes on #pe-card below.
@@ -16,6 +19,9 @@
      data-pe-event-id="<?= h($eventId) ?>"
      data-pe-baseurl="<?= h($baseurl ?? '') ?>"
      data-pe-can-edit="<?= $canEdit ? '1' : '0' ?>"
+     data-pe-can-analyst="<?= $canAnalyst ? '1' : '0' ?>"
+     data-pe-org-uuid="<?= h($me['Organisation']['uuid'] ?? '') ?>"
+     data-pe-site-admin="<?= empty($me['Role']['perm_site_admin']) ? '0' : '1' ?>"
      data-pe-lib-missing="<?= h(__('Graph library failed to load.')) ?>"
      data-pe-load-failed="<?= h(__('Failed to load event graph.')) ?>">
 

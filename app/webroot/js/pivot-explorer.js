@@ -21,6 +21,11 @@
     var baseurl = '';
     var canEdit = false;
     var text    = { libMissing: '', loadFailed: '' };
+    // Analyst relationships are gated on role alone, not on the event (D8);
+    // deleting one needs its creator org, or site admin.
+    var canAnalyst = false;
+    var orgUuid    = '';
+    var siteAdmin  = false;
 
     /* ── state ─────────────────────────────────────────────── */
     var _initialized = false;
@@ -514,7 +519,7 @@
             }
             addEdge(sourceId, targetId, rel.relationship_type || 'related-to',
                     'analyst-relationship',
-                    { authors: rel.authors, orgc: rel.orgc_uuid });
+                    { authors: rel.authors, orgc: rel.orgc_uuid, uuid: rel.uuid });
         });
 
         /* What the graph must be able to say about itself (D12, §7): which
@@ -1238,16 +1243,17 @@
             UI: {
                 mode: 'full',
                 theme: 'dark',
-                // Only drawing a reference reaches MISP, so creating or editing
-                // a node or an edge's data is offered to nobody. A user who
-                // cannot write the event gets no write tool at all; notes,
+                // Only drawing or deleting a relationship reaches MISP, so
+                // creating or editing a node or an edge's data is offered to
+                // nobody. A user who can write neither a reference nor an
+                // analyst relationship gets no write tool at all; notes,
                 // hides and layout stay, being canvas-only.
                 editors: {
                     nodeEditor:  { enabled: false },
                     nodeCreator: { enabled: false },
                     edgeEditor:  { enabled: false },
-                    edgeCreator: { enabled: canEdit },
-                    deletion:    { enabled: canEdit }
+                    edgeCreator: { enabled: canEdit || canAnalyst },
+                    deletion:    { enabled: canEdit || canAnalyst }
                 },
                 // Element keys on nodeTypeAccessor. Relationship names the
                 // edge facet's key, so legend and panel drive one filter.
@@ -1311,7 +1317,7 @@
                 _stats = data.stats;
                 renderHeader();
 
-                var editor = canEdit ? createEditor() : null;
+                var editor = (canEdit || canAnalyst) ? createEditor() : null;
                 var opts   = graphOptions();
                 if (editor) Object.assign(opts.callbacks, editor.callbacks);
                 opts.UI.emptyState = emptyStateOption((event && event.Event) || {});
@@ -1347,6 +1353,13 @@
        Putting an element on the canvas is not an edit; that is the
        element pivot, offered to every viewer.
        ══════════════════════════════════════════════════════════ */
+    // Canvas node type → AnalystData::valid_targets name.
+    var ANALYST_TYPES = { attribute: 'Attribute', object: 'Object', event: 'Event' };
+    var KIND_LABELS = {
+        'object-reference':     'Object reference',
+        'analyst-relationship': 'Analyst relationship'
+    };
+
     function createEditor() {
         var graph = null;
 
@@ -1366,12 +1379,19 @@
         // reference is owned by an object and stays inside its event, so both
         // ends must be this event's own elements, and only an attribute or an
         // object can be referenced.
+        //
+        // An analyst relationship may join any two elements MISP can name,
+        // this event's or another's (D8).
         function possibleKinds(source, target) {
             var s = nodeData(source) || {}, t = nodeData(target) || {};
             var kinds = [];
             if (canEdit && s.type === 'object' && isOwnElement(s)
                 && (t.type === 'object' || t.type === 'attribute') && isOwnElement(t)) {
                 kinds.push('object-reference');
+            }
+            if (canAnalyst && ANALYST_TYPES[s.type] && ANALYST_TYPES[t.type]
+                && s.uuid && t.uuid && s.uuid !== t.uuid) {
+                kinds.push('analyst-relationship');
             }
             return kinds;
         }
@@ -1410,8 +1430,19 @@
             return _vocabulary;
         }
 
-        function relationshipFields(names) {
+        // Both kinds take the same answer: an analyst relationship's type is
+        // free text, so a name from the reference vocabulary is as good there.
+        function relationshipFields(names, kinds) {
             var fields = [];
+            if (kinds.length > 1) {
+                fields.push({
+                    key:          'kind',
+                    label:        'Link type',
+                    type:         'select',
+                    options:      kinds.map(function (k) { return { label: KIND_LABELS[k], value: k }; }),
+                    defaultValue: kinds[0]
+                });
+            }
             if (names.length) {
                 fields.push({
                     key:          'relationship_type',
@@ -1430,11 +1461,12 @@
             return fields;
         }
 
-        // The edge only lands once the reference is saved, so the history
+        // The edge only lands once the relationship is saved, so the history
         // records it as persisted and a refused save leaves nothing behind.
         function onBeforeEdgeCreate(ctx) {
             if (ctx.kind !== 'edge') return true;
-            if (!possibleKinds(ctx.source, ctx.target).length) return false;
+            var kinds = possibleKinds(ctx.source, ctx.target);
+            if (!kinds.length) return false;
             var fromData = nodeData(ctx.source);
             var toData   = nodeData(ctx.target);
 
@@ -1442,7 +1474,7 @@
                 return ctx.promptData({
                     title:       'Add relationship',
                     submitLabel: 'Save',
-                    fields:      relationshipFields(names)
+                    fields:      relationshipFields(names, kinds)
                 });
             }).then(function (values) {
                 if (!values) return false;   // cancelled
@@ -1452,17 +1484,26 @@
                     notify('warning', 'No relationship type', 'Pick one or type your own.');
                     return false;
                 }
-                return saveReference(fromData.uuid, toData.uuid, rel).then(function (saved) {
+                var kind = kinds.indexOf(values.kind) !== -1 ? values.kind : kinds[0];
+                var save = kind === 'object-reference'
+                    ? saveReference(fromData, toData, rel)
+                    : saveRelationship(fromData, toData, rel);
+                return save.then(function (saved) {
                     if (!saved) return false;
-                    var data = { kind: 'object-reference', label: rel };
+                    var data = { kind: kind, label: rel };
                     if (saved.uuid) data.uuid = saved.uuid;
+                    if (saved.orgc_uuid) data.orgc = saved.orgc_uuid;
+                    if (saved.authors) data.authors = saved.authors;
+                    notify('success', 'Relationship added', rel);
                     return { accept: true, data: data, persisted: true };
                 });
             });
         }
 
-        function saveReference(sourceUuid, targetUuid, rel) {
-            return fetch(baseurl + '/objectReferences/add/' + encodeURIComponent(sourceUuid) + '.json', {
+        // POST to MISP's REST API, resolving the response body or rejecting
+        // with MISP's own message.
+        function post(path, body) {
+            return fetch(baseurl + path, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -1470,41 +1511,51 @@
                     'Accept':           'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({
-                    ObjectReference: {
-                        referenced_uuid:   targetUuid,
-                        relationship_type: rel,
-                        comment:           ''
-                    }
-                })
+                body: JSON.stringify(body)
             })
             .then(function (res) {
-                if (!res.ok) {
-                    return res.json().catch(function () { return {}; })
-                        .then(function (body) {
-                            throw new Error((body && (body.errors || body.message)) || ('HTTP ' + res.status));
-                        });
-                }
-                return res.json().catch(function () { return {}; });
-            })
-            .then(function (body) {
-                notify('success', 'Relationship added', rel);
-                return (body && body.ObjectReference) || {};
-            })
-            .catch(function (err) {
-                console.error('[pivot-explorer] save failed:', err);
-                notify('error', 'Save failed', String(err && err.message || err));
-                return null;
+                return res.json().catch(function () { return {}; }).then(function (json) {
+                    if (res.ok) return json || {};
+                    throw new Error((json && (json.errors || json.message)) || ('HTTP ' + res.status));
+                });
             });
         }
 
-        /* ── deletion → the reference behind the edge, never an element ── */
-        // Only a reference whose uuid we know can be found again in MISP.
-        // Correlations are derived, and analyst relationships have no write
-        // path yet (PRD task 10b).
+        function saveFailed(err) {
+            console.error('[pivot-explorer] save failed:', err);
+            notify('error', 'Save failed', String(err && err.message || err));
+            return null;
+        }
+
+        function saveReference(from, to, rel) {
+            return post('/objectReferences/add/' + encodeURIComponent(from.uuid) + '.json', {
+                ObjectReference: { referenced_uuid: to.uuid, relationship_type: rel, comment: '' }
+            }).then(function (body) { return body.ObjectReference || {}; }, saveFailed);
+        }
+
+        function saveRelationship(from, to, rel) {
+            return post('/analystData/add/Relationship/' + encodeURIComponent(from.uuid)
+                        + '/' + ANALYST_TYPES[from.type] + '.json', {
+                Relationship: {
+                    related_object_uuid: to.uuid,
+                    related_object_type: ANALYST_TYPES[to.type],
+                    relationship_type:   rel
+                }
+            }).then(function (body) { return body.Relationship || {}; }, saveFailed);
+        }
+
+        /* ── deletion → the relationship behind the edge, never an element ── */
+        // Only a relationship whose uuid we know can be found again in MISP,
+        // and an analyst one only by its creator org (or a site admin), which
+        // is the rule MISP applies. Correlations are derived.
         function isDeletable(edge) {
             var d = edge.getData ? edge.getData() : null;
-            return !!d && d.kind === 'object-reference' && !!d.uuid;
+            if (!d || !d.uuid) return false;
+            if (d.kind === 'object-reference') return canEdit;
+            if (d.kind === 'analyst-relationship') {
+                return canAnalyst && (siteAdmin || (!!orgUuid && d.orgc === orgUuid));
+            }
+            return false;
         }
 
         function describeEdge(edge) {
@@ -1529,22 +1580,22 @@
                        'Hide takes one off the canvas; the event view deletes it from MISP.');
                 return false;
             }
-            var refs = ctx.edges.filter(isDeletable);
-            if (refs.length < ctx.edges.length) {
-                notify('info', 'Only object references can be deleted',
-                       'Correlations and analyst relationships stay; hide them instead.');
+            var doomed = ctx.edges.filter(isDeletable);
+            if (doomed.length < ctx.edges.length) {
+                notify('info', 'Some relationships stay',
+                       'Correlations, and relationships you cannot delete in MISP, stay; hide them instead.');
             }
-            if (!refs.length) return ctx.edges.length ? { accept: true, edges: [] } : true;
+            if (!doomed.length) return ctx.edges.length ? { accept: true, edges: [] } : true;
 
             return ctx.confirm({
-                title:        refs.length === 1 ? 'Delete relationship' : 'Delete relationships',
-                body:         confirmBody(refs),
+                title:        doomed.length === 1 ? 'Delete relationship' : 'Delete relationships',
+                body:         confirmBody(doomed),
                 confirmLabel: 'Delete in MISP',
                 variant:      'danger'
             }).then(function (confirmed) {
                 if (!confirmed) return false;
-                return Promise.all(refs.map(deleteReference)).then(function (results) {
-                    var done = refs.filter(function (e, i) { return results[i]; });
+                return Promise.all(doomed.map(deleteRelationship)).then(function (results) {
+                    var done = doomed.filter(function (e, i) { return results[i]; });
                     if (!done.length) return false;
                     notify('success', done.length === 1 ? 'Relationship deleted' : done.length + ' relationships deleted');
                     return { accept: true, edges: done, persisted: true };
@@ -1552,26 +1603,14 @@
             });
         }
 
-        // A soft delete, as the event view does, so the deletion syncs.
-        function deleteReference(edge) {
-            var uuid = edge.getData().uuid;
-            return fetch(baseurl + '/objectReferences/delete/' + encodeURIComponent(uuid) + '.json', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type':     'application/json',
-                    'Accept':           'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: '{}'
-            })
-            .then(function (res) {
-                if (res.ok) return true;
-                return res.json().catch(function () { return {}; }).then(function (body) {
-                    throw new Error((body && (body.errors || body.message)) || ('HTTP ' + res.status));
-                });
-            })
-            .catch(function (err) {
+        // Each the way MISP's own views delete it: a reference soft, so the
+        // deletion syncs; an analyst relationship hard, which blocklists it.
+        function deleteRelationship(edge) {
+            var d = edge.getData();
+            var path = d.kind === 'object-reference'
+                ? '/objectReferences/delete/' + encodeURIComponent(d.uuid) + '.json'
+                : '/analystData/delete/Relationship/' + encodeURIComponent(d.uuid) + '.json';
+            return post(path, {}).then(function () { return true; }, function (err) {
                 console.error('[pivot-explorer] delete failed:', err);
                 notify('error', 'Delete failed', describeEdge(edge) + ': ' + String(err && err.message || err));
                 return false;
@@ -1601,6 +1640,9 @@
         eventId = d.peEventId || '';
         baseurl = d.peBaseurl || '';
         canEdit = d.peCanEdit === '1';
+        canAnalyst = d.peCanAnalyst === '1';
+        orgUuid    = d.peOrgUuid || '';
+        siteAdmin  = d.peSiteAdmin === '1';
         text = {
             libMissing: d.peLibMissing || 'Graph library failed to load.',
             loadFailed: d.peLoadFailed || 'Failed to load event graph.'

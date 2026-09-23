@@ -96,6 +96,9 @@ function buildGraph(payload, options) {
         peEventId: '1',
         peBaseurl: options.baseurl !== undefined ? options.baseurl : '/misp',
         peCanEdit: options.canEdit === false ? '0' : '1',
+        peCanAnalyst: options.canAnalyst ? '1' : '0',
+        peOrgUuid: options.orgUuid || '',
+        peSiteAdmin: options.siteAdmin ? '1' : '0',
         peLibMissing: 'lib missing',
         peLoadFailed: 'load failed',
     };
@@ -1438,6 +1441,140 @@ test('notes alone are canvas-only and go straight through', async () => {
 test('a read-only viewer has no delete hook', async () => {
     const r = await buildGraph(deleteFixture(), { canEdit: false });
     ok('none', !r.opts.callbacks.onBeforeDelete);
+});
+
+/* ──────── task 10b: analyst relationships, drawn and deleted ──────── */
+
+// Boot with the given rights, recording every analyst-data POST.
+function withAnalyst(options, answers) {
+    const adds = [], deletes = [];
+    answers = answers || {};
+    return buildGraph(editorFixture(), Object.assign({
+        routes: [
+            [/analystData\/add\/Relationship\//, init => {
+                adds.push(JSON.parse(init.body));
+                return answers.add || { Relationship: { uuid: 'AR-NEW', orgc_uuid: 'ORG-ME', authors: 'me@x' } };
+            }],
+            [/analystData\/delete\/Relationship\//, init => { deletes.push(init); return answers.del || { saved: true }; }],
+            [/objectReferences\/add\//, { ObjectReference: { uuid: 'R-NEW' } }],
+            [/objectReferences\/delete\//, { saved: true }],
+            [/objectRelationships\/index\.json$/, VOCAB],
+            [/correlationCounts/, { attributes: {}, objects: {}, events: {} }],
+        ],
+    }, options)).then(g => { g.adds = adds; g.deletes = deletes; return g; });
+}
+const analystOnly = { canEdit: false, canAnalyst: true, orgUuid: 'ORG-ME' };
+const both = { canAnalyst: true, orgUuid: 'ORG-ME' };
+
+const arEdge = (uuid, orgc) => pedge('ar:' + uuid,
+    pnode({ type: 'attribute', uuid: 'e1', label: '1.2.3.4' }),
+    pnode({ type: 'object', uuid: 'A', label: 'file' }),
+    { kind: 'analyst-relationship', label: 'seen-with', uuid, orgc });
+
+test('a seeded analyst relationship edge knows its relationship', async () => {
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1', Relationship: [arel({ uuid: 'AR1', related_object_uuid: 'A' })] })],
+        Object: [obj({ uuid: 'A' })],
+    }));
+    eq('uuid and creator org on the edge',
+       g.edges.filter(e => e.data.kind === 'analyst-relationship').map(e => [e.data.uuid, e.data.orgc]),
+       [['AR1', 'org-1']]);
+});
+
+test('analyst rights alone give back the edge tool and delete, and the hooks', async () => {
+    const g = await withAnalyst(analystOnly);
+    eq('edge tool and delete only', Object.keys(g.opts.UI.editors).filter(k => g.opts.UI.editors[k].enabled),
+       ['edgeCreator', 'deletion']);
+    ok('hooks', !!g.opts.callbacks.isValidConnection && !!g.opts.callbacks.onBeforeEdgeCreate
+       && !!g.opts.callbacks.onBeforeDelete);
+});
+
+test('an analyst relationship joins any two nameable elements, this event\'s or not', async () => {
+    const g = await withAnalyst(analystOnly);
+    const valid = g.opts.callbacks.isValidConnection;
+    ok('attribute → object', valid(own.attrE1, own.objA));
+    ok('to another event\'s attribute', valid(own.objA, foreign.attr));
+    ok('from another event\'s attribute', valid(foreign.attr, own.objB));
+    ok('from and to an event node', valid(foreign.event, own.attrE1) && valid(own.objA, foreign.event));
+    ok('not to itself', !valid(own.objA, pnode({ type: 'object', uuid: 'A' })));
+    ok('not to an element MISP cannot name', !valid(own.objA, pnode({ type: 'feed', uuid: 'F' })));
+    ok('not without a uuid', !valid(own.objA, pnode({ type: 'attribute' })));
+    const e = await withEditor();
+    ok('an editor without analyst rights still draws references only', !e.opts.callbacks.isValidConnection(own.attrE1, own.objA));
+});
+
+test('one possible kind asks no link type; two ask, defaulting to the reference', async () => {
+    const a = await withAnalyst(analystOnly);
+    const one = edgeCtx(own.objA, own.objB, null);
+    await a.opts.callbacks.onBeforeEdgeCreate(one);
+    eq('analyst only: no link type', one.asked.fields.map(f => f.key), ['relationship_type', 'custom']);
+    const b = await withAnalyst(both);
+    const two = edgeCtx(own.objA, own.objB, null);
+    await b.opts.callbacks.onBeforeEdgeCreate(two);
+    const kind = two.asked.fields[0];
+    eq('link type first', [kind.key, kind.type, kind.defaultValue], ['kind', 'select', 'object-reference']);
+    eq('both offered, worded', kind.options, [
+        { label: 'Object reference', value: 'object-reference' },
+        { label: 'Analyst relationship', value: 'analyst-relationship' },
+    ]);
+    const c = await withAnalyst(both);
+    const across = edgeCtx(own.objA, foreign.attr, null);
+    await c.opts.callbacks.onBeforeEdgeCreate(across);
+    ok('across events only the analyst kind remains, so no question', across.asked.fields[0].key !== 'kind');
+});
+
+test('saving an analyst relationship: addressed by MISP type, landing with what MISP returned', async () => {
+    const g = await withAnalyst(analystOnly);
+    const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.attrE1, foreign.attr, { custom: 'seen-with' }));
+    ok('to the source, typed', g.fetchLog.some(f => /\/misp\/analystData\/add\/Relationship\/e1\/Attribute\.json$/.test(f.url)));
+    eq('body', g.adds, [{ Relationship: { related_object_uuid: 'x1', related_object_type: 'Attribute', relationship_type: 'seen-with' } }]);
+    eq('decision', d, { accept: true,
+        data: { kind: 'analyst-relationship', label: 'seen-with', uuid: 'AR-NEW', orgc: 'ORG-ME', authors: 'me@x' },
+        persisted: true });
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(foreign.event, own.objA, { custom: 'about' }));
+    eq('an event source and an object target', g.adds[1].Relationship.related_object_type, 'Object');
+    ok('event source path', g.fetchLog.some(f => /analystData\/add\/Relationship\/R7\/Event\.json$/.test(f.url)));
+});
+
+test('the chosen link type decides the write; an unoffered one falls back to the first', async () => {
+    const g = await withAnalyst(both);
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { kind: 'analyst-relationship', custom: 'x' }));
+    eq('analyst chosen: analyst POST only', [g.adds.length, g.fetchLog.filter(f => /objectReferences\/add/.test(f.url)).length], [1, 0]);
+    const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { kind: 'bogus', custom: 'y' }));
+    eq('bogus: the reference', d.data.kind, 'object-reference');
+});
+
+test('a refused analyst save leaves no edge', async () => {
+    const g = await withAnalyst(analystOnly, { add: { __status: 403, message: 'nope' } });
+    eq('refused', await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.attrE1, own.objA, { custom: 'x' })), false);
+    ok('reported', g.graph.notices.some(n => n.level === 'error' && n.msg === 'nope'));
+});
+
+test('an analyst relationship is deleted only where MISP would allow it', async () => {
+    const g = await withAnalyst(analystOnly);
+    const d = await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [arEdge('AR1', 'ORG-ME'), arEdge('AR2', 'ORG-THEM')] }, true));
+    eq('my org\'s goes, theirs stays', d.edges.map(e => e.id), ['ar:AR1']);
+    ok('by uuid', g.fetchLog.some(f => /\/misp\/analystData\/delete\/Relationship\/AR1\.json$/.test(f.url)));
+    eq('sealed', d.persisted, true);
+    eq('an analyst-only user cannot delete a reference',
+       await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [refEdge('R1')] }, true)), { accept: true, edges: [] });
+    const admin = await withAnalyst(Object.assign({ siteAdmin: true }, analystOnly));
+    eq('a site admin deletes any org\'s',
+       (await admin.opts.callbacks.onBeforeDelete(delCtx({ edges: [arEdge('AR2', 'ORG-THEM')] }, true))).edges.length, 1);
+    const editor = await withAnalyst({ orgUuid: 'ORG-ME' });
+    eq('an editor without analyst rights cannot delete one',
+       await editor.opts.callbacks.onBeforeDelete(delCtx({ edges: [arEdge('AR1', 'ORG-ME')] }, true)), { accept: true, edges: [] });
+    const noOrg = await withAnalyst({ canEdit: false, canAnalyst: true });
+    eq('an unknown org matches nothing, not even a blank orgc',
+       await noOrg.opts.callbacks.onBeforeDelete(delCtx({ edges: [arEdge('AR3', '')] }, true)), { accept: true, edges: [] });
+});
+
+test('a mixed selection deletes each kind at its own endpoint', async () => {
+    const g = await withAnalyst(both);
+    const d = await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [refEdge('R1'), arEdge('AR1', 'ORG-ME')] }, true));
+    eq('both', d.edges.map(e => e.id), ['ref:R1', 'ar:AR1']);
+    ok('reference soft', g.fetchLog.some(f => /objectReferences\/delete\/R1\.json$/.test(f.url)));
+    ok('relationship at analystData', g.fetchLog.some(f => /analystData\/delete\/Relationship\/AR1\.json$/.test(f.url)));
 });
 
 /* ─────────── task 9: the event's elements, as an origin-less pivot ─────────── */
