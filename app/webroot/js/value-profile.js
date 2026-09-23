@@ -1287,11 +1287,27 @@
                 total += parseInt(bars[i].dataset.vpBucketCount, 10) || 0;
             }
         }
-        var span = from === to
-            ? bars[from].dataset.vpBucketLabel
-            : bars[from].dataset.vpBucketLabel + ' – '
-                + bars[to].dataset.vpBucketLabel;
-        caption.textContent = span + ' · ' + total;
+        caption.textContent = bucketSpan(bars[from], bars[to]) + ' · ' + total;
+    }
+
+    /**
+     * A week's label is itself a range, so a run of weeks is named by
+     * its first and last day rather than by joining two labels.
+     *
+     * @param {Element} first Bar
+     * @param {Element} last Bar
+     * @return {string}
+     */
+    function bucketSpan(first, last) {
+        if (first === last) {
+            return first.dataset.vpBucketLabel;
+        }
+        if (/–/.test(first.dataset.vpBucketLabel)) {
+            return first.dataset.vpBucketFrom + ' – '
+                + last.dataset.vpBucketTo;
+        }
+        return first.dataset.vpBucketLabel + ' – '
+            + last.dataset.vpBucketLabel;
     }
 
     /**
@@ -1326,15 +1342,12 @@
             return;
         }
         /*
-         * A row-counting strip has no date inputs on screen, so at rest
-         * its caption names the period it is set to. The count stays
-         * with the list's own *N of M shown*.
+         * A strip whose date inputs are hidden names the period it is
+         * set to at rest. The count stays with the list's own *N of M
+         * shown*.
          */
-        var period = timeBrushPeriod.get(strip);
-        caption.textContent = period
-            ? (period[0] === period[1]
-                ? period[0] : period[0] + ' – ' + period[1])
-            : caption.dataset.vpCaptionDefault || '';
+        caption.textContent = timeBrushPeriod.get(strip)
+            || caption.dataset.vpCaptionDefault || '';
     }
 
     /**
@@ -1492,12 +1505,13 @@
                     bars.length
                 );
                 if (strip.dataset.vpTimebrushCount === 'rows'
+                    && from && from.type === 'hidden'
                     && first <= last
                 ) {
-                    timeBrushPeriod.set(strip, [
-                        bars[first].dataset.vpBucketLabel,
-                        bars[last].dataset.vpBucketLabel,
-                    ]);
+                    timeBrushPeriod.set(
+                        strip,
+                        bucketSpan(bars[first], bars[last])
+                    );
                     captionDefault(strip);
                 }
             }

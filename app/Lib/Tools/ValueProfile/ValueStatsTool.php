@@ -17,12 +17,6 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
  */
 class ValueStatsTool
 {
-    /**
-     * Buckets in the occurrence rail's sparkline. Forty is what the
-     * design draws and what the shipped `.vp-spark` renders.
-     */
-    const SPARK_BUCKETS = 40;
-
     /** MISP's "inherit from the parent" distribution level. */
     const INHERIT = 5;
 
@@ -759,12 +753,9 @@ class ValueStatsTool
      * the rail can draw the shape of a date before the reader picks a
      * range out of it.
      *
-     * **`ValueProfileBuckets` is reused here**, unlike the forty-slice
-     * sparkline beside it (see `seenDensity()`). The difference is the
-     * data: a `timestamp` is an instant, so this is a `Y-m-d` count map
-     * tallied into calendar buckets, which is exactly the shape
-     * `series()` and `locate()` were built for. The sparkline's input is
-     * a set of *intervals*, which is what did not fit.
+     * A `timestamp` is an instant, so this is a `Y-m-d` count map
+     * tallied into calendar buckets. `seenDensity()` shares the buckets
+     * and counts intervals into them instead.
      *
      * The unit follows the span by a rule this caller owns, per the
      * tool's own contract. The default rule stops at weeks, which draws
@@ -780,19 +771,8 @@ class ValueStatsTool
      */
     private static function timeHistogram(array $span, array $days)
     {
-        $spanDays = 1 + (int)round(
-            (strtotime($span['to']) - strtotime($span['from'])) / 86400
-        );
-        $unit = ValueProfileBuckets::unitForSpan($spanDays, array(
-            array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
-            array('days' => 370, 'unit' => ValueProfileBuckets::WEEK),
-            array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
-        ));
-        $series = ValueProfileBuckets::series(
-            $span['from'],
-            $span['to'],
-            $unit
-        );
+        $unit = self::railUnit($span);
+        $series = self::railSeries($span);
         $index = ValueProfileBuckets::locate($series);
         $counts = array_fill(0, count($series), 0);
         foreach ($days as $day => $count) {
@@ -817,18 +797,40 @@ class ValueStatsTool
     }
 
     /**
-     * The sparkline under the rail's `First / last seen` heading.
+     * @param array $span `from` and `to`, `Y-m-d`
+     * @return string The rail's bucket unit for that span
+     */
+    private static function railUnit(array $span)
+    {
+        $spanDays = 1 + (int)round(
+            (strtotime($span['to']) - strtotime($span['from'])) / 86400
+        );
+        return ValueProfileBuckets::unitForSpan($spanDays, array(
+            array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
+            array('days' => 370, 'unit' => ValueProfileBuckets::WEEK),
+            array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+        ));
+    }
+
+    /**
+     * @param array $span `from` and `to`, `Y-m-d`
+     * @return array From `ValueProfileBuckets::series()`
+     */
+    private static function railSeries(array $span)
+    {
+        return ValueProfileBuckets::series(
+            $span['from'],
+            $span['to'],
+            self::railUnit($span)
+        );
+    }
+
+    /**
+     * The strip under the rail's `First / last seen` heading.
      *
-     * Forty buckets across the span the value was seen over, each
-     * counting the occurrences whose seen interval covers it — an
-     * interval overlap rather than a point count, because an occurrence
-     * seen for three months is present in all of them.
-     *
-     * `ValueProfileBuckets` is the page's bucket primitive and is not
-     * used here. It divides a span into calendar units keyed `Y-m-d` and
-     * tallies a day-keyed count map; forty equal slices of an arbitrary
-     * span are not a calendar unit, and converting intervals to days
-     * first is both the expensive part and the part it does not do.
+     * The same calendar buckets as the three time panes, each counting
+     * the occurrences whose seen interval overlaps it — an occurrence
+     * seen for three months is present in all three.
      *
      * `first_seen` and `last_seen` are optional, and either may be set
      * without the other — a row with only one of them is a point, and
@@ -838,7 +840,7 @@ class ValueStatsTool
      * silently drop.
      *
      * @param array $rows
-     * @return array `seen_spark`, `seen_from`, `seen_to`, `seen_unset`
+     * @return array `seen_span`, `seen_buckets`, `seen_unset`
      */
     private static function seenDensity(array $rows)
     {
@@ -853,56 +855,47 @@ class ValueStatsTool
             }
             $from = $first === null ? $last : $first;
             $to = $last === null ? $first : $last;
-            $spans[] = $from <= $to
-                ? array($from, $to)
-                : array($to, $from);
+            $spans[] = array(
+                date('Y-m-d', min($from, $to)),
+                date('Y-m-d', max($from, $to)),
+            );
         }
-
         if (empty($spans)) {
-            /*
-             * No sparkline and no pre-filled dates rather than forty
-             * zeroes and two empty inputs: a chart of nothing is a
-             * claim that there was nothing to see, and what is true is
-             * that nobody recorded when.
-             */
             return array(
-                'seen_spark' => array(),
-                'seen_from' => null,
-                'seen_to' => null,
+                'seen_span' => null,
+                'seen_buckets' => null,
                 'seen_unset' => $unset,
             );
         }
 
-        $min = null;
-        $max = null;
-        foreach ($spans as $span) {
-            $min = $min === null ? $span[0] : min($min, $span[0]);
-            $max = $max === null ? $span[1] : max($max, $span[1]);
-        }
-
-        $buckets = array_fill(0, self::SPARK_BUCKETS, 0);
-        $width = ($max - $min) / self::SPARK_BUCKETS;
-        foreach ($spans as $span) {
-            if ($width <= 0) {
-                // Every occurrence seen at the same instant. One bucket
-                // is the honest picture; forty identical bars would
-                // draw a duration nothing has.
-                $buckets[0]++;
-                continue;
+        $span = array(
+            'from' => min(array_column($spans, 0)),
+            'to' => max(array_column($spans, 1)),
+        );
+        $bars = array();
+        $max = 0;
+        foreach (self::railSeries($span) as $bucket) {
+            $count = 0;
+            foreach ($spans as $seen) {
+                if ($seen[0] <= $bucket['to'] && $seen[1] >= $bucket['from']) {
+                    $count++;
+                }
             }
-            $fromBucket = (int)floor(($span[0] - $min) / $width);
-            $toBucket = (int)floor(($span[1] - $min) / $width);
-            $fromBucket = max(0, min(self::SPARK_BUCKETS - 1, $fromBucket));
-            $toBucket = max(0, min(self::SPARK_BUCKETS - 1, $toBucket));
-            for ($i = $fromBucket; $i <= $toBucket; $i++) {
-                $buckets[$i]++;
-            }
+            $max = max($max, $count);
+            $bars[] = array(
+                'from' => $bucket['from'],
+                'to' => $bucket['to'],
+                'label' => $bucket['title'],
+                'count' => $count,
+            );
         }
-
         return array(
-            'seen_spark' => $buckets,
-            'seen_from' => date('Y-m-d', $min),
-            'seen_to' => date('Y-m-d', $max),
+            'seen_span' => $span,
+            'seen_buckets' => array(
+                'unit' => self::railUnit($span),
+                'max' => $max,
+                'bars' => $bars,
+            ),
             'seen_unset' => $unset,
         );
     }

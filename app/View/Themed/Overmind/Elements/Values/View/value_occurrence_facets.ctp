@@ -166,31 +166,6 @@ foreach ($groups['galaxy'] as &$facet) {
 }
 unset($facet);
 
-/*
- * Empty when no occurrence carries either seen date. Forty zero bars and
- * two date inputs pre-filled from nothing would claim there was nothing
- * to see; what is true is that nobody recorded when, and the line under
- * the group is what says so.
- */
-$spark = $facets['seen_spark'];
-$sparkMax = empty($spark) ? 1 : max(1, max($spark));
-
-/*
- * Still disabled, and now it has to say why rather than only that: two
- * working date ranges sit directly above it, so "not wired yet" would
- * read as an oversight. It is a different question. `timestamp` and
- * `publish_timestamp` are instants, and cutting them is a point-in-range
- * test; first/last seen is an *interval*, and the question a reader asks
- * of it — "was this live during my window" — is an overlap test, which
- * the range filter above does not do.
- */
-$seenDisabled = __(
-    'Not a date cut like the two above: first and last seen are an'
-    . ' interval, so filtering them means asking which occurrences'
-    . ' overlap a window rather than which fall inside one. Not wired'
-    . ' in this pass.'
-);
-
 $hasState = !empty($groups['state']) || !empty($facets['deleted']);
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
@@ -276,80 +251,13 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
          * cannot do.
          *
          * Ranges rather than facet checkboxes because a date has no
-         * vocabulary to tick, and all three are wired — unlike the
-         * first/last-seen control further down, which needs an overlap
-         * test rather than a point test and stays disabled.
+         * vocabulary to tick.
          *
          * The inputs start empty and carry the span as `min`/`max`. A
          * control pre-filled with the whole span looks like a filter
          * already applied, and "no bound" must not render the same as
          * "the widest bound".
          */
-        /*
-         * The same words `value_zoom` uses for a grain, so the two
-         * captions on this page name a bucket the same way.
-         */
-        $grainWords = array(
-            'day' => __('one bar a day'),
-            'week' => __('one bar a week'),
-            'month' => __('one bar a month'),
-        );
-        /*
-         * The date axis under a strip: which bars carry a tick, and
-         * which of those carry a label.
-         *
-         * **The next unit up from the grain**, so the axis is always
-         * something the bars are not already saying. Monthly bars get
-         * year marks; daily and weekly bars get month marks. The
-         * caption underneath states the grain and both ends, so the
-         * axis only has to let a reader place a bar between them —
-         * which is what the strip could not do at all before: a bar
-         * four fifths of the way along nine years read as *recent* and
-         * no more precisely than that.
-         *
-         * **Keyed by bar index, and the value may be null** — a tick
-         * without a label. The marks are the reading and they stay;
-         * `8.8.8.8`'s weekly panes cross twelve months in 342px and
-         * twelve three-letter labels would overlap into a smear.
-         *
-         * **The opening bucket is never a tick.** A span that starts in
-         * June is not a boundary of the year it starts in, and marking
-         * it would put a `2022` under a bar that is not January.
-         *
-         * A label in the last few bars is dropped rather than drawn:
-         * `.vp-spark-tick` is left-aligned on its slot, so one at the
-         * end hangs off the edge of the rail. 8% of the bars is about
-         * 27px at every bar count this strip draws.
-         */
-        $timeScale = function (array $histogram) {
-            $bars = $histogram['bars'];
-            $annual = $histogram['unit'] === 'month';
-            $marks = array();
-            $seen = null;
-            foreach ($bars as $index => $bar) {
-                $period = substr($bar['from'], 0, $annual ? 4 : 7);
-                $opened = $period !== $seen;
-                $seen = $period;
-                if (!$opened || $index === 0) {
-                    continue;
-                }
-                $marks[$index] = $annual
-                    ? $period
-                    : date('M', strtotime($bar['from']));
-            }
-            $step = max(1, (int)ceil(count($marks) / 6));
-            $tail = count($bars)
-                - max(1, (int)ceil(count($bars) * 0.08));
-            $nth = 0;
-            $scale = array();
-            foreach ($marks as $index => $label) {
-                $scale[$index] = ($nth % $step === 0 && $index < $tail)
-                    ? $label
-                    : null;
-                $nth++;
-            }
-            return $scale;
-        };
         $scopes = array(
             array(
                 'key' => 'timestamp',
@@ -432,195 +340,59 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
             </select>
 
             <?php foreach ($scopes as $scope): ?>
-                <?php
-                $span = $facets['time_spans'][$scope['key']];
-                $histogram = $facets['time_buckets'][$scope['key']];
-                ?>
                 <div data-vp-time-pane="<?= h($scope['key']) ?>"<?=
                     $scope['key'] === $timeScope ? '' : ' class="d-none"' ?>>
-                    <?php if ($span === null): ?>
-                        <?php
-                        /*
-                         * No row carries this date, so there is nothing
-                         * to bound. A live-looking control over a column
-                         * that is empty for every row is the one thing
-                         * this page's rules rule out.
-                         */
-                        ?>
-                        <div class="small text-muted">
-                            <?= h($scope['absent']) ?>
-                        </div>
-                    <?php else: ?>
-                        <?php
-                        $caption = $histogram === null
-                            ? sprintf(
-                                __('%1$s to %2$s'),
-                                $span['from'],
-                                $span['to']
-                            )
-                            : sprintf(
-                                __('%1$s · %2$s to %3$s'),
-                                $grainWords[$histogram['unit']],
-                                $span['from'],
-                                $span['to']
-                            );
-                        ?>
-                        <?php if ($histogram !== null): ?>
-                            <?php
-                            /*
-                             * The same brush the History chart and the
-                             * Sightings navigator use, over a strip of
-                             * CSS bars rather than a canvas:
-                             * `00-shared.md` §7 keeps bars as the
-                             * standing exception to the Chart.js rule,
-                             * and this needs to be a third the height of
-                             * History's chart to sit in a `col-lg-3`
-                             * rail above nine facet groups.
-                             *
-                             * Drag to pick a range, click to clear. The
-                             * gesture writes the two date inputs below
-                             * and fires their own `change`, so the
-                             * window stays statable as two dates and one
-                             * filter path runs whether the reader
-                             * brushed or typed — which is the same
-                             * reason the History chart sits directly
-                             * above its own inputs.
-                             */
-                            ?>
-                            <div class="vp-timebrush"
-                                 data-vp-timebrush="<?=
-                                     h($scope['key']) ?>">
-                                <div class="vp-spark vp-spark-attribute
-                                            vp-spark-flush"
-                                     role="img"
-                                     aria-label="<?= h(sprintf(
-                                         __(
-                                             'Occurrences by %1$s, %2$s.'
-                                             . ' Drag to pick a range.'
-                                         ),
-                                         mb_strtolower($scope['label']),
-                                         $grainWords[$histogram['unit']]
-                                     )) ?>">
-                                    <?php foreach (
-                                        $histogram['bars'] as $bar
-                                    ): ?>
-                                        <span class="vp-spark-bar<?=
-                                            $bar['count'] === 0
-                                                ? ' vp-spark-bar-empty'
-                                                : '' ?>"
-                                              style="--vp-spark-h: <?=
-                                                  h($histogram['max'] > 0
-                                                      ? round(
-                                                          $bar['count']
-                                                          / $histogram['max']
-                                                          * 100
-                                                      )
-                                                      : 0) ?>%"
-                                              data-vp-bucket-from="<?=
-                                                  h($bar['from']) ?>"
-                                              data-vp-bucket-to="<?=
-                                                  h($bar['to']) ?>"
-                                              data-vp-bucket-label="<?=
-                                                  h($bar['label']) ?>"
-                                              data-vp-bucket-count="<?=
-                                                  h($bar['count']) ?>">
-                                        </span>
-                                    <?php endforeach; ?>
-                                </div>
-                                <div class="vp-brush" data-vp-brush>
-                                    <div class="vp-brush-mask"
-                                         data-vp-brush-mask-left></div>
-                                    <div class="vp-brush-window"
-                                         data-vp-brush-handle></div>
-                                    <div class="vp-brush-mask"
-                                         data-vp-brush-mask-right></div>
-                                </div>
-                            </div>
-                            <?php $scale = $timeScale($histogram); ?>
-                            <?php if (!empty($scale)): ?>
-                                <?php
-                                /*
-                                 * `aria-hidden`: the strip's own
-                                 * accessible name says what the axis
-                                 * is and the caption below states both
-                                 * ends, so a screen reader walking
-                                 * fifty-two bare slots between them is
-                                 * reading the gridlines rather than
-                                 * the chart.
-                                 *
-                                 * Outside `.vp-timebrush` rather than
-                                 * in it: the brush layer covers that
-                                 * box edge to edge, and an axis under
-                                 * it would be both dimmed by the mask
-                                 * and unreadable through the window.
-                                 */
-                                ?>
-                                <div class="vp-spark-scale
-                                            vp-timebrush-scale"
-                                     aria-hidden="true">
-                                    <?php foreach (
-                                        $histogram['bars'] as $at => $bar
-                                    ): ?>
-                                        <span class="vp-spark-slot<?=
-                                            array_key_exists($at, $scale)
-                                                ? ' vp-spark-slot-tick'
-                                                : '' ?>"><?php
-                                            if (!empty($scale[$at])):
-                                        ?><span class="vp-spark-tick"><?=
-                                            h($scale[$at])
-                                        ?></span><?php endif; ?></span>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
-                        <?php endif; ?>
-
-                        <div class="input-group input-group-sm">
-                            <input type="date" class="form-control"
-                                   data-vp-range-from="<?=
-                                       h($scope['key']) ?>"
-                                   min="<?= h($span['from']) ?>"
-                                   max="<?= h($span['to']) ?>"
-                                   aria-label="<?= h(sprintf(
-                                       __('%s from'),
-                                       $scope['label']
-                                   )) ?>">
-                            <span class="input-group-text">
-                                <?= __('to') ?>
-                            </span>
-                            <input type="date" class="form-control"
-                                   data-vp-range-to="<?=
-                                       h($scope['key']) ?>"
-                                   min="<?= h($span['from']) ?>"
-                                   max="<?= h($span['to']) ?>"
-                                   aria-label="<?= h(sprintf(
-                                       __('%s to'),
-                                       $scope['label']
-                                   )) ?>">
-                        </div>
-                        <?php
-                        /*
-                         * States the grain, and names the bucket under
-                         * the pointer while the reader is over the
-                         * strip. A bar three pixels wide is not
-                         * self-describing, and the brush layer sits on
-                         * top of the bars so their own `title` never
-                         * reaches the reader.
-                         */
-                        ?>
-                        <div class="small text-muted mt-1"
-                             data-vp-timebrush-caption="<?=
-                                 h($scope['key']) ?>"
-                             data-vp-caption-default="<?= h($caption) ?>">
-                            <?= h($caption) ?>
-                        </div>
-                        <?php if ($scope['note'] !== null): ?>
-                            <div class="small text-muted mt-1">
-                                <?= h($scope['note']) ?>
-                            </div>
-                        <?php endif; ?>
-                    <?php endif; ?>
+                    <?= $this->element(
+                        'Values/View/value_occurrence_time_pane',
+                        array(
+                            'key' => $scope['key'],
+                            'label' => $scope['label'],
+                            'span' => $facets['time_spans'][$scope['key']],
+                            'histogram' =>
+                                $facets['time_buckets'][$scope['key']],
+                            'absent' => $scope['absent'],
+                            'note' => $scope['note'],
+                        )
+                    ) ?>
                 </div>
             <?php endforeach; ?>
+        </div>
+
+        <?php
+        /*
+         * Its own group rather than a fourth scope: the dropdown's dates
+         * replace one another, and a seen window is asked alongside any
+         * of them. Rows carry an interval, so the cut keeps every
+         * occurrence whose seen span overlaps the window.
+         */
+        ?>
+        <div class="vp-facetgrp">
+            <div class="vp-subhead"><?= __('First / last seen') ?></div>
+            <?= $this->element(
+                'Values/View/value_occurrence_time_pane',
+                array(
+                    'key' => 'seen',
+                    'label' => __('Seen'),
+                    'span' => $facets['seen_span'],
+                    'histogram' => $facets['seen_buckets'],
+                    'absent' => __('No occurrence here carries a first or last'
+                        . ' seen.'),
+                    'note' => empty($facets['seen_unset'])
+                        || empty($facets['seen_span'])
+                        ? null
+                        : sprintf(
+                            __n(
+                                '%d occurrence carries no first/last seen,'
+                                    . ' and a cut here removes it.',
+                                '%d occurrences carry no first/last seen,'
+                                    . ' and a cut here removes them.',
+                                $facets['seen_unset']
+                            ),
+                            $facets['seen_unset']
+                        ),
+                    'countRows' => true,
+                )
+            ) ?>
         </div>
 
         <?php foreach ($defined as $group): ?>
@@ -631,66 +403,6 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
                 'values' => $groups[$group['key']],
             )) ?>
         <?php endforeach; ?>
-
-        <?php
-        /*
-         * Not a facet list: first_seen and last_seen are a span, and the
-         * question a reader asks of them is "when was this live", which
-         * a set of checkboxes cannot express. The bars are the density
-         * of those spans over the value's lifetime.
-         */
-        ?>
-        <div class="vp-facetgrp">
-            <div class="vp-subhead"><?= __('First / last seen') ?></div>
-            <div class="d-flex flex-column gap-2">
-                <?php if (!empty($spark)): ?>
-                    <div class="vp-spark vp-spark-attribute"
-                         role="img"
-                         aria-label="<?= h(sprintf(
-                             __('Occurrences seen between %1$s and %2$s'),
-                             $facets['seen_from'],
-                             $facets['seen_to']
-                         )) ?>">
-                        <?php foreach ($spark as $bucket): ?>
-                            <span class="vp-spark-bar<?=
-                                $bucket === 0 ? ' vp-spark-bar-empty' : '' ?>"
-                                  style="--vp-spark-h: <?=
-                                      h(round(($bucket / $sparkMax) * 100))
-                                  ?>%">
-                            </span>
-                        <?php endforeach; ?>
-                    </div>
-                    <div class="input-group input-group-sm"
-                         title="<?= h($seenDisabled) ?>">
-                        <input type="date" class="form-control"
-                               value="<?= h($facets['seen_from']) ?>"
-                               aria-label="<?= __('Seen from') ?>" disabled>
-                        <span class="input-group-text"><?= __('to') ?></span>
-                        <input type="date" class="form-control"
-                               value="<?= h($facets['seen_to']) ?>"
-                               aria-label="<?= __('Seen to') ?>" disabled>
-                    </div>
-                <?php endif; ?>
-                <?php if (!empty($facets['seen_unset'])): ?>
-                    <?php
-                    /*
-                     * `first_seen` and `last_seen` are optional, so a
-                     * date cut silently drops whatever never had one.
-                     * How many that is belongs beside the control.
-                     */
-                    ?>
-                    <div class="small text-muted">
-                        <?= h(sprintf(
-                            __(
-                                '%d occurrences carry no first/last'
-                                . ' seen at all.'
-                            ),
-                            $facets['seen_unset']
-                        )) ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
 
         <?php if ($hasState): ?>
             <?php

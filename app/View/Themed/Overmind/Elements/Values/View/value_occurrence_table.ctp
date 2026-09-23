@@ -319,6 +319,20 @@ $rowData = function ($row) use ($tokens, $sortKeys, &$defaultOrder) {
         $times[] = 'event:'
             . date('YmdHi', (int)$row['Event']['timestamp']);
     }
+    /*
+     * An interval, so the seen cut is an overlap test. A row with one
+     * end is a point at that end, as the rail's bars count it.
+     */
+    $first = empty($row['Attribute']['first_seen'])
+        ? false : strtotime($row['Attribute']['first_seen']);
+    $last = empty($row['Attribute']['last_seen'])
+        ? false : strtotime($row['Attribute']['last_seen']);
+    if ($first !== false || $last !== false) {
+        $from = $first === false ? $last : $first;
+        $to = $last === false ? $first : $last;
+        $times[] = 'seen:' . date('YmdHi', min($from, $to))
+            . '-' . date('YmdHi', max($from, $to));
+    }
     if (!empty($times)) {
         $data['vp-times'] = implode(' ', $times);
     }
