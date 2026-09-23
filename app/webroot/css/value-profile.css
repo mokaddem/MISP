@@ -9821,9 +9821,9 @@ th.vp-rel-num {
  * The sources keep the vocabulary the rest of the page already
  * taught: a sighting is the Sightings panel's purple, a false positive
  * is the benign green it is on the Sightings chart, an expiration is
- * the quiet grey, a note is the Analyst tab's plum and an opinion is
- * the conflict amber. A reader who has seen one tab recognises the
- * next.
+ * the quiet grey, and a note is the Analyst tab's plum, with an opinion
+ * the lighter rose beside it. A reader who has seen one tab recognises
+ * the next.
  * ================================================================== */
 
 :root {
@@ -9844,7 +9844,11 @@ th.vp-rel-num {
     --vp-tl-expiration: var(--vp-sight-exp);
     --vp-tl-publication: var(--event);
     --vp-tl-note: var(--analystData);
-    --vp-tl-opinion: var(--vp-conflict);
+    /*
+     * Not the conflict amber, which deutan vision cannot tell from the
+     * seen green beside it in the spine.
+     */
+    --vp-tl-opinion: #af5f7d;
     --vp-tl-edit: var(--object);
     --vp-tl-seen: var(--attribute);
     /*
@@ -9930,6 +9934,7 @@ th.vp-rel-num {
     --vp-tl-note: #c26189;
     --vp-tl-edit: #a2938f;
     --vp-tl-proposal: #6ea8fe;
+    --vp-tl-opinion: #eba5c3;
     /*
      * A fourth, and the one that made the list rather than a colour
      * that happened to be dark: `#876a1d` clears only **3.02:1** on the
