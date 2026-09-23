@@ -3031,10 +3031,12 @@
              * that ran out of span would otherwise shrink the view.
              *
              * @param {number} direction -1 or 1
+             * @param {number} scale Half-windows to move, default 1
              */
-            step: function (direction) {
+            step: function (direction, scale) {
                 var days = view.to - view.from + 1;
-                var by = direction * Math.max(1, Math.round(days / 2));
+                var by = direction * Math.max(1,
+                    Math.round(days / 2 * (scale || 1)));
                 var from = view.from + by;
                 var to = view.to + by;
                 if (from < 0) {
@@ -3104,12 +3106,82 @@
             function (button) {
                 button.addEventListener('click', function (event) {
                     event.preventDefault();
+                    if (button.vpHeld) {
+                        button.vpHeld = false;
+                        return;
+                    }
                     var step = steps[button.dataset.vpZoomStep];
                     if (step) {
                         step();
                         changed();
                     }
                 });
+            }
+        );
+        root.querySelectorAll('[data-vp-zoom-step="left"],'
+            + ' [data-vp-zoom-step="right"]').forEach(function (button) {
+            holdToPan(button, zoom, changed);
+        });
+    }
+
+    /*
+     * Holding a pan button keeps panning, and faster the longer it is
+     * held: at five daily bars one click moves three days, so crossing
+     * a year is a hold rather than a hundred clicks.
+     */
+    var ZOOM_HOLD_DELAY = 350;
+    var ZOOM_HOLD_EVERY = 110;
+    var ZOOM_HOLD_RAMP = 5;
+    var ZOOM_HOLD_MAX_SCALE = 8;
+
+    /**
+     * @param {Element} button A `left` or `right` step
+     * @param {Object} zoom From `makeZoom`
+     * @param {Function} changed Called after each step
+     */
+    function holdToPan(button, zoom, changed) {
+        var direction = button.dataset.vpZoomStep === 'left' ? -1 : 1;
+        var delay = null;
+        var repeat = null;
+
+        function stop() {
+            clearTimeout(delay);
+            clearInterval(repeat);
+            delay = null;
+            repeat = null;
+        }
+
+        button.addEventListener('pointerdown', function (event) {
+            if (event.button !== 0 || button.disabled) {
+                return;
+            }
+            stop();
+            button.vpHeld = false;
+            // A redraw can move the button from under the pointer, which
+            // would otherwise read as the reader letting go.
+            button.setPointerCapture(event.pointerId);
+            var ticks = 0;
+            delay = setTimeout(function () {
+                button.vpHeld = true;
+                repeat = setInterval(function () {
+                    var canMove = direction < 0
+                        ? zoom.canLeft()
+                        : zoom.canRight();
+                    if (!canMove) {
+                        stop();
+                        return;
+                    }
+                    var scale = Math.min(ZOOM_HOLD_MAX_SCALE,
+                        Math.pow(2, Math.floor(ticks / ZOOM_HOLD_RAMP)));
+                    ticks += 1;
+                    zoom.step(direction, scale);
+                    changed();
+                }, ZOOM_HOLD_EVERY);
+            }, ZOOM_HOLD_DELAY);
+        });
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(
+            function (name) {
+                button.addEventListener(name, stop);
             }
         );
     }
@@ -4260,16 +4332,8 @@
 
     /**
      * Move the preset select onto whichever preset the drawn span is,
-     * if it is one of them.
-     *
-     * Otherwise it is left alone. The two controls answer different
-     * questions once a zoom exists — the select is a span the reader
-     * asked for by name, the caption is the span on screen — and the
-     * caption is the one that is always right, which is why it states
-     * the dates and goes bold once they are not the whole span. But
-     * `show the whole span` *is* one of the presets, so leaving the
-     * select on `last 90 days` after that button had been pressed would
-     * be a control contradicting the chart it drives.
+     * or onto `Custom span` when it is none of them, so the select
+     * never names a range the chart is no longer drawing.
      *
      * @param {Element} panel
      */
@@ -4278,13 +4342,23 @@
         if (!select || !sight.zoom || !sight.data) {
             return;
         }
+        var custom = select.querySelector('[data-vp-sight-range-custom]');
         var span = sight.zoom.span();
+        var matched = null;
         sight.data.spans.forEach(function (preset) {
             if (preset.from === span.from && preset.to === span.to) {
-                select.value = preset.key;
-                sight.rangeKey = preset.key;
+                matched = preset.key;
             }
         });
+        if (custom) {
+            custom.hidden = matched !== null;
+        }
+        if (matched !== null) {
+            select.value = matched;
+            sight.rangeKey = matched;
+        } else if (custom) {
+            custom.selected = true;
+        }
     }
 
     /**
@@ -9395,6 +9469,7 @@
                 sightToSpan(sight.rangeKey);
                 var sightPanel = document.querySelector('[data-vp-sight]');
                 if (sightPanel) {
+                    syncSightPreset(sightPanel);
                     refreshSight(sightPanel);
                 }
             }

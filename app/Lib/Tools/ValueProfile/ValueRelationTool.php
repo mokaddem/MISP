@@ -63,6 +63,12 @@ class ValueRelationTool
     const EXAMPLE_FIELDS = 2;
 
     /**
+     * Objects a sibling row names by id, newest first. The rest are
+     * still counted in `objects`; the cell has room for a few links.
+     */
+    const SIBLING_OBJECT_IDS = 3;
+
+    /**
      * The token for a neighbour no enabled list names.
      *
      * A constant rather than a spelled string because the row carries
@@ -1755,7 +1761,7 @@ class ValueRelationTool
                     'ours' => array(),
                 );
             }
-            $triples[$key]['objects'][$objectId] = true;
+            $triples[$key]['objects'][$objectId] = $eventId;
             $triples[$key]['events'][$eventId] = true;
             $triples[$key]['orgs'][(int)$row['Event']['orgc_id']] = true;
             /*
@@ -1840,6 +1846,16 @@ class ValueRelationTool
                 $names[] = self::orgName($orgs, $orgId);
             }
             sort($names);
+            $named = $triple['objects'];
+            krsort($named);
+            $objectIds = array();
+            foreach (array_slice($named, 0, self::SIBLING_OBJECT_IDS, true)
+                as $objectId => $objectEvent) {
+                $objectIds[] = array(
+                    'id' => (int)$objectId,
+                    'event' => (int)$objectEvent,
+                );
+            }
             $sibSpread = self::spreadOf(
                 $sibPrevalence,
                 $triple['value'],
@@ -1852,6 +1868,7 @@ class ValueRelationTool
                 'value' => $triple['value'],
                 'type' => $triple['type'],
                 'objects' => $held,
+                'object_ids' => $objectIds,
                 'events' => count($events),
                 'event' => $oneEvent ? $events[0] : null,
                 'orgs' => $names,

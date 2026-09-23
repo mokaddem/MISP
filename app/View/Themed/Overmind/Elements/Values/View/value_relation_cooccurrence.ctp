@@ -1473,6 +1473,38 @@ $headerSub = ob_get_clean();
                                     <span class="font-monospace small">
                                         <?= h($sibling['object']) ?>
                                     </span>
+                                    <?php
+                                    /*
+                                     * To the event's objects tab, as the
+                                     * other panels link an object: this
+                                     * theme's event view takes no
+                                     * `focus:`, so the title names it.
+                                     */
+                                    $sibIds = $sibling['object_ids'] ?? array();
+                                    ?>
+                                    <?php foreach ($sibIds as $sibObject): ?>
+                                        <a href="<?= h($baseurl)
+                                            ?>/events/view2/<?=
+                                            h($sibObject['event'])
+                                            ?>#tab-objects"
+                                           class="font-monospace small ms-1"
+                                           title="<?= h(sprintf(
+                                               __('Object #%1$s in event #%2$s'),
+                                               $sibObject['id'],
+                                               $sibObject['event']
+                                           )) ?>">#<?=
+                                            h($sibObject['id']) ?></a>
+                                    <?php endforeach; ?>
+                                    <?php $sibIdsMore = (int)$sibling['objects']
+                                        - count($sibIds); ?>
+                                    <?php if ($sibIds && $sibIdsMore > 0): ?>
+                                        <span class="text-muted small">
+                                            <?= h(sprintf(
+                                                __('+%d more'),
+                                                $sibIdsMore
+                                            )) ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <?php $sibDesc = $sibling['kind']
                                     === ValueFieldKind::DESCRIPTIVE; ?>

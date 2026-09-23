@@ -40,12 +40,12 @@ $steps = array(
     array(
         'step' => 'left',
         'icon' => 'fas fa-chevron-left',
-        'title' => __('Move back'),
+        'title' => __('Move back — hold to keep moving'),
     ),
     array(
         'step' => 'right',
         'icon' => 'fas fa-chevron-right',
-        'title' => __('Move forward'),
+        'title' => __('Move forward — hold to keep moving'),
     ),
     array(
         'step' => 'reset',

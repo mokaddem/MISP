@@ -146,6 +146,10 @@ if ($series !== null && count($series['spans']) > 1) {
                 : '')
             . '>' . h($span['label']) . '</option>';
     }
+    // Selected by the script once the zoom leaves every preset.
+    $controls .= '<option value="" disabled hidden'
+        . ' data-vp-sight-range-custom>' . h(__('Custom span'))
+        . '</option>';
     $controls .= '</select>';
 }
 
