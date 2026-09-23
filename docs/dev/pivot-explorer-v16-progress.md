@@ -7,7 +7,7 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 12 done · 12 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); count source built (5e); **5 and 5d next, needing a fetch path**
+- **Status:** 12 done · 2 built and blocked upstream (5, 5d) · 10 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); count source built (5e); **5 and 5d next, needing a fetch path**
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 48 cases, 170 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
@@ -33,8 +33,9 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ✅ | 3, 3b | `7ab4f859f` (2026-08-31). **Changes what most events draw** — see §2 |
 | 4 | D11 empty-state message, pointing at the correlation pivot | ⬚ | 3c, 5 | Now follows 5: the message points at the pivot |
 | 5e | Count source — `GET /events/correlationCounts/{id}.json` (R1, first slice of D13) | ✅ | — | `7f0b6d041` (2026-09-23) — see §2 |
-| 5 | Correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | 🔜 | 5e, fetch path | Count in hand; `fetch` needs the correlated elements with stable ids |
-| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 🔜 | 3b, 5e, fetch path | Badge `n` = 5e's `events` entry |
+| 5f | Fetch path — `POST /events/correlatedAttributes/{id}.json` (`attribute_uuids` / `event_ids`) | ✅ | 5e | `261e06772` — pairs match 5e's counts exactly, per attribute and per event |
+| 5 | Correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | ⏸ | 5e, 5f, **pivotick fix** | `65b782926`. Nodes land; **correlation edges do not** — `pivotick/prd/misp/pivot-edges-to-children.md` |
+| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | ⏸ | 3b, 5e, 5f, **pivotick fix** | `65b782926`. Badge counts match 5e on every related event; same edge gap |
 | 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ⬚ | 2 | |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | ⬚ | 2 | |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | ⬚ | 1 | |
@@ -87,6 +88,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | v2 bundle + write path (task 0b) | ✅ | Clean `npm run build` of `d220446`, `node --check`, md5 `1183ba8c…`; every option/call `pivot-explorer.js` makes checked against `dist/types`; suite 170/170; **headless Chromium harness** — real bundle + real `pivot-explorer.js`, stubbed `fetch`, hand-built fixture (L0 pair, one reference, one L2 object, one tray attribute): renders with no console error, L0+L1+L2 seeded, both edge colours, tray drop pinned + pending, four edge gestures each checked for picker / POST / edge / history | §8.1 on the real instance with events 1195 and 4116 |
 | Count endpoint (task 5e) | ✅ model + aggregation | `php -l` on every file; `CorrelationCountToolTest` 3/3 under the container's PHPUnit; the method body run from a check shell against the live models for two users × two events — counts, timings, sizes, the 404, and agreement with `RelatedEvent` (graph-endpoint PRD §7) | **The HTTP route itself** — JSON extension, ACL entry, 404 — needs the dev server on this branch |
 | Real instance, v2 (task 1b) | ✅ | Playwright, logged in, dev server on `pivotick-v2`. `correlationCounts` over HTTP: admin 1195 → 350 / 18 events, 4116 → 708 / 78; org 9 admin 1195 → 346 / 15, 4116 → 404 — identical to the check shell. Pivot Explorer: 1195 opens in 4.7 s, layout settles in ~17 s (4,743 top-level nodes, 2,362 references); 4116 opens in 21 s (L0 only, 90 nodes — the D13 payload); 2014 in 0.4 s. No console error from the explorer. Edit rights: admin → editor, plain org-1 User on an org-9 event → read-only. A drawn reference on 2014 POSTs 200, lands as `object-reference`, records `persisted: true`, survives a reload — then deleted (`objectReferences/delete/11378/1`) | Glyphs: see below |
+| Pivots (tasks 5, 5d, 5f) | ✅ except edges | Suite 192/192 (8 new: declaration, cap, no `save`, `appliesTo` before/after counts, never this event, fetch bodies, container shape, stable edge ids, this event's side brought along). Live, admin, via `graph.pivots`: `correlatedAttributes` pairs = counts on 1195 (350), 4116 (708), one attribute, one event, and for the org 9 admin (346); Pivot rail button present; `related-event` potential on 23/23 related events of 2014 and 78/89 of 4116 (the other 11 have no count), each equal to 5e; a related-event run ingests its attributes into the proxy (2014: 4, 4116: 33) and undo takes them back | **Correlation edges: 90 staged, 0 landed** — upstream |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
 **Task 2 has one visible consequence.** Pivotick's default edge stroke is grey
@@ -187,6 +189,16 @@ the owner's — PRD §3.7.
   page throws `e.target.closest is not a function` (`a6a06665f`).
 - **Side effect of the save test:** event 2014's timestamp moved to 2026-09-23 13:35; the
   reference itself is gone.
+
+**Tasks 5 and 5d are blocked on Pivotick, not on MISP.** `PivotManager.ingest()` lands a carried
+edge only when an endpoint is a *top-level* node the run landed: descendants of a new container are
+not counted, and children merged into a container already on canvas are merged after the edges
+are decided. Both pivots return their results as containers (the related event holding its
+correlated attributes), so every `correlation` edge is dropped. Written up for a Pivotick session:
+`~/git/pivotick/prd/misp/pivot-edges-to-children.md`. No MISP workaround, per P0.
+
+**Event 4116 offers the correlation pivot nothing to start from** — every correlated attribute is
+inside an object, and L2 is skipped. Correct, and it is task 9's dock pane that will reach them.
 
 ## 3. Blockers
 

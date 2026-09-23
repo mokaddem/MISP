@@ -371,7 +371,11 @@ results are never counted unsaved.
 `{ total, attributes: {uuid: n}, objects: {uuid: n}, events: {id: n}, limit }`, from the same
 ACL'd correlations as the event view's `RelatedAttribute`, with the event's own side limited to
 attributes the user can see. Fetched once per graph; `summarize` reads it for the origin it is
-handed. Measured in `graph-endpoint-prd` §7.
+handed. Measured in `graph-endpoint-prd` §7. **`fetch`** posts to
+`/events/correlatedAttributes/{id}.json` (`attribute_uuids`), which returns exactly the pairs the
+count counted. Results come back as one container per correlated event, keyed `event:<uuid>` like
+the L0 proxy so ingest merges them into it, plus a `correlation` edge per pair. `maxCandidates` is
+1,500 — the D12 canvas budget, for the same legibility reason.
 
 It changes a number this PRD leaned on: **event 4116 has 708 correlations to offer, not
 5,629.** 5,629 is the raw table; the event view's correlation list — and so anything a pivot can
@@ -1276,8 +1280,9 @@ relationships, and the events in §3.5 as fixtures):
 | 3c | ✅ L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
 | 4 | D11 empty-state message, pointing at the correlation pivot | 3c, 5 |
 | 5e | ✅ Count source: `/events/correlationCounts/{id}.json` (R1, first slice of D13) | — |
-| 5 | Correlations as a pivot: `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | 5e, a fetch path |
-| 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, 5e, a fetch path |
+| 5f | ✅ Fetch path: `POST /events/correlatedAttributes/{id}.json` — the pairs 5e counts, narrowed by `attribute_uuids` or `event_ids` | 5e |
+| 5 | ✅ built, ⏸ edges: correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` from 5f / `maxCandidates` 1,500, no `save` (R1) | 5e, 5f, pivotick fix |
+| 5d | ✅ built, ⏸ edges: related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, 5e, 5f, pivotick fix |
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
@@ -1289,9 +1294,9 @@ relationships, and the events in §3.5 as fixtures):
 | 10c | `onBeforeDelete`: edge deletion behind a `danger` `ctx.confirm()` saying it cannot be undone, returning `persisted: true`; node deletion vetoed (D6, R4) | 10 |
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
-Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d have their count (5e) and still
-need a fetch path — the correlated elements themselves, with stable ids; 4 follows 5, because its
-message points at the pivot. Enrichment (R3) is not a task here.
+Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
+`correlation` edges wait on a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
+follows 5, because its message points at the pivot. Enrichment (R3) is not a task here.
 
 **✅ Done (prerequisite, not a task above).** The inline JS is extracted out of the `.ctp` into
 `app/webroot/js/pivot-explorer.js`, leaving the element at 117 lines of markup + CSS + config.
@@ -1316,8 +1321,9 @@ for CSS.
 | `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c) |
 | `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
 | `tests/js/pivot-explorer-graph.test.js` | ✅ new — zero-dependency unit suite over the seed and the graph builder |
-| `app/Controller/EventsController.php`, `app/Controller/Component/ACLComponent.php` | ✅ `correlationCounts` action + ACL entry (`*`) (task 5e) |
-| `app/Model/Event.php` | ✅ `getCorrelationCounts()` (task 5e) |
+| `app/Controller/EventsController.php`, `app/Controller/Component/ACLComponent.php` | ✅ `correlationCounts` (5e) and `correlatedAttributes` (5f, POST) actions + ACL entries (`*`) |
+| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ edit rights from `$this->Acl->canModifyEvent($data)` — view2 sets no `mayModify` |
+| `app/Model/Event.php` | ✅ `getCorrelationCounts()` (task 5e), `getCorrelatedAttributes()` (task 5f) |
 | `app/Lib/Tools/CorrelationCountTool.php`, `app/Test/CorrelationCountToolTest.php` | ✅ new — the aggregation, and its unit test (task 5e) |
 | `app/Model/Behavior/AnalystDataParentBehavior.php` | Phase 2 only — `RelationshipInbound` in the bulk path |
 | `docs/dev/pivot-explorer-v16-prd.md` | this document |
