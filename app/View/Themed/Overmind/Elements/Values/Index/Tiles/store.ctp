@@ -53,33 +53,34 @@ $hours = (int)$store['max_age_hours'];
  */
 $window = sprintf(
     h(__n(
-        'reused for %s hour before a module is asked again',
-        'reused for %s hours before a module is asked again',
+        'Results are reused for %s hour before a module is queried'
+        . ' again',
+        'Results are reused for %s hours before a module is queried'
+        . ' again',
         $hours
     )),
     '<b>' . h(number_format($hours)) . '</b>'
 );
 ?>
 <div class="vi-tile" data-vi-tile="store">
-    <div class="vi-tile__label"><i class="fas fa-database vi-tile__icon" aria-hidden="true"></i><?= h(__('Enrichment store')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-database vi-tile__icon" aria-hidden="true"></i><?= h(__('Enrichment cache')) ?></div>
 <?php if ($store['count'] === 0): ?>
     <div class="vi-tile__value vi-tile__value--none">
         <?= h(__('None yet')) ?>
     </div>
     <div class="vi-tile__sub"><?= sprintf(
         h(__(
-            'no enrichment answers stored for your organisation — one'
-            . ' would be %s.'
+            'no enrichment results cached for your organisation. %s.'
         )),
         $window
     ) ?></div>
 <?php else: ?>
     <div class="vi-tile__value"><?= h(number_format($store['count'])) ?></div>
     <div class="vi-tile__sub"><?= sprintf(
-        h(__('%s your organisation has stored, %s.')),
+        h(__('%s cached for your organisation. %s.')),
         h(__n(
-            'enrichment answer',
-            'enrichment answers',
+            'enrichment result',
+            'enrichment results',
             $store['count']
         )),
         $window

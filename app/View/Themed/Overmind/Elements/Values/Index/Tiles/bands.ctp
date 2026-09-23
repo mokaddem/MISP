@@ -48,7 +48,7 @@ $mediumWidth = max(0, min(100 - $lowWidth, $high - $medium));
 $highWidth = max(0, 100 - $lowWidth - $mediumWidth);
 ?>
 <div class="vi-tile" data-vi-tile="bands">
-    <div class="vi-tile__label"><i class="fas fa-gauge-high vi-tile__icon" aria-hidden="true"></i><?= h(__('Where the bands sit')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-gauge-high vi-tile__icon" aria-hidden="true"></i><?= h(__('Quality bands')) ?></div>
     <div class="vi-tile__value">
         <?= h(number_format($bands['high'])) ?>
     </div>
@@ -62,7 +62,7 @@ $highWidth = max(0, 100 - $lowWidth - $mediumWidth);
     </div>
     <div class="vi-tile__sub"><?= sprintf(
         h(__(
-            'and above bands high, %s and above medium — and high also'
+            'and above is rated high, %s and above medium. High also'
             . ' needs %s to agree.'
         )),
         '<b>' . h(number_format($bands['medium'])) . '</b>',

@@ -64,7 +64,8 @@ echo $this->element('genericElements/assetLoader', array(
 $this->set('headerTitle', __('Values'));
 $this->set('headerBreadcrumb', __('Values'));
 $this->set('headerDescription', __(
-    'Resolve an indicator to its Value Profile.'
+    'Look up a value to see what MISP knows about it, or paste a list'
+    . ' to triage it.'
 ));
 ?>
 <div class="vi-page">
@@ -117,14 +118,13 @@ $this->set('headerDescription', __(
             )) ?>
 <?php elseif ($resolution === null): ?>
             <div class="vi-invite">
-                <h2><?= h(__('Open a value\'s profile.')) ?></h2>
+                <h2><?= h(__('Look up a value')) ?></h2>
                 <p><?= h(__(
-                    'Type or paste one value and press Enter, or paste'
-                    . ' a list and get a row for each. Defanged input'
-                    . ' is refanged for you, because that is how'
-                    . ' values are stored. A value nothing here'
-                    . ' records is an answer rather than an error, and'
-                    . ' nothing you paste reaches the address bar.'
+                    'Enter a single value to open its Value Profile, or'
+                    . ' paste a list to get one row per value. Defanged'
+                    . ' input such as hxxp:// or 1.2.3[.]4 is refanged'
+                    . ' automatically. What you paste is never added to'
+                    . ' the URL, so it stays out of your browser history.'
                 )) ?></p>
             </div>
 <?php else: ?>

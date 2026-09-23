@@ -50,11 +50,16 @@
     display: none !important;
 }
 
+/*
+ * Overmind's card: the translucent border, the theme radius and the
+ * small shadow every `.card.shadow-sm` on the other index pages has.
+ */
 .vi-app {
     background: var(--bs-body-bg);
     color: var(--bs-body-color);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 6px;
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: var(--bs-border-radius);
+    box-shadow: var(--bs-box-shadow-sm);
     overflow: hidden;
 }
 
@@ -79,7 +84,7 @@
     align-items: baseline;
     gap: 6px 22px;
     padding: 9px 14px;
-    background: var(--bs-secondary-bg);
+    background: var(--bs-tertiary-bg);
     border-bottom: 1px solid var(--bs-border-color);
     font-size: 0.78rem;
     line-height: 1.5;
@@ -114,16 +119,17 @@
  * shout across it.
  */
 .vi-condlink {
-    color: var(--bs-body-color);
+    color: var(--bs-link-color);
     text-decoration: none;
-    border-bottom: 1px solid var(--bs-border-color);
+    border-bottom: 1px solid
+        color-mix(in srgb, var(--bs-link-color) 35%, transparent);
     white-space: nowrap;
 }
 
 .vi-condlink:hover,
 .vi-condlink:focus {
-    color: var(--bs-body-color);
-    border-bottom-color: var(--bs-body-color);
+    color: var(--bs-link-hover-color);
+    border-bottom-color: var(--bs-link-hover-color);
 }
 
 .vi-condlink:focus-visible {
@@ -166,7 +172,7 @@
     gap: 6px;
     list-style: none;
     cursor: pointer;
-    color: var(--bs-body-color);
+    color: var(--bs-link-color);
     font-weight: 600;
 }
 
@@ -182,7 +188,6 @@
 
 .vi-note__chev {
     flex: none;
-    color: var(--bs-secondary-color);
     transition: transform 0.15s ease;
 }
 
@@ -310,37 +315,20 @@
 /* ==================================================================
  * The prompt
  * ------------------------------------------------------------------
- * A caret, a field and a verb on one line, the field growing and the
- * verb keeping its width. The caret is the page saying *type here*
- * without a label taking a line to say it.
+ * A field and a verb on one line, the field growing and the verb
+ * keeping its width. Both are Bootstrap's own `form-control` and
+ * `btn-primary`, so the box looks like every other search box in
+ * Overmind; this block only lays them out.
  * ================================================================== */
 
 .vi-prompt {
     display: flex;
     flex-wrap: wrap;
-    align-items: stretch;
+    align-items: flex-start;
+    gap: 10px 12px;
     margin: 0;
-    background: var(--bs-secondary-bg);
+    padding: 14px;
     border-bottom: 1px solid var(--bs-border-color);
-}
-
-/*
- * Focus is drawn on the whole row rather than on the textarea: the
- * field has no border of its own, so a ring around it alone would
- * outline a shape nothing else on the page has.
- */
-.vi-prompt:focus-within {
-    box-shadow: inset 0 0 0 2px var(--primary);
-}
-
-.vi-prompt__caret {
-    flex: 0 0 auto;
-    width: 28px;
-    padding-top: 11px;
-    text-align: center;
-    line-height: 1;
-    font-size: 12px;
-    color: var(--primary);
 }
 
 .vi-prompt__field {
@@ -348,25 +336,12 @@
     min-width: 0;
 }
 
+/* Values are read character by character, so the box is monospace. */
 .vi-ta {
-    display: block;
-    width: 100%;
-    padding: 10px 12px 10px 0;
-    border: 0;
-    background: transparent;
-    color: var(--bs-body-color);
     font-family: var(--bs-font-monospace);
     font-size: 0.85rem;
     line-height: 1.55;
     resize: vertical;
-}
-
-.vi-ta:focus {
-    outline: none;
-}
-
-.vi-ta::placeholder {
-    color: var(--bs-secondary-color);
 }
 
 .vi-prompt__side {
@@ -374,32 +349,13 @@
     display: flex;
     gap: 12px;
     align-items: center;
-    padding: 9px 12px;
-    border-left: 1px solid var(--bs-border-color);
+    padding-top: 4px;
 }
 
 .vi-run {
     display: inline-flex;
     align-items: center;
-    padding: 7px 13px;
-    border: 1px solid var(--bs-body-color);
-    border-radius: 4px;
-    background: var(--bs-body-color);
-    color: var(--bs-body-bg);
-    font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1;
     white-space: nowrap;
-    cursor: pointer;
-}
-
-.vi-run:hover {
-    opacity: 0.88;
-}
-
-.vi-run[disabled] {
-    opacity: 0.45;
-    cursor: not-allowed;
 }
 
 .vi-kbd {
@@ -441,7 +397,7 @@
  * ================================================================== */
 
 .vi-invite {
-    padding: 18px 14px 20px 40px;
+    padding: 18px 14px 20px;
 }
 
 .vi-invite h2 {
@@ -471,14 +427,14 @@
  * ================================================================== */
 
 .vi-answerwrap {
-    padding: 13px 14px 16px 40px;
+    padding: 13px 14px 16px;
 }
 
 .vi-answer {
     padding: 12px 13px;
     border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
-    background: var(--bs-secondary-bg);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-tertiary-bg);
 }
 
 .vi-answer p {
@@ -521,10 +477,10 @@
 .vi-btn {
     display: inline-block;
     padding: 5px 9px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 4px;
+    border: 1px solid var(--primary);
+    border-radius: var(--bs-border-radius-sm);
     background: transparent;
-    color: var(--bs-body-color);
+    color: var(--primary);
     font-size: 0.75rem;
     font-weight: 500;
     line-height: 1.5;
@@ -539,8 +495,8 @@
 }
 
 .vi-btn:hover {
-    background: var(--bs-body-bg);
-    color: var(--bs-body-color);
+    background: var(--primary);
+    color: #fff;
     text-decoration: none;
 }
 
@@ -550,14 +506,14 @@
  * answer or the reader reads both.
  */
 .vi-btn--lead {
-    border-color: var(--primary);
-    color: var(--primary);
+    background: var(--primary);
+    color: #fff;
 }
 
 .vi-btn--lead:hover {
-    background: color-mix(in srgb, var(--primary) 10%, var(--bs-body-bg));
-    border-color: var(--primary);
-    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 85%, #000);
+    border-color: color-mix(in srgb, var(--primary) 85%, #000);
+    color: #fff;
 }
 
 .vi-btn--quiet {
@@ -566,8 +522,8 @@
 }
 
 .vi-btn--quiet:hover {
-    background: var(--bs-tertiary-bg);
-    color: var(--bs-body-color);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
 }
 
 .vi-mark {
@@ -669,7 +625,7 @@
  * ================================================================== */
 
 .vi-work {
-    padding: 13px 14px 14px 40px;
+    padding: 13px 14px 14px;
 }
 
 .vi-prov {
@@ -784,8 +740,8 @@
 
 .vi-cell[data-s="opened"],
 .vi-swatch[data-s="opened"] {
-    border-color: var(--bs-body-color);
-    background: var(--bs-body-color);
+    border-color: var(--primary);
+    background: var(--primary);
 }
 
 .vi-cell[data-s="cleared"],
@@ -849,17 +805,17 @@
 
 .vi-segs {
     display: inline-flex;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
+    border: 1px solid var(--primary);
+    border-radius: var(--bs-border-radius-sm);
     overflow: hidden;
 }
 
 .vi-seg {
     padding: 3px 9px;
     border: 0;
-    border-right: 1px solid var(--bs-border-color);
+    border-right: 1px solid var(--primary);
     background: transparent;
-    color: var(--bs-secondary-color);
+    color: var(--primary);
     font-size: 0.7rem;
     line-height: 1.5;
     cursor: pointer;
@@ -869,9 +825,13 @@
     border-right: 0;
 }
 
+.vi-seg:hover {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
 .vi-seg[aria-pressed="true"] {
-    background: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
+    background: var(--primary);
+    color: #fff;
     font-weight: 600;
 }
 
@@ -946,7 +906,7 @@
 .vi-listwrap {
     container-type: inline-size;
     border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
+    border-radius: var(--bs-border-radius);
     overflow: hidden;
 }
 
@@ -1000,7 +960,7 @@
 }
 
 .vi-row.is-cursor {
-    background: var(--bs-secondary-bg);
+    background: color-mix(in srgb, var(--primary) 7%, var(--bs-body-bg));
 }
 
 .vi-row.is-cursor::before {
@@ -1010,7 +970,7 @@
     top: 0;
     bottom: 0;
     width: 3px;
-    background: var(--bs-body-color);
+    background: var(--primary);
 }
 
 /*
@@ -1039,7 +999,7 @@
 }
 
 .vi-row[data-s="opened"] .vi-rail {
-    color: var(--bs-body-color);
+    color: var(--primary);
     opacity: 1;
 }
 
@@ -1456,8 +1416,13 @@
 .vi-row:hover .vi-acts .vi-btn,
 .vi-row.is-cursor .vi-acts .vi-btn,
 .vi-acts .vi-btn:focus-visible {
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.vi-row .vi-acts .vi-btn:hover {
+    background: var(--primary);
+    color: #fff;
 }
 
 .vi-disc {
@@ -1791,8 +1756,8 @@
     margin-top: 12px;
     padding: 12px 14px;
     border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
-    background: var(--bs-secondary-bg);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-tertiary-bg);
 }
 
 .vi-done h3 {
@@ -1847,7 +1812,7 @@
 
 .vi-recent {
     border-top: 1px solid var(--bs-border-color);
-    padding: 11px 14px 12px 40px;
+    padding: 11px 14px 12px;
     background: var(--bs-body-bg);
 }
 
@@ -1872,8 +1837,9 @@
     max-width: 100%;
     padding: 4px 7px;
     border: 1px solid var(--bs-border-color);
-    border-radius: 4px;
-    color: var(--bs-body-color);
+    border-radius: var(--bs-border-radius-sm);
+    background: var(--bs-body-bg);
+    color: var(--bs-link-color);
 }
 
 .vi-chip,
@@ -1884,8 +1850,9 @@
 
 .vi-chip:hover,
 .vi-chip:focus-visible {
-    background: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 7%, var(--bs-body-bg));
+    color: var(--bs-link-hover-color);
 }
 
 /*
@@ -1940,10 +1907,11 @@
 
 .vi-tile {
     min-width: 0;
-    padding: 9px 11px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
+    padding: 10px 12px;
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: var(--bs-border-radius);
     background: var(--bs-body-bg);
+    box-shadow: var(--bs-box-shadow-sm);
 }
 
 /*
@@ -1961,26 +1929,17 @@
 }
 
 /*
- * The icon is identity, not status.
- *
- * It is what makes five tiles scannable as five different things
- * rather than as five numbers, and it is drawn in the label's own
- * quiet ink for exactly that reason: **colour on these pages means
- * assessment** (`value-palette.css`), so an icon taking a hue would
- * read as a claim about a value rather than as a heading. It is also
- * `aria-hidden` — the label beside it already says what the tile is,
- * and a screen reader announcing *shield* before *Warninglists* is
- * being told the same thing twice, worse the first time.
- *
- * Sized against the label rather than in pixels, so it tracks the text
- * if the label's size ever moves.
+ * The icon is identity, not status, so it takes Overmind's primary
+ * rather than one of the verdict hues `value-palette.css` reserves
+ * for an assessment. `aria-hidden`, because the label already says
+ * what the tile is.
  */
 .vi-tile__icon {
     flex: none;
     width: 1em;
     font-size: 0.86rem;
     text-align: center;
-    opacity: 0.75;
+    color: var(--primary);
 }
 
 
@@ -2087,9 +2046,7 @@
 /* ==================================================================
  * Narrow
  * ------------------------------------------------------------------
- * The verb drops under the field rather than squeezing it; the caret's
- * indent goes with it, because a 40px gutter on a 360px screen is a
- * tenth of the line.
+ * The verb drops under the field rather than squeezing it.
  * ================================================================== */
 
 @media (max-width: 575.98px) {
@@ -2119,20 +2076,8 @@
 
     .vi-prompt__side {
         width: 100%;
-        border-left: 0;
-        border-top: 1px solid var(--bs-border-color);
+        padding-top: 0;
         justify-content: space-between;
-    }
-
-    .vi-ta {
-        padding-right: 8px;
-    }
-
-    .vi-invite,
-    .vi-answerwrap,
-    .vi-work,
-    .vi-recent {
-        padding-left: 14px;
     }
 
     /*

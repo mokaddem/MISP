@@ -30,16 +30,15 @@
         <?= h(__('None enabled')) ?>
     </div>
     <div class="vi-tile__sub"><?= h(__(
-        'no list is consulted, so no value here will be marked as'
-        . ' known-good infrastructure.'
+        'no value will be flagged as a known false positive.'
     )) ?></div>
 <?php else: ?>
     <div class="vi-tile__value">
         <?= h(number_format($warninglists)) ?>
     </div>
     <div class="vi-tile__sub"><?= sprintf(
-        h(__('enabled %s every value is checked against.')),
-        h(__n('list', 'lists', $warninglists))
+        h(__('enabled %s, checked against every value.')),
+        h(__n('warninglist', 'warninglists', $warninglists))
     ) ?></div>
 <?php endif; ?>
 </div>

@@ -46,12 +46,13 @@ $profileUrl = function ($value) {
 <?php   $changed = $resolution['changed']; ?>
 <?php   if (in_array(ValueInputTool::REFANGED, $changed, true)): ?>
     <p class="vi-note"><?= h(__(
-        'Values are stored refanged, so that is what your paste'
-        . ' resolves to. The box above still holds what you pasted.'
+        'Your input was refanged before the lookup, as MISP stores'
+        . ' values refanged. The box above still shows what you'
+        . ' pasted.'
     )) ?></p>
 <?php   elseif (in_array(ValueInputTool::UNQUOTED, $changed, true)): ?>
     <p class="vi-note"><?= h(__(
-        'The quotes came off: they are not part of the value.'
+        'The surrounding quotes were removed before the lookup.'
     )) ?></p>
 <?php   endif; ?>
     <p><?= h(__(
@@ -59,17 +60,12 @@ $profileUrl = function ($value) {
         . ' to assess.'
     )) ?></p>
 <?php   if ($resolution['suggestion'] === null): ?>
-    <p class="vi-quiet"><?= h(__(
-        'That is the answer to the question you asked. Nobody has'
-        . ' filed it here.'
-    )) ?></p>
     <div class="vi-offer">
         <a class="vi-btn" href="<?= h($profileUrl($resolution['value'])) ?>">
-            <?= h(__('Open its profile anyway')) ?>
+            <?= h(__('Open the Value Profile anyway')) ?>
         </a>
         <span class="vi-mark"><?= h(__(
-            'The profile will say the same thing, with the tabs to'
-            . ' prove it.'
+            'It will show the same result, tab by tab.'
         )) ?></span>
     </div>
 <?php   else: ?>
@@ -85,28 +81,27 @@ $profileUrl = function ($value) {
         </a>
     </div>
     <p class="vi-quiet"><?= h(sprintf(
-        __('This instance stores %1$s and %2$s as two values, so the'
-            . ' offer is an offer: only you can say which one the'
-            . ' report meant.'),
+        __('%1$s and %2$s are stored as different values. Only you'
+            . ' can tell which one your source meant.'),
         $resolution['value'],
         $resolution['suggestion']
     )) ?></p>
 <?php   endif; ?>
 <?php elseif ($kind === 'over'): ?>
     <p class="vi-refusal"><?= h(sprintf(
-        __('That is %1$d values. This page takes %2$d at a time.'),
+        __('You pasted %1$d values, but the limit is %2$d at a time.'),
         $resolution['count'],
         $resolution['cap']
     )) ?></p>
     <p class="vi-quiet"><?= h(sprintf(
-        __('Nothing was cut and nothing was read — your paste is'
-            . ' still in the box exactly as you left it. Trim it to'
-            . ' %1$d and press again, or work it in %2$d goes.'),
+        __('Nothing was looked up, and your paste is still in the box.'
+            . ' Trim it to %1$d values, or split it into %2$d'
+            . ' batches.'),
         $resolution['cap'],
         $resolution['goes']
     )) ?></p>
 <?php else: ?>
-    <p><?= h(__('There was nothing in the box to resolve.')) ?></p>
+    <p><?= h(__('The box is empty. Paste a value to look it up.')) ?></p>
 <?php endif; ?>
 </div>
 </div>

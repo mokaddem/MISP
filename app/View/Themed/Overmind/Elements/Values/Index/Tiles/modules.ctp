@@ -28,15 +28,16 @@
         <?= h(__('None declared')) ?>
     </div>
     <div class="vi-tile__sub"><?= h(__(
-        'the profile in force names no module, so a value\'s'
-        . ' Enrichment tab offers nothing to run automatically.'
+        'the active analyst profile lists no module, so nothing runs'
+        . ' automatically on a value\'s Enrichment tab.'
     )) ?></div>
 <?php else: ?>
     <div class="vi-tile__value"><?= h(number_format($modules)) ?></div>
     <div class="vi-tile__sub"><?= sprintf(
         h(__(
-            '%s declared by the profile in force; a value\'s tab offers'
-            . ' those this instance has enabled for its types.'
+            '%s listed in the active analyst profile. A value\'s'
+            . ' Enrichment tab offers those enabled on this instance'
+            . ' for its type.'
         )),
         h(__n('module', 'modules', $modules))
     ) ?></div>

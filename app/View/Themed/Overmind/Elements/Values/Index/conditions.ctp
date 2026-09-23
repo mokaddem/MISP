@@ -49,8 +49,8 @@
  */
 if ($inForce === null) {
     $line = h(__(
-        'No analyst profile is in force, so assessments carry a lean'
-        . ' and no quality until a site admin enables one.'
+        'No analyst profile is active, so assessments show a lean but'
+        . ' no quality score until a site admin enables one.'
     ));
     $link = null;
 } else {
@@ -66,14 +66,14 @@ if ($inForce === null) {
     switch ($inForce['scope']) {
         case 'user':
             $line = sprintf(
-                h(__('Assessments follow %s — your own profile.')),
+                h(__('Assessments use %s, your personal analyst profile.')),
                 $named
             );
             break;
         case 'org':
             $line = sprintf(
                 h(__(
-                    'Assessments follow %s — your organisation\'s'
+                    'Assessments use %s, your organisation\'s analyst'
                     . ' profile.'
                 )),
                 $named
@@ -82,8 +82,8 @@ if ($inForce === null) {
         default:
             $line = sprintf(
                 h(__(
-                    'Assessments follow %s — the instance default;'
-                    . ' changing it is a site-admin act.'
+                    'Assessments use %s, the instance default. Only a'
+                    . ' site admin can change it.'
                 )),
                 $named
             );
@@ -96,8 +96,8 @@ if ($inForce === null) {
      */
     $link = $inForce['id'] === null ? null : $this->Html->link(
         $inForce['editable']
-            ? __('Edit its thresholds')
-            : __('See its thresholds'),
+            ? __('Edit thresholds')
+            : __('View thresholds'),
         array(
             'controller' => 'analystProfiles',
             'action' => $inForce['editable'] ? 'edit' : 'view',

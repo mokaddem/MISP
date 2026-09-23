@@ -28,12 +28,12 @@
  */
 ?>
 <div class="vi-tile" data-vi-tile="weighs">
-    <div class="vi-tile__label"><i class="fas fa-scale-balanced vi-tile__icon" aria-hidden="true"></i><?= h(__('What weighs a record')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-scale-balanced vi-tile__icon" aria-hidden="true"></i><?= h(__('Scoring signals')) ?></div>
     <div class="vi-tile__value">
         <?= h(number_format($weighs['signals'])) ?>
     </div>
     <div class="vi-tile__sub"><?= sprintf(
-        h(__('%s in the profile in force, with %s and %s.')),
+        h(__('%s in the active analyst profile, plus %s and %s.')),
         h(__n('signal', 'signals', $weighs['signals'])),
         '<b>' . h(number_format($weighs['exclusions'])) . '</b> ' . h(__n(
             'exclusion',

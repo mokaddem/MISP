@@ -197,7 +197,7 @@ $signalText = function (array $signal) {
                 <?= h(__n('occurrence', 'occurrences',
                     $counts['occurrences'])) ?></i>
 <?php if ($counts['sightings'] === null): ?>
-            <i><?= h(__('sightings not read')) ?></i>
+            <i><?= h(__('sightings skipped')) ?></i>
 <?php else: ?>
             <i><b><?= h(number_format($counts['sightings'])) ?></b>
                 <?= h(__n('sighting', 'sightings',
@@ -235,10 +235,10 @@ $signalText = function (array $signal) {
  */
 $caveats = array();
 if ($card['hot']) {
-    $caveats[] = '<b>' . h(__('Sightings and threat-actor clusters were'
-        . ' not read')) . '</b> — ' . h(__('MISP flags this value as'
-        . ' over-correlating, so that one read was skipped. Everything'
-        . ' else on this row was measured.'));
+    $caveats[] = '<b>' . h(__('Sightings and threat actor clusters were'
+        . ' skipped')) . '</b> — ' . h(__('this value is'
+        . ' over-correlating, so they were not checked. Everything else'
+        . ' on this row was.'));
 }
 if ($warninglist !== null) {
     $caveats[] = '<b>' . h($warninglist['category_label']) . '</b> — '
@@ -285,7 +285,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
 <?php endforeach; ?>
 <?php else: ?>
         <div class="vi-sigrow"><span class="vi-sig"><?= h(__(
-            'The ledger is empty — nothing weighed either way.'
+            'No signal fired for this value.'
         )) ?></span></div>
 <?php endif; ?>
     </div>
@@ -326,7 +326,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
          * would report an absence the engine declined to look for.
          */
         if ($counts['sightings'] === null) {
-            echo h(__('not read'));
+            echo h(__('skipped'));
         } else {
             echo '<b>' . h(number_format($counts['sightings'])) . '</b>';
         }
@@ -335,7 +335,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
 <div class="vi-acts">
     <button type="button" class="vi-disc" data-vi-act="toggle"
             aria-expanded="false"
-            aria-label="<?= h(__('Show the rest of the ledger')) ?>">
+            aria-label="<?= h(__('Show all signals')) ?>">
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 8l3-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <?php
@@ -349,7 +349,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
        href="<?= h($profileUrl) ?>" data-vi-act="open"><?= h(__('Open')) ?><span
        class="vi-cardonly"> <?= h(__('profile')) ?></span></a>
     <button type="button" class="vi-btn vi-btn--quiet"
-            data-vi-act="clear"><?= h(__('Clear')) ?></button>
+            data-vi-act="clear"><?= h(__('Dismiss')) ?></button>
     <?php
     /*
      * The decided row's own actions, rendered with the rest and shown
@@ -361,7 +361,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
     <span class="vi-mark vi-mark--opened"><?= h(__(
         'opened in a new tab'
     )) ?></span>
-    <span class="vi-mark vi-mark--cleared"><?= h(__('cleared')) ?></span>
+    <span class="vi-mark vi-mark--cleared"><?= h(__('dismissed')) ?></span>
     <button type="button" class="vi-btn vi-btn--quiet vi-undo"
             data-vi-act="undo"><?= h(__('Undo')) ?></button>
 </div>

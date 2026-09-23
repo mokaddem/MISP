@@ -42,12 +42,12 @@ $hoverCard = (bool)Configure::read('MISP.value_hover_card');
 <div class="vi-recent">
 <?php if (empty($recent)): ?>
     <p class="vi-recent__lead"><?= h(__(
-        'Values you open are listed here next time, for you alone.'
+        'Values you open will be listed here. Only you can see this'
+        . ' list.'
     )) ?></p>
 <?php else: ?>
     <p class="vi-recent__lead"><?= h(__(
-        'Carried over — the values you last opened. Yours alone;'
-        . ' nobody else can see this list.'
+        'Recently opened values. Only you can see this list.'
     )) ?></p>
     <div class="vi-recent__chips">
 <?php   foreach ($recent as $entry): ?>

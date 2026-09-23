@@ -55,26 +55,26 @@ if ($report[ValueInputTool::REFANGED]) {
         $report[ValueInputTool::REFANGED]);
 }
 if ($report[ValueInputTool::UNQUOTED]) {
-    $did[] = sprintf(__('%d unquoted'),
+    $did[] = sprintf(__('%d stripped of quotes'),
         $report[ValueInputTool::UNQUOTED]);
 }
 if ($report['composites']) {
-    $did[] = sprintf(__n('%d composite split in two',
-        '%d composites split in two', $report['composites']),
+    $did[] = sprintf(__n('%d composite value split in two',
+        '%d composite values split in two', $report['composites']),
         $report['composites']);
 }
 if ($report['duplicates']) {
-    $did[] = sprintf(__n('%d duplicate dropped',
-        '%d duplicates dropped', $report['duplicates']),
+    $did[] = sprintf(__n('%d duplicate removed',
+        '%d duplicates removed', $report['duplicates']),
         $report['duplicates']);
 }
 if ($triage['collapsed']) {
-    $did[] = sprintf(__('%d collapsed onto another spelling'),
+    $did[] = sprintf(__('%d merged with a differently cased duplicate'),
         $triage['collapsed']);
 }
 if ($triage['recased']) {
-    $did[] = sprintf(__('%d linked to the spelling this instance'
-        . ' holds'), $triage['recased']);
+    $did[] = sprintf(__('%d matched to the casing stored in MISP'),
+        $triage['recased']);
 }
 if ($report['empty']) {
     /*
@@ -85,7 +85,7 @@ if ($report['empty']) {
      * web page — which is worth saying precisely because the reader
      * cannot see it in their own paste.
      */
-    $did[] = sprintf(__('%d left nothing'), $report['empty']);
+    $did[] = sprintf(__('%d empty after cleanup'), $report['empty']);
 }
 
 /*
@@ -113,10 +113,9 @@ $lead = $byCommas
 <?php if ($did): ?>
         <?= h(ucfirst(implode(', ', $did)) . '.') ?>
 <?php else: ?>
-        <?= h(__('Nothing was changed.')) ?>
+        <?= h(__('No changes were needed.')) ?>
 <?php endif; ?>
-        <?= h(__('Your paste is still in the box above, to check any'
-            . ' of it against.')) ?>
+        <?= h(__('Your original paste is still in the box above.')) ?>
     </p>
 <?php if ($byCommas && count($rows) > 1): ?>
     <?php
@@ -173,12 +172,11 @@ $lead = $byCommas
             <span class="vi-progress" data-vi-progress
                   aria-live="polite"
                   data-vi-filling="<?= h(__('%1$d of %2$d assessed,'
-                      . ' %3$d decided')) ?>"
-                  data-vi-worked="<?= h(__('All %d decided — the batch'
-                      . ' is worked')) ?>"
-                  data-vi-left="<?= h(__('%1$d of %2$d decided, %3$d'
+                      . ' %3$d reviewed')) ?>"
+                  data-vi-worked="<?= h(__('All %d reviewed')) ?>"
+                  data-vi-left="<?= h(__('%1$d of %2$d reviewed, %3$d'
                       . ' left')) ?>"
-                  data-vi-lost="<?= h(__('%d did not come back')) ?>"
+                  data-vi-lost="<?= h(__('%d failed to load')) ?>"
                   ></span>
 <?php if ($batched): ?>
             <span class="vi-tape" data-vi-tape role="group"
@@ -188,15 +186,15 @@ $lead = $byCommas
 <?php if ($batched): ?>
         <div class="vi-legend">
             <span><span class="vi-swatch" data-s="queued"></span><?= h(__(
-                'waiting for a lane')) ?></span>
+                'queued')) ?></span>
             <span><span class="vi-swatch" data-s="flight"></span><?= h(__(
-                'assessment in flight')) ?></span>
+                'being assessed')) ?></span>
             <span><span class="vi-swatch" data-s="todo"></span><?= h(__(
-                'assessed, not yet decided')) ?></span>
+                'assessed, not yet reviewed')) ?></span>
             <span><span class="vi-swatch" data-s="opened"></span><?= h(__(
                 'opened')) ?></span>
             <span><span class="vi-swatch" data-s="cleared"></span><?= h(__(
-                'cleared')) ?></span>
+                'dismissed')) ?></span>
         </div>
 <?php endif; ?>
         <div class="vi-controls">
@@ -204,11 +202,11 @@ $lead = $byCommas
                 <button class="vi-seg" type="button" data-vi-f="all"
                         aria-pressed="true"><?= h(__('All')) ?> <b></b></button>
                 <button class="vi-seg" type="button" data-vi-f="todo"
-                        aria-pressed="false"><?= h(__('Left to do')) ?> <b></b></button>
+                        aria-pressed="false"><?= h(__('To review')) ?> <b></b></button>
                 <button class="vi-seg" type="button" data-vi-f="opened"
                         aria-pressed="false"><?= h(__('Opened')) ?> <b></b></button>
                 <button class="vi-seg" type="button" data-vi-f="cleared"
-                        aria-pressed="false"><?= h(__('Cleared')) ?> <b></b></button>
+                        aria-pressed="false"><?= h(__('Dismissed')) ?> <b></b></button>
             </span>
             <span class="vi-segs">
                 <button class="vi-seg" type="button" data-vi-sort
@@ -223,7 +221,7 @@ $lead = $byCommas
             <span class="vi-keys">
                 <span><span class="vi-kbd">j</span> <span class="vi-kbd">k</span> <?= h(__('move')) ?></span>
                 <span><span class="vi-kbd">o</span> <?= h(__('open')) ?></span>
-                <span><span class="vi-kbd">x</span> <?= h(__('clear')) ?></span>
+                <span><span class="vi-kbd">x</span> <?= h(__('dismiss')) ?></span>
                 <span><span class="vi-kbd">u</span> <?= h(__('undo')) ?></span>
                 <?php
                 /*
@@ -234,8 +232,8 @@ $lead = $byCommas
                  * lost them to a refresh was not told.
                  */
                 ?>
-                <span class="vi-tabonly"><?= h(__('Marks live in this'
-                    . ' tab only. Nothing here writes to MISP.')) ?></span>
+                <span class="vi-tabonly"><?= h(__('Progress is kept in'
+                    . ' this tab only; nothing is saved to MISP.')) ?></span>
             </span>
         </div>
         <?php
@@ -250,13 +248,10 @@ $lead = $byCommas
          */
         ?>
         <div class="vi-sortnote" data-vi-sortnote hidden
-             data-vi-mid="<?= h(__('Sorted by assessment — the %1$d that'
-                 . ' have landed. The %2$d still arriving keep their'
-                 . ' place below, because a row cannot be ranked before'
-                 . ' it has an answer.')) ?>"
-             data-vi-settled="<?= h(__('Sorted by assessment. Paste order'
-                 . ' is the one you can check against your own'
-                 . ' source.')) ?>"
+             data-vi-mid="<?= h(__('Sorted by assessment: %1$d ranked'
+                 . ' so far. The %2$d still loading stay at the bottom'
+                 . ' until they are assessed.')) ?>"
+             data-vi-settled="<?= h(__('Sorted by assessment.')) ?>"
              data-vi-back="<?= h(__('Back to paste order')) ?>"></div>
     </div>
     <div class="vi-listwrap">
@@ -273,7 +268,7 @@ $lead = $byCommas
         </div>
         <ol class="vi-rows<?= $batched ? '' : ' vi-rows--short' ?>"
             data-vi-rows tabindex="0" role="list"
-            aria-label="<?= h(__('Values to work')) ?>">
+            aria-label="<?= h(__('Values to review')) ?>">
 <?php foreach ($rows as $i => $row): ?>
             <?php
             /*
@@ -311,13 +306,13 @@ $lead = $byCommas
                             <i class="vi-bar" style="width:44px"></i>
                             <i class="vi-bar" style="width:120px"></i>
                             <span class="vi-pendtxt vi-pendtxt--queued"><?= h(__(
-                                'waiting for a lane')) ?></span>
+                                'queued')) ?></span>
                             <span class="vi-pendtxt vi-pendtxt--flight"><?= h(__(
                                 'assessing…')) ?></span>
                         </div>
-                        <div class="vi-fail"><?= h(__('The assessment did'
-                            . ' not come back. This row is unknown, not'
-                            . ' empty.')) ?></div>
+                        <div class="vi-fail"><?= h(__('The assessment'
+                            . ' failed to load, so this value\'s status is'
+                            . ' unknown.')) ?></div>
                     </div>
                     <div class="vi-cells">
                         <span class="vi-c-val">
@@ -337,18 +332,18 @@ $lead = $byCommas
                         ?>
                         <span class="vi-c-rel"><span
                             class="vi-pendtxt vi-pendtxt--queued"><?= h(__(
-                            'waiting for a lane')) ?></span><span
+                            'queued')) ?></span><span
                             class="vi-pendtxt vi-pendtxt--flight"><?= h(__(
                             'assessing…')) ?></span></span>
                         <span class="vi-c-num vi-c-orgs"></span>
                         <span class="vi-c-num vi-c-sig"></span>
-                        <span class="vi-c-say"><?= h(__('The assessment did'
-                            . ' not come back.')) ?></span>
+                        <span class="vi-c-say"><?= h(__('The assessment'
+                            . ' failed to load.')) ?></span>
                     </div>
                     <div class="vi-acts">
                         <button type="button" class="vi-btn vi-retry"
                                 data-vi-act="retry"><?= h(__(
-                            'Ask again')) ?></button>
+                            'Retry')) ?></button>
                         <a class="vi-btn" target="_blank" rel="noopener"
                            href="<?= h($this->Html->url(array(
                                'controller' => 'values',
@@ -368,8 +363,8 @@ $lead = $byCommas
          * indistinguishable from one that failed to load.
          */
         ?>
-        <p class="vi-empty" data-vi-empty hidden><?= h(__('No rows in'
-            . ' this view. Switch back to All.')) ?></p>
+        <p class="vi-empty" data-vi-empty hidden><?= h(__('Nothing'
+            . ' matches this filter. Switch back to All.')) ?></p>
     </div>
     <?php
     /*
@@ -381,20 +376,20 @@ $lead = $byCommas
     ?>
     <div class="vi-done" data-vi-done hidden>
         <h3 data-vi-done-lead
-            data-vi-tpl="<?= h(__('You worked all %d.')) ?>"></h3>
+            data-vi-tpl="<?= h(__('All %d values reviewed.')) ?>"></h3>
         <p><span data-vi-done-counts
-                 data-vi-tpl="<?= h(__('%1$d opened, %2$d cleared.')) ?>"></span>
-            <?= h(__('None of that was saved anywhere — this page writes'
-                . ' nothing, so the marks end when the tab does. Take'
-                . ' the shortlist with you instead.')) ?></p>
+                 data-vi-tpl="<?= h(__('%1$d opened, %2$d dismissed.')) ?>"></span>
+            <?= h(__('This progress is not saved and is lost when you'
+                . ' close the tab. Copy the values you opened to keep'
+                . ' them.')) ?></p>
         <div class="vi-offer">
             <button type="button" class="vi-btn vi-btn--lead"
                     data-vi-copy
-                    data-vi-tpl="<?= h(__('Copy the %d you opened')) ?>"></button>
+                    data-vi-tpl="<?= h(__('Copy the %d opened values')) ?>"></button>
             <button type="button" class="vi-btn" data-vi-again><?= h(__(
-                'Start the batch over')) ?></button>
-            <span class="vi-mark"><?= h(__('Or paste a new batch above —'
-                . ' the box still holds this one.')) ?></span>
+                'Start over')) ?></button>
+            <span class="vi-mark"><?= h(__('Or paste a new list'
+                . ' above.')) ?></span>
         </div>
         <textarea class="vi-shortlist" data-vi-short hidden
                   aria-label="<?= h(__('The values you opened')) ?>"></textarea>

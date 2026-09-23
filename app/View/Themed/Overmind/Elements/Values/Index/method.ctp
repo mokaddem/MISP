@@ -84,17 +84,17 @@ foreach (ValueVerdictTool::BANDS as $band) {
 $axes = array(
     array(
         'axis' => __('Lean'),
-        'question' => __('What does the record assert this is?'),
+        'question' => __('What does the data in MISP say this value is?'),
         'words' => implode(' ', $leans),
     ),
     array(
         'axis' => __('Relevance'),
-        'question' => __('Does it still matter today?'),
+        'question' => __('Is it still relevant today?'),
         'words' => implode(' ', $relevances),
     ),
     array(
         'axis' => __('Quality'),
-        'question' => __('How much can the record be trusted?'),
+        'question' => __('How much weight does the evidence carry?'),
         'words' => implode(' ', $bands),
     ),
 );
@@ -105,7 +105,7 @@ $axes = array(
              viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 7 5l-4 3.5"
              fill="none" stroke="currentColor" stroke-width="1.5"
              stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <?= h(__('What an assessment is')) ?>
+        <?= h(__('How assessments work')) ?>
     </summary>
     <div class="vi-note__body">
         <table class="vi-axes">
@@ -122,18 +122,16 @@ $axes = array(
             </tbody>
         </table>
         <p><?= h(__(
-            'None of the three is a maliciousness verdict. An engine'
-            . ' reading MISP\'s tables can honestly measure the record'
-            . ' — who reported a value, how often, how recently,'
-            . ' whether they agree — but not the world the record is'
-            . ' about.'
+            'None of these says whether a value is malicious. They'
+            . ' describe what MISP has recorded about it: which'
+            . ' organisations reported it, how often, how recently and'
+            . ' whether they agree.'
         )) ?></p>
         <p><?= sprintf(
             h(__(
-                'They are the same three gates your exports already'
-                . ' use: %s is a lean, %s is relevance, %s is quality.'
-                . ' Reading them here and filtering on them there are'
-                . ' the same act.'
+                'Each one matches a filter you already use in exports'
+                . ' and restSearch: %s for the lean, %s for relevance'
+                . ' and %s for quality.'
             )),
             '<code>to_ids</code>',
             '<code>excludeStale</code>',
