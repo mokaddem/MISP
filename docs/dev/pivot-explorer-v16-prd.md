@@ -9,7 +9,7 @@ revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). R1/R2's count s
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
 **Working dir:** /home/sami/git/MISP
 **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (which holds the v1.6.0 work)
-**Library:** Pivotick v2.0.1+, built from `develop` at `d220446` (`app/webroot/js/pivotick.iife.js`,
+**Library:** Pivotick v2.0.1+, built from `develop` at `1296966` (`app/webroot/js/pivotick.iife.js`,
 `app/webroot/css/pivotick.css`). Written against v1.6.0; the file name keeps `v16` so links hold.
 
 ---
@@ -550,8 +550,8 @@ empty, rather than whenever the event is large. A behemoth gets L0's aggregated 
 
 > **Built (task 4, 2026-09-23), with a different action.** The correlation count in the example
 > cannot appear: correlations imply related events, and related events put L0 on the canvas. The
-> message names what is missing and points at the *Event elements* pivot (task 9) instead. Pivotick
-> has no empty state, so the box is MISP's; requested upstream (`prd/misp/empty-canvas-state.md`).
+> message names what is missing and points at the *Event elements* pivot (task 9) instead. It is
+> Pivotick's `UI.emptyState` card (added upstream on MISP's request), with MISP's words.
 
 #### D1 — Two edge dimensions, six kinds, plus feed/server nodes ✅ SETTLED
 
@@ -1290,8 +1290,8 @@ relationships, and the events in §3.5 as fixtures):
 | 4 | ✅ D11 empty-state message, pointing at the element pivot (an empty seed has no correlations) | 3c, 9 |
 | 5e | ✅ Count source: `/events/correlationCounts/{id}.json` (R1, first slice of D13) | — |
 | 5f | ✅ Fetch path: `POST /events/correlatedAttributes/{id}.json` — the pairs 5e counts, narrowed by `attribute_uuids` or `event_ids` | 5e |
-| 5 | ✅ built, ⏸ edges: correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` from 5f / `maxCandidates` 1,500, no `save` (R1) | 5e, 5f, pivotick fix |
-| 5d | ✅ built, ⏸ edges: related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, 5e, 5f, pivotick fix |
+| 5 | ✅ correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` from 5f / `maxCandidates` 1,500, no `save` (R1) | 5e, 5f, pivotick fix |
+| 5d | ✅ related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, 5e, 5f, pivotick fix |
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | ✅ Analyst-data badges + selection-reactive sidebar panel | 1 |
@@ -1304,8 +1304,8 @@ relationships, and the events in §3.5 as fixtures):
 | 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
-`correlation` edges wait on a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
-follows 9, whose pivot its message points at. Enrichment (R3) is not a task here.
+`correlation` edges needed a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
+follows 9, whose pivot its message points at. Both upstream requests landed in Pivotick `develop` `1296966` (bundled in MISP as `d7a179e9c`). Enrichment (R3) is not a task here.
 
 **✅ Done (prerequisite, not a task above).** The inline JS is extracted out of the `.ctp` into
 `app/webroot/js/pivot-explorer.js`, leaving the element at 117 lines of markup + CSS + config.
@@ -1325,8 +1325,8 @@ for CSS.
 
 | File | Change |
 |---|---|
-| `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0, then v2 at `d220446`) |
-| `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0, then v2 at `d220446`) |
+| `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`) |
+| `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`) |
 | `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c) |
 | `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
 | `tests/js/pivot-explorer-graph.test.js` | ✅ new — zero-dependency unit suite over the seed and the graph builder |
