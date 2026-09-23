@@ -118,7 +118,8 @@ class AnalystProfileSelection extends AppModel
         }
         $this->deleteAll(
             array($this->alias . '.org_id' => $orgId),
-            false
+            false,
+            true
         );
         return true;
     }

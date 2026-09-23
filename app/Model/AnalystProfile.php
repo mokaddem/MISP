@@ -346,7 +346,7 @@ class AnalystProfile extends AppModel
             ClassRegistry::init('UserSetting')->deleteAll(array(
                 'UserSetting.user_id' => $userId,
                 'UserSetting.setting' => 'analyst_profile',
-            ), false);
+            ), false, true);
         } elseif (!empty($orgId)) {
             ClassRegistry::init('AnalystProfileSelection')->clearFor($orgId);
         }
@@ -798,7 +798,7 @@ class AnalystProfile extends AppModel
             $UserSetting->deleteAll(array(
                 'UserSetting.user_id' => $user['id'],
                 'UserSetting.setting' => 'analyst_profile',
-            ), false);
+            ), false, true);
             return true;
         }
         /*
