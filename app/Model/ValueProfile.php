@@ -11671,7 +11671,7 @@ class ValueProfile extends AppModel
         return array(
             'value' => $value,
             'history' => $this->historyPanel($rows, $counts, $context,
-                $scope, $window),
+                $scope, $window, (int)$user['org_id']),
         );
     }
 
@@ -11774,6 +11774,7 @@ class ValueProfile extends AppModel
             'vocab' => self::historyVocab(),
             'groups' => array(),
             'event_entries' => array(),
+            'regroups' => array('orgs' => array(), 'fields' => array()),
         );
         if ($recorded) {
             return $shell;
@@ -11817,7 +11818,7 @@ class ValueProfile extends AppModel
      * @return array
      */
     private function historyPanel(array $rows, array $counts,
-        array $context, array $scope, $window
+        array $context, array $scope, $window, $viewerOrg = 0
     ) {
         $groups = array();
         $eventEntries = array();
@@ -11955,6 +11956,7 @@ class ValueProfile extends AppModel
             'vocab' => self::historyVocab(),
             'groups' => $groups,
             'event_entries' => $eventEntries,
+            'regroups' => self::historyRegroups($all, (int)$viewerOrg),
         );
     }
 
@@ -11973,14 +11975,120 @@ class ValueProfile extends AppModel
             : null;
         if ($event !== null) {
             $row['event_info'] = $event['info'];
-            if ($row['org'] === null) {
-                $row['org'] = $event['org'];
-            }
         }
+        /*
+         * The acting organisation or none. The event's creator is a
+         * different organisation, and filing the row under it would
+         * put it in the wrong card when grouped by organisation.
+         */
         if ($row['org'] === null) {
             $row['org'] = __('Unknown organisation');
+            $row['org_id'] = 0;
         }
+        $row['field_key'] = self::historyFieldKey($row);
         return $row;
+    }
+
+    /**
+     * What a row is filed under when the panel groups by field: the
+     * fields an edit changed, or for anything else the kind of action.
+     *
+     * An edit that changed several fields is filed once, under all of
+     * them, so every entry still sits in exactly one section.
+     *
+     * @param array $row
+     * @return array `key`, `label`
+     */
+    private static function historyFieldKey(array $row)
+    {
+        if ($row['action'] === 'edit' && !empty($row['change'])) {
+            $fields = array_column($row['change'], 'field');
+            sort($fields);
+            return array(
+                'key' => 'field:' . implode(',', $fields),
+                'label' => implode(', ', $fields),
+            );
+        }
+        $group = AuditActionMeta::group($row['action']);
+        if ($group === 'tag') {
+            return array('key' => 'kind:tag', 'label' => __('Tags'));
+        }
+        if ($group === 'cluster') {
+            return array(
+                'key' => 'kind:cluster',
+                'label' => __('Galaxy clusters'),
+            );
+        }
+        return array(
+            'key' => 'action:' . $row['action'],
+            'label' => AuditActionMeta::label($row['action']),
+        );
+    }
+
+    /**
+     * The sections the panel can regroup its rows into, each tallied
+     * over the rendered rows: one per acting organisation, and one per
+     * field key.
+     *
+     * @param array $rows Every rendered row
+     * @param int $viewerOrg
+     * @return array `orgs`, `fields`
+     */
+    private static function historyRegroups(array $rows, $viewerOrg)
+    {
+        $orgs = array();
+        $fields = array();
+        foreach ($rows as $row) {
+            $orgKey = $row['org_id'];
+            if (!isset($orgs[$orgKey])) {
+                $orgs[$orgKey] = array(
+                    'id' => $orgKey,
+                    'name' => $row['org'],
+                    'own' => $orgKey !== 0 && $orgKey === $viewerOrg,
+                    'count' => 0,
+                    'last' => null,
+                    'mix' => array(),
+                    'actors' => array(),
+                );
+            }
+            $fieldKey = $row['field_key']['key'];
+            if (!isset($fields[$fieldKey])) {
+                $fields[$fieldKey] = array(
+                    'key' => $fieldKey,
+                    'label' => $row['field_key']['label'],
+                    'count' => 0,
+                    'last' => null,
+                    'mix' => array(),
+                );
+            }
+            foreach (array(&$orgs[$orgKey], &$fields[$fieldKey]) as &$group) {
+                $group['count']++;
+                $group['mix'][$row['action']] =
+                    ($group['mix'][$row['action']] ?? 0) + 1;
+                if ($group['last'] === null
+                    || $row['created'] > $group['last']
+                ) {
+                    $group['last'] = $row['created'];
+                }
+            }
+            unset($group);
+            if ($row['actor'] !== null) {
+                $orgs[$orgKey]['actors'][$row['actor']] = true;
+            }
+        }
+        foreach ($orgs as &$org) {
+            $org['actors'] = count($org['actors']);
+        }
+        unset($org);
+        $byCount = function ($a, $b) {
+            return $b['count'] - $a['count']
+                ?: strcmp((string)$b['last'], (string)$a['last']);
+        };
+        $orgs = array_values($orgs);
+        $fields = array_values($fields);
+        usort($orgs, $byCount);
+        usort($fields, $byCount);
+        return array('orgs' => $orgs, 'fields' => $fields);
     }
 
     /**
@@ -12771,8 +12879,14 @@ class ValueProfile extends AppModel
              */
             'actor' => $actor,
             'org' => $org,
+            'org_id' => empty($log['org_id']) ? 0 : (int)$log['org_id'],
             'request_type' => (int)$log['request_type'],
+            /*
+             * A tag or galaxy row's blob is the join row's ids; the
+             * subject already names what was attached.
+             */
             'change' => array_key_exists('change', $log)
+                    && !in_array($log['action'], self::AUDIT_SUBJECT, true)
                 ? self::auditChangeRows($log)
                 : null,
             'renamed' => false,

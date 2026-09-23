@@ -322,6 +322,17 @@ $deletedBadge = function () {
 $facets = $history['facets'];
 $vocab = $history['vocab']['action'];
 
+/*
+ * The body each row moves into when the reader regroups, by id, so the
+ * script needs no knowledge of how a key was spelled.
+ */
+$orgBody = function ($orgId) {
+    return 'vp-audit-org-' . (int)$orgId;
+};
+$fieldBody = function ($key) {
+    return 'vp-audit-field-' . substr(md5($key), 0, 12);
+};
+
 /**
  * One row. Kept as a closure rather than a second element file: the
  * occurrence sections and the event-level section draw the same row,
@@ -330,7 +341,9 @@ $vocab = $history['vocab']['action'];
  * @param array $row
  * @return string
  */
-$renderRow = function ($row) use ($baseurl, $fmt) {
+$renderRow = function ($row, $home) use ($baseurl, $fmt, $orgBody,
+    $fieldBody
+) {
     $meta = AuditActionMeta::forAction($row['action']);
     $fields = array();
     if (!empty($row['change'])) {
@@ -390,6 +403,11 @@ $renderRow = function ($row) use ($baseurl, $fmt) {
     ?>
     <div class="vp-audit-row"
          data-vp-list-row
+         data-vp-audit-home="<?= h($home) ?>"
+         data-vp-audit-org="<?= h($orgBody($row['org_id'])) ?>"
+         data-vp-audit-field="<?= h($fieldBody($row['field_key']['key'])) ?>"
+         <?= strpos($row['field_key']['key'], 'field:') === 0
+             ? 'data-vp-audit-edit' : '' ?>
          data-vp-facet="<?= h(implode(' ', $tokens)) ?>"
          data-vp-time="<?= h($fmt($row['created'], 'YmdHi')) ?>"
          data-vp-text="<?= h($blob) ?>"
@@ -739,38 +757,29 @@ ob_start();
 
     <?php
     /*
-     * The grouping control, with one of its three enabled. Grouping by
-     * organisation is unanswerable for anyone who is not a site admin
-     * — `__applyAuditAcl` collapses most of its cards to unnamed users
-     * — and grouping by field needs `audit_logs.change` decoded for
-     * every row at render time, which is what `fullChange` exists to
-     * avoid. A disabled control is how this page has said "designed,
-     * not built" since phase 5.
+     * Regrouping moves the rendered rows between three sets of
+     * sections and fetches nothing. By organisation files each entry
+     * under the organisation that acted; by field, an edit under the
+     * fields it changed and anything else under its kind of action.
      */
+    $groupings = array(
+        'occurrence' => __('By occurrence'),
+        'org' => __('By organisation'),
+        'field' => __('By field'),
+    );
     ?>
     <div class="btn-group btn-group-sm" role="group"
          aria-label="<?= __('Grouping') ?>">
-        <button type="button" class="btn btn-outline-secondary active"
-                aria-pressed="true">
-            <?= __('By occurrence') ?>
-        </button>
-        <button type="button" class="btn btn-outline-secondary" disabled
-                title="<?= h(__(
-                    'Unanswerable outside a site-admin account: MISP'
-                    . ' strips the user on entries from other'
-                    . ' organisations, so most cards would read'
-                    . ' "unnamed users".'
-                )) ?>">
-            <?= __('By organisation') ?>
-        </button>
-        <button type="button" class="btn btn-outline-secondary" disabled
-                title="<?= h(__(
-                    'Needs every row\'s compressed change blob decoded'
-                    . ' at render time, which is the cost fullChange'
-                    . ' exists to avoid.'
-                )) ?>">
-            <?= __('By field') ?>
-        </button>
+        <?php foreach ($groupings as $key => $label): ?>
+            <button type="button"
+                    class="btn btn-outline-secondary<?=
+                        $key === 'occurrence' ? ' active' : '' ?>"
+                    data-vp-audit-group="<?= h($key) ?>"
+                    aria-pressed="<?=
+                        $key === 'occurrence' ? 'true' : 'false' ?>">
+                <?= h($label) ?>
+            </button>
+        <?php endforeach; ?>
     </div>
 
     <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -1259,6 +1268,7 @@ $chartPayload = array(
 
             <div data-vp-list-rows>
 
+                <div data-vp-audit-grouping="occurrence">
                 <?php foreach ($history['groups'] as $index => $group): ?>
                     <?php
                     $sectionId = 'vp-audit-' . (int)$group['attribute_id'];
@@ -1393,11 +1403,12 @@ $chartPayload = array(
                              data-vp-audit-body
                              class="<?= $open ? '' : 'd-none' ?>">
                             <?php foreach ($group['entries'] as $row): ?>
-                                <?= $renderRow($row) ?>
+                                <?= $renderRow($row, $sectionId) ?>
                             <?php endforeach; ?>
 
                             <?php if ($group['count'] > $pageSize): ?>
-                                <div class="px-3 py-2 border-top">
+                                <div class="px-3 py-2 border-top"
+                                     data-vp-audit-pagerhost>
                                     <?= $this->element(
                                         'Values/View/value_pager',
                                         array(
@@ -1546,11 +1557,12 @@ $chartPayload = array(
                             <?php foreach (
                                 $history['event_entries'] as $row
                             ): ?>
-                                <?= $renderRow($row) ?>
+                                <?= $renderRow($row, 'vp-audit-events') ?>
                             <?php endforeach; ?>
 
                             <?php if ($eventTotal > $pageSize): ?>
-                                <div class="px-3 py-2 border-top">
+                                <div class="px-3 py-2 border-top"
+                                     data-vp-audit-pagerhost>
                                     <?= $this->element(
                                         'Values/View/value_pager',
                                         array(
@@ -1569,6 +1581,26 @@ $chartPayload = array(
 
                     </div>
                 <?php endif; ?>
+                </div>
+
+                <?php foreach (array('org', 'field') as $grouping): ?>
+                    <?= $this->element(
+                        'Values/View/value_history_regroup',
+                        array(
+                            'grouping' => $grouping,
+                            'sections' => $grouping === 'org'
+                                ? $history['regroups']['orgs']
+                                : $history['regroups']['fields'],
+                            'bodyId' => $grouping === 'org'
+                                ? $orgBody
+                                : $fieldBody,
+                            'renderMix' => $renderMix,
+                            'fmt' => $fmt,
+                            'pageSize' => $pageSize,
+                            'sectionSize' => $sectionSize,
+                        )
+                    ) ?>
+                <?php endforeach; ?>
 
             </div>
 

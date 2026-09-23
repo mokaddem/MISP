@@ -8391,7 +8391,7 @@
 
         var standing = [];
         var dropped = 0;
-        list.querySelectorAll('[data-vp-audit-section]')
+        auditGrouping(list).querySelectorAll('[data-vp-audit-section]')
             .forEach(function (section) {
                 var rows = bySection.get(section) || [];
                 var pager = section.querySelector('[data-vp-pager]');
@@ -8454,7 +8454,8 @@
      * @param {Array<Element>} standing Blank ones already excluded
      */
     function pageAuditSections(list, standing) {
-        var host = ownNode(list, '[data-vp-audit-sectionpager]');
+        var host = auditGrouping(list)
+            .querySelector('[data-vp-audit-sectionpager]');
         var pager = host ? host.querySelector('[data-vp-pager]') : null;
         if (!pager) {
             return;
@@ -8497,6 +8498,89 @@
     }
 
     /**
+     * @param {Element} list
+     * @return {Element} The grouping on screen, or the list for a panel
+     *     that has only one
+     */
+    function auditGrouping(list) {
+        return list.querySelector('[data-vp-audit-grouping]:not([hidden])')
+            || list;
+    }
+
+    /**
+     * Refile every row under the grouping the reader picked.
+     *
+     * The rows move rather than being copied, so each one stays a
+     * single list row and the rail, the header and the section counts
+     * all keep counting it once. Newest first under an organisation or
+     * a field, since those sections mix occurrences; back in rendered
+     * order under By occurrence.
+     *
+     * By field opens each edit's diff, since the diff is what that
+     * grouping is for, and leaving it closes them again.
+     *
+     * @param {Element} button A [data-vp-audit-group]
+     */
+    function switchAuditGrouping(button) {
+        var list = button.closest('[data-vp-audit]');
+        var key = button.dataset.vpAuditGroup;
+        var target = list
+            && list.querySelector('[data-vp-audit-grouping="' + key + '"]');
+        if (!target || !target.hidden && auditGrouping(list) === target) {
+            return;
+        }
+        var attribute = {
+            occurrence: 'vpAuditHome',
+            org: 'vpAuditOrg',
+            field: 'vpAuditField',
+        }[key];
+        var rows = listRows(list);
+        rows.forEach(function (row, index) {
+            if (row.dataset.vpAuditSeq === undefined) {
+                row.dataset.vpAuditSeq = index;
+            }
+        });
+        var seq = function (row) {
+            return parseInt(row.dataset.vpAuditSeq, 10);
+        };
+        rows.sort(key === 'occurrence'
+            ? function (a, b) {
+                return seq(a) - seq(b);
+            }
+            : function (a, b) {
+                return (b.dataset.vpTime || '')
+                    .localeCompare(a.dataset.vpTime || '')
+                    || seq(a) - seq(b);
+            });
+        rows.forEach(function (row) {
+            var body = document.getElementById(row.dataset[attribute]);
+            if (!body) {
+                return;
+            }
+            var host = body.querySelector(':scope > [data-vp-audit-pagerhost]');
+            body.insertBefore(row, host);
+            var diff = row.querySelector('[data-vp-audit-diff]');
+            var table = row.querySelector('.vp-audit-diff');
+            var open = key === 'field'
+                && row.hasAttribute('data-vp-audit-edit');
+            if (diff && table && table.classList.contains('d-none') === open) {
+                toggleAuditDiff(diff);
+            }
+        });
+        list.querySelectorAll('[data-vp-audit-grouping]')
+            .forEach(function (grouping) {
+                grouping.hidden = grouping !== target;
+            });
+        list.querySelectorAll('[data-vp-audit-group]').forEach(function (b) {
+            var on = b === button;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        resetAuditPages(list);
+        refreshList(list);
+    }
+
+    /**
      * @param {Element} button
      */
     function toggleAuditSection(button) {
@@ -8519,7 +8603,8 @@
         if (!list) {
             return;
         }
-        var sections = list.querySelectorAll('[data-vp-audit-section]');
+        var sections = auditGrouping(list)
+            .querySelectorAll('[data-vp-audit-section]');
         var opening = false;
         sections.forEach(function (section) {
             if (!auditOpen(section)) {
@@ -8572,6 +8657,11 @@
         var all = event.target.closest('[data-vp-audit-expand-all]');
         if (all) {
             toggleAuditAll(all);
+            return true;
+        }
+        var grouping = event.target.closest('[data-vp-audit-group]');
+        if (grouping) {
+            switchAuditGrouping(grouping);
             return true;
         }
         var diff = event.target.closest('[data-vp-audit-diff]');
