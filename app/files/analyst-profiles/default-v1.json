@@ -2,7 +2,7 @@
     "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
     "name": "default-v1",
     "description": "The Analyst Profile MISP ships with, and the one every value page is scored by until somebody enables another. Take a copy rather than editing it - the profile nearest the reader wins.",
-    "version": 14,
+    "version": 15,
     "parameters": {
         "format": 1,
         "signals": [
@@ -25,14 +25,14 @@
                 "id": "record.temporal_precision",
                 "group": "Lifecycle",
                 "enabled": true,
-                "points": { "dated": 4, "undated": -6 }
+                "points": { "dated": 4, "undated": -1 }
             },
             {
                 "id": "sightings.volume_recency",
                 "group": "Sightings",
                 "enabled": true,
                 "trust_weighted": true,
-                "points": { "cap": 24, "none_recent": -4 },
+                "points": { "cap": 24, "none_recent": -1 },
                 "config": {
                     "saturation": 50,
                     "stale_days": 90,
@@ -50,7 +50,7 @@
                 "id": "attribution.galaxy",
                 "group": "Attribution",
                 "enabled": true,
-                "points": { "per_cluster": 7, "cap": 21, "absent": -7 }
+                "points": { "per_cluster": 7, "cap": 21, "absent": -1 }
             },
             {
                 "id": "attribution.technique",

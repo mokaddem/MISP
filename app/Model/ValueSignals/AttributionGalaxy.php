@@ -70,7 +70,7 @@ class AttributionGalaxy extends ValueSignalBase
             ),
             'absent' => array(
                 'type' => 'int',
-                'default' => -7,
+                'default' => -1,
                 'label' => __('Points when nobody has attributed it'),
             ),
         );

@@ -2,7 +2,7 @@
     "uuid": "578259b3-1511-4ed9-ab0c-cd82cb29845f",
     "name": "Disinformation & Influence",
     "description": "For a researcher tracking narratives and campaigns rather than infrastructure, whose output is published. It keeps the shipped default's numbers and changes what the page shows first, with the longest shelf life of the five.",
-    "version": 2,
+    "version": 3,
     "parameters": {
         "format": 1,
         "signals": [
@@ -37,7 +37,7 @@
                 "enabled": true,
                 "points": {
                     "dated": 4,
-                    "undated": -6
+                    "undated": -1
                 }
             },
             {
@@ -47,7 +47,7 @@
                 "trust_weighted": true,
                 "points": {
                     "cap": 24,
-                    "none_recent": -4
+                    "none_recent": -1
                 },
                 "config": {
                     "saturation": 50,
@@ -73,7 +73,7 @@
                 "points": {
                     "per_cluster": 7,
                     "cap": 21,
-                    "absent": -7
+                    "absent": -1
                 }
             },
             {

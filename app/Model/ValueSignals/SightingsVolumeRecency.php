@@ -57,7 +57,7 @@ class SightingsVolumeRecency extends ValueSignalBase
             ),
             'none_recent' => array(
                 'type' => 'int',
-                'default' => -4,
+                'default' => -1,
                 'label' => __('Points when nobody has sighted it'),
             ),
         );

@@ -51,7 +51,7 @@ class RecordTemporalPrecision extends ValueSignalBase
             ),
             'undated' => array(
                 'type' => 'int',
-                'default' => -6,
+                'default' => -1,
                 'label' => __('Points when none does'),
             ),
         );
