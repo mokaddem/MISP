@@ -43,7 +43,7 @@ class SightingsVolumeRecency extends ValueSignalBase
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('sightings');
     public $absence_key = 'none_recent';
-    public $source = 'Sightings';
+    public $tab = 'sightings';
 
     public function __construct()
     {

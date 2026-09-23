@@ -41,7 +41,7 @@
  *     'signal'       => __('4 independent organisations reported it'),
  *     'evidence'     => 'CIRCL, CthulhuSPRL.be, Team-CIRCL, ORGNAME',
  *     'contribution' => 28,          // threat-signed integer
- *     'source'       => __('Occurrences'),
+ *     'tab'          => 'occurrences', // where the evidence is read
  *     'as_of'        => '2025-08-19',
  * );
  * ```
@@ -250,8 +250,8 @@ abstract class ValueSignalBase
      */
     public $axis = self::AXIS_QUALITY;
 
-    /** Which panel a reader should go and argue with the row in. */
-    public $source = 'Occurrences';
+    /** The value-page tab a reader should go and argue with the row in. */
+    public $tab = 'occurrences';
 
     public $version = 1;
 
@@ -281,7 +281,7 @@ abstract class ValueSignalBase
             'reads' => $this->reads,
             'evidence_class' => $this->evidence_class,
             'axis' => $this->axis,
-            'source' => $this->source,
+            'tab' => $this->tab,
             'version' => $this->version,
             'is_custom' => $this->is_custom,
         );
@@ -474,7 +474,7 @@ abstract class ValueSignalBase
             'signal' => $signal,
             'evidence' => $evidence,
             'contribution' => (int)round($contribution),
-            'source' => $this->source,
+            'tab' => $this->tab,
             'as_of' => $asOf === null
                 ? ($context['as_of'] ?? date('Y-m-d'))
                 : $asOf,

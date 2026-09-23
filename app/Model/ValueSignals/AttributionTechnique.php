@@ -21,7 +21,7 @@ class AttributionTechnique extends ValueSignalBase
     public $group = 'Attribution';
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('galaxies');
-    public $source = 'Context';
+    public $tab = 'general';
 
     public function __construct()
     {

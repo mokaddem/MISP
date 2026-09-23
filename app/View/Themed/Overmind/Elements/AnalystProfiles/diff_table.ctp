@@ -101,10 +101,6 @@ $number = function ($value) {
                     <?php if ($full): ?>
                         <td class="wb-wide-only wb-sub">
                             <?= h((string)$row['evidence']) ?>
-                            <?php if (!empty($row['source'])): ?>
-                                <div><?= h(sprintf(__('source: %s'),
-                                    $row['source'])) ?></div>
-                            <?php endif; ?>
                         </td>
                     <?php endif; ?>
                     <td class="r num"><?= h($number($row['before'])) ?></td>

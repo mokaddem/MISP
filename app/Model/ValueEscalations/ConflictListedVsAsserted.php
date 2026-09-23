@@ -31,7 +31,7 @@ class ConflictListedVsAsserted extends ValueEscalationBase
 {
     public $id = 'conflict:listed-vs-asserted';
     public $reads = array('warninglist', 'orgs');
-    public $source = 'Lifecycle';
+    public $tab = 'general';
 
     public function __construct()
     {

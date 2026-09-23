@@ -102,7 +102,7 @@ class EnrichmentAnswer extends ValueSignalBase
 
     public $reads = array('enrichment');
 
-    public $source = 'Enrichment';
+    public $tab = 'enrichment';
 
     public function __construct()
     {

@@ -255,15 +255,14 @@ $columns = $isSignals ? 5 : 3;
                     /*
                      * What the row *is*, as against what it is set to:
                      * the multiplier its contribution passes through,
-                     * and the data it reads. Neither is on the form, so
-                     * neither is a chip — tags are square where the
+                     * and the layer it comes from. Neither is on the
+                     * form, so neither is a chip — tags are square where the
                      * state pills are round, which is the whole reason
                      * they can sit in the same cell without being read
                      * as the same kind of thing.
                      */
                     ?>
                     <?php if (!empty($item['trust_weighted'])
-                        || !empty($item['source'])
                         || !empty($item['layer'])): ?>
                         <div class="sig-meta">
                             <?php if (!empty($item['trust_weighted'])): ?>
@@ -287,12 +286,6 @@ $columns = $isSignals ? 5 : 3;
                                           . ' much the reporting organisation'
                                           . ' is trusted.')) ?>">
                                     <?= h(__('trust weighted')) ?>
-                                </span>
-                            <?php endif; ?>
-                            <?php if (!empty($item['source'])): ?>
-                                <span class="sig-tag">
-                                    <span class="k"><?= h(__('reads')) ?></span>
-                                    <b><?= h($item['source']) ?></b>
                                 </span>
                             <?php endif; ?>
                             <?php if (!empty($item['layer'])): ?>

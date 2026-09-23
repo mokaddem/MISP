@@ -59,7 +59,7 @@ class LifecycleWarninglist extends ValueSignalBase
      * record survived the check.
      */
     public $axis = self::AXIS_LEAN;
-    public $source = 'Lifecycle';
+    public $tab = 'general';
 
     public function __construct()
     {

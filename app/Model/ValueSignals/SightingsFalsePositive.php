@@ -45,7 +45,7 @@ class SightingsFalsePositive extends ValueSignalBase
      * false positive* pole to be read as an argument for threat.
      */
     public $axis = self::AXIS_LEAN;
-    public $source = 'Sightings';
+    public $tab = 'sightings';
 
     public function __construct()
     {

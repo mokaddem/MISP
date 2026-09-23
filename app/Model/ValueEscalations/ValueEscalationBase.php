@@ -123,8 +123,8 @@ abstract class ValueEscalationBase
      */
     public $reads = array();
 
-    /** Which panel a reader should go and argue with the rule in. */
-    public $source = 'Lifecycle';
+    /** The value-page tab a reader should go and argue with the rule in. */
+    public $tab = 'general';
 
     public $version = 1;
 
@@ -149,7 +149,7 @@ abstract class ValueEscalationBase
             'emits' => $this->emits,
             'when_schema' => $this->when_schema,
             'reads' => $this->reads,
-            'source' => $this->source,
+            'tab' => $this->tab,
             'version' => $this->version,
             'is_custom' => $this->is_custom,
         );

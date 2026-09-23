@@ -93,7 +93,8 @@ class ValueContestedTool
                 'signal' => $row['signal'],
                 'points' => abs($points),
                 'evidence' => $row['evidence'],
-                'source' => $row['source'],
+                'kind' => $row['kind'],
+                'tab' => $row['tab'],
             );
         }
         if (empty($sides['threat']) || empty($sides['benign'])) {

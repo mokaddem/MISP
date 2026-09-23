@@ -205,9 +205,19 @@ foreach ($cases as $case) {
                 <?php foreach ($case['rows'] as $row): ?>
                     <div class="vp-vc-row">
                         <div class="vp-vc-row-top">
-                            <span class="vp-vc-signal">
-                                <?= h($row['signal']) ?>
-                            </span>
+                            <?php if (empty($row['tab'])): ?>
+                                <span class="vp-vc-signal">
+                                    <?= h($row['signal']) ?>
+                                </span>
+                            <?php else: ?>
+                                <a class="vp-vc-signal vp-ledger-signal-link"
+                                   href="#tab-<?= h($row['tab']) ?>"
+                                   title="<?= h(__(
+                                       'Open the tab holding this evidence'
+                                   )) ?>">
+                                    <?= h($row['signal']) ?>
+                                </a>
+                            <?php endif; ?>
                             <span class="vp-vc-bar"
                                   title="<?= h(sprintf(
                                       __('%s points'),
@@ -223,9 +233,6 @@ foreach ($cases as $case) {
                         <div class="vp-vc-row-bottom">
                             <span class="vp-vc-evidence">
                                 <?= h($row['evidence']) ?>
-                            </span>
-                            <span class="vp-vc-panel">
-                                <?= h($row['source']) ?>
                             </span>
                         </div>
                     </div>

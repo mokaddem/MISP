@@ -29,7 +29,7 @@ class LifecycleRecency extends ValueSignalBase
     public $group = 'Lifecycle';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('occurrences');
-    public $source = 'Occurrences';
+    public $tab = 'occurrences';
 
     public function __construct()
     {

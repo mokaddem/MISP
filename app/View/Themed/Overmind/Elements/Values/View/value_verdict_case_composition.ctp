@@ -15,9 +15,10 @@
  * to `quality`, this one to `lean_weight`, which is also why the two
  * totals here really are never the quality's difference.
  *
- * Grouped by source panel rather than listed per signal: at rail width
- * a signal's own wording does not fit, and "which panel is carrying
- * this case" is the question the breakdown answers anyway.
+ * Grouped by signal group rather than listed per signal: at rail
+ * width a signal's own wording does not fit, and "what kind of
+ * evidence is carrying this case" is the question the breakdown
+ * answers anyway.
  *
  * Derived from the cases rather than carried separately, so this card
  * and the two columns beside it cannot disagree.
@@ -28,10 +29,10 @@ $verdict = $valueProfile['verdict'];
 $cases = $verdict['cases'] ?? array();
 
 /*
- * One colour per panel, shared across both cases, so the same source
+ * One colour per group, shared across both cases, so the same group
  * is the same colour on both sides and the two strips can be compared.
  */
-$panelColours = array(
+$groupColours = array(
     'var(--event)',
     'var(--sighting)',
     'var(--galaxy)',
@@ -44,25 +45,25 @@ $next = 0;
 
 $sides = array();
 foreach ($cases as $case) {
-    $bySource = array();
+    $byGroup = array();
     foreach ($case['rows'] as $row) {
-        $source = $row['source'];
-        if (!isset($colourFor[$source])) {
-            $colourFor[$source] = $panelColours[
-                $next++ % count($panelColours)
+        $group = $row['kind'];
+        if (!isset($colourFor[$group])) {
+            $colourFor[$group] = $groupColours[
+                $next++ % count($groupColours)
             ];
         }
-        if (!isset($bySource[$source])) {
-            $bySource[$source] = 0;
+        if (!isset($byGroup[$group])) {
+            $byGroup[$group] = 0;
         }
-        $bySource[$source] += (int)$row['points'];
+        $byGroup[$group] += (int)$row['points'];
     }
-    arsort($bySource);
+    arsort($byGroup);
     $sides[] = array(
         'side' => $case['side'],
         'title' => $case['title'],
         'total' => (int)$case['weight'],
-        'segments' => $bySource,
+        'segments' => $byGroup,
     );
 }
 ?>
@@ -102,16 +103,16 @@ foreach ($cases as $case) {
 
                     <div class="vp-composition">
                         <?php foreach ($side['segments']
-                            as $source => $points): ?>
+                            as $group => $points): ?>
                             <span class="vp-composition-seg"
                                   style="width: <?= round(
                                       $points / $span * 100,
                                       2
                                   ) ?>%; --vp-seg-color: <?=
-                                      h($colourFor[$source]) ?>;"
+                                      h($colourFor[$group]) ?>;"
                                   title="<?= h(sprintf(
                                       '%1$s +%2$s',
-                                      $source,
+                                      $group,
                                       $points
                                   )) ?>"></span>
                         <?php endforeach; ?>
@@ -119,14 +120,14 @@ foreach ($cases as $case) {
 
                     <div class="vp-comp-legend">
                         <?php foreach ($side['segments']
-                            as $source => $points): ?>
+                            as $group => $points): ?>
                             <div class="vp-comp-row">
                                 <span class="vp-comp-swatch"
                                       style="--vp-seg-color: <?=
-                                          h($colourFor[$source]) ?>;">
+                                          h($colourFor[$group]) ?>;">
                                 </span>
                                 <span class="vp-comp-name">
-                                    <?= h($source) ?>
+                                    <?= h($group) ?>
                                 </span>
                                 <span class="vp-comp-pts">
                                     +<?= h($points) ?>

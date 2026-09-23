@@ -32,7 +32,7 @@ class ConflictKnownInfrastructure extends ValueEscalationBase
 {
     public $id = 'conflict:known-infrastructure-vs-reporting';
     public $reads = array('warninglist', 'orgs');
-    public $source = 'Lifecycle';
+    public $tab = 'general';
 
     public function __construct()
     {

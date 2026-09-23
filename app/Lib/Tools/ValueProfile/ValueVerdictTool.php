@@ -1064,9 +1064,7 @@ class ValueVerdictTool
             'evidence' => isset($row['evidence'])
                 ? $row['evidence']
                 : '',
-            'source' => isset($row['source'])
-                ? $row['source']
-                : $signal->source,
+            'tab' => isset($row['tab']) ? $row['tab'] : $signal->tab,
             'as_of' => isset($row['as_of']) ? $row['as_of'] : '',
             'id' => $signal->id,
         );

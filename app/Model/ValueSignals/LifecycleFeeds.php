@@ -28,7 +28,7 @@ class LifecycleFeeds extends ValueSignalBase
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('feeds');
     public $absence_key = 'no_feed';
-    public $source = 'External';
+    public $tab = 'general';
 
     public function __construct()
     {

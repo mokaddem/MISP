@@ -4,8 +4,8 @@
  * that refused to.
  *
  * A real table rather than a stack of rows, so Signal, Evidence,
- * Contribution, Source panel and As of line up down the page and a
- * reader can scan one column at a time.
+ * Contribution and As of line up down the page and a reader can scan
+ * one column at a time. A signal links to the tab holding its evidence.
  *
  * Grouped by kind rather than sorted by weight: an analyst checking
  * whether the sightings were counted twice wants them next to each
@@ -87,9 +87,6 @@ foreach ($ledger as $group) {
                         )) ?>">
                         <?= __('Contribution') ?>
                     </th>
-                    <th class="vp-ledger-panel-col">
-                        <?= __('Source panel') ?>
-                    </th>
                     <th class="vp-ledger-asof-col">
                         <?= __('As of') ?>
                     </th>
@@ -99,7 +96,7 @@ foreach ($ledger as $group) {
 
                 <?php foreach ($ledger as $group): ?>
                     <tr class="vp-ledger-group">
-                        <td colspan="6">
+                        <td colspan="5">
                             <?= h($group['kind']) ?>
                             <?php if (!empty($group['note'])): ?>
                                 <span class="vp-ledger-group-note">
@@ -119,7 +116,18 @@ foreach ($ledger as $group) {
                                 <?= $up ? '&#9650;' : '&#9660;' ?>
                             </td>
                             <td class="vp-ledger-signal-cell">
-                                <?= h($signal['signal']) ?>
+                                <?php if (empty($signal['tab'])): ?>
+                                    <?= h($signal['signal']) ?>
+                                <?php else: ?>
+                                    <a class="vp-ledger-signal-link"
+                                       href="#tab-<?= h($signal['tab']) ?>"
+                                       title="<?= h(__(
+                                           'Open the tab holding this'
+                                           . ' evidence'
+                                       )) ?>">
+                                        <?= h($signal['signal']) ?>
+                                    </a>
+                                <?php endif; ?>
                             </td>
                             <td class="vp-ledger-evidence">
                                 <?= h($signal['evidence']) ?>
@@ -148,9 +156,6 @@ foreach ($ledger as $group) {
                                     </span>
                                 </div>
                             </td>
-                            <td class="vp-ledger-panel">
-                                <?= h($signal['source']) ?>
-                            </td>
                             <td class="vp-ledger-asof">
                                 <?= h($signal['as_of']) ?>
                             </td>
@@ -167,7 +172,7 @@ foreach ($ledger as $group) {
                 ?>
                 <?php if (!empty($conflicts)): ?>
                     <tr class="vp-ledger-group vp-ledger-group-conflict">
-                        <td colspan="6">
+                        <td colspan="5">
                             <?= __('Contradictions') ?>
                             <span class="vp-ledger-group-note">
                                 <?= __(
@@ -222,9 +227,6 @@ foreach ($ledger as $group) {
                                     <?= __('no points') ?>
                                 </span>
                             </td>
-                            <td class="vp-ledger-panel">
-                                <?= h(__('Occurrences')) ?>
-                            </td>
                             <td class="vp-ledger-asof">
                                 <?= h(__('now')) ?>
                             </td>
@@ -233,7 +235,7 @@ foreach ($ledger as $group) {
                             <tr class="vp-ledger-conflict
                                        vp-ledger-detail-row">
                                 <td></td>
-                                <td colspan="5">
+                                <td colspan="4">
                                     <div class="collapse<?= $open
                                         ? ' show'
                                         : '' ?>"

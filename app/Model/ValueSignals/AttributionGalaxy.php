@@ -53,7 +53,7 @@ class AttributionGalaxy extends ValueSignalBase
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('galaxies');
     public $absence_key = 'absent';
-    public $source = 'Context';
+    public $tab = 'general';
 
     public function __construct()
     {

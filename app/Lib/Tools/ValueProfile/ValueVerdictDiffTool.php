@@ -366,9 +366,6 @@ class ValueVerdictDiffTool
             'axis' => isset($present['axis'])
                 ? $present['axis']
                 : ValueVerdictTool::AXIS_QUALITY,
-            'source' => isset($present['source'])
-                ? $present['source']
-                : null,
             /*
              * The candidate's prose where there is one. A row whose
              * points changed usually says something different about the

@@ -3068,13 +3068,6 @@ tr.vp-occ-deleted td {
     color: var(--bs-secondary-color);
 }
 
-.vp-vc-panel {
-    flex: 0 0 auto;
-    font-family: var(--bs-font-monospace);
-    font-size: 0.66rem;
-    color: var(--primary);
-}
-
 /* Unresolved: named, not assigned. */
 .vp-vc-unresolved {
     border-top: 1px solid color-mix(in srgb, var(--vp-conflict) 20%,
@@ -3591,15 +3584,6 @@ tr.vp-occ-deleted td {
     width: 196px;
 }
 
-/*
- * `Occurrences` is the longest thing this column ever holds and it is
- * not 120px wide. The width it was not using is the width the signal
- * column needed to stop wrapping its longest row.
- */
-.vp-ledger-panel-col {
-    width: 96px;
-}
-
 .vp-ledger-asof-col {
     width: 96px;
 }
@@ -3730,9 +3714,15 @@ tr.vp-occ-deleted td {
     color: var(--vp-ledger-cuts);
 }
 
-.vp-ledger-panel {
-    font-size: 0.75rem;
+.vp-ledger-signal-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.vp-ledger-signal-link:hover,
+.vp-ledger-signal-link:focus-visible {
     color: var(--primary);
+    text-decoration: underline;
 }
 
 .vp-ledger-asof {

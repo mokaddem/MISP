@@ -488,7 +488,6 @@ class AnalystProfileFormTool
             'evidence_class' => $config === null
                 ? null
                 : $config['evidence_class'],
-            'source' => $config === null ? null : $config['source'],
             'trust_weighted' => $entry !== null
                 && !empty($entry['trust_weighted']),
             'absence_key' => $config === null
@@ -896,7 +895,6 @@ class AnalystProfileFormTool
             'emits' => $config === null
                 ? (isset($entry['emits']) ? $entry['emits'] : null)
                 : $config['emits'],
-            'source' => $config === null ? null : $config['source'],
             'path' => array('escalations', $id),
             'fields' => array(
                 array(
