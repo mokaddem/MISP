@@ -16260,11 +16260,9 @@ class ValueProfile extends AppModel
      * the profile most readers are weighted by is their own or their
      * organisation's and no instance admin can touch it.
      *
-     * What replaces it is the thing the meta line cannot say: **how far
-     * the profile in force reaches**. A reader who disagrees with a
-     * weight needs to know whether editing it changes their own pages
-     * or everybody's, and that is a property of the scope rather than
-     * of the name.
+     * What replaces it is the thing the meta line cannot say: which
+     * scope owns the profile in force. It states the scope and stops;
+     * what an edit or a fork would move is the editor's to explain.
      *
      * Drawn only where something was weighted. A value with no ledger
      * has a profile in force and nothing was computed under it, and
@@ -16284,10 +16282,7 @@ class ValueProfile extends AppModel
             case 'user':
                 return sprintf(
                     __(
-                        'Weights come from %s, your own profile. Nobody'
-                        . ' else\'s pages are weighted by it, and'
-                        . ' editing it changes what you see here and'
-                        . ' nothing anyone else sees.'
+                        'Weights come from %s, your own profile.'
                     ),
                     $name
                 );
@@ -16295,20 +16290,14 @@ class ValueProfile extends AppModel
                 return sprintf(
                     __(
                         'Weights come from %s, your organisation\'s'
-                        . ' profile. Every reader in it who owns no'
-                        . ' profile of their own is weighted by it, so'
-                        . ' an edit here moves their pages too.'
+                        . ' profile.'
                     ),
                     $name
                 );
             default:
                 return sprintf(
                     __(
-                        'Weights come from %s, the instance default. It'
-                        . ' weights every reader whose account and'
-                        . ' organisation own no profile — fork it to'
-                        . ' disagree with a weight without moving'
-                        . ' anybody else.'
+                        'Weights come from %s, the instance default.'
                     ),
                     $name
                 );
@@ -16630,11 +16619,10 @@ class ValueProfile extends AppModel
             )),
             'curves_span' => __('90 days'),
             'curves_note' => __(
-                'Remaining shelf life against this value\'s TTL, day by'
-                . ' day. It climbs when something independent'
-                . ' corroborates the value and falls with time alone;'
-                . ' reaching zero is the assessment expiring, not the'
-                . ' value becoming benign.'
+                'Shelf life left on this value\'s TTL, day by day.'
+                . ' Independent corroboration pushes it up; time alone'
+                . ' brings it down. Reaching zero means the assessment'
+                . ' has expired, not that the value is benign.'
             ),
         );
     }
