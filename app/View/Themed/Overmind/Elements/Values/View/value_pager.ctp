@@ -136,15 +136,27 @@ $from = $shown > 0 ? 1 : 0;
                 <button type="button" class="page-link"
                         data-vp-page="0" disabled>&laquo;</button>
             </li>
-            <?php for ($n = 1; $n <= $pages; $n++): ?>
-                <li class="page-item<?= $n === 1 ? ' active' : '' ?>">
-                    <button type="button" class="page-link"
-                            data-vp-page="<?= h($n) ?>"
-                            <?= $n === 1 ? 'aria-current="page"' : '' ?>>
-                        <?= h($n) ?>
-                    </button>
-                </li>
-            <?php endfor; ?>
+            <?php
+            // Page one's window; the script redraws it on every move.
+            $window = $pages <= 7
+                ? range(1, $pages)
+                : array(1, 2, 3, 4, 5, null, $pages);
+            ?>
+            <?php foreach ($window as $n): ?>
+                <?php if ($n === null): ?>
+                    <li class="page-item disabled vp-page-gap">
+                        <span class="page-link">…</span>
+                    </li>
+                <?php else: ?>
+                    <li class="page-item<?= $n === 1 ? ' active' : '' ?>">
+                        <button type="button" class="page-link"
+                                data-vp-page="<?= h($n) ?>"
+                                <?= $n === 1 ? 'aria-current="page"' : '' ?>>
+                            <?= h($n) ?>
+                        </button>
+                    </li>
+                <?php endif; ?>
+            <?php endforeach; ?>
             <li class="page-item<?= $pages < 2 ? ' disabled' : '' ?>">
                 <button type="button" class="page-link"
                         data-vp-page="2"

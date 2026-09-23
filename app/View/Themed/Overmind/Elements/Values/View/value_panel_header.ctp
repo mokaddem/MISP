@@ -27,14 +27,15 @@ $isMispGlyph = strpos($panelIcon, 'misp-icon') === 0;
             <i class="<?= h($panelIcon) ?>"></i>
         <?php endif; ?>
     </span>
-    <div class="me-auto vp-min-w-0">
+    <div class="me-auto vp-min-w-0 vp-panel-head-title">
         <div class="fw-bold lh-1"><?= h($panelTitle) ?></div>
         <?php if ($panelSub !== null): ?>
             <div class="small text-muted mt-1"><?= $panelSub ?></div>
         <?php endif; ?>
     </div>
     <?php if ($panelExtra !== null): ?>
-        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+        <div class="d-flex flex-wrap justify-content-end align-items-center
+                    gap-2 vp-panel-head-extra">
             <?= $panelExtra ?>
         </div>
     <?php endif; ?>

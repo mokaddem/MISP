@@ -370,6 +370,30 @@ a.vp-fact:hover .vp-fact-value {
     min-width: 0;
 }
 
+/*
+ * Beside a panel's controls the title keeps this much width, and the
+ * controls wrap instead of squeezing it.
+ */
+.vp-panel-head-title:not(:last-child) {
+    min-width: 4.5rem;
+}
+
+.vp-panel-head-extra > * {
+    flex-shrink: 0;
+    max-width: 100%;
+}
+
+.vp-panel-head-extra .btn {
+    white-space: nowrap;
+}
+
+/* One width per slot, so the pager does not jump as the pages grow. */
+[data-vp-pager] .page-link {
+    min-width: 2.25rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
 .vp-subhead {
     margin-bottom: 6px;
     font-size: 0.65rem;

@@ -1868,13 +1868,51 @@
         }
         var items = [];
         items.push(pageItem('«', page - 1, page === 1, false));
-        for (var n = 1; n <= pages; n++) {
-            items.push(pageItem(String(n), n, false, n === page));
-        }
+        pageWindow(page, pages).forEach(function (n) {
+            items.push(n === null
+                ? '<li class="page-item disabled vp-page-gap">'
+                    + '<span class="page-link">…</span></li>'
+                : pageItem(String(n), n, false, n === page));
+        });
         items.push(pageItem('»', page + 1, page === pages, false));
         list.innerHTML = items.join('');
         // A single page is not a choice, so the control says nothing.
         pager.classList.toggle('d-none', pages < 2);
+    }
+
+    /**
+     * The page numbers to draw, null for a gap. Always seven slots once
+     * there are more than seven pages, so the control keeps one width
+     * while the reader moves through it. `value_pager.ctp` draws the
+     * first page with the same rule.
+     *
+     * @param {number} page
+     * @param {number} pages
+     * @return {Array<number|null>}
+     */
+    function pageWindow(page, pages) {
+        var out = [];
+        var n;
+        if (pages <= 7) {
+            for (n = 1; n <= pages; n++) {
+                out.push(n);
+            }
+            return out;
+        }
+        if (page <= 4) {
+            for (n = 1; n <= 5; n++) {
+                out.push(n);
+            }
+            return out.concat([null, pages]);
+        }
+        if (page >= pages - 3) {
+            out = [1, null];
+            for (n = pages - 4; n <= pages; n++) {
+                out.push(n);
+            }
+            return out;
+        }
+        return [1, null, page - 1, page, page + 1, null, pages];
     }
 
     /**
