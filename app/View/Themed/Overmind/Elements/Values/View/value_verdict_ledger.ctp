@@ -170,11 +170,11 @@ foreach ($ledger as $group) {
                 <?php if (!empty($conflicts)): ?>
                     <tr class="vp-ledger-group vp-ledger-group-conflict">
                         <td colspan="6">
-                            <?= __('Settled by rule, not by evidence') ?>
+                            <?= __('Contradictions') ?>
                             <span class="vp-ledger-group-note">
                                 <?= __(
-                                    'contradictions no signal carries,'
-                                    . ' so no row nets them off'
+                                    'where the record disagrees with'
+                                    . ' itself; no points'
                                 ) ?>
                             </span>
                         </td>

@@ -252,7 +252,7 @@ foreach ($cases as $case) {
         <div class="vp-vc-unresolved">
             <div class="vp-vc-unresolved-head">
                 <span class="vp-vc-unresolved-mark">&#9670;</span>
-                <?= __('Settled by rule, not by evidence') ?>
+                <?= __('Contradictions') ?>
             </div>
             <div class="vp-vc-unresolved-body">
                 <?php foreach ($ambiguities as $item): ?>
