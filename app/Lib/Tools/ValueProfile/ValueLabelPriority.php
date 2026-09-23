@@ -39,8 +39,6 @@
  * applied the ACL, as `GalaxyCategory` does today. It resolves nothing
  * and queries nothing — including the instance-enablement floor of
  * `absent()`, whose permitted set is read by the caller and passed in.
- *
- * prd/personas/02-context-priority.md §2, §4, §6.
  */
 class ValueLabelPriority
 {
@@ -159,8 +157,8 @@ class ValueLabelPriority
      *
      * A document written against a later vocabulary survives being
      * read by an older instance: an unrecognised dimension or tier is
-     * dropped rather than refused, which is `03-signals.md` §4.4's
-     * rule for a whole missing signal applied to one of its entries.
+     * dropped rather than refused, which is the rule for a whole
+     * missing signal applied to one of its entries.
      *
      * @param array|null $profile A profile, its parameters, or a plan
      *                            this method already returned
@@ -207,8 +205,8 @@ class ValueLabelPriority
      *
      * The load-bearing question, and the reason it is asked before
      * anything is sorted: `default-v1` declares nothing, so on a stock
-     * instance every surface must render exactly what it renders
-     * today — not the same order arrived at by a comparator.
+     * instance every surface must render exactly the order it was
+     * given — not the same order arrived at by a comparator.
      *
      * @param array $plan
      * @param string|null $scope Null asks about either dimension
@@ -238,15 +236,15 @@ class ValueLabelPriority
      * for a galaxy — because that is what a profile lists. A group
      * with no `key` is unlisted by definition and keeps its place,
      * which is what a surface that has not been taught to carry one
-     * gets: today's order, not a wrong one.
+     * gets: its own order, not a wrong one.
      *
      * Ties keep the incoming order rather than relying on the sort
      * being stable, so the count order a surface arrived with survives
      * inside each tier.
      *
      * A pinned group from a handling taxonomy gains `lead`, which is
-     * the most restrictive label present and a count of the others
-     * (§4). Nothing else is added to a group.
+     * the most restrictive label present and a count of the others.
+     * Nothing else is added to a group.
      *
      * @param array $groups Assembled groups, each carrying `key`
      * @param array|null $plan A plan, a profile, or its parameters
@@ -309,8 +307,8 @@ class ValueLabelPriority
      * This one is for a list that is all of one dimension; `across()`
      * takes a list holding both.
      *
-     * **It differs in exactly one thing**, and the difference is
-     * §4's handling rule at a granularity it was not written for. A
+     * **It differs in exactly one thing**, and the difference is the
+     * handling rule at a granularity it was not written for. A
      * pinned `tlp` *group* renders the most restrictive label with a
      * count of the others, because the group is one slot and something
      * has to fill it. A list of `tlp` *items* has no slot to win: the
@@ -358,8 +356,8 @@ class ValueLabelPriority
      * once.
      *
      * `labels()` ranks a list that is all taxonomy tags or all galaxy
-     * clusters, and every surface that came before this one was one or
-     * the other. The neighbourhood label table is neither: it is a
+     * clusters, and most surfaces are one or the other. The
+     * neighbourhood label table is neither: it is a
      * single list ranked by shared events in which a cluster row sits
      * beside a tag row, with a cut partway down it, and both dimensions
      * have to compete for the rows above the cut. Ranking the tags and
@@ -376,7 +374,7 @@ class ValueLabelPriority
      * **An item whose `scope` names neither dimension is unlisted**,
      * like an item with no `key`, and keeps its place. A caller that
      * has not been taught to say which dimension a row belongs to
-     * therefore gets today's order rather than a wrong one.
+     * therefore gets its own order rather than a wrong one.
      *
      * A profile declaring one dimension and not the other is the
      * ordinary case rather than a special one: the undeclared
@@ -576,7 +574,7 @@ class ValueLabelPriority
      * what this reader may read*, which is the page's standing rule,
      * and it carries no count of anything withheld.
      *
-     * **The instance's enablement is a floor this cannot lift** (D41).
+     * **The instance's enablement is a floor this cannot lift.**
      * `enabled = 0` and `hide_tag` say *this does not exist here*; a
      * pin says *when it is used, it matters*. The first wins, because
      * it is a statement about what the instance holds and the second
@@ -653,15 +651,14 @@ class ValueLabelPriority
 
     /**
      * The scoring eligibility list, which is **not** the display
-     * priority (D43).
+     * priority.
      *
      * `attribution.galaxy` reads a value's non-ATT&CK-shaped clusters
-     * and consults no category table at all, so on a value tagged
-     * `sector:banking`, `country:lu` and a `preventive-measure` it
-     * pays per cluster and calls that attribution — under a signal
-     * whose own absence row reads *"Nobody has attributed this value
-     * to an actor, family or campaign"*. This is the filter it never
-     * had.
+     * and consults no category table at all, so unfiltered, on a value
+     * tagged `sector:banking`, `country:lu` and a `preventive-measure`
+     * it would pay per cluster and call that attribution — under a
+     * signal whose own absence row reads *"Nobody has attributed this
+     * value to an actor, family or campaign"*. This is its filter.
      *
      * **Display priority and scoring eligibility answer different
      * questions and the wrong answers are different.** A CERT demoting
@@ -671,8 +668,8 @@ class ValueLabelPriority
      * every instance.
      *
      * Null when the profile declares none, which keeps the filter off
-     * and scores exactly as the signal does today — the answer an
-     * older document forked before this section existed needs.
+     * and scores every cluster — the answer a document without this
+     * section needs.
      *
      * @param array|null $profile A profile or its parameters
      * @return array|null Galaxy types, lowercased, or null

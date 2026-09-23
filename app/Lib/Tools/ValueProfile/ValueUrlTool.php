@@ -8,9 +8,9 @@
  * controllers need the same encoding: `ValuesController` mints it and
  * `AnalystProfilesController`'s simulator takes it as `?value=`.
  *
- * It lives here rather than on either of them for two reasons that both
- * turned up in phase 8a. One is the ordinary one — two copies of an
- * alphabet decision drift. The other is `ACLComponent`: its
+ * It lives here rather than on either of them for two reasons. One is
+ * the ordinary one — two copies of an alphabet decision drift. The
+ * other is `ACLComponent`: its
  * `findMissingFunctionNames()` reads controller files with a regex and
  * treats every method whose name does not begin with an underscore as
  * an action needing an ACL entry, so a controller's helpers have to be

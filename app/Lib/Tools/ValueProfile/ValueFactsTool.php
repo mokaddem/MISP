@@ -8,19 +8,17 @@
  * added here is a query on the critical path of every page load. So it
  * is built from `Value::occurrenceSummaryFor` and the type group-by the
  * banner chips already pay for, and nothing else — every cell it cannot
- * fill from those two is absent rather than bought
- * (`prd/value-profile-live/29-overview.md` §4.5).
+ * fill from those two is absent rather than bought.
  *
- * **No `$user`**, per §14.5: what reaches this is already the viewer's,
- * and a tool that could re-scope its answer is a tool that can get the
- * scope wrong in a second place.
+ * **No `$user`**: what reaches this is already the viewer's, and a
+ * tool that could re-scope its answer is a tool that can get the scope
+ * wrong in a second place.
  *
  * **Every cell jumps to the tab holding the rows behind it**, so no
  * figure on the strip is a dead end — which is also why the tab ids are
- * asserted against the registry rather than copied from the fixture:
- * the fixture sends the organisations cell to `#tab-verdict`, and D11
- * renamed that tab's id to `assessment` while the fixture went on
- * naming a tab that no longer exists.
+ * asserted against the registry rather than copied by hand: a tab id
+ * can be renamed, and a hand-copied link goes on naming a tab that no
+ * longer exists.
  */
 class ValueFactsTool
 {
@@ -33,18 +31,16 @@ class ValueFactsTool
     /**
      * The strip, as `value_fact_strip` reads it.
      *
-     * **Six cells, and the sixth took two attempts.** The sightings
-     * cell was left out of the first build for the reason
-     * `ValueProfile::forTabCounts` had already refused the matching tab
-     * badge: a sighting count has to be the viewer's,
-     * `Sightings_policy` hides whole reports, and getting the viewer's
-     * number meant running the policy over fetched rows — the Sightings
-     * panel's own thirteen queries, on every page load of every value.
+     * **Six cells, and the sixth is the hard one.** A sighting count
+     * has to be the viewer's, `Sightings_policy` hides whole reports,
+     * and getting the viewer's number by running the policy over
+     * fetched rows would cost the Sightings panel's own thirteen
+     * queries, on every page load of every value.
      *
-     * What `Value::sightingCountsFor` changes is that the policy turns
-     * out to be expressible as a predicate over the joined rows rather
-     * than over an id set, so the count is one indexed aggregate and
-     * nothing has to be materialised. It is verified against
+     * `Value::sightingCountsFor` expresses the policy as a predicate
+     * over the joined rows rather than over an id set, so the count is
+     * one indexed aggregate and nothing has to be materialised. It is
+     * verified against
      * `Sighting::listSightings` — MISP's own answer — under all four
      * policies and three readers, which is the bar an access rule
      * rewritten as SQL has to clear.
@@ -135,7 +131,7 @@ class ValueFactsTool
      * One of the two date cells, and whether its date is a date at all.
      *
      * `OBSERVED_FROM`/`OBSERVED_AT` end in `Attribute.timestamp`, so
-     * the aggregate always returns *something* — and on the 84% of
+     * the aggregate always returns *something* — and on the many
      * attributes that declare no observation date that something is a
      * row write. A row write is when somebody last touched the record,
      * which an edit, a tag, a sync update or a delete all bump, so
@@ -199,9 +195,9 @@ class ValueFactsTool
             / 86400
         );
         if ($days < 0) {
-            // A declared `last_seen` may sit in the future; 578 of this
-            // instance's 473,327 follow their row write. Saying "today"
-            // is wrong in a direction nobody can act on, so it says so.
+            // A declared `last_seen` may sit in the future. Saying
+            // "today" is wrong in a direction nobody can act on, so it
+            // says so.
             return __('dated in the future');
         }
         if ($days === 0) {

@@ -5,10 +5,9 @@
  * Profile page: the Sightings navigator, the Timeline spine and the
  * History months.
  *
- * All three draw one bar per bucket over a span, and all three had
- * their own loop for turning a span into buckets — with the bucket
- * unit hardcoded in each. The unit is what they actually disagree
- * about, so it is the parameter here rather than three literals there.
+ * All three draw one bar per bucket over a span. The bucket unit is
+ * what they actually disagree about, so it is the parameter here
+ * rather than a literal in each.
  *
  * Why the unit is given and not derived from the span: a bar means
  * something different in each chart. A Sightings bar counts reports,
@@ -41,9 +40,9 @@ class ValueProfileBuckets
     const END = 'end';
 
     /**
-     * The rule `sightingRange()` used to carry as an `if`: daily
-     * columns only make sense while there are fewer of them than the
-     * chart has pixels, and past a quarter the bucket is a week.
+     * The span-to-unit rule: daily columns only make sense while there
+     * are fewer of them than the chart has pixels, and past a quarter
+     * the bucket is a week.
      *
      * First match wins; a `days` of null is the catch-all.
      */
@@ -138,12 +137,10 @@ class ValueProfileBuckets
      * Everything a chart the browser re-aggregates needs: one bucket
      * series per unit the caller's rule permits, over the same span.
      *
-     * Phase 21 §13.1 measured why this is affordable at all. A bar is a
-     * label and a count, so the value's whole span at every grain its
-     * data supports is tens of kilobytes where the sections phase 19
-     * stopped shipping were megabytes. The browser can therefore hold
-     * all of it and pick a grain per zoom level without going back to
-     * the server.
+     * This is affordable because a bar is a label and a count, so the
+     * value's whole span at every grain its data supports is tens of
+     * kilobytes. The browser can therefore hold all of it and pick a
+     * grain per zoom level without going back to the server.
      *
      * **This class ships every string the browser cannot already
      * derive, and the browser computes every number.** A grain is two
@@ -152,19 +149,18 @@ class ValueProfileBuckets
      * decisions, so duplicating them in JavaScript would be a second
      * formatter to keep in step with `describe()`; a bucket's start
      * date and its end date are arithmetic over the span, so shipping
-     * them as text costs bytes and settles nothing. Sent as objects, a
-     * 437-day span cost 45.8 KB against the 10 KB it costs like this —
-     * most of it field names and `Y-m-d` dates repeated five times a
-     * bar.
+     * them as text costs bytes and settles nothing. Sent as objects,
+     * most of the payload would be field names and `Y-m-d` dates
+     * repeated five times a bar.
      *
      * **The day grain is the one exception, and it ships no strings at
      * all.** Its bucket `i` is the day `$from + i` and nothing else can
      * be, so its label is `j M` of a date the browser has already
      * worked out — the one case where the second formatter costs no
      * second decision. It is also the expensive one: the span cap is
-     * 1,095 days, and a label and a title for each of them was 26.7 KB
-     * of a 38.4 KB payload on `8.8.8.8`, against 5.9 KB for the week
-     * grain over the same span. `label` and `title` are `null` there,
+     * 1,095 days, and a label and a title for each of them would
+     * dominate the payload, several times the week grain over the same
+     * span. `label` and `title` are `null` there,
      * on the same convention `starts` already uses, and `zoomDayLabel`
      * in `value-profile.js` is the other half of it.
      *
@@ -231,12 +227,10 @@ class ValueProfileBuckets
      * The dense per-day tally the browser sums into whichever grain it
      * draws, one slot per day of the span.
      *
-     * Dense rather than a map of only the days that carry something,
-     * which §13.1 measured: non-zero days run from 1% to 82% across the
-     * fixture's four values, so sparse wins on the quiet ones by tens
-     * of bytes and loses on the busy one by two kilobytes. A dense
-     * array is bounded at about a kilobyte over a fourteen-month span
-     * and needs no decode.
+     * Dense rather than a map of only the days that carry something:
+     * sparse wins on a quiet value by tens of bytes and loses on a busy
+     * one by kilobytes. A dense array is bounded at about a kilobyte
+     * over a fourteen-month span and needs no decode.
      *
      * @param string $from `Y-m-d`
      * @param string $to `Y-m-d`
@@ -260,15 +254,14 @@ class ValueProfileBuckets
      * The same tally as `tally()`, keyed by the offsets that carry
      * something and leaving out the ones that do not.
      *
-     * Which encoding is smaller depends entirely on the series, and
-     * §13.1 measured both regimes. One series counting every audit
-     * entry a value has is dense — 82% of days carry one on the busiest
-     * value — and a sparse map of it costs three times what a dense
-     * array does. A series counting *one organisation's* sighting
-     * reports is the opposite: a couple of hundred reports spread over
-     * twenty-three organisations and fourteen months leaves each one
-     * touching a handful of days, and twenty-three dense arrays are
-     * twenty-three rows of mostly zero.
+     * Which encoding is smaller depends entirely on the series. One
+     * series counting every audit entry a value has is dense — most
+     * days carry one on a busy value — and a sparse map of it costs
+     * several times what a dense array does. A series counting *one
+     * organisation's* sighting reports is the opposite: a few hundred
+     * reports spread over a couple of dozen organisations leaves each
+     * one touching a handful of days, and a dense array per
+     * organisation is a row of mostly zero.
      *
      * So the choice is the caller's and it is a statement about what
      * the series is, not a size heuristic: History's one series is
@@ -300,15 +293,13 @@ class ValueProfileBuckets
      *
      * A keyed list rather than a ternary, so that adding a unit is
      * adding a line here and not finding every `if` that assumed there
-     * were two. All of them rather than the drawn one, because after
-     * phase 21 the drawn one is a fact about how far the reader has
-     * zoomed and the browser is what knows it.
+     * were two. All of them rather than the drawn one, because the
+     * drawn one is a fact about how far the reader has zoomed and the
+     * browser is what knows it.
      *
-     * It lives here rather than in `ValueProfileFixture`, where phase 21
-     * put it, because a live panel may not call the fixture: phase 23
-     * moved the Sightings chart onto the database and would otherwise
-     * have taken a test double into production with it. The fixture
-     * delegates, so the two cannot drift.
+     * It lives here rather than in `ValueProfileFixture` because a live
+     * panel must not call a test double. The fixture delegates, so the
+     * two cannot drift.
      *
      * @return array
      */
@@ -417,7 +408,7 @@ class ValueProfileBuckets
      * All three are formatted off the bucket's `to`. For a month that
      * is the same month as its `from`, and for a day it is the same
      * day; for a week it is the end of the week, which is what the
-     * Sightings navigator has always labelled its columns with.
+     * Sightings navigator labels its columns with.
      *
      * @param array $span `from` and `to`
      * @param string $unit

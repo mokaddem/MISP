@@ -18,7 +18,7 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
  * which one `forVerdict()` already built. That is the whole cost
  * argument: a hover that cost a second read would be seven more queries
  * on a table with fifty rows in it, and a reader sweeping a column
- * would pay for the page they did not open. `38-hover-card.md` §8.
+ * would pay for the page they did not open.
  *
  * It follows that the card can never disagree with the Assessment tab.
  * It is not a cheaper assessment drawn from cheaper facts; it is the
@@ -52,10 +52,10 @@ class ValueHoverTool
     /**
      * How many ledger rows the why block carries.
      *
-     * Three is what §8.1's height budget affords once the block is a
-     * list rather than a line — the rows are the cheapest thing on
+     * Three is what the card's height budget affords once the block is
+     * a list rather than a line — the rows are the cheapest thing on
      * this card at ~15.5px each, but they are not free, and the fourth
-     * would put the contested state past the ceiling §3 sets.
+     * would put the contested state past the card's height ceiling.
      */
     const SIGNAL_ROWS = 3;
 
@@ -214,11 +214,10 @@ class ValueHoverTool
     /**
      * First and last seen, and the far commoner case of neither.
      *
-     * Only 6.2% of attributes on the verification instance carry a
-     * `first_seen` and 16.2% a `last_seen`, so *not recorded* is this
-     * channel's ordinary reading rather than its edge case. It is said
-     * in words, because a blank cell on a card this small reads as a
-     * card that failed to load.
+     * Few attributes carry a `first_seen` or a `last_seen`, so *not
+     * recorded* is this channel's ordinary reading rather than its edge
+     * case. It is said in words, because a blank cell on a card this
+     * small reads as a card that failed to load.
      *
      * @param array $occurrences
      * @param int $now
@@ -273,12 +272,12 @@ class ValueHoverTool
     /**
      * The heaviest rows in the ledger, clipped to one line each.
      *
-     * Three rather than the one proposal C shipped with. A single row
-     * answers *what moved this number most* and stops; three answer
-     * *what is this assessment made of*, which is the question a reader
-     * deciding whether to open the page is actually asking. The cost is
-     * two lines, and §8.1's budget is why it is three and not the
-     * whole ledger — that is the panel this card summarises.
+     * Three rather than one. A single row answers *what moved this
+     * number most* and stops; three answer *what is this assessment
+     * made of*, which is the question a reader deciding whether to open
+     * the page is actually asking. The cost is two lines, and the
+     * card's height budget is why it is three and not the whole ledger
+     * — that is the panel this card summarises.
      *
      * Ranked by magnitude, not by sign: a row that argues against the
      * lean is exactly as much a part of the assessment as one that
@@ -300,8 +299,7 @@ class ValueHoverTool
          * PHP's sort is stable from 8.0, which is what keeps equal
          * magnitudes in GROUP_ORDER — Reporting before Sightings
          * before Attribution before Lifecycle, the order the ledger
-         * itself is grouped in and the tie-break the one-row version
-         * got for free by comparing with a strict `>`.
+         * itself is grouped in.
          */
         usort($rows, function ($a, $b) {
             return abs((int)$b['contribution'])
@@ -325,14 +323,12 @@ class ValueHoverTool
      * mean something to a reader mid-sweep, and `T1071.001` is a thing
      * they look up on the page.
      *
-     * **One of twenty-six, and until now it was whichever the list
-     * happened to hold first.** `verdictGalaxies()` returns cluster
-     * name => occurrences, so `reset()` took a *count*, `['name']` on
-     * it was null, and the card drew an empty name beside a `+25`. The
-     * order is now the reader's: the profile's galaxy priority over the
-     * occurrence count, so a profile preferring `threat-actor` sees the
-     * actor here and one that declares nothing sees the most-carried
-     * cluster — which is what the card meant to show all along.
+     * **One of many, in the reader's order.** `verdictGalaxies()`
+     * returns cluster name => occurrences, so taking whichever the list
+     * holds first would take a *count*, not a name. The order is the
+     * profile's galaxy priority over the occurrence count, so a profile
+     * preferring `threat-actor` sees the actor here and one that
+     * declares nothing sees the most-carried cluster.
      *
      * @param array $context
      * @param array|null $plan `ValueLabelPriority::planFor()`

@@ -4,15 +4,11 @@
  * What the analyst believes about their sources, turned into a number
  * the ledger can carry.
  *
- * Phase 6 of prd/analyst-profile/, implementing the first half of
- * **D6**: `reference.org_trust` grades organisations on the admiralty
- * scale and `reference.org_trust_scale` says what each grade is worth.
- * Both live in the profile because **MISP has nowhere else to put
- * them** — `admiralty-scale` is a taxonomy, taxonomies reach MISP as
- * tags, and nothing in MISP attaches a tag to an organisation
- * (`07-reference.md` §2.1). The Verdict tab has been printing
- * `CIRCL: B` from the fixture since the skeleton pass with no store
- * behind it.
+ * `reference.org_trust` grades organisations on the admiralty scale and
+ * `reference.org_trust_scale` says what each grade is worth. Both live
+ * in the profile because **MISP has nowhere else to put them** —
+ * `admiralty-scale` is a taxonomy, taxonomies reach MISP as tags, and
+ * nothing in MISP attaches a tag to an organisation.
  *
  * ## The one sentence the whole mechanism reduces to
  *
@@ -28,12 +24,12 @@
  * ```
  *
  * Every one of those degenerates to the unweighted number when every
- * factor is `1.0`, which is what makes §5 item 1 — *the same ledger to
- * the unit* — arithmetic rather than luck. The cap is applied **after**
- * the weighting and the rounding happens **once**, in
+ * factor is `1.0`, which is what makes *the same ledger to the unit*
+ * arithmetic rather than luck. The cap is applied **after** the
+ * weighting and the rounding happens **once**, in
  * `ValueSignalBase::row()`: rounding per organisation and then summing
  * produces a number that does not match the same calculation done the
- * other way (§2.4).
+ * other way.
  *
  * ## The map is the switch
  *
@@ -43,8 +39,8 @@
  * edits `unrated` to `0.5` and grades nobody would otherwise silently
  * halve every score on the instance. With the map as the switch,
  * `unrated` only means something once there is a graded organisation
- * for it to contrast with, and `01-profile.md` §1.3's *"empty means as
- * before"* holds structurally instead of numerically.
+ * for it to contrast with, and *"empty means as before"* holds
+ * structurally instead of numerically.
  *
  * ## Keyed by uuid, resolved to ids once
  *
@@ -52,13 +48,13 @@
  * `org_id`, because an id is local: the same organisation carries
  * different ids on different instances, so a profile keyed by id would
  * grade the wrong organisation after an export/import or against a
- * peer (§2.2). Everything downstream — the org rows, the sighting rows
+ * peer. Everything downstream — the org rows, the sighting rows
  * — carries the local id, so the uuid→id resolution happens once,
  * where the `organisations` table is in reach (`ValueProfile::
  * verdictTrust`), and the context carries the joined result. A graded
  * uuid that matches no row on this instance is **kept, ignored and
  * reported** rather than dropped: the organisation may return, or the
- * profile may have been written elsewhere (§4).
+ * profile may have been written elsewhere.
  *
  * ## An organisation this viewer cannot name is unrated
  *
@@ -66,14 +62,14 @@
  * `org_id` zeroed, so it cannot be graded and the question does not
  * arise. What can arise is an organisation whose id is on the row and
  * whose name is not disclosed — and grading *that* would change the
- * number for a reason the reader cannot see, which is precisely what
- * §2.5 forbids. So it is treated as unrated. The rule costs a little
+ * number for a reason the reader cannot see, which the evidence line
+ * must never do. So it is treated as unrated. The rule costs a little
  * accuracy on a configuration almost nobody runs and it keeps the
  * evidence line honest on every configuration.
  *
- * No `$user`, no model, no view: `07-reference.md`'s arithmetic and
- * nothing else, so phase 10's worker and the phase 8 simulator read the
- * same numbers as the page.
+ * No `$user`, no model, no view: the arithmetic and nothing else, so a
+ * background worker and the editor's simulator read the same numbers
+ * as the page.
  */
 class ValueTrustTool
 {
@@ -97,8 +93,8 @@ class ValueTrustTool
      * ordering here follows that structure:
      * `A > B > C = F = unrated > D > E ≥ G`.
      *
-     * Two deliberate departures from copying the numbers outright
-     * (§2.3). `E` (*Unreliable*) is `0.25` rather than the taxonomy's
+     * Two deliberate departures from copying the numbers outright.
+     * `E` (*Unreliable*) is `0.25` rather than the taxonomy's
      * zero, because unreliable still means *sometimes right* and a
      * floor keeps that evidence visibly discounted in the ledger
      * instead of silently erased. `G` (*Deliberately deceptive*) is a
@@ -187,8 +183,8 @@ class ValueTrustTool
      * A grade the scale has no entry for, or a value that is not a
      * number, is **not** an error that stops the assessment: a profile
      * written against a later vocabulary has to survive being read by
-     * an older instance, which is `03-signals.md` §4.4's rule for a
-     * whole missing signal applied to one of its entries. Such an entry
+     * an older instance, which is the rule for a whole missing signal
+     * applied to one of its entries. Such an entry
      * is dropped from `grades` and named in `invalid`, so the editor
      * can say which line an analyst needs to look at.
      *
@@ -274,7 +270,7 @@ class ValueTrustTool
         foreach ($map as $module => $grade) {
             /*
              * Not lowercased, unlike an organisation's uuid. A module
-             * name is matched exactly everywhere else in this corpus —
+             * name is matched exactly everywhere else in MISP —
              * `Plugin.Enrichment_<name>_enabled` is exact — and a
              * helpfully corrected name would be this class quietly
              * grading something the profile did not name.
@@ -339,9 +335,9 @@ class ValueTrustTool
      * overrode.
      *
      * Held in the profile alongside the map so an analyst who wants `D`
-     * to mean `0.9` rather than `0.75` can say so, and so that §5 item
-     * 5 — *the same map produces a different number* — is a property of
-     * data rather than of a release.
+     * to mean `0.9` rather than `0.75` can say so, and so that *the same
+     * map produces a different number* is a property of data rather than
+     * of a release.
      *
      * @param array $section
      * @return array
@@ -360,8 +356,8 @@ class ValueTrustTool
             }
             /*
              * Negative is refused rather than clamped. A negative
-             * multiplier would flip a signal's sign, and §5 item 4 is
-             * explicit that a weighting must not: `direction` is
+             * multiplier would flip a signal's sign, and a weighting
+             * must not: `direction` is
              * derived from the sign of the anchored row, so a source
              * grade turning corroboration into a contradiction would
              * make the arrow beside a row point the other way for a
@@ -448,11 +444,10 @@ class ValueTrustTool
             'names' => $names,
             'scale' => $plan['scale'],
             /*
-             * §4's first row: kept, ignored, and listed — never
-             * deleted, because the organisation may return or the
-             * profile may be shared. Phase 8's editor renders it as
-             * *"3 grades for organisations not known here"*; phase 6
-             * only has to produce it.
+             * Kept, ignored, and listed — never deleted, because the
+             * organisation may return or the profile may be shared.
+             * The editor renders it as *"3 grades for organisations
+             * not known here"*.
              */
             'unknown' => $unknown,
             'invalid' => $plan['invalid'],
@@ -487,7 +482,7 @@ class ValueTrustTool
      *
      * Two conditions, and the second is the profile's: the map has to
      * be in force, **and** the signal's own entry has to declare
-     * `trust_weighted` (§2.4). A signal whose contribution is not
+     * `trust_weighted`. A signal whose contribution is not
      * derived from *which organisations* said something has nothing to
      * weight — `reporting.published_ratio` is a property of events,
      * `attribution.galaxy` is not an organisation's claim in the same
@@ -546,7 +541,7 @@ class ValueTrustTool
      * The one arithmetic every trust-weighted signal shares. Hand it
      * `orgId => count` and it returns the count the ledger should read
      * — the same number as `array_sum($counts)` when nothing is graded,
-     * which is the invariant §5 item 1 asserts.
+     * which is the invariant the whole weighting rests on.
      *
      * Returned as a float on purpose: the caller multiplies it by its
      * points and hands the product to `row()`, which rounds once.
@@ -589,10 +584,9 @@ class ValueTrustTool
      * The organisation names a ledger row prints, with the grade
      * appended to the ones that carry one.
      *
-     * §2.5's own example — `CIRCL (B), CthulhuSPRL.be (B), Team-CIRCL
-     * (C), ORGNAME (D)` — because a row reading *"4 independent
-     * organisations reported it — +24"* where the unweighted number
-     * would be `+28` is unexplainable without it.
+     * `ORG-A (B), ORG-B (B), ORG-C (C), ORG-D (D)`, because a row
+     * reading *"4 independent organisations reported it — +24"* where
+     * the unweighted number would be `+28` is unexplainable without it.
      *
      * @param array $context
      * @param array $orgs `id` and `name` pairs, in the row's own order
@@ -621,17 +615,16 @@ class ValueTrustTool
      * The clause that says a weighting happened, or null when none did.
      *
      * **The one part of this feature that changes a number for a reason
-     * invisible in the underlying data** (§2.5), so the rule for when
-     * it appears is *a grade touched this row* — not *the map is
-     * non-empty*. §4's second row is the case it keeps quiet on: a
-     * grade for an organisation with no occurrence of this value is
-     * normal and uninteresting, and a note about it would appear on
-     * every value an analyst has ever graded anybody for.
+     * invisible in the underlying data**, so the rule for when it
+     * appears is *a grade touched this row* — not *the map is
+     * non-empty*. The case it keeps quiet on: a grade for an
+     * organisation with no occurrence of this value is normal and
+     * uninteresting, and a note about it would appear on every value an
+     * analyst has ever graded anybody for.
      *
-     * A grade worth `0.00` is named explicitly, because §5 item 4
-     * requires it: an organisation whose evidence counted for nothing
-     * has to be visible as such, or the row is short by an amount with
-     * no explanation anywhere on the page.
+     * A grade worth `0.00` is named explicitly: an organisation whose
+     * evidence counted for nothing has to be visible as such, or the row
+     * is short by an amount with no explanation anywhere on the page.
      *
      * @param array $context
      * @param array $orgIds Every organisation the row considered

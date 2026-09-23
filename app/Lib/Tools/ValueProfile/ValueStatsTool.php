@@ -8,9 +8,8 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
  * facet counts, organisation and type rollups, and the seen-density
  * histogram behind the occurrence rail's sparkline.
  *
- * Pure and static, which is the shape
- * prd/value-profile-live/00-contract.md §14.5 prefers and the shape
- * `ValueProfileBuckets` already takes. **No method here accepts a
+ * Pure and static, the shape `ValueProfileBuckets` also takes. **No
+ * method here accepts a
  * `$user`**, and none of them queries anything: the owning model
  * pre-scopes and hands over a set that is already filtered, so this
  * class cannot leak data the viewer may not see. That is checkable by
@@ -248,7 +247,7 @@ class ValueStatsTool
      * Where a level sits in `$restrictiveness`.
      *
      * Public because `effectiveDistribution` is not the only caller
-     * that has to order audiences any more: the co-occurrence fold
+     * that has to order audiences: the co-occurrence fold
      * builds one for a label out of its event's level, and the ordering
      * has to stay decided in this one place rather than be re-derived
      * beside the second caller.
@@ -296,10 +295,10 @@ class ValueStatsTool
      *
      * One rule with two callers, which is why it is here rather than in
      * either of them. The rail counts by it and
-     * `value_occurrence_table.ctp` stamps it on each row; while the
-     * counts were fixture data the slug was written down by hand in one
-     * place and derived by a regex in the other, and nothing would have
-     * noticed the two drifting apart. A MISP type can hold characters
+     * `value_occurrence_table.ctp` stamps it on each row; a slug written
+     * down by hand in one place and derived by a regex in the other
+     * would drift apart with nothing to notice. A MISP type can hold
+     * characters
      * an attribute value should not — `domain|ip` — so everything is
      * slugged rather than only the values that look like they need it.
      *
@@ -353,8 +352,7 @@ class ValueStatsTool
      * The counted rail beside the occurrence table.
      *
      * Order, heading and glyph are not here: `value_occurrence_facets`
-     * owns those because they are the same for every value, and phase 9
-     * §13 moved them out of the fixture for that reason. What this
+     * owns those because they are the same for every value. What this
      * returns is only what varies — counts, and the domain values behind
      * them.
      *
@@ -365,11 +363,11 @@ class ValueStatsTool
      * zeroes renders nothing at all.
      *
      * **The two label groups are ordered by the reader's profile, and
-     * ordered here rather than in the rail** (`04-label-surfaces.md`
-     * §1.4, D51): `value_facet_group` shows ten rows and folds the
-     * rest, so this is the one surface in that phase where priority
-     * decides what is visible rather than what is read first. Ordering
-     * after the fold would have ranked the ten the counts chose.
+     * ordered here rather than in the rail**: `value_facet_group` shows
+     * ten rows and folds the rest, so this is the one label surface
+     * where priority decides what is visible rather than what is read
+     * first. Ordering after the fold would rank the ten the counts
+     * chose.
      *
      * A null plan — every caller that has no profile to hand — leaves
      * both groups exactly as the counts ranked them.
@@ -438,9 +436,9 @@ class ValueStatsTool
              *
              * Standalone rows get a value of their own rather than no
              * token, so the group partitions the rows and the reader can
-             * ask for the complement — on `8.8.8.8` that is eleven of
-             * twenty-three, which a group summing to twelve could not
-             * have offered. `standalone` cannot collide with a slugged
+             * ask for the complement, which a group counting only the
+             * rows inside objects could not offer. `standalone` cannot
+             * collide with a slugged
              * template name unless somebody ships an object template
              * called "standalone".
              */
@@ -919,19 +917,17 @@ class ValueStatsTool
      * it living here rather than being a fifth query of its own. The two
      * panels sit on the same page and a reader can see both at once, so
      * they must not be able to disagree about how busy the last 90 days
-     * were — and while this card was on the fixture and the tab was not,
-     * they could.
+     * were.
      *
-     * **It drew type 0 and nothing else until 2026-09-14**, on the
-     * argument that *a false positive is not a quiet week and drawing it
-     * as one would put a contradiction into the same bar as the
-     * support*. The argument is right and the conclusion did not follow
-     * from it: on `8.8.8.8` the strip showed 47 reports and silently
-     * dropped 6, under two tiles counting exactly those 6, so the two
-     * contradicting kinds were not merely uncoloured — they were
-     * absent, and nothing on the card said so.
+     * **It draws all three kinds, not type 0 alone.** *A false positive
+     * is not a quiet week, and drawing it as one would put a
+     * contradiction into the same bar as the support* — the argument is
+     * right, and drawing only type 0 does not follow from it: the strip
+     * would silently drop the contradicting reports under two tiles
+     * counting exactly those, so they would not merely be uncoloured —
+     * they would be absent, and nothing on the card would say so.
      *
-     * The tab's own chart had already answered this: `sightingSeries`
+     * The tab's own chart answers this: `sightingSeries`
      * hangs the contradicting types **below the axis**, where they can
      * never share a bar with the support and can never be mistaken for
      * it. This returns the same shape at sparkline scale, so the
@@ -941,7 +937,7 @@ class ValueStatsTool
      * `up` and `down` are separately peaked by the caller, and the two
      * halves are sized in proportion so that one unit is one height on
      * both sides — a chart where four false positives out-drew forty
-     * sightings would be a worse lie than the omission it replaces.
+     * sightings would be a worse lie than the omission.
      *
      * The columns are folded from a dense per-day tally rather than
      * bucketed straight off the rows, so the day arithmetic is
@@ -1017,7 +1013,7 @@ class ValueStatsTool
      * from `Sighting::listSightings`, which has already applied
      * `Plugin.Sightings_policy` and `Plugin.Sightings_anonymise`. This
      * class never sees a row the reader may not see, which is what
-     * §14.5's no-`$user` rule buys.
+     * taking no `$user` buys.
      *
      * An anonymised sighting comes back with an empty organisation name
      * and `org_id` 0, and is filed under one *Others* key rather than
@@ -1028,11 +1024,11 @@ class ValueStatsTool
      * and that is deliberate: a contradiction is participation, and
      * hiding a false positive here would make the most sceptical
      * organisation look like the quietest. What it also has to do is
-     * *say so*, which is why each reporter now carries the same
-     * breakdown the card's three tiles carry. Drawn as one bar it
-     * asserted the opposite of the rule: on `8.8.8.8`, CUDESO's bar
-     * read 5 in the sighting colour where three of its five reports
-     * corroborate the value and two contradict or retire it.
+     * *say so*, which is why each reporter carries the same breakdown
+     * the card's three tiles carry. Drawn as one bar it would assert
+     * the opposite of the rule: ORG-A's bar would read 5 in the
+     * sighting colour where three of its five reports corroborate the
+     * value and two contradict or retire it.
      *
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @return array
@@ -1087,7 +1083,7 @@ class ValueStatsTool
 
     /**
      * The same rows tallied by **organisation id** rather than by name,
-     * which is what trust weighting needs (`07-reference.md` §2.4).
+     * which is what trust weighting needs.
      *
      * `sightingTotals` keys its stack by name, because that is what the
      * reporters card prints and because two organisations may not share
@@ -1100,8 +1096,8 @@ class ValueStatsTool
      * ungradeable, not as its id.** Anonymisation already zeroes
      * `org_id`, so the case that remains is a row carrying an id with
      * no disclosed name — and weighting *that* would move the number
-     * for a reason the reader cannot see anywhere on the page, which is
-     * exactly what §2.5 forbids. `sightingHasOrg()` is the same
+     * for a reason the reader cannot see anywhere on the page, which a
+     * weighting must never do. `sightingHasOrg()` is the same
      * both-or-neither test the rest of this class uses, so the two
      * tallies always agree about which rows are attributable.
      *
@@ -1217,7 +1213,7 @@ class ValueStatsTool
      * the earliest report, whichever is older, since a report can
      * predate the attribute row that now carries the value — to today.
      * Bounded by `ValueRelevanceTool::SPAN_CAP_DAYS`, and `clipped` says
-     * so when it was, because a cap is not a permission (§14.6).
+     * so when it was, because a cap is not a permission.
      *
      * The oldest occurrence date arrives as one number from
      * `Value::occurrenceSummaryFor` rather than being scanned out of a
@@ -1267,12 +1263,10 @@ class ValueStatsTool
      * The chart's payload: the reports as daily tallies per series, the
      * grain plan the browser zooms through, and the presets.
      *
-     * The shape is phase 21's and unchanged — parallel sparse day
-     * tallies plus a `plan` of grains, so a zoom step and a preset
-     * switch are the same arithmetic in the browser rather than a
-     * re-fetch. §13.1 of `22-occurrences.md` measured why: three
-     * precomputed ranges cost 39.8 KB where the whole span as daily
-     * counts costs 21.6 KB.
+     * The shape is parallel sparse day tallies plus a `plan` of grains,
+     * so a zoom step and a preset switch are the same arithmetic in the
+     * browser rather than a re-fetch — and the whole span as daily
+     * counts weighs less than three precomputed ranges would.
      *
      * Every series is positional, aligned with `orgs`, because Chart.js
      * wants one dataset per organisation and a stack order that does
@@ -1282,8 +1276,7 @@ class ValueStatsTool
      * @param array $span From sightingSpan
      * @param array $totals From sightingTotals
      * @param array $curves The overlay series: `model`, `threshold`,
-     *                      `points` — one entry since phase 5, the TTL
-     *                      runway
+     *                      `points` — one entry, the TTL runway
      * @return array
      */
     public static function sightingSeries(array $rows, array $span,
@@ -1294,15 +1287,15 @@ class ValueStatsTool
          * as the Reporters card orders it: by every report the
          * organisation filed, of any type.
          *
-         * It used to be the type-0 list, with false positives and
-         * expirations pooled into two series of their own — so a
-         * sighting was `CIRCL saw this` and a false positive was
-         * nobody's. The rail beside the chart has always counted a
-         * contradiction as participation ("hiding a false positive here
-         * would make the most sceptical organisation look like the
-         * quietest"), and the chart now says the same thing: three
-         * series per organisation, and an organisation that has only
-         * ever contradicted the value has a slot like any other.
+         * Using the type-0 list, with false positives and expirations
+         * pooled into two series of their own, would make a sighting
+         * `ORG-A saw this` and a false positive nobody's. The rail
+         * beside the chart counts a contradiction as participation
+         * ("hiding a false positive here would make the most sceptical
+         * organisation look like the quietest"), and the chart says the
+         * same thing: three series per organisation, and an
+         * organisation that has only ever contradicted the value has a
+         * slot like any other.
          */
         $orgKeys = array_keys($totals['org_counts']);
         $at = array_flip($orgKeys);
@@ -1335,10 +1328,10 @@ class ValueStatsTool
          * which makes this a relabelling of the end rather than of now.
          *
          * One word rather than a write into every grain's label array,
-         * because the day grain no longer has one — its labels are
-         * derived in the browser (`ValueProfileBuckets::plan`), and a
-         * translated string is the one thing that cannot be. So the
-         * substitution moves to the side that holds the labels.
+         * because the day grain has none — its labels are derived in
+         * the browser (`ValueProfileBuckets::plan`), and a translated
+         * string is the one thing that cannot be. So the substitution
+         * moves to the side that holds the labels.
          */
         $plan['last_label'] = __('today');
 
@@ -1375,8 +1368,8 @@ class ValueStatsTool
             'clipped' => $span['clipped'],
             'orgs' => $orgKeys,
             // Name => every report it filed, of any type. The same map
-            // the Reporters card ranks, and now the same order the
-            // stack is drawn in.
+            // the Reporters card ranks, and the same order the stack
+            // is drawn in.
             'org_counts' => $totals['org_counts'],
             'totals' => array(
                 'total' => $totals['total'],
@@ -1397,9 +1390,7 @@ class ValueStatsTool
      *
      * 90 always; 365 only for a span wider than it, because a control
      * that draws the same chart as the one beside it behind a different
-     * label is worse than one that is absent; all time always. The
-     * fixture reached the same rule and `02-sightings.md` §15 records
-     * why.
+     * label is worse than one that is absent; all time always.
      *
      * @param array $span From sightingSpan
      * @param array $daily From sightingSeries
@@ -1491,9 +1482,9 @@ class ValueStatsTool
      * The two sentences the tab must not omit, derived per value.
      *
      * The first is the whole argument for the overlay: a contradiction
-     * is drawn on the axis and moves no line. The fixture wrote it by
-     * hand per value; here it names the value's own last false positive,
-     * so a reader can find the bar it is talking about.
+     * is drawn on the axis and moves no line. It names the value's own
+     * last false positive, so a reader can find the bar it is talking
+     * about.
      *
      * @param array $totals From sightingTotals
      * @return array
@@ -1529,8 +1520,8 @@ class ValueStatsTool
             'fp_moves_nothing' => $fp,
             /*
              * Count-neutral, because two panels print it and only one
-             * of them shows a count: the relevance card's copy claimed
-             * *this count is yours* beside no count at all.
+             * of them shows a count: *this count is yours* on the
+             * relevance card would sit beside no count at all.
              */
             'policy' => __(
                 'Sightings you can see. This instance hides sightings'
@@ -1685,23 +1676,17 @@ class ValueStatsTool
      * The composition card's segments, from the ledger the accumulator
      * just built.
      *
-     * §14.5 of the live contract gave this class *"the verdict's
-     * composition segments"* before there was a ledger to derive them
-     * from; phase 2 built the ledger, so here they are.
-     *
-     * The rule is the fixture's own arithmetic, checked against its
-     * malicious value in `10-wiring.md` §2.1: group the fired rows by
-     * kind, sum the **positives** into a segment per group, and collect
-     * every **negative** across all groups into one final segment. So
-     * `Reporting 37, Sightings 24, Attribution 19, Lifecycle 18,
-     * Signals against -14` sums to 84 — the ledger's own total, by a
-     * second route that cannot disagree with it.
+     * The rule: group the fired rows by kind, sum the **positives** into
+     * a segment per group, and collect every **negative** across all
+     * groups into one final segment. So `Reporting 37, Sightings 24,
+     * Attribution 19, Lifecycle 18, Signals against -14` sums to 84 —
+     * the ledger's own total, by a second route that cannot disagree
+     * with it.
      *
      * **One collected negative rather than a hatched deduction per
-     * group**, because the fixture's own comment says why: the segment
-     * is *"the two downward signals, collected"* and explicitly not the
-     * contradictions, since labelling the line after those *"would send
-     * a reader tracing -14 to the wrong rows"*.
+     * group**: the segment is the downward signals, collected, and
+     * explicitly not the contradictions, since labelling the line after
+     * those would send a reader tracing -14 to the wrong rows.
      *
      * @param array $ledger Grouped rows, as `ValueVerdictTool` emits
      * @return array Segments of `label`, `points`, `colour`

@@ -3,16 +3,14 @@
 /**
  * Which of an object's fields lead somewhere, and which describe it.
  *
- * MISP records no relational/descriptive split of *templates* — that is
- * the ground on which `03-relationships.md` §23.2 rejected inventing
- * one. It does record it per **attribute**: `disable_correlation` is
- * the template's own statement of which of its fields exist to link and
- * which exist to describe, and the correlation engine acts on exactly
- * that column.
+ * MISP records no relational/descriptive split of *templates*, which is
+ * why none is invented here. It does record it per **attribute**:
+ * `disable_correlation` is the template's own statement of which of its
+ * fields exist to link and which exist to describe, and the correlation
+ * engine acts on exactly that column.
  *
- * The rule had four callers before this class and no name in the code,
- * spelled `empty()`, `!empty()` and `=> 0` in three files — while the
- * PRD referred to it throughout as one rule. What rests on it:
+ * It is one rule with several callers, and this class gives it one
+ * name and one spelling. What rests on it:
  *
  *   the object branch    which attributes may identify a far object
  *                        `Value::referenceFacesFor`
@@ -27,15 +25,13 @@
  * matters because the two disagree. The template is where the intent is
  * authored (`object_template_elements.disable_correlation`), but core
  * copies the flag onto the attribute at creation and never reconciles
- * it: on the dev instance 15,721 of 559,277 attributes in
- * template-backed objects carry something their template no longer
- * says, and 11,064 objects belong to a template that is not installed
- * at all. The attribute is also the only one of the two the engine
- * consults, so a panel that classified from the template would promise
- * pivots MISP will not make. `24b-relationships.md` §6.3.
+ * it: attributes in template-backed objects can carry something their
+ * template no longer says, and objects can belong to a template that is
+ * not installed at all. The attribute is also the only one of the two
+ * the engine consults, so a panel that classified from the template
+ * would promise pivots MISP will not make.
  *
- * Pure and static, and it takes no `$user`:
- * prd/value-profile-live/00-contract.md §14.5.
+ * Pure and static, and it takes no `$user`.
  */
 class ValueFieldKind
 {
@@ -87,11 +83,11 @@ class ValueFieldKind
      * One field's kind, from the flags its attributes carry.
      *
      * **A field votes once.** The flag is stored per attribute and
-     * templates are inconsistent about it — `url-honeypot-detection`
-     * carries 0 on 376 `last-seen` attributes and 1 on 10,688 — so
-     * deciding row by row puts two rows of the *same field* on opposite
-     * sides of a table that then dims one and not the other with
-     * nothing on screen to explain it.
+     * templates are inconsistent about it — one field can carry 0 on
+     * some of its attributes and 1 on the rest — so deciding row by row
+     * puts two rows of the *same field* on opposite sides of a table
+     * that then dims one and not the other with nothing on screen to
+     * explain it.
      *
      * A tie goes to linking: the engine correlated on half of them, so
      * it is a field you can actually pivot from.

@@ -5,22 +5,20 @@
  *
  * A lean is drawn in four places that cannot afford to disagree: the
  * Assessment tab's hero, the tab bar's state pill, the Overview rail
- * card's pill, and the card border. Each needed the mapping in a
+ * card's pill, and the card border. Each needs the mapping in a
  * slightly different form — a raw colour for a CSS variable, a glyph
- * for the hero, a slug for a modifier class — so each grew its own copy
- * of it.
+ * for the hero, a slug for a modifier class — and a copy per surface
+ * would drift.
  *
  * They live here instead. Adding a lean is one entry, and a lean the
  * table does not know about degrades to the neutral treatment rather
  * than to no treatment at all.
  *
- * **This was `ValueDisposition` until D11's rename landed in phase 9.**
- * The four states are the same four states and the colours are the same
- * colours; what changed is that the key is the axis the engine actually
- * computes. `MALICIOUS` was a claim about the value and `threat` is a
- * claim about the record — which is the whole of D11 in one column
- * heading — and keeping a translation table between them is how a shim
- * becomes permanent (`10-wiring.md` §7.7).
+ * **The key is the axis the engine actually computes.** `MALICIOUS`
+ * would be a claim about the value and `threat` is a claim about the
+ * record — which is the whole point of the axis in one column heading —
+ * and keeping a translation table between the two is how a shim becomes
+ * permanent.
  *
  * `definite` is the one non-obvious column: it says whether the lean
  * names a state or refuses to. `threat` and `benign` are answers and
@@ -93,11 +91,11 @@ class ValueLean
      * The words the page says for a lean.
      *
      * *Asserted* is doing the work in two of the four, and it is the
-     * word D11 chose the axis for: the page is reporting what the
-     * record claims, not agreeing with it. A reader who disagrees with
+     * word the axis exists for: the page is reporting what the record
+     * claims, not agreeing with it. A reader who disagrees with
      * *Asserted threat* is disagreeing with the organisations that
      * reported it, which is a conversation they can have; a reader who
-     * disagreed with `MALICIOUS` was disagreeing with MISP.
+     * disagreed with a bare `MALICIOUS` would be disagreeing with MISP.
      *
      * @param string|null $lean
      * @return string Translated, and safe to print
@@ -162,10 +160,9 @@ class ValueLean
      * that contradicts itself.** The tab and its rail are separate
      * requests rendering separate templates, and both have to pick the
      * same branch or a reader gets an agreeing argument beside a
-     * contested rail. Phase 9's first build did exactly that for one
-     * commit: the controller had learned the second half of the
-     * condition and `value_verdict_aside.ctp` had not, so `8.8.8.8`
-     * drew its ledger next to an empty column.
+     * contested rail: a controller that knew the second half of the
+     * condition and a `value_verdict_aside.ctp` that did not would draw
+     * a ledger next to an empty column.
      *
      * The second half is that the layout is built around **two** cases
      * and reads them positionally, so the lean alone does not qualify a
@@ -192,13 +189,12 @@ class ValueLean
      * one. Painting ▲ red either way would show the benign case's
      * strongest evidence in the colour of a threat.
      *
-     * **It is the lean band's pair now, and not the ledger's**
-     * (`review-2026-09-13.md` §D1). The ledger holds the rows that
-     * weigh the record rather than read the value, and those have no
-     * side to support: *four organisations reported it* is the same
-     * fact under either reading, so it is drawn in ink weight
-     * (`--vp-weighs-carries`) and this pair does not reach it. What
-     * still uses the swap is the band that explains the reading, the
+     * **It is the lean band's pair, not the ledger's.** The ledger
+     * holds the rows that weigh the record rather than read the value,
+     * and those have no side to support: *four organisations reported
+     * it* is the same fact under either reading, so it is drawn in ink
+     * weight (`--vp-weighs-carries`) and this pair does not reach it.
+     * What uses the swap is the band that explains the reading, the
      * Overview card's badge, and the falsifiability arrows — every
      * surface whose subject really is the lean.
      *

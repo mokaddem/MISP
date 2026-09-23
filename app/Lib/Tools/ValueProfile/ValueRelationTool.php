@@ -6,10 +6,9 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 /**
  * The Relationships tab's aggregates.
  *
- * Pure and static, and it takes no `$user` — the shape
- * prd/value-profile-live/00-contract.md §14.5 requires. Every method
- * here folds rows the owning model has already scoped, so nothing in
- * this file can widen what a viewer sees.
+ * Pure and static, and it takes no `$user`. Every method here folds
+ * rows the owning model has already scoped, so nothing in this file can
+ * widen what a viewer sees.
  *
  * It exists rather than growing `ValueStatsTool` for the same reason
  * `ValueRelevanceTool` does: one tab's notion of *related* is a
@@ -24,7 +23,6 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
  * value, so for one value the engine returns other occurrences of it —
  * which is the Occurrences tab — and its CIDR/ssdeep partners, which
  * are section two. Nothing in it ever returns a *different* value.
- * `24-relationships.md` §3 has the argument and the measurement.
  */
 class ValueRelationTool
 {
@@ -32,12 +30,11 @@ class ValueRelationTool
      * Entries kept in one facet group.
      *
      * Each entry's *count* stays exact — this cuts the list, not the
-     * arithmetic. `8.8.8.8` produces 128 distinct tags across its
-     * neighbourhood, and a dropdown that long is not a control anybody
+     * arithmetic. A busy neighbourhood carries well over a hundred
+     * distinct tags, and a dropdown that long is not a control anybody
      * uses: `value_facet_group` folds everything past the tenth behind
      * a *"n more"* button and grows a search box past fifty, so the
-     * tail beyond this is markup nobody reads. It was 178 KB of the
-     * fragment when it was uncapped.
+     * tail beyond this is markup nobody reads.
      */
     const FACET_CAP = 40;
 
@@ -55,14 +52,13 @@ class ValueRelationTool
     /**
      * Fields of each kind the sibling caption names as its example.
      *
-     * Two, because the caption is a sentence and not a legend. It used
-     * to name them by hand — *"a file's other hashes and its
-     * filename"* — which was wrong for `filename` the moment the order
-     * started dimming it, and wrong unpredictably: the flag splits 708
-     * to 2,576 across the instance's filenames, so the same caption was
-     * right on one file object and wrong on the next. Named from the
-     * rows the table is holding, the sentence cannot disagree with what
-     * is underneath it. `24b-relationships.md` §6.3.
+     * Two, because the caption is a sentence and not a legend. Naming
+     * them by hand — *"a file's other hashes and its filename"* — would
+     * be wrong for `filename` wherever the order dims it, and wrong
+     * unpredictably: the flag splits both ways across an instance's
+     * filenames, so the same caption would be right on one file object
+     * and wrong on the next. Named from the rows the table is holding,
+     * the sentence cannot disagree with what is underneath it.
      */
     const EXAMPLE_FIELDS = 2;
 
@@ -77,9 +73,8 @@ class ValueRelationTool
      * `ValueStatsTool::facetToken` maps every character outside
      * `[a-z0-9]` to `-`, so no list's slug can contain one however the
      * list is named. A bare `clear` would collide with a warninglist
-     * called *Clear*, and a leading dash — the first spelling — collides
-     * with nothing but reads as an option flag everywhere a token is
-     * passed on a command line.
+     * called *Clear*, and a leading dash collides with nothing but reads
+     * as an option flag everywhere a token is passed on a command line.
      */
     const WARNINGLIST_CLEAR = '_clear';
 
@@ -98,28 +93,25 @@ class ValueRelationTool
     const WARNINGLIST_HIT = '_hit';
 
     /**
-     * The three sorts of neighbour the fold now carries.
+     * The three sorts of neighbour the fold carries.
      *
-     * §10.2's change of definition: a neighbour used to be *another
-     * attribute in the same event*, and it is now *anything sharing
-     * this value's events* — the attributes beside it, the galaxy
-     * clusters naming what those events are about, and the taxonomy
-     * tags classifying them.
+     * A neighbour is *anything sharing this value's events* — the
+     * attributes beside it, the galaxy clusters naming what those
+     * events are about, and the taxonomy tags classifying them.
      *
-     * **Two sections, not one table.** §10.2 asked for one, and
-     * building it is what established that a value neighbour and a
-     * label share only a pager: the rank counts different scopes, five
-     * of the eight facets are properties a cluster does not have, and
-     * two columns are empty on every label row. The kinds still live in
-     * one fold, because they are read from one scan and the rail card
-     * slices them; they are listed in two tables, because that is what
-     * the panel's own rule about units already said.
+     * **Two sections, not one table.** A value neighbour and a label
+     * share only a pager: the rank counts different scopes, five of the
+     * eight facets are properties a cluster does not have, and two
+     * columns are empty on every label row. The kinds still live in one
+     * fold, because they are read from one scan and the rail card
+     * slices them; they are listed in two tables, because that is the
+     * panel's own rule about units.
      *
      * A kind is part of a group's identity and not a column on it. A
      * tag called `8.8.8.8` and the address `8.8.8.8` are two
      * neighbours that share a string and nothing else, and keying the
-     * fold on the string alone would have folded them into one row
-     * whose counts belonged to neither — which is also why the labels
+     * fold on the string alone would fold them into one row whose
+     * counts belonged to neither — which is also why the labels
      * are folded through `$labelGroups` rather than through the map the
      * warninglist and prevalence lookups are keyed on.
      */
@@ -130,8 +122,8 @@ class ValueRelationTool
     /**
      * How a label reached this value, tightest first.
      *
-     * The threat card's vocabulary, widened by one and now shared with
-     * it — the card is a slice of this fold, so the word on its row and
+     * The threat card's vocabulary, shared with it — the card is a
+     * slice of this fold, so the word on its row and
      * the word on the table's row have to be the same word decided in
      * the same place. `claim` is not here because a claim is not a
      * label on an event: it arrives from the asserted section, and the
@@ -213,9 +205,9 @@ class ValueRelationTool
      *
      * One pass over rows that have already been bounded by the caller.
      * The counts are therefore **exact over the scope**, and the scope
-     * is what the panel states — which is the distinction §14.4 draws
-     * between folding a complete set and tallying a page and calling it
-     * a total.
+     * is what the panel states — which is the difference between
+     * folding a complete set and tallying a page and calling it a
+     * total.
      *
      * @param array $rows Neighbour rows, `Value::neighbourRowsFor`
      * @param array $context `orgs`, `events`, `sharing_groups`,
@@ -245,9 +237,9 @@ class ValueRelationTool
          * The narrowing the reader asked for, applied here rather than
          * in the browser. The table carries the top `row_cap` values by
          * shared events, so a filter applied after that cut can only
-         * ever narrow the hundred that survived it — which is why
-         * `abuse.ch`, 9,791 values none of which rank that high, used
-         * to empty the table it had just been counted in.
+         * ever narrow the hundred that survived it — and a facet
+         * entry matching thousands of values, none of which rank that
+         * high, would empty the table it had just been counted in.
          */
         $narrowing = isset($context['filters'])
             ? (array)$context['filters']
@@ -360,11 +352,11 @@ class ValueRelationTool
              * is still what answers it per occurrence — the conjunction
              * of the attribute, its object and its event, tightest
              * wins — but a row folds many occurrences and a set of
-             * records spread over events has no single audience. What
-             * used to happen here was a second fold on top of that one,
-             * keeping whichever occurrence was widest, which let a row
-             * read `All communities` while one of the records behind it
-             * was org-only.
+             * records spread over events has no single audience. A
+             * second fold on top of that one, keeping whichever
+             * occurrence was widest, would let a row read `All
+             * communities` while one of the records behind it was
+             * org-only.
              *
              * Keyed on the pair, so two occurrences of one sharing
              * group are one entry and two different sharing groups
@@ -407,7 +399,8 @@ class ValueRelationTool
          * emit a `warninglist:clear` token and still count a facet
          * entry: markup that changes on a page where the finding is
          * that there is no finding. With it, a value whose neighbours
-         * are all unlisted renders exactly as it did before B5.
+         * are all unlisted renders exactly as it would with no list
+         * enabled.
          */
         $listedGroups = 0;
         foreach ($groups as &$group) {
@@ -454,38 +447,37 @@ class ValueRelationTool
         /*
          * **The labels, in a fold of their own.**
          *
-         * §10.2 asked for one table over both, *"with the same facets,
-         * ranks and pager over all of it"*, and building it is what
-         * showed that only the last of those three is shareable. Of a
-         * value neighbour and a galaxy cluster:
+         * One table over both, *"with the same facets, ranks and pager
+         * over all of it"*, could share only the last of those three.
+         * Of a value neighbour and a galaxy cluster:
          *
          *   - the **rank** cannot be shared. Shared events counts the
          *     events the attribute budget afforded on one side and
-         *     every event the value is in on the other, so on `443` a
-         *     value reaches 38 and `tlp:white` reaches 196.
+         *     every event the value is in on the other, so a common
+         *     label outranks every value neighbour by a wide margin.
          *   - the **facets** cannot be shared. Five of the eight are
          *     properties of a correlated attribute, and a cluster has
          *     no type, no object and no warninglist verdict.
          *   - the **columns** cannot be shared. Two of them are empty
          *     on every label row.
          *
-         * Which leaves the pager, and sharing that was the worst of it:
-         * merged, the first cluster on `Malicious` was on page 14.
+         * Which leaves the pager, and sharing that would be the worst
+         * of it: merged, the first cluster could sit many pages deep.
          *
-         * This panel had already written the rule down, one section
-         * below where the merged table went — *"a facet like Type is a
-         * property of a correlated value; an event row is not a value,
-         * and filtering one by the type of the other would be a control
-         * that means nothing."* A cluster is not a value either. So the
-         * labels get what the object siblings above them get: their own
-         * rows, their own bar, their own pager.
+         * The panel's rule about units already covers this — *"a facet
+         * like Type is a property of a correlated value; an event row
+         * is not a value, and filtering one by the type of the other
+         * would be a control that means nothing."* A cluster is not a
+         * value either. So the labels get what the object siblings
+         * above them get: their own rows, their own bar, their own
+         * pager.
          *
-         * **After the two lookups above, and that part is unchanged.**
-         * Both are keyed on an attribute value string and a tag is free
-         * to be named `8.8.8.8`; folding labels through them would let
-         * a tag inherit a warninglist verdict belonging to an address
-         * that merely spells the same. Their own array now makes that
-         * structural rather than merely ordered.
+         * **After the two lookups above.** Both are keyed on an
+         * attribute value string and a tag is free to be named
+         * `8.8.8.8`; folding labels through them would let a tag
+         * inherit a warninglist verdict belonging to an address that
+         * merely spells the same. Their own array makes that structural
+         * rather than merely ordered.
          */
         $labelGroups = array();
         self::labels($labelGroups, $rows, $eventMeta, $ownTags,
@@ -573,23 +565,20 @@ class ValueRelationTool
         return array(
             'suppressed' => false,
             /*
-             * §14.6: every number here is the viewer's own, and the
-             * panel says nothing about what it cannot see — so `stored`
-             * and `visible` are the same number and `hidden` is zero.
-             * The keys survive because the template reads them; what
-             * does not survive is any sentence subtracting one from the
-             * other, which would have named a hidden count.
+             * Every number here is the viewer's own, and the panel
+             * says nothing about what it cannot see — so `stored` and
+             * `visible` are the same number and `hidden` is zero. The
+             * keys survive because the template reads them; what does
+             * not survive is any sentence subtracting one from the
+             * other, which would name a hidden count.
              */
             'stored' => count($rows),
             'visible' => count($rows),
             'hidden' => 0,
             /*
-             * Distinct *values*, and the name is right again. §10.2
-             * briefly widened it to every kind of neighbour, which was
-             * honest while one table held all three; with the labels in
-             * a section of their own the number this table compares its
-             * page against is a count of values, and every reader of it
-             * wants that.
+             * Distinct *values*. With the labels in a section of their
+             * own, the number this table compares its page against is
+             * a count of values, and every reader of it wants that.
              */
             'distinct_values' => $distinct,
             /*
@@ -602,18 +591,18 @@ class ValueRelationTool
             'rank' => $rank,
             /*
              * Both counted over the fold, not the page, and the caption
-             * that prints them says so. **Ranking is untouched** — B5
-             * makes benign-ness visible and narrowable; which
-             * neighbours reach the cut is B6's question.
+             * that prints them says so. **Ranking is untouched** — the
+             * listing makes benign-ness visible and narrowable; which
+             * neighbours reach the cut is the rank's question.
              */
             'warninglists_checked' => $listsChecked,
             'warninglists_listed' => $listedGroups,
             /*
              * Whether the spread was read at all, on the same reasoning
-             * as `warninglist_read`: a scan cached before this lookup
-             * existed carries no prevalence, and for those five minutes
-             * a **Most specific** pill would sort by nothing. The panel
-             * renders neither the pill nor the column without this.
+             * as `warninglist_read`: a cached scan can carry no
+             * prevalence, and until it expires a **Most specific** pill
+             * would sort by nothing. The panel renders neither the pill
+             * nor the column without this.
              */
             'spread_read' => $spreadRead > 0,
             'events' => count($eventRows),
@@ -635,7 +624,7 @@ class ValueRelationTool
             'facets' => $facets,
             'categories' => array_keys($categories),
             /*
-             * §10.2's own section, shaped like the object siblings'
+             * The labels' own section, shaped like the object siblings'
              * above it: its rows, its bar, its total, its cut.
              *
              * **`rows` is every label, uncapped, and the template
@@ -645,7 +634,7 @@ class ValueRelationTool
              * because it filters to `named-threat` afterwards and a
              * cluster reaching this value through one event sits
              * nowhere near the top of a list ranked by shared events —
-             * capping first would have lost threats on exactly the
+             * capping first would lose threats on exactly the
              * values where the neighbourhood is large. Holding the full
              * list costs a cache entry, not markup.
              *
@@ -701,7 +690,7 @@ class ValueRelationTool
      * What is *not* here is the point of it being here: no `Type`, no
      * `Object`, no `Warninglist`. Those describe a correlated
      * attribute, and offering a reader a control that empties the table
-     * it sits under is the defect this section was split out to avoid.
+     * it sits under is the defect a section of its own avoids.
      *
      * @param array $labelGroups
      * @param array $eventMeta
@@ -799,8 +788,8 @@ class ValueRelationTool
     /**
      * The label neighbours, folded into a set of their own.
      *
-     * §10.2's three ways a label reaches a value, and the fold keeps
-     * them apart because the row prints which one it was:
+     * The three ways a label reaches a value, and the fold keeps them
+     * apart because the row prints which one it was:
      *
      *   `value`      on one of this value's own occurrences — *this
      *                address, in this event, is marked APT29*
@@ -817,8 +806,8 @@ class ValueRelationTool
      * neighbour source only reaches the events the attribute budget
      * afforded, because it is made of the rows that budget bought. A
      * value whose events are all too large to scan therefore still has
-     * labels here — which is the property `ValueProfile::relationDigest`
-     * needed to keep when the threat card became a slice of this fold.
+     * labels here — which `ValueProfile::relationDigest` relies on,
+     * since the threat card is a slice of this fold.
      *
      * **A galaxy tag with no resolved cluster contributes nothing.**
      * `fetchGalaxyClusters` is the only thing that decides whether this
@@ -891,7 +880,7 @@ class ValueRelationTool
          * attributes', not a floor. Claiming it would let a row read
          * `All communities` over a record that is org-only, which is
          * the mistake the value fold's `distributions` set exists to
-         * have stopped making.
+         * prevent.
          */
         foreach ($ownTags as $name => $entry) {
             $isCluster = !empty($entry['tag']['is_galaxy']);
@@ -938,9 +927,7 @@ class ValueRelationTool
              * object and its event. The attribute's stated level is
              * not usable here: `5` means *inherit*, and an audience
              * badge reading `Inherited` on a row that names a tag
-             * rather than a record has nothing to inherit from. Seen
-             * on `tlp:white`, where every neighbour carrying it
-             * deferred to its event.
+             * rather than a record has nothing to inherit from.
              */
             $audience = ValueStatsTool::effectiveDistribution(
                 $row,
@@ -967,15 +954,6 @@ class ValueRelationTool
                             : null,
                         'last' => (int)$attribute['timestamp'],
                         'attachment' => 'neighbour',
-                        /*
-                         * The attribute's stated level rather than its
-                         * effective one, because the effective answer
-                         * needs the object and event beside it and the
-                         * tightest of the three is what the value rows
-                         * already fold. Stated is the narrower reading
-                         * of the two wherever they differ, which is the
-                         * safe direction for a badge.
-                         */
                         'audience' => $audience,
                         'tag' => $tag,
                         'cluster' => $isCluster
@@ -1159,26 +1137,24 @@ class ValueRelationTool
      *
      * **Shared events still lead and this only breaks their ties** —
      * every ratio that lets a rarer neighbour overtake a more frequent
-     * one was measured against the live panel and every one of them put
-     * one-off noise on page one. `shared ÷ total` is the obvious
-     * reading of "appears almost nowhere except beside this one" and it
-     * is the worst of them: 94% of `8.8.8.8`'s neighbours appear in no
-     * other event on the instance, so they all tie at 1.0. Damping it
-     * to `shared² ÷ total` fails for a subtler reason — the scan reads
-     * at most `RELATION_SCAN_BUDGET` rows, which compresses the shared
-     * counts the square was supposed to outrun, so on
-     * `147.185.221.24` three `2 of its 2` rows still finished above the
-     * `.cyou` campaign's `3 of its 8`. Shrinking by a prior
-     * (`shared ÷ (total + 10)`) bought exactly one worthwhile promotion
-     * — `9.9.9.9`, 3 of its only 3 events — and paid for it with a
-     * `2 of 2` row in fourth place on the hub.
+     * one puts one-off noise on page one. `shared ÷ total` is the
+     * obvious reading of "appears almost nowhere except beside this
+     * one" and it is the worst of them: on a busy value most neighbours
+     * appear in no other event on the instance, so they all tie at 1.0.
+     * Damping it to `shared² ÷ total` fails for a subtler reason — the
+     * scan reads at most `RELATION_SCAN_BUDGET` rows, which compresses
+     * the shared counts the square was supposed to outrun, so `2 of its
+     * 2` rows still finish above a campaign's `3 of its 8`. Shrinking
+     * by a prior (`shared ÷ (total + 10)`) buys the odd worthwhile
+     * promotion and pays for it with `2 of 2` rows near the top of a
+     * hub.
      *
      * Leading with frequency loses nothing, because **ties are the
-     * normal case, not the exception**: 9,458 of `8.8.8.8`'s 9,520
-     * neighbours share exactly one event, so the tie-break is what
+     * normal case, not the exception**: on a busy value nearly every
+     * neighbour shares exactly one event, so the tie-break is what
      * orders almost the whole table. It is visible where it matters
-     * too — `google.com` (5 of its 9) rises above `2.2.2.2` (5 of its
-     * 13), and `9.9.9.9` (3 of its 3) above `1.2.3.4` (3 of its 8).
+     * too — `5 of its 9` rises above `5 of its 13`, and `3 of its 3`
+     * above `3 of its 8`.
      *
      * Compared by cross-multiplication rather than by dividing, so the
      * arithmetic stays in integers and two rows whose fractions are
@@ -1325,8 +1301,8 @@ class ValueRelationTool
             sort($names);
             $rows[] = array(
                 /*
-                 * Which of §10.2's three neighbours this row is, and it
-                 * decides how the first two cells are drawn rather than
+                 * Which of the three sorts of neighbour this row is, and
+                 * it decides how the first two cells are drawn rather than
                  * merely labelling them: a value gets a monospace
                  * string and a type badge, a cluster gets its name and
                  * its galaxy, a tag gets its own chip and its
@@ -1459,9 +1435,9 @@ class ValueRelationTool
      * And by the object the neighbouring attribute sits in.
      *
      * Capped, because this is the roll-up that can be longer than the
-     * other two rather than shorter: on the verification instance a
-     * single event holds 32,921 objects, one per row of a flood
-     * capture, and every one of them would otherwise be a row here.
+     * other two rather than shorter: a single event can hold tens of
+     * thousands of objects, one per row of a flood capture, and every
+     * one of them would otherwise be a row here.
      *
      * @param array $objects
      * @param array $orgs
@@ -1502,10 +1478,10 @@ class ValueRelationTool
      * **These count value neighbours and nothing else.** Five of them
      * are properties of a correlated attribute, which a galaxy cluster
      * does not have — so the labels are folded, counted and narrowed in
-     * a section of their own, by `labelFacets`. §10.2 first put both in
-     * one bar; ticking `Type` then emptied the table of every cluster
-     * it had just counted, which is the control this panel already
-     * describes as *"a control that means nothing"* one section down.
+     * a section of their own, by `labelFacets`. With both in one bar,
+     * ticking `Type` would empty the table of every cluster it had just
+     * counted, which is the control this panel already describes as *"a
+     * control that means nothing"* one section down.
      *
      * @param array $groups
      * @param array $eventMeta
@@ -1575,11 +1551,11 @@ class ValueRelationTool
             /*
              * The two halves of the partition are counted here and
              * prepended below by `warninglistFacet`; the enumeration is
-             * counted per list. They are not peers: on `8.8.8.8` the
-             * halves are 37 and 10,003 against the lists' 21 and 11, so
-             * a bar scaled over all of them flattens every list to
-             * nothing. `value_facet_group` is told which is which and
-             * keeps the halves off the scale.
+             * counted per list. They are not peers: a half can run to
+             * thousands against a list's dozen, so a bar scaled over
+             * all of them flattens every list to nothing.
+             * `value_facet_group` is told which is which and keeps the
+             * halves off the scale.
              */
             if (!empty($group['warninglist_read'])) {
                 if (empty($group['warninglists'])) {
@@ -1701,8 +1677,8 @@ class ValueRelationTool
      * The object siblings, aggregated to one row per `(template,
      * relation, sibling value)` triple.
      *
-     * Phase 18's rule, applied to real rows: the same sibling seen five
-     * hundred times is one row that says five hundred. The event link
+     * The same sibling seen five hundred times is one row that says
+     * five hundred. The event link
      * survives wherever the fold left exactly one event to point at,
      * which is every single-object row and any row whose objects all
      * sit in the same event. Past that the row can only give a count.
@@ -1730,7 +1706,7 @@ class ValueRelationTool
         /*
          * Which sibling values MISP already knows to be benign, read
          * over this join's own rows by the caller. A sibling is a value
-         * the reader may pivot to and the table now leads with the
+         * the reader may pivot to and the table leads with the
          * fields you *can* pivot on, so a pivot onto a public resolver
          * is exactly the one worth marking before it is taken.
          */
@@ -1852,8 +1828,8 @@ class ValueRelationTool
             $events = array_keys($triple['events']);
             $held = count($triple['objects']);
             /*
-             * A single-object row keeps the link it has always had:
-             * whatever the cap left out, that object is in that event.
+             * A single-object row keeps its event link: whatever the
+             * cap left out, that object is in that event.
              * A row standing for several only claims to name their one
              * event where the fold was over all of them.
              */
@@ -1923,43 +1899,40 @@ class ValueRelationTool
             $out[$index]['tokens'] = self::siblingRowTokens($row);
         }
         /*
-         * **Linking fields first, then object count as before.** Ranked
-         * on count alone, `8.8.8.8` opens on a screen of
-         * `paloalto-threat-event` bookkeeping — `type = THREAT`,
-         * `srcloc = United States`, `app = not-applicable` — which
-         * describes the telemetry that caught the address and offers
-         * nothing to click. `disable_correlation` is MISP's own record
-         * of which fields it links on, and the tab already trusts it
-         * for the graph's edge labels and the dated table's far values.
-         * Nothing is hidden by it: the descriptive rows keep their
-         * order and their page, they just stop being page one.
+         * **Linking fields first, then object count.** Ranked on count
+         * alone, a busy address opens on a screen of firewall-telemetry
+         * bookkeeping — a threat type, a source country, an app name —
+         * which describes the telemetry that caught the address and
+         * offers nothing to click. `disable_correlation` is MISP's own
+         * record of which fields it links on, and the tab already
+         * trusts it for the graph's edge labels and the dated table's
+         * far values. Nothing is hidden by it: the descriptive rows keep
+         * their order and their page, they just stop being page one.
          */
         /*
          * **And specificity inside each of those two blocks, where the
-         * spread was read.** Object count alone opens `8.8.8.8`'s
-         * linking rows on `paloalto-threat-event · dst · 0.0.0.0` — 5
-         * of the value's objects, and 32,922 objects across the
-         * instance. It outranks `domain-ip · domain · google.com` on
-         * four because the count cannot see the difference between a
-         * value that means something here and a placeholder that means
-         * nothing anywhere. Dividing moves the three real DNS pivots to
-         * the top of the block and `0.0.0.0` to the bottom of it.
+         * spread was read.** Object count alone can open the linking
+         * rows on a placeholder such as `dst · 0.0.0.0` — a handful of
+         * the value's objects, and tens of thousands across the
+         * instance — above a real `domain-ip · domain` pivot, because
+         * the count cannot see the difference between a value that
+         * means something here and a placeholder that means nothing
+         * anywhere. Dividing moves the real pivots to the top of the
+         * block and the placeholder to the bottom of it.
          *
          * **Inside the split and never across it.** The least-prevalent
-         * rows on a sibling table are bookkeeping — `8.8.8.8`'s are six
-         * `time_first`/`time_last` stamps, two passive-DNS record
-         * counts and two `origin` names, each in exactly one object and
-         * each scoring a perfect 1.0. Sorting across the split would
-         * hand them page one and undo what the linking-first order was
-         * for.
+         * rows on a sibling table are bookkeeping — `time_first` and
+         * `time_last` stamps, passive-DNS record counts, `origin`
+         * names — each in exactly one object and each scoring a perfect
+         * 1.0. Sorting across the split would hand them page one and
+         * undo what the linking-first order was for.
          *
          * **This divides outright where `compareSpecificity` only
          * breaks ties, and the difference is deliberate.** The two
          * tables face opposite hazards. The ranked table folds
-         * thousands of one-event neighbours — 9,458 of `8.8.8.8`'s
-         * 9,520 — so any key that lets a rare neighbour overtake a
-         * frequent one fills its page one with `2 of its 2` noise, and
-         * it was measured doing exactly that. This table has already
+         * thousands of one-event neighbours, so any key that lets a
+         * rare neighbour overtake a frequent one fills its page one
+         * with `2 of its 2` noise. This table has already
          * had its one-object noise moved to the block below by the
          * kind split, so what is left in the linking block is a handful
          * of genuine pivot fields and dividing has nothing bad to
@@ -1999,11 +1972,10 @@ class ValueRelationTool
 
         $triples = count($out);
         /*
-         * **The rows are capped and the total is not.** `443` sits in
-         * 394 objects whose 2,691 sibling attributes fold to some two
-         * thousand triples, and listing all of them made this one
-         * fragment 2.4 MB — 2.8 MB for a reader who can see more of
-         * them. The badge and the pager print `total`, so the cut shows
+         * **The rows are capped and the total is not.** A value in a
+         * few hundred objects can fold to thousands of triples, and
+         * listing all of them would make this one fragment megabytes
+         * long. The badge and the pager print `total`, so the cut shows
          * up as *1–8 of 100 (2,041 in total)* rather than as a table
          * that quietly stops.
          */
@@ -2028,9 +2000,9 @@ class ValueRelationTool
             /*
              * Counted over every triple, not the hundred carried, which
              * is the same bargain the rest of this section's counts
-             * strike. Linking fields still come first; what breaks the
-             * tie inside each block is now specificity, and object
-             * count behind it.
+             * strike. Linking fields come first; what breaks the tie
+             * inside each block is specificity, and object count behind
+             * it.
              */
             'warninglists_checked' => $listsChecked,
             'warninglists_listed' => $listedRows,
@@ -2049,7 +2021,7 @@ class ValueRelationTool
                 'limit' => $limit,
                 'applied' => $inObjects > $limit,
             ),
-            // §14.6: no count of what the reader cannot see.
+            // No count of what the reader cannot see.
             'hidden' => 0,
             'page_size' => isset($context['page_size'])
                 ? (int)$context['page_size']
@@ -2062,17 +2034,17 @@ class ValueRelationTool
      * the sibling set is past reading.
 
      * **This is the roll-up that lets nothing be truncated.** A ranked
-     * cap answers `0.0.0.0` with twelve of 35,102 siblings and no way
-     * to reach the rest; two template rows carrying 32,922 and 1 answer
-     * it completely, and the larger number is the finding — 32,922
-     * near-identical `paloalto-threat-event` objects read as
-     * flood-capture noise at a glance.
+     * cap answers a value with tens of thousands of siblings with a
+     * dozen of them and no way to reach the rest; a template row per
+     * template answers it completely, and the larger number is the
+     * finding — tens of thousands of near-identical objects of one
+     * template read as flood-capture noise at a glance.
 
      * **The object count is the value's own, not the fold's.** The
      * caller caps the objects it reads at `SIBLING_OBJECT_CAP`, so
-     * counting the folded ones would print 500 where the truth is
-     * 32,922 — a roll-up quietly lying at the one number it exists to
-     * carry. `template_totals` is the census the caller runs when its
+     * counting the folded ones would print the cap where the truth is
+     * far larger — a roll-up quietly lying at the one number it exists
+     * to carry. `template_totals` is the census the caller runs when its
      * cap bit; `folded` stays beside it so a reader of this array can
      * still tell how much of the template the values came from.
      *
@@ -2088,12 +2060,13 @@ class ValueRelationTool
             : array();
         /*
          * Every template in the census, not only the ones the fold
-         * reached. `0.0.0.0` sits in 32,921 `paloalto-threat-event`
-         * objects and one `pe`, and the read stops at 500 — all of them
-         * paloalto — so a roll-up built from the fold alone would draw
-         * one node and silently lose the template that is actually
-         * unusual. A template with no folded row draws its count and no
-         * values, which is exactly what is known about it.
+         * reached. A value can sit in thousands of objects of one
+         * template and a single object of another, and a capped read
+         * can stop before reaching the second — so a roll-up built from
+         * the fold alone would draw one node and silently lose the
+         * template that is actually unusual. A template with no folded
+         * row draws its count and no values, which is exactly what is
+         * known about it.
          */
         foreach ($totals as $name => $count) {
             if (!isset($templates[$name])) {
@@ -2145,11 +2118,10 @@ class ValueRelationTool
      * whole point of the panel is to put them on the edge.
 
      * **A dated relation is an object recording two or more dates.**
-     * One date is a moment, not a span, and the instance says why the
-     * distinction has to be drawn: 40,098 objects carry exactly one
-     * `datetime`, and 32,892 of those are `paloalto-threat-event`
-     * saying when the row was generated, with another 6,740 saying when
-     * a sample was last submitted. Neither is a claim about when the
+     * One date is a moment, not a span, and the distinction has to be
+     * drawn: an object carrying exactly one `datetime` is typically
+     * telemetry saying when the row was generated, or a sample saying
+     * when it was last submitted. Neither is a claim about when the
      * relation held. Requiring a pair keeps `passive-dns`
      * (`time_first`/`time_last`) and `url-honeypot-detection`
      * (`first-seen`/`last-seen`) and drops the bookkeeping, without a
@@ -2157,9 +2129,10 @@ class ValueRelationTool
 
      * **First and last are the earliest and the latest, and each cell
      * carries the object's own word for it.** The column header is
-     * generic and the label under the date is not, which is §23.2's
-     * rule applied to a timestamp: a label is true where a
-     * classification would be arguing.
+     * generic and the label under the date is not, which is this tab's
+     * rule of reporting rather than classifying, applied to a
+     * timestamp: a label is true where a classification would be
+     * arguing.
 
      * **The far value is one MISP itself marks as linking.**
      * `disable_correlation` is 0 on `rrname` and `rdata` and 1 on
@@ -2223,10 +2196,10 @@ class ValueRelationTool
                 continue;
             }
             /*
-             * Named, because the object names it. `passive-dns` records
-             * where a resolution was observed on 646 of its 673 rows
-             * here, and a resolution history without its source is a
-             * list of claims with no provenance.
+             * Named, because the object names it. `passive-dns` almost
+             * always records where a resolution was observed, and a
+             * resolution history without its source is a list of claims
+             * with no provenance.
              */
             if ($relation === self::ORIGIN_RELATION) {
                 $objects[$objectId]['origin'] = $value;
@@ -2278,10 +2251,10 @@ class ValueRelationTool
 
         /*
          * Newest first for the cut, oldest first for the eye. A
-         * resolution history reads forwards — four addresses in
-         * fourteen days, four years of nothing, then one more — but a
-         * cap taken off the front of that would keep 2017 and drop
-         * last week. So the cut keeps the most recent rows and the
+         * resolution history reads forwards — a burst of addresses,
+         * years of nothing, then one more — but a cap taken off the
+         * front of that would keep the oldest years and drop last
+         * week. So the cut keeps the most recent rows and the
          * table then reads them in the order the story runs.
          */
         usort($out, function ($a, $b) {
@@ -2358,7 +2331,7 @@ class ValueRelationTool
                 'limit' => $limit,
                 'applied' => $limit > 0 && $inObjects > $limit,
             ),
-            // §14.6: no count of what the reader cannot see.
+            // No count of what the reader cannot see.
             'hidden' => 0,
             'page_size' => isset($context['page_size'])
                 ? (int)$context['page_size']
@@ -2373,10 +2346,10 @@ class ValueRelationTool
      * tab's spine is twelve months because that tab is asking *what
      * happened lately*; this section is asking *how long did each of
      * these hold*, and a resolution history that ran 2013→2018 would be
-     * an empty strip under a twelve-month axis. `draculax.myq-see.com.`
-     * is the case that settles it: four addresses in fourteen days,
-     * four years of nothing, then one more, and the shape of that is
-     * only visible when the axis is the span the data actually covers.
+     * an empty strip under a twelve-month axis. A burst of addresses in
+     * a fortnight, years of nothing, then one more is the case that
+     * settles it: the shape of that is only visible when the axis is
+     * the span the data actually covers.
      *
      * Derived from `$rows` and not from the objects, so the strip covers
      * exactly the rows the table holds — the cut above has already run.
@@ -2409,17 +2382,15 @@ class ValueRelationTool
      * Which of the two groupings the strip's lanes use.
      *
      * **The succession is the reading, and template lanes hide it.**
-     * `8.8.8.8`'s three dated relations are
-     * `google-public-dns-a.google.com` 2013→2018 and `dns.google`
-     * 2019→2026, both `passive-dns`, plus `dns.google` again under
-     * `domain-ip`. Grouped by template, the two *different names* share
-     * the `passive-dns` lane as two anonymous bars, and *which value
-     * held when, which replaced which* is recoverable only from the
-     * table. That is the reading a resolution history exists for, and
-     * it is the founding case (`draculax.myq-see.com.`,
-     * `24-relationships.md` §25.1). Template lanes were chosen against
-     * `github.com` — 46 relations, one template, so 46 lanes would be
-     * a second table — and both are right about their own value.
+     * Take an address resolved by one name for some years and by
+     * another since, both under `passive-dns`, plus the second name
+     * again under `domain-ip`. Grouped by template, the two *different
+     * names* share the `passive-dns` lane as two anonymous bars, and
+     * *which value held when, which replaced which* is recoverable only
+     * from the table. That is the reading a resolution history exists
+     * for. Template lanes suit the opposite case — dozens of relations
+     * under one template, where a lane each would be a second table —
+     * and both are right about their own value.
      *
      * The threshold is therefore **the table's own page**, not a
      * number of its own: when every row is on screen at once the strip
@@ -2446,8 +2417,8 @@ class ValueRelationTool
      * `template` is the object template, which is what keeps the strip
      * short and is the word the panel header already uses. `value` is
      * the far end of the relation, which is what makes a hand-off
-     * legible — and it still folds: `8.8.8.8`'s two `dns.google` rows
-     * share one lane, so its second observation reads as the same name
+     * legible — and it still folds: two rows for the same far name
+     * share one lane, so the second observation reads as the same name
      * confirmed twice rather than as a second name.
      *
      * Every entry carries the `key` its table row carries, because the
@@ -2558,7 +2529,7 @@ class ValueRelationTool
      *
      * A row with no origin carries no origin token, so ticking an
      * origin drops it — which is the honest answer to *show me what
-     * Farsight said* and not the same thing as excluding it by name.
+     * that source said* and not the same thing as excluding it by name.
      *
      * @param array $row
      * @return array
@@ -2592,7 +2563,7 @@ class ValueRelationTool
      *
      * Three keys and no more. Template and origin are what a reader
      * asks a resolution history — *only the passive DNS*, *only what
-     * Farsight said* — and the far value's type is what separates a
+     * one source said* — and the far value's type is what separates a
      * domain from a hostname in a table where both print as text. Event
      * and organisation are deliberately absent: they are the
      * co-occurrence pane's narrowing, and offering them twice on one
@@ -2734,7 +2705,7 @@ class ValueRelationTool
                 'limit' => $limit,
                 'applied' => $limit > 0 && $read >= $limit,
             ),
-            // §14.6: no count of what the reader cannot see.
+            // No count of what the reader cannot see.
             'hidden' => 0,
             'page_size' => isset($context['page_size'])
                 ? (int)$context['page_size']
@@ -2770,7 +2741,7 @@ class ValueRelationTool
      * hundred, so an entry can name rows that are not on the page —
      * and unlike the ranked bar above, this list has no endpoint to go
      * back to, so ticking such an entry can only empty a table. Field
-     * kind makes that certain rather than incidental: linking rows now
+     * kind makes that certain rather than incidental: linking rows
      * sort first, so on a value whose siblings are capped the hundred
      * carried can be linking to the last one. Each entry therefore
      * says how many of the carried rows it reaches, and the bar greys
@@ -2915,10 +2886,10 @@ class ValueRelationTool
      * One sibling row's facet tokens.
      *
      * Stamped on the row and counted by the bar from the one place,
-     * which is the rule the ranked table's `tokensFor` already follows
-     * and the sibling table did not: the template built these and the
-     * fold counted them separately, so a change to either could have
-     * left a facet that matches nothing.
+     * which is the rule the ranked table's `tokensFor` follows: were
+     * the template to build these and the fold to count them
+     * separately, a change to either could leave a facet that matches
+     * nothing.
      *
      * The keys are prefixed because both bars live in one panel and
      * `type` means a different row set in each.
@@ -3341,10 +3312,9 @@ class ValueRelationTool
      * **Every value the group carried, not the one it carries best.**
      * The facets count a value under each type, category and object it
      * appeared as — the `dominant()` badge is a display choice — so
-     * emitting only the dominant one left the counted facet unable to
-     * find rows it had just counted. `type` and `object` were the two
-     * worst dropdowns on the tab for exactly this reason, before the
-     * row cap is even considered.
+     * emitting only the dominant one would leave the counted facet
+     * unable to find rows it had just counted, before the row cap is
+     * even considered.
      *
      * The slug is `ValueStatsTool::facetToken`, which is what built the
      * facet entries, so the two cannot drift apart.
@@ -3468,11 +3438,11 @@ class ValueRelationTool
      *
      * `Value::prevalenceFor` answers in three parts — the values it
      * counted exactly, the values it found too common to count, and the
-     * cap it stopped at — because a value's spread is now one of three
-     * things rather than a number or nothing. A scan cached before that
-     * split carries a flat map, so that reading is accepted too and
-     * treated as all-exact: it is the shape this used to hand over, and
-     * for one `RELATION_SCAN_TTL` after a deploy it is what is in Redis.
+     * cap it stopped at — because a value's spread is one of three
+     * things rather than a number or nothing. A flat map is accepted
+     * too and treated as all-exact, since an older cached scan carries
+     * that shape and for one `RELATION_SCAN_TTL` after a deploy it can
+     * be what is in Redis.
      *
      * @param array $context The fold's context
      * @return array `counts`, `capped`, `row_cap`
@@ -3519,9 +3489,10 @@ class ValueRelationTool
      *
      * A value too common to count gets the cap and `least`. **The cap
      * is a count of occurrences, not of this row's unit**, so the
-     * renderer must not spend it on a fraction — `flood` is 65,717
-     * occurrences across two events, and *in 2 of its 500+ events*
-     * would be false about a value that is in two of its two.
+     * renderer must not spend it on a fraction — a value can have tens
+     * of thousands of occurrences across two events, and *in 2 of its
+     * 500+ events* would be false about a value that is in two of its
+     * two.
      *
      * Ranking such a value last is therefore a decision rather than a
      * derivation, and it is the right one: the rank exists to raise

@@ -4,9 +4,9 @@
  * The contested layout's three keys: the two cases, and what neither
  * case could take.
  *
- * `ValueSummaryTool`'s sibling and under the same rule (§14.5) — pure
- * functions of a finished assessment and the context it scored, no
- * query and no view. They are together in one file because they are one
+ * `ValueSummaryTool`'s sibling and under the same rule — pure functions
+ * of a finished assessment and the context it scored, no query and no
+ * view. They are together in one file because they are one
  * design: a contested record is *two arguments and the things that
  * belong to neither*, and splitting the pair across two tools would let
  * the two halves drift.
@@ -14,32 +14,31 @@
  * ## The cases are the lean ledger, read twice
  *
  * A contested lean is re-anchored threat-signed before it is banded
- * (`ValueVerdictTool` rule 7, `04-dispositions.md` §2), so the **lean**
- * ledger already holds both arguments: the positive rows are what says
- * this is a threat and the negative rows are what says it is not. The
- * cases fold out of those rows and out of nothing else, which is what
- * lets a reader add up either column by hand and arrive at the tug bar
- * above it. `04-dispositions.md` §5: *two derivable quantities, no
- * third bucket, no separate computation.*
+ * (`ValueVerdictTool`'s lean-disputed check), so the **lean** ledger
+ * already holds both arguments: the positive rows are what says this is
+ * a threat and the negative rows are what says it is not. The cases
+ * fold out of those rows and out of nothing else, which is what lets a
+ * reader add up either column by hand and arrive at the tug bar above
+ * it: *two derivable quantities, no third bucket, no separate
+ * computation.*
  *
  * **The lean ledger and not the whole one.** Splitting every row by
- * sign was `review-2026-09-13.md` §A3: it seated corroboration breadth
- * and temporal precision inside a case titled *Reads as a threat*, and
- * every absence penalty inside one titled *Reads as benign*. Those
- * rows weigh the record; they do not read the value, and a case is a
- * reading.
+ * sign would seat corroboration breadth and temporal precision inside a
+ * case titled *Reads as a threat*, and every absence penalty inside one
+ * titled *Reads as benign*. Those rows weigh the record; they do not
+ * read the value, and a case is a reading.
  *
  * **Exactly two, in order, or none at all.** `value_verdict_conflicted`
  * reads `$cases[0]` and `$cases[1]` positionally and its tug has two
  * feet, so one case or three would not degrade — it would produce an
- * undefined index (`10-wiring.md` §2.2). A pair is the contract.
+ * undefined index. A pair is the contract.
  *
  * ## And what neither case could take
  *
  * `conflicts` and `ambiguities` are **one derivation shown in two
- * places**, which is the finding that made them cheap. The fixture
- * carried them as separate keys and they were never separate facts: a
- * contradiction the engine had to settle by rule rather than by
+ * places**, which is what makes them cheap. They are separate keys but
+ * not separate facts: a contradiction the engine had to settle by rule
+ * rather than by
  * evidence belongs under the ledger on the agreeing layout and under
  * the two cases on the contested one, and it is the same contradiction
  * either way. One producer, two placements, and the two cannot
@@ -99,8 +98,9 @@ class ValueContestedTool
         }
         if (empty($sides['threat']) || empty($sides['benign'])) {
             /*
-             * One-sided, which a contested lean can still be: rule 7
-             * fires on a ledger that went negative against its anchor,
+             * One-sided, which a contested lean can still be: the
+             * lean-disputed check fires on a ledger that went negative
+             * against its anchor,
              * and a record whose every row disputes its own assertion
              * has no second column to draw. The agreeing layout carries
              * it, ledger and all, which says the same thing in the
@@ -185,13 +185,13 @@ class ValueContestedTool
     private static function rowsOf(array $verdict)
     {
         /*
-         * The lean ledger, which since `review-2026-09-13.md` §A3 is a
-         * separate list rather than the positive half of the quality
-         * one. A case is *what reads the value this way*, and splitting
-         * the whole ledger by sign put five absences — no galaxy, no
-         * first-seen, no sighting, nothing recent, no feed — under a
-         * heading claiming they read the value as benign, then showed
-         * them winning 23 to 22 on a domain nobody had called harmless.
+         * The lean ledger, which is a separate list rather than the
+         * positive half of the quality one. A case is *what reads the
+         * value this way*, and splitting the whole ledger by sign would
+         * put five absences — no galaxy, no first-seen, no sighting,
+         * nothing recent, no feed — under a heading claiming they read
+         * the value as benign, and could show them winning 23 to 22 on
+         * a domain nobody had called harmless.
          *
          * On the shipped catalogue this is one-sided by construction:
          * both lean signals argue benign, so `casesFor()` finds no

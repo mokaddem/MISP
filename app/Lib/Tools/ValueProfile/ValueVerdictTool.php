@@ -17,13 +17,11 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * The accumulator: a profile plus a value's facts, in; a ledger that
  * sums to a number, out.
  *
- * The thing the Assessment tab has been blocked on since the skeleton
- * pass — `value-profile-page.md` §5 has said *"the page displays a
- * verdict; it does not compute one"* since the first commit — and phase
- * 2 of prd/analyst-profile/. Under D11 what it computes is the
- * assessment's **quality** axis: lean is derived categorically
- * (phase 3) and relevance is its own axis (phase 5), so this file is
- * the ledger and the number, not the whole judgement.
+ * The page displays a verdict; it does not compute one — this does.
+ * What it computes is the assessment's **quality** axis: lean is
+ * derived categorically by `ValueLeanTool` and relevance is its own
+ * axis, so this file is the ledger and the number, not the whole
+ * judgement.
  *
  * ## The mechanism, and why it is one loop
  *
@@ -42,18 +40,17 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * direction of a row = sign(row)
  * ```
  *
- * **Two sums, because there are two questions** — D11's whole claim is
- * that *what the record says* and *how much record there is* are
- * different axes, and anchoring every row to the lean re-fused them
- * (`review-2026-09-13.md` §A1). A signal declares which axis it is on
- * and the polarity reaches only the lean's; a signal with poles on both
- * declares per row. Only two shipped signals read the value — the
- * warninglist's hits and false-positive sightings — which is D11 §2.1's
- * list minus the `to_ids` stance, and that one is not a ledger row at
- * all.
+ * **Two sums, because there are two questions** — *what the record
+ * says* and *how much record there is* are different axes, and
+ * anchoring every row to the lean would fuse them again. A signal
+ * declares which axis it is on and the polarity reaches only the
+ * lean's; a signal with poles on both declares per row. Only two
+ * shipped signals read the value — the warninglist's hits and
+ * false-positive sightings; the `to_ids` stance reads it too, but that
+ * one is not a ledger row at all.
  *
  * **The sum is the quality by construction rather than by
- * convention** (`01-profile.md` §5.1). There is no second code path
+ * convention.** There is no second code path
  * that could disagree with the ledger — no normalisation, no
  * calibration, no post-processing — which is what makes a profile diff
  * renderable and what lets the page claim the explanation *is* the
@@ -70,33 +67,31 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * ## What it does not do
  *
  * No view dependency of any kind, and that is a requirement rather
- * than a preference (`01-profile.md` §5.5): phase 10 calls this from a
- * REST path over a batch of values, so a signal reaching for `$this->
- * Html` or a helper would make that phase a rewrite.
+ * than a preference: a REST path over a batch of values calls this
+ * too, so a signal reaching for `$this->Html` or a helper would break
+ * it.
  *
  * It also stores nothing. The assessment is computed at render time,
  * which is what makes per-viewer weighting cheap and gives a
  * user-defined signal no sync blast radius.
  *
- * ## The seventh rule, which lives here rather than with the lean
+ * ## The lean-disputed check, which lives here rather than with the lean
  *
  * The lean's categorical rules are `ValueLeanTool`'s and run before any
- * scoring. One of them cannot: **a lean whose anchored *lean* rows sum
+ * scoring. One check cannot: **a lean whose anchored *lean* rows sum
  * below zero becomes contested**, because that is the record's own
  * reading of the value disputing the assertion the record itself makes.
  * That can only be known after the sum, so it is applied here — the
  * lean rows go back to threat-signed, the lean becomes contested, and
  * `decided_by` becomes `lean_disputed` so the band explaining the
- * reading stops naming the lean this rule discarded.
+ * reading stops naming the lean this check discarded.
  *
- * **It weighs the lean rows and not the whole ledger**, which is the
- * correction `review-2026-09-13.md` §A2 measured: against the whole
- * ledger a thin record tripped it — `−23` of absence penalties on a
- * single-source value with no galaxy, no first-seen, no sighting,
- * nothing recent and no feed — so 55 of 60 contested values on the
- * verification instance were ordinary thin records rather than
- * contradictions. A thin record is a lean with a low quality band and a
- * full ledger, which is what D11 §4 says it should have been all along.
+ * **It weighs the lean rows and not the whole ledger**, because
+ * against the whole ledger a thin record would trip it — `−23` of
+ * absence penalties on a single-source value with no galaxy, no
+ * first-seen, no sighting, nothing recent and no feed — and ordinary
+ * thin records would read as contradictions. A thin record is a lean
+ * with a low quality band and a full ledger.
  *
  * ## What is still an input
  *
@@ -124,9 +119,7 @@ class ValueVerdictTool
      * `include_once`d by the loader at first scan, and the path this
      * engine takes for a value with nothing to assess never scans —
      * so naming the class there would make an empty record a fatal
-     * rather than an empty ledger. `03-signals-engine-harness.php`
-     * asserts the two pairs are equal, which is the cheap half of
-     * keeping a mirror honest.
+     * rather than an empty ledger. The two pairs must stay equal.
      */
     const AXIS_LEAN = 'lean';
     const AXIS_QUALITY = 'quality';
@@ -163,15 +156,13 @@ class ValueVerdictTool
      * The whole computation for one value: resolve the profile, build
      * the context, score it.
      *
-     * **This is the one method that takes `$user`**, and §14.5 of the
-     * live contract says no `Value*` tool does. The exception is argued
-     * in `03-signals.md` §2.1 rather than assumed: every count an
-     * assessment reads is already the viewer's (§14.6), and a tool
-     * computing an assessment from data it could not scope would be
-     * computing somebody else's. What it does not do is fetch — the
-     * context comes from the injected model, which is where the queries
-     * and the ACL live, and phase 10 swaps a batch builder in behind
-     * the same seam.
+     * **This is the one method that takes `$user`**, though no other
+     * `Value*` tool does. The exception is deliberate: every count an
+     * assessment reads is already the viewer's, and a tool computing an
+     * assessment from data it could not scope would be computing
+     * somebody else's. What it does not do is fetch — the context comes
+     * from the injected model, which is where the queries and the ACL
+     * live, and a batch builder can swap in behind the same seam.
      *
      * @param array $user
      * @param string $value
@@ -194,7 +185,7 @@ class ValueVerdictTool
     /**
      * The accumulator. No database, no models, no `$user` — hand it a
      * context and a profile and it returns the same array every time,
-     * which is what lets the page, the simulator and phase 10's worker
+     * which is what lets the page, the simulator and a batch worker
      * agree.
      *
      * @param array $context From the context builder; the contract is
@@ -252,7 +243,7 @@ class ValueVerdictTool
                 && empty($entry['enabled'])
             ) {
                 // Not evaluated, and not recorded either: a disabled
-                // signal emits nothing at all (§3).
+                // signal emits nothing at all.
                 $counts['configured']--;
                 continue;
             }
@@ -268,9 +259,9 @@ class ValueVerdictTool
                 continue;
             }
             /*
-             * **Rows, plural, since the enrichment group.** Every
-             * shipped signal returns one and is normalised into a
-             * list of one; a signal whose evidence is a set of
+             * **Rows, plural.** Most signals return one and are
+             * normalised into a list of one; a signal whose evidence
+             * is a set of
              * independent sources returns several, because *GreyNoise
              * said mass scanner, asked 3 h ago, −12* is a row a reader
              * can open the run behind, and one row summing three
@@ -308,20 +299,18 @@ class ValueVerdictTool
         }
 
         /*
-         * Two sums, because there are two questions
-         * (`review-2026-09-13.md` §D1). The quality rows sum to the
-         * quality, exactly — the invariant, narrowed to the axis it
-         * was always about. The lean rows sum to `lean_weight`, which
+         * Two sums, because there are two questions. The quality rows
+         * sum to the quality, exactly — the invariant, narrowed to the
+         * axis it is about. The lean rows sum to `lean_weight`, which
          * is what the record's own evidence says the value *is*, and
          * they stay out of the quality: a warninglist hit says nothing
-         * about how well documented a record is, which is why D11
-         * §2.3 does not list it among quality's sources.
+         * about how well documented a record is.
          *
-         * What that fixes, beyond §A1: `8.8.8.8` — eight
+         * One sum would get a widely reported value wrong: eight
          * organisations, 53 sightings, 20 events, a listing and a feed
-         * — used to band `low` because its `−58` of lean evidence was
-         * subtracted from its `+57` of record. It is a well-documented
-         * contested value and now says so.
+         * would band `low` once `−58` of lean evidence was subtracted
+         * from `+57` of record. It is a well-documented contested
+         * value and should say so.
          */
         $quality = $this->sum($this->onAxis($rows,
             self::AXIS_QUALITY));
@@ -329,27 +318,23 @@ class ValueVerdictTool
             self::AXIS_LEAN));
 
         /*
-         * Rule 7, narrowed to what it was always trying to ask. A
-         * **lean** ledger that sums below zero against the lean it was
-         * anchored to is a record disputing its own assertion, and the
-         * honest state for that is contested.
+         * The lean-disputed check. A **lean** ledger that sums below
+         * zero against the lean it was anchored to is a record
+         * disputing its own assertion, and the honest state for that
+         * is contested.
          *
-         * It used to weigh the whole ledger, which meant a thin record
-         * tripped it: no galaxy, no first-seen, no sighting, nothing
-         * recent and no feed is `−23` of absence, and on an ordinary
-         * single-source value that outweighed the record it had. 55 of
-         * the 60 contested values on the verification instance were
-         * that and not a contradiction (`review-2026-09-13.md` §A2) —
-         * a state D11 §4 says should read as *a lean with low quality
-         * and a full ledger*, which is exactly what it now does.
+         * Weighing the whole ledger would let a thin record trip it:
+         * no galaxy, no first-seen, no sighting, nothing recent and no
+         * feed is `−23` of absence, and on an ordinary single-source
+         * value that outweighs the record it has. That is not a
+         * contradiction; it should read as *a lean with low quality
+         * and a full ledger*.
          *
          * **And it defers to a lean that is already contested.** An
          * escalation rule reaching `contested` before any scoring has
          * already named the contradiction, in prose written for that
-         * value's shape; rule 7 firing over the top of it replaced
-         * `decided_by` and lost the rule's own sentence — which is how
-         * `8.8.8.8`, the corpus's own contested example, briefly
-         * stopped citing the rule that decided it.
+         * value's shape; this check firing over the top of it would
+         * replace `decided_by` and lose the rule's own sentence.
          *
          * It cannot run twice: there is one branch, and it sets the
          * lean it would have been re-entered for.
@@ -361,10 +346,10 @@ class ValueVerdictTool
             $lean = 'contested';
             /*
              * The exit gets its own name, because the band under *How
-             * this reading was decided* reads `decided_by` and rule 7
-             * used to leave it naming the lean it had just discarded —
-             * a **Contested** badge over the sentence *2 of 2
-             * organisations report this as harmless* (§A4).
+             * this reading was decided* reads `decided_by`, and leaving
+             * it naming the lean just discarded would draw a
+             * **Contested** badge over the sentence *2 of 2
+             * organisations report this as harmless*.
              */
             $derived['decided_by'] = 'lean_disputed';
             $polarity = 1;
@@ -423,11 +408,11 @@ class ValueVerdictTool
             /*
              * No exit, because none was taken: a forced lean skips the
              * rules entirely. Stated rather than left absent — `verdict
-             * ()` reads the key unconditionally, so every caller of the
-             * simulator and every re-anchoring regression was raising a
-             * notice on the way past. `ValueLeanReasonTool` answers
-             * null here, which draws no band, which is the right
-             * answer for a reading nobody derived.
+             * ()` reads the key unconditionally, so leaving it out
+             * would raise a notice for every forced lean.
+             * `ValueLeanReasonTool` answers null here, which draws no
+             * band, which is the right answer for a reading nobody
+             * derived.
              */
             'decided_by' => null,
         );
@@ -500,8 +485,7 @@ class ValueVerdictTool
                 : self::AXIS_QUALITY;
             /*
              * Quality rows were never anchored, so there is nothing to
-             * put back. Running the multiply over them anyway was
-             * harmless while every row was anchored and would now
+             * put back. Running the multiply over them anyway would
              * silently invert the record's weight under a lean that
              * no longer has one.
              */
@@ -528,20 +512,16 @@ class ValueVerdictTool
      * the bar. It is not the quality's rows; see **The lean rows, and
      * only those** below.
      *
-     * **Two keys, not five.** The fixture's third *unresolved* wedge
-     * was never derivable from anything (`review-2026-09-02.md` B3) and
-     * it stayed here as a hard zero until the layout stopped reading
-     * it, which it did in phase 9; the `malicious` / `benign` aliases
-     * went with D11's rename in the same pass. What made the zero worth
-     * chasing rather than leaving is `10-wiring.md` §7.8: the wedge and
-     * the foot printed directly under it counted *different things*
-     * under one word, and the fixture concealed it by supplying both.
+     * **Two keys.** There is no third *unresolved* wedge, because
+     * nothing could derive one; a hard zero there would count
+     * something different from the foot printed directly under it,
+     * under the same word.
      *
      * **The lean rows, and only those.** A tug drawn over the whole
-     * ledger put *no galaxy on any occurrence* and *the record never
-     * says when it was seen* on the benign foot of a bar the reader
-     * was invited to read as two readings of the value
-     * (`review-2026-09-13.md` §A3). Absences are not a case. What is
+     * ledger would put *no galaxy on any occurrence* and *the record
+     * never says when it was seen* on the benign foot of a bar the
+     * reader is invited to read as two readings of the value.
+     * Absences are not a case. What is
      * left here is the two sides of the evidence that actually reads
      * the value, which on the shipped catalogue is one-sided by
      * construction — the warninglist and false-positive rows both
@@ -623,9 +603,7 @@ class ValueVerdictTool
              * Assembled here rather than beside either `band`, because
              * there are two of those — the scored path and the
              * no-signal one — and a key computed in one of them is a
-             * key a template reads as missing on the other. §8's
-             * lesson about defaulting in one place, applied to a key
-             * that is produced rather than defaulted.
+             * key a template reads as missing on the other.
              */
             'band_reason' => self::bandReason(
                 $parts['quality'],
@@ -638,16 +616,16 @@ class ValueVerdictTool
              * of it. It reads the same context and the same profile,
              * emits no ledger row, and is computed here rather than by
              * the caller so that one `assess()` returns the whole
-             * assessment — the page, the simulator and phase 10's
-             * worker cannot then disagree about a value's relevance
-             * while agreeing about its quality.
+             * assessment — the page, the simulator and a batch worker
+             * cannot then disagree about a value's relevance while
+             * agreeing about its quality.
              *
-             * **Nothing below reads it**, which is D11 held to
+             * **Nothing below reads it**, which keeps the axes apart
              * mechanically: the ledger, the band, the tug and the
              * composition are all computed already, so an axis added
-             * here cannot alter any of them. §6 item 3 asserts exactly
-             * that — the lean and the quality are byte-identical with
-             * relevance at `current` and at `expired`.
+             * here cannot alter any of them — the lean and the quality
+             * are byte-identical with relevance at `current` and at
+             * `expired`.
              */
             'relevance' => ValueRelevanceTool::relevanceFor(
                 $context,
@@ -696,10 +674,9 @@ class ValueVerdictTool
      * check what it returned.
      *
      * Every failure path lands in the same place — `not_counted`, with
-     * the id named and a reason — because §4.4 and §8.5 want an
-     * unavailable signal *on the page*: a quality number computed from
-     * eight of nine configured signals and presented as if nine ran is
-     * exactly the quiet lie `01-profile.md` §1.3 forbids.
+     * the id named and a reason — because an unavailable signal belongs
+     * *on the page*: a quality number computed from eight of nine
+     * configured signals and presented as if nine ran is a quiet lie.
      *
      * @param string $id
      * @param array $entry The profile's entry for it
@@ -731,7 +708,7 @@ class ValueVerdictTool
         } catch (Throwable $e) {
             /*
              * A dropped file's `evaluate()` throwing must not take the
-             * page down (§8.5), and the exception text is what an admin
+             * page down, and the exception text is what an admin
              * needs to fix it.
              */
             return $this->cannotRun(
@@ -842,7 +819,7 @@ class ValueVerdictTool
     }
 
     /**
-     * Whether §2.3's budget stops this signal running at all.
+     * Whether the evidence budget stops this signal running at all.
      *
      * The hot-value tier: a value MISP itself flagged as
      * over-correlating is one a time window cannot bound, because a
@@ -872,8 +849,7 @@ class ValueVerdictTool
      * `$context['missing']` is how the context builder reports a
      * source it could not reach — a feed cache that has never been
      * populated, a sighting policy that hid everything. A signal
-     * scoring that as *absent* would turn a gap into evidence, which
-     * §4.2's exclusion rule forbids for the same reason.
+     * scoring that as *absent* would turn a gap into evidence.
      *
      * @param object $signal
      * @param array $context
@@ -893,9 +869,9 @@ class ValueVerdictTool
     }
 
     /**
-     * §4.4 and §8.5 differ only in the reason string: an id this
-     * instance does not have at all, against one it has but could not
-     * load.
+     * The two missing cases differ only in the reason string: an id
+     * this instance does not have at all, against one it has but could
+     * not load.
      *
      * @param string $id
      * @return string
@@ -930,15 +906,11 @@ class ValueVerdictTool
                 /*
                  * The signal's own sentence, and the id only where
                  * there is no sentence to have — an unavailable signal
-                 * is precisely the one nothing can describe.
-                 *
-                 * It printed the id in every case until
-                 * `review-2026-09-13.md` §C1, which put
-                 * `sightings.volume_recency` on the page directly above
-                 * the two entries this file builds with English titles.
-                 * The id is still carried on the entry for whoever has
-                 * to fix it; what changed is which of the two a reader
-                 * meets first.
+                 * is precisely the one nothing can describe. An id
+                 * like `sightings.volume_recency` would otherwise sit
+                 * directly above the entries this file builds with
+                 * English titles. The id is still carried on the entry
+                 * for whoever has to fix it.
                  */
                 'title' => $signal !== null
                     && !empty($signal->description)
@@ -1022,15 +994,14 @@ class ValueVerdictTool
      * from the profile, the anchoring and the direction from the lean
      * — and the anchoring only where the row has a side to take.
      *
-     * **The polarity reaches lean rows and nothing else**
-     * (`review-2026-09-13.md` §A1). A quality row's declared points are
-     * already the right sign for the only thing it can say: more
-     * corroboration, more publication, more temporal precision is a
-     * better record, and it is a better record whether the record
-     * concluded threat or benign. Multiplying those by the lean's
-     * polarity is what made *four independent organisations reported
-     * it* render as `−28` **against** a benign reading, and what made
-     * the emptiest record the best-scoring benign one.
+     * **The polarity reaches lean rows and nothing else.** A quality
+     * row's declared points are already the right sign for the only
+     * thing it can say: more corroboration, more publication, more
+     * temporal precision is a better record, and it is a better record
+     * whether the record concluded threat or benign. Multiplying those
+     * by the lean's polarity would render *four independent
+     * organisations reported it* as `−28` **against** a benign reading,
+     * and make the emptiest record the best-scoring benign one.
      *
      * `direction` therefore means two different things and the row says
      * which: on a lean row it is supports/disputes the stated lean, on
@@ -1126,8 +1097,8 @@ class ValueVerdictTool
     }
 
     /**
-     * The one-line note under a group heading, as the fixture words
-     * them. A custom group gets no note rather than a guessed one.
+     * The one-line note under a group heading. A custom group gets no
+     * note rather than a guessed one.
      *
      * A switch rather than a map, so the strings are literals where
      * `__()` sees them — a translated string built from a variable is
@@ -1152,8 +1123,7 @@ class ValueVerdictTool
     }
 
     /**
-     * The four-segment gauge's band — the field the page used to call
-     * `confidence` and could never say where it came from.
+     * The four-segment gauge's band, and where it came from.
      *
      * Bands are calibration and the stakes are deliberately low: a
      * misplaced band miscolours a gauge, it does not change what the
@@ -1204,12 +1174,11 @@ class ValueVerdictTool
      *
      * `qualityBand()` answers *what* and has three callers that only
      * want that; this answers *why* without changing its signature.
-     * The ledger has printed the arithmetic since §8 and the hero the
-     * band since the skeleton pass, and between them sat the one thing
-     * neither said: the floor. Lean names its supermajority and
-     * relevance names its TTL since `10-wiring.md` §17 and §18 — the
-     * profile setting that decided the state belongs on the page, and
-     * quality was the axis still not naming one.
+     * The ledger prints the arithmetic and the hero the band, and
+     * between them sits the one thing neither says: the floor. Lean
+     * names its supermajority and relevance names its TTL — the profile
+     * setting that decided the state belongs on the page, and this is
+     * quality's.
      *
      * **`clamped` is detected, not predicted.** The band is computed
      * twice, once with the context and once without, and a difference
@@ -1348,7 +1317,7 @@ class ValueVerdictTool
      * A viewer with no profile in force is a real state, not an error:
      * `AnalystProfile::resolveFor()` returns null when a site admin has
      * disabled the default, and the page then has a lean and no
-     * quality (§9 items 6 and 7).
+     * quality.
      *
      * @param array|null $profile
      * @return array
@@ -1400,7 +1369,7 @@ class ValueVerdictTool
      * A profile whose `parameters` would not parse still gets named:
      * the profile *was* the thing that weighted the assessment,
      * imperfectly, and naming something else would make the hero's
-     * sentence untrue (phase 1's `afterFind`, §3.1 there).
+     * sentence untrue.
      *
      * @param array|null $profile
      * @return string|null

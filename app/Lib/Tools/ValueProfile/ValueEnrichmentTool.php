@@ -6,17 +6,16 @@ App::uses('ModuleLocality', 'Tools');
  * The profile's enrichment declaration, met with what the instance
  * actually offers.
  *
- * Phase 7 of prd/analyst-profile/ built the declaration under D15 —
- * the profile says which modules matter for a type, the tab arrives
- * with them **ticked, not run**. **Phase 11 built the third state**
- * (`13-auto-run.md`, D24): a module may be marked `auto` and run
- * without a press, where the instance allows it.
+ * The profile says which modules matter for a type, and the tab
+ * arrives with them **ticked, not run**. **A third state** lets a
+ * module be marked `auto` and run without a press, where the instance
+ * allows it.
  *
- * D15's blocker was real and is gone. Nothing recorded that a module
- * had been asked about a value — `Module` is `useTable = false` — so
- * *"run the declared modules on open"* meant running them on every
- * open. `value_enrichment_runs` is that record, and the reuse window
- * below is what it made meaningful.
+ * That needs a record that a module has been asked about a value —
+ * `Module` is `useTable = false` — or *"run the declared modules on
+ * open"* would mean running them on every open.
+ * `value_enrichment_runs` is that record, and the reuse window below
+ * is what makes it meaningful.
  *
  * Auto-run is the one thing here that **widens** rather than narrows,
  * which is why it is the one thing an instance has to agree to:
@@ -40,17 +39,17 @@ App::uses('ModuleLocality', 'Tools');
  * off, reserved for another organisation, removed from the modules
  * build, or that never accepted the type it was filed under — four
  * states, all reachable in normal use, and a profile whose stated
- * policy is not the one in effect is the class of quiet lie
- * `01-profile.md` §1.3 forbids. So each one is a condition with an id
- * and a sentence.
+ * policy is not the one in effect is a quiet lie. So each one is a
+ * condition with an id and a sentence.
  *
  * ## Keyed by attribute type, resolved as a union
  *
  * `auto_run` is keyed by attribute type because module validity is
  * type-scoped: `getEnabledModules($user, $type)` filters on
  * `meta.module-type` and the tab's own header names the type for
- * exactly this reason. A value is several types — `8.8.8.8` is four on
- * the dev instance — so the declaration resolves to the **union over
+ * exactly this reason. A value is several types — `8.8.8.8` can be
+ * both `ip-src` and `ip-dst` — so the declaration resolves to the
+ * **union over
  * the types the reader actually holds an occurrence of**,
  * deduplicated, and a module declared under two of them is one
  * selection carrying both.
@@ -63,45 +62,41 @@ App::uses('ModuleLocality', 'Tools');
  *
  * ## Locality is a badge, not a gate
  *
- * `ModuleLocality` still says whether asking a module tells somebody
- * outside the instance, and the tab still shows it per module, because
- * a reader deciding whether to press run is owed that. It no longer
- * withholds anything.
+ * `ModuleLocality` says whether asking a module tells somebody outside
+ * the instance, and the tab shows it per module, because a reader
+ * deciding whether to press run is owed that. It withholds nothing.
  *
- * **The posture is gone** — `locality_posture`, its `cost_posture`
- * predecessor and the `withheld` bucket it filled. It gated the one
- * thing that never needed gating: under D15 nothing runs without a
+ * **There is no locality posture.** A posture would gate the one thing
+ * that never needs gating: a module not marked `auto` runs only on a
  * press, so a module arriving unticked and a module arriving ticked
  * both send exactly nothing until the reader acts, and the setting
- * bought a whole vocabulary of refusal in exchange for saving a
- * click. `never` remains, because that is the reader refusing a module
- * outright and it is enforced where a run happens. A stored
- * `locality_posture` or `cost_posture` key is ignored rather than
- * migrated: it selected nothing, so there is nothing to carry.
+ * would buy a whole vocabulary of refusal in exchange for saving a
+ * click. `never` is the reader refusing a module outright, and it is
+ * enforced where a run happens. A stored `locality_posture` or
+ * `cost_posture` key is ignored rather than migrated: it selects
+ * nothing, so there is nothing to carry.
  *
- * ## `max_age_hours` governs something now
+ * ## `max_age_hours` is the reuse window
  *
- * The reuse window — how old a kept answer may be before the module is
- * asked again. It was carried and inert for four phases because there
- * was nothing to reuse; since phase 11 a row younger than this is
- * served rather than re-asked.
+ * How old a kept answer may be before the module is asked again. A
+ * row younger than this is served rather than re-asked.
  *
  * **It bounds automatic reuse only.** A press always asks again: the
  * window is what the page does on its own, and a reader who pressed a
  * button has made a decision a cache must not overrule.
  *
  * No `$user`, no model, no view: the arithmetic and the vocabulary,
- * nothing else, so the tab, phase 8's editor and anything later read
- * the same answer.
+ * nothing else, so the tab, the editor and anything later read the
+ * same answer.
  */
 class ValueEnrichmentTool
 {
     /**
-     * The run states a declaration may put a module in (D17).
+     * The run states a declaration may put a module in.
      *
-     * `ticked` is what a bare list has always meant. `never` is the
-     * profile refusing a module outright, and is the first setting
-     * here that has to be enforced where a run happens rather than
+     * `ticked` is what a bare list means. `never` is the profile
+     * refusing a module outright, and is a setting that has to be
+     * enforced where a run happens rather than
      * where a box is drawn. `auto` runs without one, and is the only
      * state that adds rather than removes — so it is the only one an
      * instance has to permit before it does anything. Where it does
@@ -117,8 +112,8 @@ class ValueEnrichmentTool
     /**
      * The stated conditions, one id per way a declaration and an
      * instance can disagree. Ids rather than sentences because the
-     * editor (phase 8) states the same conditions in a different place
-     * and must not paraphrase them differently.
+     * editor states the same conditions in a different place and must
+     * not paraphrase them differently.
      */
     const C_SERVICE = 'service.unreachable';
     const C_NOT_OFFERED = 'module.not_offered';
@@ -129,10 +124,9 @@ class ValueEnrichmentTool
     const C_TYPE_UNUSED = 'type.unused';
     const C_STATE_NEVER = 'state.never';
     /*
-     * `state.auto_inert` said *"nothing runs on its own on this
-     * version"* and stopped being true in phase 11. What replaces it
-     * is two conditions, because the reader can act on one of them and
-     * not on the other: an instance that has the gate off is a
+     * Two conditions for an `auto` that will not run, because the
+     * reader can act on one of them and not on the other: an instance
+     * that has the gate off is a
      * conversation with an administrator, and a gate set to site
      * admins only is not.
      */
@@ -140,13 +134,13 @@ class ValueEnrichmentTool
     const C_STATE_AUTO_SITE_ADMIN = 'state.auto_site_admin';
 
     /**
-     * `Plugin.ValueProfile_enrichment_auto_run` (D24).
+     * `Plugin.ValueProfile_enrichment_auto_run`.
      *
      * The profile says *which* modules; this says *whether any of them
      * may run here*. It has to sit above the profile because
      * `AnalystProfile::resolveFor()` resolves user → org → instance
      * default, so an analyst can be running under a profile they did
-     * not author — and D17's objection to `auto` was precisely that it
+     * not author — and the objection to `auto` is precisely that it
      * would make such a profile cause outbound requests on their
      * behalf.
      *
@@ -238,9 +232,9 @@ class ValueEnrichmentTool
                 continue;
             }
             /*
-             * Two shapes arrive here. `[name, name]` is what every
-             * profile written before D17 carries and means *every one
-             * of these is ticked*; `{name: state}` is the current one.
+             * Two shapes arrive here. `[name, name]` is the older one
+             * and means *every one of these is ticked*;
+             * `{name: state}` is the current one.
              * A list entry is a value with an integer key, so the two
              * are told apart per entry rather than per type — a
              * hand-edited document can mix them.
@@ -295,11 +289,10 @@ class ValueEnrichmentTool
              */
             'shapes' => self::shapesOf($section),
             /*
-             * The reuse window, and since phase 11 it governs
-             * something: `value_enrichment_runs` holds what a module
-             * last said, and a row younger than this is served rather
-             * than re-asked. It bounds *automatic* reuse only — a
-             * press is a decision and always re-runs (§5).
+             * The reuse window: `value_enrichment_runs` holds what a
+             * module last said, and a row younger than this is served
+             * rather than re-asked. It bounds *automatic* reuse only
+             * — a press is a decision and always re-runs.
              */
             'max_age_hours' => self::maxAgeHours($section),
             /*
@@ -307,9 +300,9 @@ class ValueEnrichmentTool
              * empty declaration takes the mechanism out of the path
              * entirely rather than resolving to an empty answer. A
              * profile that names no module produces no selection and
-             * **no conditions** — `01-profile.md` §1.3's "empty means
-             * as before", which for this section means a tab
-             * byte-identical to the one phase 28 shipped.
+             * **no conditions** — empty means as before, which for
+             * this section means the same tab a reader with no
+             * enrichment declaration gets.
              */
             'in_force' => !empty($declared),
         );
@@ -358,10 +351,10 @@ class ValueEnrichmentTool
     }
 
     /**
-     * Every state a declaration may name, including the one that is
-     * not implemented — a stored `auto` is a valid document and must
-     * not be normalised away, or adding the behaviour later means
-     * migrating twice.
+     * Every state a declaration may name, whether or not it is
+     * implemented — a stored state is a valid document and must not be
+     * normalised away, or adding the behaviour later means migrating
+     * twice.
      *
      * @return array
      */
@@ -377,9 +370,8 @@ class ValueEnrichmentTool
     /**
      * The states that do what they say.
      *
-     * All three, since phase 11. D23's rule is *"the editor offers
-     * only what is implemented"*, and the same rule that removed
-     * `auto` from the editor is what puts it back now that it runs.
+     * All three. The editor offers only what is implemented, and this
+     * is the list it reads that from.
      *
      * @return array
      */
@@ -438,7 +430,7 @@ class ValueEnrichmentTool
      * rail ticks the names in `resolve()`'s `selected`, which holds
      * only what the profile declared, so an unnamed module arrives
      * **unticked** however this reads. Do not use it to answer *does
-     * this arrive ticked* — the editor's labels did, and said the
+     * this arrive ticked* — editor labels built on it would say the
      * opposite of what the tab does.
      *
      * @param array $plan From planFor
@@ -460,7 +452,7 @@ class ValueEnrichmentTool
      * Whether this declaration refuses a run of this module for this
      * type — the check `ValueProfile::enrichmentRun()` has to make,
      * because the run endpoint takes a module name from the request
-     * and a disabled checkbox is not a guard (D17).
+     * and a disabled checkbox is not a guard.
      *
      * @param array $plan From planFor
      * @param string $name
@@ -491,8 +483,8 @@ class ValueEnrichmentTool
      * The declared modules that apply to the types this reader holds,
      * each with the declaring types in the value's own order.
      *
-     * The union of §2's *"a value with several types resolves the
-     * union, deduplicated"*. Ordered by the value's types rather than
+     * A value with several types resolves the union, deduplicated.
+     * Ordered by the value's types rather than
      * by the profile's keys, so the type a run would use is the one
      * the reader's own occurrences make most likely to be meaningful
      * when several were declared.
@@ -530,10 +522,10 @@ class ValueEnrichmentTool
      * The catalogue the tab already builds is the **enabled and usable
      * and type-matching** set, so a declared module missing from it is
      * missing for one of four reasons and the difference is not in
-     * hand. Finding out costs one more local `GET /modules` — 9 ms on
-     * the dev instance — and this method exists so that it is paid
-     * **only when a condition needs explaining**, which on the shipped
-     * default (nothing declared) is never.
+     * hand. Finding out costs one more local `GET /modules`, and this
+     * method exists so that it is paid **only when a condition needs
+     * explaining**, which on the shipped default (nothing declared) is
+     * never.
      *
      * @param array $plan From planFor
      * @param array $types The value's types
@@ -703,7 +695,7 @@ class ValueEnrichmentTool
         /*
          * One note for every `auto` the gate is holding back, not one
          * each: they are all held for the same reason and it is not
-         * about any particular module (D17, D24).
+         * about any particular module.
          *
          * When the gate allows them there is no condition at all —
          * they simply run, and the rail says so per row.
@@ -766,9 +758,8 @@ class ValueEnrichmentTool
      * profile written for `ip-src`, `ip-dst`, `domain` and `md5` will
      * have three unused types on most values, and three sentences
      * saying the same thing is noise where one is information. It is
-     * stated at all because `01-profile.md` §1.3 names this exact case
-     * — *"a TTL for a type the value does not have"* — as a condition
-     * rather than a quiet omission.
+     * stated at all because a declaration for a type the value does
+     * not have is a condition, not a quiet omission.
      *
      * @param array $plan
      * @param array $types The value's type names
@@ -967,15 +958,14 @@ class ValueEnrichmentTool
      * this — the rail chips it and the tray counts it — and computing
      * it a second time here would be the page's oldest hazard in a new
      * place: a number in one part of the frame fed by a different code
-     * path from the panel it summarises
-     * (`../value-profile-page.md` §1.4). They would agree today,
+     * path from the panel it summarises. They would agree today,
      * because both would call `ModuleLocality` with the same
      * overrides, and *"they agree today"* is what that hazard sounds
      * like every time before it stops being true. So the chip on the
      * rail and the count in the tray are literally the same value.
      *
-     * The fall-back is for a caller with no catalogue — phase 8's
-     * editor resolves a declaration against no value at all.
+     * The fall-back is for a caller with no catalogue — the editor
+     * resolves a declaration against no value at all.
      *
      * @param array $row A catalogue row
      * @param string $name
@@ -1003,7 +993,7 @@ class ValueEnrichmentTool
      * The declared type wins because it is a statement — an analyst
      * filing `virustotal` under `ip-dst` asked for that question — and
      * the row's default is `typesFor`'s most-common, which is a fact
-     * about the corpus rather than about the analyst.
+     * about the data rather than about the analyst.
      *
      * @param array $row A catalogue row
      * @param array $decTypes
@@ -1088,7 +1078,7 @@ class ValueEnrichmentTool
     }
 
     /**
-     * Whether a stored row is a claim that has not aged out (§7.3).
+     * Whether a stored row is a claim that has not aged out.
      *
      * @param array $row
      * @param int $timeout Seconds a module is allowed to take
@@ -1103,7 +1093,7 @@ class ValueEnrichmentTool
     }
 
     /**
-     * What the page should fire, and what it already knows (§9).
+     * What the page should fire, and what it already knows.
      *
      * The arithmetic behind the plan the panel carries, and pure like
      * everything else here: the caller hands over the resolution, the
@@ -1116,7 +1106,7 @@ class ValueEnrichmentTool
      * | | |
      * |---|---|
      * | `blocked` | the gate, or anything that stopped it resolving |
-     * | `in_flight` | somebody is asking right now (§7.3) |
+     * | `in_flight` | somebody is asking right now |
      * | `fresh` | a row inside the reader's own reuse window |
      * | `fire` | no row, or one past that window |
      *
@@ -1164,7 +1154,7 @@ class ValueEnrichmentTool
                 'locality' => $entry['locality'],
                 'disposition' => $how,
                 /*
-                 * Age and counts, never `user_id` (D27). The Overview
+                 * Age and counts, never `user_id`. The Overview
                  * badge consumes this response too, and a field that
                  * is not here cannot be drawn there by accident.
                  */
@@ -1184,18 +1174,17 @@ class ValueEnrichmentTool
      * as a set.
      *
      * Above this a module's response is summarised by its size: a
-     * reader cannot act on three relations picked out of 1,375
+     * reader cannot act on three relations picked out of a thousand
      * passive-DNS records, because which three is an accident of
      * ordering. Below it the cap does the bounding and every chip is
      * about the whole answer.
      *
-     * Eight rather than the three the shape rule first named, and the
-     * worked examples behind that rule are what moved it. `mmdb_lookup`
-     * answers with four objects, and the rule that a chip skips a very
-     * long value is justified by `mmdb_lookup`'s own `text` relation —
-     * which only bites if that module is drawing relations at all.
-     * Three would have summarised the one module whose relations are
-     * named as the place a map later slots into.
+     * Eight rather than three. `mmdb_lookup` answers with four objects,
+     * and the rule that a chip skips a very long value is justified by
+     * `mmdb_lookup`'s own `text` relation — which only bites if that
+     * module is drawing relations at all. Three would summarise the one
+     * module whose relations are named as the place a map later slots
+     * into.
      */
     const CHIP_FEW = 8;
 

@@ -3,18 +3,16 @@
 /**
  * What the ledger's total banded as, and against what.
  *
- * The third of `10-wiring.md`'s axis passes and the smallest, because
- * quality is the axis that always had its working: the ledger prints
- * every signal and its points, and §5.1's invariant is that those rows
- * sum to the number in the hero exactly. Nothing about the arithmetic
- * was missing.
+ * The smallest of the axis explanations, because quality is the axis
+ * that already shows its working: the ledger prints every signal and
+ * its points, and the invariant is that those rows sum to the number
+ * in the hero exactly. Nothing about the arithmetic is missing.
  *
- * **The band was.** A reader saw `Quality low · 19 / 100` and a ledger
- * summing to 19, and nothing on the page said what `low` means — where
- * `medium` starts, how far off this record is, or whether the points
- * are even what decided it. Lean has named its supermajority since
- * §18 and relevance its TTL since §17; this is the setting quality
- * was still not naming.
+ * **The band is.** A reader sees `Quality low · 19 / 100` and a ledger
+ * summing to 19, and nothing else on the page says what `low` means —
+ * where `medium` starts, how far off this record is, or whether the
+ * points are even what decided it. Lean names its supermajority and
+ * relevance its TTL; this names the setting quality is banded by.
  *
  * **And twice the band is not the points at all.** The thin-record
  * clamp lowers it — a record with one source and no sightings cannot
@@ -27,11 +25,9 @@
  * different sentence from what *happened*.
  *
  * `ValueLeanReasonTool`'s sibling, and the same contract: a pure
- * function of the array the engine returned, so
- * `04-lean-bands-harness.php` can reach the two reasons no value on
- * this instance occupies. Neither is exotic — the clamp needs a
- * single-source record scoring past 30, and the instance's best
- * single-source record scores 9.
+ * function of the array the engine returned, so a test harness can
+ * reach the two reasons real data rarely occupies — the clamp needs a
+ * single-source record scoring past 30.
  */
 class ValueBandReasonTool
 {
@@ -55,8 +51,8 @@ class ValueBandReasonTool
             /*
              * *No signal contributed to this assessment* is already
              * the ledger's empty state, in the place a reader is
-             * looking when they want it. A second sentence under an
-             * empty table is the gap §13's hero guard avoids.
+             * looking when they want it; a second sentence under an
+             * empty table would only repeat it.
              */
             return null;
         }
@@ -74,8 +70,7 @@ class ValueBandReasonTool
                  * says both: what the points band as, and what is
                  * overriding them. Phrased as the profile's rule
                  * rather than as a fact about the value — an analyst
-                 * who disagrees edits three numbers
-                 * (`04-dispositions.md` §6).
+                 * who disagrees edits three numbers.
                  */
                 return sprintf(
                     __('The points alone would make this %1$s. This'

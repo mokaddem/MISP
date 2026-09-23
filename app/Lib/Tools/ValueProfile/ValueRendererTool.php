@@ -23,7 +23,7 @@
  * Where three modules all returned a geolocation, the strip shows one
  * map and the rest fold into chips. The alternative — one widget per
  * module — is three maps of the same address filling the row, which is
- * the roster this design refused wearing a different hat. The
+ * a per-module roster wearing a different hat. The
  * renderers merge the answers they are given and each says in its own
  * output which sources agreed; what *newest* decides is only the
  * headline, so a re-run visibly wins.

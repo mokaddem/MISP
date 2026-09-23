@@ -5,10 +5,10 @@
  * `AuditLog::ACTION_*` constant reads as, and what to call it.
  *
  * `Themed/Overmind/Elements/Logs/timeline.ctp` carries the same map
- * inline and keeps it for now — it has two live callers, and rewriting a
- * shared element with live callers is not fixture-first work. Anything
- * new reads the vocabulary from here, because one action drawn two ways
- * is one action meaning two things on two pages of the same product.
+ * inline and keeps it for now, since it is a shared element with live
+ * callers. Anything new reads the vocabulary from here, because one
+ * action drawn two ways is one action meaning two things on two pages
+ * of the same product.
  *
  * The glyphs are that element's, unchanged. The colours are not: it
  * carries literal pastel fills that Bootstrap only defines for the
@@ -114,9 +114,8 @@ class AuditActionMeta
      *
      * Attaching a tag is not an edit to the record. It is the one
      * action on this list whose subject is something other than the
-     * model it names — `model_title` holds the tag — and on this
-     * instance it is also the most common audit row by two orders of
-     * magnitude: 5,132,220 `tag` rows against 28,862 `edit` ones. A
+     * model it names — `model_title` holds the tag — and it is also
+     * typically the most common audit row by orders of magnitude. A
      * consumer that files them all as edits therefore reports a tagged
      * value's history as almost entirely edits.
      *
@@ -139,13 +138,10 @@ class AuditActionMeta
      * which is the order a reader should meet them, so it is also the
      * order a facet rail should list them in.
      *
-     * Added for the History tab's rail, which had been ordering itself
-     * off a ten-entry list in `ValueProfileFixture` while the instance
-     * wrote fourteen kinds of row. An action the list did not name was
-     * still tallied, but sorted after the zero rows — so on `8.8.8.8`
-     * three `tag_local` and three `remove_local_tag` entries, a ninth
-     * of that value's history, arrived below *undelete 0*.
-     * `27-history.md` §11.2.
+     * The History tab's rail orders itself off this list: an action a
+     * shorter list did not name would still be tallied, but sorted
+     * after the zero rows, so a real share of a value's history could
+     * arrive below *undelete 0*.
      *
      * @return array `AuditLog::ACTION_*` values
      */

@@ -8,11 +8,9 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 /**
  * What would change this — derived, one line per axis.
  *
- * An assessment that cannot say what would move it is an opinion. The
- * card that carries these lines has existed since the page's first
- * pass with the sentences written by hand, which was fine as a mockup
- * and useless as a claim: a hand-written falsifier is a promise nobody
- * checked against the arithmetic that would have to honour it.
+ * An assessment that cannot say what would move it is an opinion. A
+ * hand-written falsifier would be useless as a claim: it is a promise
+ * nobody checked against the arithmetic that would have to honour it.
  *
  * So each line is computed, and computed the honest way — by asking the
  * derivation itself. The lean line appends organisations to a copy of
@@ -134,14 +132,14 @@ class ValueChangersTool
                     ? 'up'
                     : 'down',
                 /*
-                 * `lean_weight` and not `quality`, since
-                 * `review-2026-09-13.md` §D1 took the two apart: rule
-                 * 7 weighs the rows that read the value, so the gap a
-                 * reader would have to close is on that axis. Off the
-                 * quality it named a number nothing was measuring
-                 * against — and on a record whose every row weighs
-                 * rather than reads, it would name a number no amount
-                 * of evidence about the value could move.
+                 * `lean_weight` and not `quality`, which are separate
+                 * sums: the lean-disputed check weighs the rows that
+                 * read the value, so the gap a reader would have to
+                 * close is on that axis. Off the quality it would name
+                 * a number nothing is measuring against — and on a
+                 * record whose every row weighs rather than reads, a
+                 * number no amount of evidence about the value could
+                 * move.
                  */
                 'text' => sprintf(
                     __('%1$d more points backing what the record'
@@ -192,10 +190,9 @@ class ValueChangersTool
     /**
      * What a warninglist letting go of the value would do to the lean.
      *
-     * The probe the two shipped conflict rules need, and the one the
-     * benign value's own history is made of: a resolver list gaining
-     * an address flipped its lean without a single row changing, and
-     * the list losing it would flip it back. Neither of those is a
+     * The probe the two shipped conflict rules need: a resolver list
+     * gaining an address can flip its lean without a single row
+     * changing, and the list losing it would flip it back. Neither is a
      * change in the stances, so the stance probe cannot see it.
      *
      * Counted as one change however many lists carry the category,
@@ -372,10 +369,9 @@ class ValueChangersTool
          * The sighting half is offered only where a sighting could be
          * read. On an over-correlating value the sightings signals are
          * never evaluated — the rail says so, one card away, in *Not
-         * counted* — so *or one sighting from anyone* named an act
-         * that would move nothing, with the reason it would move
-         * nothing printed directly above it
-         * (`review-2026-09-13.md` §C2).
+         * counted* — so *or one sighting from anyone* would name an act
+         * that moves nothing, with the reason it moves nothing printed
+         * directly above it.
          */
         return array(
             'axis' => 'quality',
@@ -602,20 +598,20 @@ class ValueChangersTool
                 continue;
             }
             /*
-             * A signal the engine could not run cannot be a lever.
-             * `213.205.40.169` is over-correlating, so the sightings
-             * signals were not evaluated at all — and the card offered
-             * *or one sighting from anyone*, an act that would move
-             * nothing (`review-2026-09-13.md` §C2). The reason is on
-             * the page one card away, in *Not counted*; this is the
-             * half that stops the two cards contradicting each other.
+             * A signal the engine could not run cannot be a lever. On
+             * an over-correlating value the sightings signals are not
+             * evaluated at all, so offering *or one sighting from
+             * anyone* would name an act that moves nothing. The reason
+             * is on the page one card away, in *Not counted*; this is
+             * the half that stops the two cards contradicting each
+             * other.
              */
             if (isset($setAside[$entry['id']])) {
                 continue;
             }
             /*
              * And a lean signal cannot close a *quality* gap, since
-             * §D1 took the two sums apart: a false-positive sighting
+             * the two are separate sums: a false-positive sighting
              * moves what the record says the value is, not how much
              * record there is.
              */

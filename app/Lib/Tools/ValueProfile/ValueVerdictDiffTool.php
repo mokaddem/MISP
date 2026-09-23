@@ -9,14 +9,14 @@ App::uses('ValueVerdictTool', 'Tools/ValueProfile');
 /**
  * What one profile does to a value that another does not.
  *
- * prd/analyst-profile/09-editor.md §5, phase 8a. Hand it two
- * assessments of the same value — one under the profile in force, one
+ * Hand it two assessments of the same value — one under the profile
+ * in force, one
  * under the candidate being edited — and it returns the diff a reader
  * can check by hand: one row per ledger row, both contributions, the
  * delta, and rows that appeared or vanished marked as such.
  *
  * **This is only renderable because nothing is normalised.** The
- * exact-sum invariant (`01-profile.md` §5.1) means each column still
+ * exact-sum invariant means each column still
  * adds up to its own quality, so a diff of two ledgers is arithmetic
  * rather than impressionistic — and `sums` says so per column rather
  * than asserting it, because an invariant nobody checks is a comment.
@@ -81,8 +81,8 @@ class ValueVerdictDiffTool
             'rows' => $rows,
             'moved' => $moved,
             /*
-             * The quality's, and it says so: `rows` spans both axes
-             * since §D1, so the deltas only sum to this over the rows
+             * The quality's, and it says so: `rows` spans both axes,
+             * so the deltas only sum to this over the rows
              * whose `axis` is `quality`. `lean_totals` is the other
              * half, and the two together are what a reader adding the
              * table up by hand arrives at.
@@ -103,8 +103,8 @@ class ValueVerdictDiffTool
              * conjunction, so a caller that only wants to know whether
              * the diff can be trusted reads one key.
              *
-             * **Quality rows only**, since the axis split: those are
-             * what sums to the quality printed under the column. The
+             * **Quality rows only**: those are what sums to the
+             * quality printed under the column. The
              * lean rows sum to `lean_weight` and are checked beside
              * them rather than folded in, which is the same invariant
              * held per axis rather than over a mixture.
@@ -182,7 +182,7 @@ class ValueVerdictDiffTool
     /**
      * The three axes and the two derived words, before and after.
      *
-     * `relevance` is here although D11 forbids the quality reading it:
+     * `relevance` is here although the quality never reads it:
      * the axes are independent of each other, not invisible to a diff,
      * and a candidate that changed a TTL has changed the assessment
      * without touching a single ledger row. A diff that showed no
@@ -200,10 +200,10 @@ class ValueVerdictDiffTool
             'quality' => 'quality',
             /*
              * The lean's own arithmetic, which the quality cannot stand
-             * in for since the two stopped being one sum. An edit to a
+             * in for because the two are separate sums. An edit to a
              * lean signal's weight moves this and nothing else, so a
-             * headline without it reports *nothing changed* about the
-             * two signals that decide the reading.
+             * headline without it would report *nothing changed* about
+             * the two signals that decide the reading.
              */
             'lean_weight' => 'lean_weight',
             'band' => 'band',
@@ -219,9 +219,8 @@ class ValueVerdictDiffTool
          * word is not enough for the surface that draws it: the
          * comparable state a diff can test, the label a reader sees,
          * and the runway — the shelf the value page already draws. A
-         * caller handed only the state reduces the axis to a string for
-         * the second time, which is how every candidate in 8b came to
-         * render a clock as a word while quality got a bar.
+         * caller handed only the state reduces the axis to a string,
+         * and renders a clock as a word while quality gets a bar.
          */
         $axes['relevance'] = self::pair(
             self::relevanceState($before),
@@ -250,9 +249,8 @@ class ValueVerdictDiffTool
 
     /**
      * The relevance axis as one comparable word plus its flag, since
-     * `12-assessment.md` §3 makes the state one word and the
-     * uncertainty also a flag — *"expired · timeline uncertain"* is two
-     * of them at once.
+     * the state is one word and the uncertainty also a flag —
+     * *"expired · timeline uncertain"* is two of them at once.
      *
      * @param array $verdict
      * @return string|null
@@ -271,12 +269,11 @@ class ValueVerdictDiffTool
         }
         /*
          * The flag is appended only where it adds something. `expired ·
-         * uncertain` is the reading `12-assessment.md` §3 wants — two
-         * states at once — but the axis also has `uncertain` as a state
-         * in its own right, and the first version of this printed
-         * *"uncertain · uncertain"* for it. Which is not wrong so much
-         * as it is a design being handed the same word twice and having
-         * to decide what it means.
+         * uncertain` is the intended reading — two states at once — but
+         * the axis also has `uncertain` as a state in its own right,
+         * and appending the flag there would print *"uncertain ·
+         * uncertain"*, handing a design the same word twice and leaving
+         * it to decide what it means.
          */
         if (empty($relevance['uncertain']) || $state === 'uncertain') {
             return $state;
@@ -359,9 +356,8 @@ class ValueVerdictDiffTool
              * Which axis the row's points land on, carried so a caller
              * can sum per axis — `totals` is the quality's, and a lean
              * row's delta does not belong in it. Defaulted rather than
-             * required, because a row from an assessment computed
-             * before the split carries no axis and is a quality row by
-             * construction.
+             * required, because a row that carries no axis is a
+             * quality row by construction.
              */
             'axis' => isset($present['axis'])
                 ? $present['axis']
@@ -391,11 +387,9 @@ class ValueVerdictDiffTool
      * flattened out of its groups.
      *
      * **Public because the editor's Signals palette needs the same
-     * answer**, and hand-rolling it a second time is how that column
-     * came to miss the lean rows for a day: §G1 taught this method to
-     * read both ledgers and `AnalystProfilesController` went on
-     * walking `ledger` alone. One traversal, so the next change to the
-     * ledger's shape has one place to reach.
+     * answer**, and a second hand-rolled traversal — one walking
+     * `ledger` alone — would miss the lean rows. One traversal, so the
+     * next change to the ledger's shape has one place to reach.
      *
      * @param array $verdict
      * @param string|null $axis One of `ValueVerdictTool`'s axis
@@ -424,14 +418,14 @@ class ValueVerdictDiffTool
             }
         }
         /*
-         * **And the lean ledger**, which `review-2026-09-13.md` §D1
-         * moved out of `ledger` and which this method did not follow.
-         * The consequence was the worst kind for a simulator: an
-         * analyst halving `lifecycle.warninglist` — the heaviest row on
-         * a benign record — got a diff of seven rows all marked *same*
-         * and a headline saying `moved: false`. The editor's whole job
-         * is to answer *what does this edit do*, and it was answering
-         * *nothing* about the two signals that decide the lean.
+         * **And the lean ledger**, which lives apart from `ledger`.
+         * Skipping it would be the worst kind of failure for a
+         * simulator: an analyst halving `lifecycle.warninglist` — the
+         * heaviest row on a benign record — would get a diff of rows
+         * all marked *same* and a headline saying `moved: false`. The
+         * editor's whole job is to answer *what does this edit do*, and
+         * it would answer *nothing* about the two signals that decide
+         * the lean.
          *
          * `$axis` narrows it for the sums below, which still have to be
          * per axis: the quality rows sum to the quality and the lean

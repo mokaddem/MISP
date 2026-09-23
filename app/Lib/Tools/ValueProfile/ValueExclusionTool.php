@@ -11,10 +11,9 @@
  *
  * ## Three mechanisms, because the evidence has two classes
  *
- * The specification for this section says exclusions are *"applied to
- * `$context`, once"*, and that turns out to be one sentence describing
- * three different things — because half a value's evidence is computed
- * in SQL and never exists as rows at all.
+ * *"Applied to `$context`, once"* reads as one mechanism and is three
+ * different things — because half a value's evidence is computed in
+ * SQL and never exists as rows at all.
  *
  * - **A condition** (`orgs.own`). The occurrence tally, the reporting
  *   breadth, the publication split and the monthly activity are
@@ -31,9 +30,9 @@
  * - **A list fold** (`feeds.mirrored`). One already-fetched list,
  *   deduplicated.
  *
- * What survives from the one-sentence version is the property that
- * mattered: every signal sees the same evidence, because the filtering
- * happens once, during the build, and nothing downstream can opt out.
+ * What the three share is the property that matters: every signal
+ * sees the same evidence, because the filtering happens once, during
+ * the build, and nothing downstream can opt out.
  *
  * ## `evidence.window` is not here
  *
@@ -133,7 +132,7 @@ class ValueExclusionTool
      * `layer` is not decoration: it is why `orgs.own` changes the
      * numbers a signal sees rather than filtering its output, and the
      * simulator needs to know that two profiles differing here are two
-     * different contexts rather than two scorings (09-editor.md §5).
+     * different contexts rather than two scorings.
      *
      * @return array id => declaration
      */
@@ -383,7 +382,7 @@ class ValueExclusionTool
      *
      * **MISP does not record what a feed mirrors.** The `feeds` table
      * has `provider`, `url` and `source_format` and nothing that says
-     * *this derives from CIRCL OSINT*, so the dedupe key is the
+     * *this derives from ORG-A's OSINT feed*, so the dedupe key is the
      * provider: cheap, and wrong in the specific case of one provider
      * running genuinely unrelated feeds. A feed naming no provider
      * folds under its own name, so it is never merged with anything.
@@ -568,8 +567,8 @@ class ValueExclusionTool
      * The profile's enabled `exclusions` entries.
      *
      * An entry with no `enabled` key is on, which is how the shipped
-     * default expresses itself and how phase 2's budget already reads
-     * the window. `evidence.window` is dropped here: it is applied by
+     * default expresses itself and how the context builder's budget
+     * reads the window. `evidence.window` is dropped here: it is applied by
      * the context builder, and a plan carrying it would invite a second
      * application.
      *

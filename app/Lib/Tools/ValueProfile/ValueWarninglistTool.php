@@ -4,11 +4,9 @@
  * Which of a set of values MISP already knows to be benign.
  *
  * The page's **one** warninglist read. The frame's *Warninglist hit*
- * chip is fixture-built today (`value-profile-page.md` §1.4) and the
- * verdict card's band with it, so when the Overview's live phase runs
- * it converts onto this rather than inventing a second regime — which
- * is the §14.10 frame-versus-panel hazard, one level up.
- * `24b-relationships.md` §7.
+ * chip and the verdict card's band belong on this rather than on a
+ * second regime, which would let the frame and a panel disagree about
+ * the same value.
  *
  * **It is the event view's check, not a re-implementation.**
  * `Warninglist::attachWarninglistToAttributes` is the batched,
@@ -27,19 +25,16 @@
  * are therefore throwaway lookup keys carrying `to_ids`, not records:
  * nothing stored is being described, and nothing is written back.
  *
- * Model-injected and takes no `$user`, the second of the two shapes
- * prd/value-profile-live/00-contract.md §14.5 allows. No `$user` is
- * needed and none would mean anything: which lists are enabled is
- * instance state, identical for every viewer, and the caller has
- * already scoped the values it asks about.
+ * Model-injected and takes no `$user`. None is needed and none would
+ * mean anything: which lists are enabled is instance state, identical
+ * for every viewer, and the caller has already scoped the values it
+ * asks about.
  *
- * Measured on the dev instance, 8 enabled lists over `8.8.8.8`'s
- * neighbourhood: 41.8 ms for the 100 carried rows against 64.5 ms for
- * all 10,040 the fold holds. The fixed cost — `getEnabled` plus
- * building the entry sets, ~30 ms, most of it the CIDR lists — is what
- * dominates, and the marginal cost is ~2.3 µs a value. That is the
- * measurement §7 made a precondition for checking the fold rather than
- * the page, and it is why the facet counts below can be exact.
+ * The fixed cost — `getEnabled` plus building the entry sets, most of
+ * it the CIDR lists — is what dominates, and the marginal cost of one
+ * more value is small. That is what makes checking the whole fold
+ * rather than only the displayed page affordable, and it is why the
+ * facet counts below can be exact.
  */
 class ValueWarninglistTool
 {
@@ -55,8 +50,7 @@ class ValueWarninglistTool
      *
      * **One SQL query, and only where something matched.** The check
      * itself is Redis; `assignComments` is the query, issued by the
-     * batch whenever any probe hit. Measured in isolation over
-     * `8.8.8.8`'s 10,187 rows, twice in one process: `Q=1` both times.
+     * batch whenever any probe hit.
      *
      * @param Warninglist $warninglist
      * @param array $pairs `value` and `type`, duplicates welcome
@@ -166,8 +160,8 @@ class ValueWarninglistTool
      * How many lists a miss was checked against.
      *
      * A miss is only informative beside this number — it is why the
-     * fact strip has printed *"84 lists checked"* under *"No
-     * warninglist hit"* since phase 7.
+     * fact strip prints *"84 lists checked"* under *"No warninglist
+     * hit"*.
      *
      * @param Warninglist $warninglist
      * @return int

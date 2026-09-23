@@ -4,11 +4,11 @@ App::uses('GalaxyCategory', 'Tools');
 /**
  * What the community has labelled this value, folded for the Overview.
  *
- * The one panel in the Overview's phase whose shape is produced nowhere
- * else on the page, and the reason it is not a flat tag list is that a
- * taxonomy is the unit that can disagree with itself: two events
- * putting `tlp:amber` and `tlp:green` on one value is a fact about the
- * value, and a flat list hides it.
+ * The one Overview panel whose shape is produced nowhere else on the
+ * page, and the reason it is not a flat tag list is that a taxonomy is
+ * the unit that can disagree with itself: two events putting
+ * `tlp:amber` and `tlp:green` on one value is a fact about the value,
+ * and a flat list hides it.
  *
  * **Three rulings are MISP's and not this tool's**, which is the whole
  * design:
@@ -27,13 +27,13 @@ App::uses('GalaxyCategory', 'Tools');
  *   viewer may read is not permission to name the cluster behind it.
  *
  * **What reaches it is already capped.** `Value::topTagsFor` returns
- * the most-carried labels and no more, because a value like `443`
- * carries 3,860 distinct tags; the `capped` flag is how this tool
+ * the most-carried labels and no more, because a value like `443` can
+ * carry thousands of distinct tags; the `capped` flag is how this tool
  * knows not to read a position off a list that stops.
  *
- * **No `$user`**, per §14.4: everything reaching this has been scoped
- * already, and a folding tool that could re-scope is one that can get
- * the scope wrong somewhere the ACL is not being reviewed.
+ * **No `$user`**: everything reaching this has been scoped already,
+ * and a folding tool that could re-scope is one that can get the scope
+ * wrong somewhere the ACL is not being reviewed.
  */
 class ValueContextTool
 {
@@ -72,17 +72,16 @@ class ValueContextTool
             $parts = self::split($name);
             /*
              * **Freetext tags share one group rather than each becoming
-             * a taxonomy of one.** `8.8.8.8` on the verification
-             * instance carries `asyncrat`, `c2`, `Gh0stRAT`,
-             * `historicalandnew` and
-             * `mightcontainvariantsofasyncrat` — five tags in no
+             * a taxonomy of one.** A value carrying `asyncrat`, `c2`,
+             * `Gh0stRAT`, `historicalandnew` and
+             * `mightcontainvariantsofasyncrat` has five tags in no
              * namespace at all, which as five headed groups would push
              * the real taxonomies off the card and imply a structure
              * none of them has.
              *
              * **And a namespace is matched case-insensitively**, which
-             * is not a nicety: the same instance carries `PAP:RED`
-             * while the taxonomy is stored as `pap`, MISP's columns
+             * is not a nicety: a tag may read `PAP:RED` while the
+             * taxonomy is stored as `pap`, MISP's columns
              * collate `utf8mb3_bin`, and `Taxonomy::getTaxonomyForTag`
              * accordingly compares `LOWER()` on both sides. Keyed by
              * the raw spelling, `PAP:RED` and `pap:amber` would head
@@ -268,8 +267,8 @@ class ValueContextTool
          *
          * The denominator is what the taxonomy actually holds rather
          * than what a reader assumes: `source-reliability` has **seven**
-         * grades, which is the count `ValueTrustTool` had to correct in
-         * the profile's trust map for the same reason.
+         * grades, which is the count the profile's trust map in
+         * `ValueTrustTool` uses for the same reason.
          */
         uasort($ordered, function ($a, $b) {
             return $b['numerical'] - $a['numerical'];
@@ -280,9 +279,8 @@ class ValueContextTool
          * `6`, and PHP casts a numeric-string key to an integer on the
          * way in — so `array_search('2', [5,4,3,6,2,1], true)` is
          * `false`, `false + 1` is `1`, and every numerically-keyed
-         * taxonomy rendered as *position 1* however it was tagged.
-         * Found on `sage.png`, which reads *2 — Probably true* and drew
-         * *1 of 6*.
+         * taxonomy would render as *position 1* however it was tagged —
+         * *2 — Probably true* drawn as *1 of 6*.
          */
         $keys = array_map('strval', array_keys($ordered));
         $at = array_search((string)$value, $keys, true);
@@ -314,19 +312,19 @@ class ValueContextTool
      * exist which it will not show them.
      *
      * **Grouped, because a cluster's galaxy is the thing it is a
-     * member of.** Flat, the card put *Cobalt Strike* (a tool), *APT29*
-     * (a threat actor) and four ATT&CK techniques in one run, each chip
-     * repeating its own kind in small print — a list sorted by a number
-     * with the structure spelled out chip by chip. The galaxy is what
-     * the clusters have in common, so it heads them, and the kind is
-     * said once per group rather than once per cluster.
+     * member of.** Flat, the card would put *Cobalt Strike* (a tool),
+     * *APT29* (a threat actor) and four ATT&CK techniques in one run,
+     * each chip repeating its own kind in small print — a list sorted
+     * by a number with the structure spelled out chip by chip. The
+     * galaxy is what the clusters have in common, so it heads them, and
+     * the kind is said once per group rather than once per cluster.
      *
      * The group is keyed on the galaxy's own `name` —
      * `fetchGalaxyClusters` contains `Galaxy` and then `arrangeData`
      * moves it *inside* the `GalaxyCluster` array, which is where this
      * reads it from. A cluster whose galaxy row did not come back falls
-     * back to the cluster's own `type` — the same fallback the kind has
-     * always had, and for the same reason: the raw type is what the
+     * back to the cluster's own `type` — the same fallback the kind
+     * uses, and for the same reason: the raw type is what the
      * cluster actually belongs to, only not spelled the way the
      * instance spells it.
      *
@@ -396,7 +394,7 @@ class ValueContextTool
         /*
          * Galaxies by their most-carried cluster, so the one whose
          * clusters are attributed most widely heads the card — the
-         * order the flat list had, only taken a level up.
+         * order a flat list would have, only taken a level up.
          */
         uasort($galaxies, function ($a, $b) {
             $left = $a['clusters'][0]['count'];

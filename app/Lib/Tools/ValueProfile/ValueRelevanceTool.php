@@ -4,26 +4,21 @@
  * The assessment's second axis: does what the record asserts still
  * matter operationally, today?
  *
- * Phase 5 of the Analyst Profile (`prd/analyst-profile/06-staleness.md`),
- * reworked as the relevance axis by D11
- * (`prd/analyst-profile/12-assessment.md` §2.2). It replaces the page's
- * reading of MISP's decaying models, which answered *how bad is this*
- * and *how stale is this* in one number while the quality ledger
- * already answers the first from more evidence with an audit trail
- * (D7). What is taken is the time factor; what is left is the base
- * score.
+ * MISP's decaying models answer *how bad is this* and *how stale is
+ * this* in one number, while the quality ledger already answers the
+ * first from more evidence with an audit trail. What is taken from them
+ * here is the time factor; what is left is the base score.
  *
  * **No ledger row, ever.** Relevance is its own axis, so nothing here
  * returns points and nothing here can move the lean or the quality sum.
- * That is not a style rule: the first draft emitted staleness as
- * threat-signed points, under which silence promoted a value to
- * definite BENIGN and a freshly-confirmed `8.8.8.8` fell *out* of it
- * (`review-2026-09-02.md` A6). An axis that never touches the other
- * two cannot do either.
+ * That is not a style rule: staleness emitted as threat-signed points
+ * would let silence promote a value to definite BENIGN and let a
+ * freshly-confirmed value fall *out* of it. An axis that never touches
+ * the other two cannot do either.
  *
- * **Pure and static, and it takes no `$user`** (`00-contract.md` §14.5).
- * Every fact it reads is on the context the owning model built, already
- * scoped to the viewer; it issues no query and resolves no permission.
+ * **Pure and static, and it takes no `$user`.** Every fact it reads is
+ * on the context the owning model built, already scoped to the viewer;
+ * it issues no query and resolves no permission.
  *
  * ## The four states
  *
@@ -31,7 +26,7 @@
  * current              runway ≥ aging_fraction
  * aging                0 < runway < aging_fraction
  * expired              elapsed ≥ ttl
- * timeline uncertain   the clock itself is not trustworthy (§3.6)
+ * timeline uncertain   the clock itself is not trustworthy
  * ```
  *
  * The discontinuity at the boundary is deliberate: **expiry is an
@@ -48,45 +43,39 @@
  * `expired` survives an untrustworthy clock; `current` and `aging` do
  * not, and degrade to `timeline uncertain`. Both facts travel, so the
  * page can read *"expired · timeline uncertain"* — which is exactly
- * what `12-assessment.md` §3 says the late-encoded phishing URL should
- * say.
+ * what a phishing URL encoded long after the incident should say.
  *
  * ## The virtual age, and why it is not a measurement
  *
  * MISP stores **no creation date for an attribute**: `timestamp` is
- * last-modified and `Event.date` is typed by an analyst. The axis used
- * to subtract one from the other and call the difference an encoding
- * lag; on `8.8.8.8` that produced 302 days out of a row last edited
- * the day after its event was published. The number was wrong, it
- * flagged the timeline uncertain, and through
- * `record.temporal_precision` it also took 4 points off the quality.
+ * last-modified and `Event.date` is typed by an analyst. Subtracting
+ * one from the other and calling the difference an encoding lag is
+ * unsound: a row edited long after its event was published reads as
+ * hundreds of days of lag, flags the timeline uncertain, and would take
+ * points off the quality through `record.temporal_precision` as well.
  *
- * It is replaced by `undated_assumed_days` — **a declared assumption,
- * not a reading.** When no occurrence carries `first_seen`, the value
- * is treated as that many days older than its record, and the page
- * says so in those words. `elapsed_days` is what the runway is drawn
- * from; `recorded_days` is what the rows actually say; `assumed_days`
- * is the difference and is never larger than what leaves one day of
- * lifetime, so the assumption can age a value and can never expire
- * one.
+ * The axis uses `undated_assumed_days` instead — **a declared
+ * assumption, not a reading.** When no occurrence carries
+ * `first_seen`, the value is treated as that many days older than its
+ * record, and the page says so in those words. `elapsed_days` is what
+ * the runway is drawn from; `recorded_days` is what the rows actually
+ * say; `assumed_days` is the difference and is never larger than what
+ * leaves one day of lifetime, so the assumption can age a value and
+ * can never expire one.
  */
 class ValueRelevanceTool
 {
     /**
      * How far back a runway series may run.
      *
-     * Inherited from the retired `ValueDecayTool`, argument intact:
-     * the runway is the only dense series in the sightings payload — a
+     * The runway is the only dense series in the sightings payload — a
      * count can be sparse because most days have none, a shelf life
      * cannot because every day has one — so this is the number that
-     * bounds the fragment. `0.0.0.0` first appears in 2015, which is
-     * 3,948 daily samples for a value whose reports are all in the last
-     * two years.
+     * bounds the fragment. Uncapped, a value first reported a decade
+     * ago would ship thousands of daily samples even when all its
+     * reports are recent.
      *
-     * What did **not** come across is that class's `OCCURRENCE_CAP`.
-     * The decay curve was an envelope over one curve per occurrence, so
-     * it needed a cap and the cap needed an argument about which
-     * occurrences could hold the maximum. A runway is computed from
+     * There is **no** occurrence cap. A runway is computed from
      * aggregates and a list of corroboration dates, so its cost does
      * not track the occurrence count at all and there is nothing to cap.
      */
@@ -116,7 +105,7 @@ class ValueRelevanceTool
     const SIGHTED_CLOCK_KINDS = array('sighting', 'foreign_sighting');
 
     /**
-     * The shelf-life buckets a type may be assigned to (D18).
+     * The shelf-life buckets a type may be assigned to.
      *
      * Four, not three, and the reason is arithmetic rather than taste:
      * the shipped table uses five distinct values (60, 90, 120, 365,
@@ -148,10 +137,11 @@ class ValueRelevanceTool
         'aging_fraction' => 0.33,
         /*
          * How much older than its record an undated value is assumed
-         * to be. Not a measured lag — the measurement it replaces is
-         * described in `Value::recordSummaryFor()` and was unsound.
-         * Conservative by §3.5's asymmetry, and capped at render so
-         * the assumption alone can never expire anything.
+         * to be. Not a measured lag — the columns cannot support one,
+         * as `Value::recordSummaryFor()` describes. Conservative,
+         * because dropping a live indicator costs more than keeping a
+         * stale one, and capped at render so the assumption alone can
+         * never expire anything.
          */
         'undated_assumed_days' => 30,
         'ttl_default' => 180,
@@ -217,20 +207,19 @@ class ValueRelevanceTool
          * slow, and a slow clock on this axis says `expired` about a
          * value that is current.
          *
-         * `github.com` is the case: MISP flags it as over-correlating,
-         * so the evidence budget leaves its rows unread and the clock
-         * falls back to `Attribute.timestamp` — 153 days elapsed
-         * against a 120-day TTL, **33 days over**. The Sightings tab
-         * reads the same value with no budget, finds an independent
-         * sighting 56 days old, and draws **64 days left**. Two panels,
-         * one axis, opposite answers, and `10-wiring.md` §9.5's
-         * cross-panel check is what caught it.
+         * A value like `github.com` is the case: MISP flags it as
+         * over-correlating, so the evidence budget leaves its rows
+         * unread and the clock falls back to `Attribute.timestamp`,
+         * which can read well past the TTL. The Sightings tab reads the
+         * same value with no budget, finds a recent independent
+         * sighting, and draws days left. Two panels, one axis, opposite
+         * answers.
          *
          * So the axis stands down rather than guessing. `not_counted`
          * already names the budget on the page — *"this value is
          * flagged as over-correlating, so the rows this signal reads
          * were not fetched"* — and a shelf life computed around that
-         * absence was the one part of the assessment presenting a
+         * absence would be the one part of the assessment presenting a
          * degraded read as a measurement. No state means no chart, and
          * the hero's sentence ends after the band.
          *
@@ -282,17 +271,16 @@ class ValueRelevanceTool
          * that, rather than from a date everyone knows is too recent.
          *
          * **Capped so the assumption alone can never expire it.** An
-         * assumption that drops indicators out of an export is exactly
-         * the failure §3.5's asymmetry is written against, and most
-         * real values carry no `first_seen` (§7.3), so an uncapped
-         * offset would age the whole instance past its own TTL. The
-         * cap leaves `expired` reachable only by elapsed time that
-         * actually elapsed; the assumption can carry a value as far as
-         * the last day of its lifetime and no further.
+         * assumption that drops live indicators out of an export is
+         * the costlier of the two mistakes, and most real values carry
+         * no `first_seen`, so an uncapped offset would age the whole
+         * instance past its own TTL. The cap leaves `expired` reachable
+         * only by elapsed time that actually elapsed; the assumption
+         * can carry a value as far as the last day of its lifetime and
+         * no further.
          *
          * Both numbers travel. A page that showed only the effective
-         * one would be asserting a measurement again, which is the
-         * thing this replaced.
+         * one would be presenting an assumption as a measurement.
          */
         $assumed = 0;
         if (!empty($precision['uncertain'])) {
@@ -351,10 +339,9 @@ class ValueRelevanceTool
             /*
              * Only where the cap actually bit on a live value. Past
              * the lifetime the clamp drives `assumed` to zero as a
-             * matter of arithmetic, and `1.1.1.1` — 115 days over —
-             * printed *the profile would have assumed 30 days; the
-             * rest is not applied, because an assumption may never
-             * expire a value* about a value real time had expired
+             * matter of arithmetic, and flagging it there would print
+             * *the rest is not applied, because an assumption may
+             * never expire a value* about a value real time expired
              * months earlier.
              */
             'assumed_capped' => !empty($precision['uncertain'])
@@ -362,10 +349,10 @@ class ValueRelevanceTool
                 && $elapsedDays < $ttl['days'],
             /*
              * Both of these are the record's, not the assumption's.
-             * They were the assumption's for one draft and the card
-             * contradicted itself within three lines: *41 days left*
-             * over *expires in 71 days*, because the cap hands the
-             * assumed days back as the real ones run out. The
+             * Taken from the assumption, the card contradicts itself
+             * within three lines — *41 days left* over *expires in 71
+             * days* — because the cap hands the assumed days back as
+             * the real ones run out. The
              * assumption moves where the value sits on the curve —
              * which is what the bar draws and what `current` against
              * `aging` reads — and the date its lifetime ends is a fact
@@ -386,16 +373,15 @@ class ValueRelevanceTool
      * `DecayingModelsFormulas/Polynomial.php:17` is
      * `base × (1 − (elapsed / lifetime)^(1 / decay_speed))`, clamped at
      * zero, and at `decay_speed = 1` the exponent is 1 and this is
-     * linear (D8). The two are not alternatives — one contains the
-     * other — which is why *"polynomial or linear"* was a false choice.
+     * linear. The two are not alternatives — one contains the other —
+     * which is why *"polynomial or linear"* is a false choice.
      *
-     * §3.1 recommends lifting the one-line expression over passing a
-     * synthetic `DecayingModel` array through a class that expects a
-     * real one, and the recommendation stands for a reason this phase
-     * proved: `computeScore()` takes `($model, $attribute, $base,
-     * $elapsed)` and the page now has no model and no attribute to give
-     * it. Passing two empty arrays to get a fraction out is coupling
-     * with nothing on the other end of it.
+     * The one-line expression is lifted rather than passing a synthetic
+     * `DecayingModel` array through a class that expects a real one:
+     * `computeScore()` takes `($model, $attribute, $base, $elapsed)`
+     * and the page has no model and no attribute to give it. Passing
+     * two empty arrays to get a fraction out is coupling with nothing
+     * on the other end of it.
      *
      * With `base = 1` the result *is* the fraction of shelf life left:
      * 1 at zero elapsed, 0 at the TTL.
@@ -431,7 +417,7 @@ class ValueRelevanceTool
      *
      * `runway()` read backwards: solve `aging = 1 − elapsed^(1/speed)`
      * for elapsed and you get `(1 − aging)^speed`. It lives here rather
-     * than in the template that draws the mark because the editor now
+     * than in the template that draws the mark because the editor also
      * has to say the same day in words — *0.33 means day 60 of 90* —
      * and the mark and the sentence disagreeing would be worse than
      * either of them being wrong alone.
@@ -498,9 +484,9 @@ class ValueRelevanceTool
      *
      * Two surfaces render this axis — the value page's relevance card
      * and the profile editor's bench — and each one keeping its own
-     * copy of four words is how `uncertain` came to be printed raw in
-     * one of them while the other said *timeline uncertain*. One
-     * writer, the way the clock and `type_rule` lists were settled.
+     * copy of four words is how one ends up printing `uncertain` raw
+     * while the other says *timeline uncertain*. One writer, the way
+     * the clock and `type_rule` lists have one.
      *
      * The uncertainty flag is deliberately not composed in here. It is
      * a second thing that is true at once, and a caller that wants
@@ -530,7 +516,7 @@ class ValueRelevanceTool
      * The companion to `stateLabel()`, and here for the same reason:
      * the value card, the editor's bench and the profile viewer all
      * name the setting, and three copies of three strings is how one of
-     * them came to print the stored key.
+     * them ends up printing the stored key.
      *
      * @param string|null $setting
      * @return string
@@ -577,7 +563,7 @@ class ValueRelevanceTool
      * What reset the clock, in words.
      *
      * `new organisation` and `independent sighting` are terms this
-     * feature invented, and they are now read on three surfaces — the
+     * feature invented, and they are read on three surfaces — the
      * Lifetime card, the Assessment tab's clock band and the editor's
      * bench. `clockLabel()`'s docblock names the failure this avoids:
      * the copy that does not get updated is the one that prints
@@ -604,7 +590,7 @@ class ValueRelevanceTool
      * A reader meeting *new organisation* in a list of dates has no way
      * to tell it from *independent sighting*, and six rows of
      * definitions beside six rows of data is the density the Lifetime
-     * card spent a pass removing. So it is a hover.
+     * card is built to avoid. So it is a hover.
      *
      * @param string|null $kind
      * @return string|null Null where there is nothing to add
@@ -627,16 +613,16 @@ class ValueRelevanceTool
     /**
      * The TTL in force, and every candidate it was chosen from.
      *
-     * `185.234.219.24` occurs as both `ip-src` and `ip-dst`, and MISP's
+     * A value can occur as both `ip-src` and `ip-dst`, and MISP's
      * per-attribute decay never had to answer which TTL a *value* takes.
      * `shortest` is the default because it is the conservative reading —
      * a value that is stale in any of its roles is worth re-checking —
      * and because the alternative silently extends a short-lived
      * indicator's life on the strength of a type it barely appears as.
      *
-     * **The candidates travel whatever the rule chose**, because §3.4
-     * requires the panel to name which type supplied the number and
-     * that others were shorter or longer. A single number with no
+     * **The candidates travel whatever the rule chose**, because the
+     * panel has to name which type supplied the number and that others
+     * were shorter or longer. A single number with no
      * provenance is how a reader concludes the page is wrong about a
      * value they know well.
      *
@@ -768,9 +754,8 @@ class ValueRelevanceTool
      * organisation joins are read in date order and the first one is
      * dropped. On a single-organisation value that leaves nothing, the
      * clock falls back to the value's own most recent encoding, and
-     * `fallback` says so: this is the majority case in production
-     * (§6 item 7) and it must render as a stated condition rather than
-     * as a blank.
+     * `fallback` says so: this is the majority case in production and
+     * it must render as a stated condition rather than as a blank.
      *
      * @param array $context
      * @param array $section
@@ -831,13 +816,11 @@ class ValueRelevanceTool
      * that day. Taking the current clock and walking backwards would
      * draw a value corroborated last week as having been fresh in 2019.
      *
-     * That mistake has a precedent in this corpus. The retired decay
-     * code took `max(report, attribute date)` unconditionally and so
-     * applied a reset on days that preceded it, drawing a four-month
-     * plateau at full score on a model whose lifetime was three days —
-     * visible the moment the chart was drawn and invisible to every
-     * assertion before it. `runwaySeries()` walks forward for that
-     * reason.
+     * Taking `max(report, attribute date)` unconditionally is the same
+     * mistake: it applies a reset on days that preceded it, and draws a
+     * plateau at full score long past a short lifetime — visible the
+     * moment the chart is drawn and invisible to every assertion.
+     * `runwaySeries()` walks forward for that reason.
      *
      * @param array $context
      * @param string $clock
@@ -879,11 +862,11 @@ class ValueRelevanceTool
      * `org['oldest']` is `MIN(Value::OBSERVED_FROM)` — `first_seen`,
      * then `last_seen`, then the row write — so an organisation's join
      * date is when it says it saw the value rather than when it last
-     * touched the row. On `MIN(Attribute.timestamp)` an edit moved that
-     * date forward and the value read as freshly corroborated;
-     * `8.8.8.8` carried 223 days of drift on it.
+     * touched the row. On `MIN(Attribute.timestamp)` an edit would move
+     * that date forward and the value would read as freshly
+     * corroborated.
      *
-     * The fallback is still a row write, because 84% of attributes
+     * The fallback is still a row write, because most attributes
      * declare no seen date at all. `Attribute.created_at` slots in
      * above it when MISP has one, in `Value::OBSERVED_FROM` and nowhere
      * else.
@@ -919,8 +902,8 @@ class ValueRelevanceTool
      * Every entry is a whole report rather than a bare stamp, so every
      * row of the corroboration timeline has a name on it and the
      * maximum below cannot pick an unlabelled duplicate over a labelled
-     * one — a tie the first version could lose on a report filed at
-     * exactly midnight.
+     * one — a tie bare stamps could lose on a report filed at exactly
+     * midnight.
      *
      * @param array $context
      * @param string $which `sightings` or `foreign`
@@ -954,14 +937,13 @@ class ValueRelevanceTool
      * The clock with nothing to corroborate it: the value's own most
      * recent encoding.
      *
-     * **An encoding date, deliberately, and this is where §3.6 earns
-     * its keep.** MISP's `Attribute.timestamp` is when a row was
-     * written, not when anything was observed, so a value whose only
-     * date is this one has an unknown observation date — and the
-     * precision check turns that into `timeline uncertain` rather than
-     * into a confident `current`. The fallback is not a guess dressed
-     * up as a measurement; it is the measurement the record actually
-     * supports, labelled as such.
+     * **An encoding date, deliberately.** MISP's `Attribute.timestamp`
+     * is when a row was written, not when anything was observed, so a
+     * value whose only date is this one has an unknown observation
+     * date — and the precision check turns that into
+     * `timeline uncertain` rather than into a confident `current`. The
+     * fallback is not a guess dressed up as a measurement; it is the
+     * measurement the record actually supports, labelled as such.
      *
      * @param array $context
      * @return array|null
@@ -1007,42 +989,38 @@ class ValueRelevanceTool
     }
 
     /**
-     * Whether the clock can be trusted at all (§3.6).
+     * Whether the clock can be trusted at all.
      *
-     * The example that forced D11: a phishing URL encoded two months
-     * after the incident with no `first_seen`, so the clock falls back
-     * to a row-modification timestamp and the axis would call a dead
+     * The motivating example: a phishing URL encoded two months after
+     * the incident with no `first_seen`, so the clock falls back to a
+     * row-modification timestamp and the axis would call a dead
      * campaign *current*.
      *
-     * **One detecting fact, not two. Revised 2026-09-11.** The second
-     * was a created-to-published lag — `Event.date` against
-     * `Attribute.timestamp`, beyond `lag_uncertain_days`. Neither
-     * column supports the reading: `timestamp` is *last-modified*, so
-     * a tag, a sync or a delete years later inflates it, and
-     * `Event.date` is typed by an analyst and carries the very delay
-     * the measurement was hunting. MISP records no attribute creation
-     * date at all, so there was nothing to repair it with. It is gone
-     * here and from `record.temporal_precision`, which is the only
-     * place it reached the ledger.
+     * **One detecting fact, not two.** The obvious second would be a
+     * created-to-published lag — `Event.date` against
+     * `Attribute.timestamp`. Neither column supports the reading:
+     * `timestamp` is *last-modified*, so a tag, a sync or a delete
+     * years later inflates it, and `Event.date` is typed by an analyst
+     * and carries the very delay the measurement would be hunting. MISP
+     * records no attribute creation date at all, so there is nothing to
+     * repair it with, and neither this check nor
+     * `record.temporal_precision` uses it.
      *
-     * What survives is the question the rows can answer: **is the date
+     * What remains is the question the rows can answer: **is the date
      * the clock measures from an observation date, or a row-write
-     * date?** Where the lag was a bad estimate of how much older the
+     * date?** Where a lag would be a bad estimate of how much older the
      * value really is, `undated_assumed_days` is a declared assumption
      * about the same thing — visible, editable, and never pretending to
      * be a reading.
      *
-     * **A sighting answers it. Added 2026-09-12.** The rule read
-     * `first_seen` on occurrences and nothing else, so a value whose
-     * clock had just been reset by a sighting was told its timeline
-     * could not be trusted — while the number the warning qualified was
-     * measured from that sighting's own `date_sighting`, which is an
-     * organisation stating *I saw this, at this time*. `8.8.8.8` is the
-     * case: last confirmed 2026-08-23 by an independent sighting, and
-     * flagged uncertain because none of its 26 occurrences set a field
-     * on a different table.
+     * **A sighting answers it.** Reading `first_seen` on occurrences and
+     * nothing else would tell a value whose clock had just been reset
+     * by a sighting that its timeline cannot be trusted — while the
+     * number the warning qualifies is measured from that sighting's own
+     * `date_sighting`, which is an organisation stating *I saw this, at
+     * this time*.
      *
-     * So the flag now asks about the clock it qualifies. A
+     * So the flag asks about the clock it qualifies. A
      * sighting-based clock is dated by definition; an occurrence-based
      * one reads `Attribute.timestamp`, which is a row write, and is
      * uncertain unless the occurrences carry `first_seen` to show MISP
@@ -1085,8 +1063,8 @@ class ValueRelevanceTool
      *
      * Worded here rather than in each template because two panels show
      * it at two scales and a state this specific must not be paraphrased
-     * differently in each. §3.6 requires the number: *never a silently
-     * wrong `current`*, and never a bare *uncertain* either.
+     * differently in each. The state has to carry its reason: *never a
+     * silently wrong `current`*, and never a bare *uncertain* either.
      *
      * @param array $reasons
      * @return string|null
@@ -1106,11 +1084,11 @@ class ValueRelevanceTool
     /**
      * The runway over a day grid, for the chart overlay.
      *
-     * Two quantities rather than two estimates of one. The verdict's
-     * curves used to plot the synthesised score against a dashed NIDS
-     * decay score — a second decay opinion on a page that will have
-     * one — where this plots **evidence against remaining shelf life**,
-     * which is a question an analyst actually has.
+     * Two quantities rather than two estimates of one. Plotting the
+     * synthesised score against a NIDS decay score would put a second
+     * decay opinion on a page that has one; this plots **evidence
+     * against remaining shelf life**, which is a question an analyst
+     * actually has.
      *
      * The walk is forward and the event list is sorted, so this is
      * linear in days plus events rather than a scan per day. `null`
@@ -1171,8 +1149,7 @@ class ValueRelevanceTool
             /*
              * The assumed days ride along the whole series, or the
              * chart's last point and the card's bar disagree by
-             * exactly the assumption — which is how the live probe
-             * caught this: 79% drawn under 46% printed.
+             * exactly the assumption.
              */
             $points[] = self::runway(
                 self::daysBetween($from, $at) + $assumed,
@@ -1184,9 +1161,8 @@ class ValueRelevanceTool
     }
 
     /**
-     * What would move this axis — the relevance falsifiability line
-     * (`04-dispositions.md` §8), solved for the boundary rather than
-     * guessed at.
+     * What would move this axis — the relevance falsifiability line,
+     * solved for the boundary rather than guessed at.
      *
      * One line per axis and the cheapest one, so this answers the
      * question the state raises rather than every question it could:
@@ -1196,13 +1172,13 @@ class ValueRelevanceTool
      * measurement would settle it — which is the only case where the
      * answer is not a number of days.
      *
-     * **`aging` had no line of its own until 2026-09-11.** It fell
-     * through to `current`'s, so a value the profile had just flagged
-     * for re-checking was told *no corroboration for 12 more days and
-     * the assessment expires* — a countdown, when the thing worth
-     * saying is that the countdown has already passed the mark the
-     * reader set. The state was a chip and nothing else; this is the
-     * one place it can say what it is for.
+     * **`aging` has a line of its own.** Falling through to `current`'s
+     * would tell a value the profile has just flagged for re-checking
+     * *no corroboration for 12 more days and the assessment expires* —
+     * a countdown, when the thing worth saying is that the countdown
+     * has already passed the mark the reader set. Elsewhere the state
+     * is a chip and nothing else; this is the one place it can say what
+     * it is for.
      *
      * @param array $relevance
      * @return array|null `axis`, `direction`, `text`
@@ -1220,7 +1196,7 @@ class ValueRelevanceTool
                  * Not `first_seen` and not *encoding*: the column name
                  * is `First seen` on MISP's own attribute form, and
                  * there is no encoding date in MISP to contrast it
-                 * with (§7.11). What the reader gains is concrete —
+                 * with. What the reader gains is concrete —
                  * the assumed days stop being added.
                  */
                 'text' => sprintf(
@@ -1306,29 +1282,24 @@ class ValueRelevanceTool
      * **Type 0 only.** A false positive and an expiration are reports
      * that argue *against* the value; counting either as corroboration
      * would let a value be kept current by the community disputing it.
-     * The retired decay code drew the same line for the same reason and
-     * the Sightings tab exists to make it visible.
+     * The Sightings tab exists to make that line visible.
      *
      * **Folded to one report a day, and whole-history.** The runway
      * series samples a day at a time, so a second sighting on a day
      * that already has one cannot move any curve; and the clock is a
-     * whole-history aggregate by declaration (`03-signals.md` §2.3,
-     * `06-staleness.md` §3.3) because a windowed clock could not tell
-     * stale-since-91-days from stale-since-three-years while the TTL
-     * table reaches 730. So the caller must fold **before** applying
-     * `evidence.window` — which is the one exclusion this clock does
-     * not see — and after `sightings.self`, which is the same
-     * argument in a different place.
+     * whole-history aggregate by declaration, because a windowed clock
+     * could not tell stale-since-91-days from stale-since-three-years
+     * while the TTL table reaches 730. So the caller must fold
+     * **before** applying `evidence.window` — which is the one
+     * exclusion this clock does not see — and after `sightings.self`,
+     * which is the same argument in a different place.
      *
      * **The fold keeps the day's newest report whole, not just its
-     * date.** The first version kept bare stamps and labelled only the
-     * newest of all of them, on the reasoning that the curve reads
-     * dates and nothing reads a name off the rest. Rendered, that put
-     * *unnamed* on five of the six rows of the corroboration timeline —
-     * and naming what supplied the clock is the half of the
-     * aggregation rule §4.1 says is not a decoration. A name per
-     * distinct day costs 39 strings on this instance's busiest value,
-     * so the reasoning was thrift about nothing.
+     * date.** The curve reads only dates, but bare stamps labelled only
+     * at the newest would put *unnamed* on most rows of the
+     * corroboration timeline — and naming what supplied the clock is
+     * part of the aggregation rule, not a decoration. A name per
+     * distinct day costs a few dozen strings on a busy value.
      *
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @param array $occurrences From `Value::sightedOccurrenceIdsFor` —
@@ -1367,9 +1338,9 @@ class ValueRelevanceTool
                  * answer is to leave the sighting out of the
                  * *independent* half and say how many were skipped —
                  * the same conservative direction `sightings.self`
-                 * takes from the other side, and phase 4's §7.3 is the
-                 * reason this count exists at all: a fold that reports
-                 * nothing looks exactly like a fold with nothing to do.
+                 * takes from the other side. The count exists because
+                 * a fold that reports nothing looks exactly like a fold
+                 * with nothing to do.
                  */
                 $undecidable++;
                 continue;
@@ -1421,11 +1392,10 @@ class ValueRelevanceTool
     /**
      * The `relevance` section, with every default filled in.
      *
-     * The seventh top-level section (D11 promoted it out of the
-     * `signals` list, because it configures an axis rather than a
-     * ledger row). A profile naming none of these still produces the
-     * shipped behaviour, which is `01-profile.md` §1.3's *defaults that
-     * work unedited* applied to this axis.
+     * A top-level section rather than an entry in the `signals` list,
+     * because it configures an axis rather than a ledger row. A profile
+     * naming none of these still produces the shipped behaviour —
+     * *defaults that work unedited*, applied to this axis.
      *
      * An unrecognised `clock` or `type_rule` falls back to the default
      * rather than throwing: a profile is a hand-edited JSON document
@@ -1474,13 +1444,13 @@ class ValueRelevanceTool
                 ? (float)$section['aging_fraction']
                 : self::DEFAULTS['aging_fraction'],
             /*
-             * `lag_uncertain_days` is still read, because every fork
-             * written before 2026-09-11 carries it and a profile that
-             * silently lost a setting on upgrade is worse than one
-             * that repurposes a number a reader chose. Same units,
-             * same order of magnitude, opposite kind of thing: it was
-             * a threshold a measurement had to cross, it is now the
-             * assumption that replaced the measurement.
+             * `lag_uncertain_days` is still read, because older forks
+             * carry it and a profile that silently lost a setting on
+             * upgrade is worse than one that repurposes a number a
+             * reader chose. Same units, same order of magnitude,
+             * opposite kind of thing: the old key named a threshold a
+             * measurement had to cross, the new one the assumption
+             * that stands in for the measurement.
              */
             'undated_assumed_days' => self::firstNumeric(
                 $section,
@@ -1493,8 +1463,7 @@ class ValueRelevanceTool
     }
 
     /**
-     * Shelf life, from whichever of the two shapes the profile carries
-     * (D18).
+     * Shelf life, from whichever of the two shapes the profile carries.
      *
      * **Current shape.** `ttl_buckets` gives each of the four buckets a
      * day count, `ttl_types` assigns a type to a bucket,
@@ -1503,7 +1472,7 @@ class ValueRelevanceTool
      * assignment, because it exists for the type the buckets cannot
      * express.
      *
-     * **Pre-D18 shape.** A flat `ttl_days` map — the one every existing
+     * **Legacy shape.** A flat `ttl_days` map — the one every existing
      * fork carries, because `AnalystProfile::updateDefaults()` never
      * touches a fork. It reads as *no buckets, and every named type is
      * its own override*, which is exactly what it already meant. The

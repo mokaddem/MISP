@@ -14,14 +14,13 @@
  * a DNS lookup per candidate; the engine that calls this asks *"which
  * of these are already in your instance?"*, which is one indexed
  * query. Same generator, different question, and the second one is
- * three orders of magnitude cheaper —
- * `prd/value-profile-live/24b-relationships.md` §12.1 has the numbers.
+ * orders of magnitude cheaper.
  *
  * **Generation is linear in the label's length, not combinatorial.**
  * Every class below is O(n) or O(n·k) over the label, so the candidate
  * set grows with the name rather than exploding: 113 candidates for
- * `foo.com`, 186 for `github.com`, and 1,131 — 0.91 ms — for a label
- * of 63 characters, which is the longest DNS allows. There is no cap
+ * `foo.com`, 186 for `github.com`, and 1,131 for a label of 63
+ * characters, which is the longest DNS allows. There is no cap
  * in this file, and none is needed; what bounds a run is the class
  * list, which a caller can print in full.
  *
@@ -318,9 +317,7 @@ class DomainPermutationTool
                          * matches it, and the panel whose entire
                          * purpose is to say *these two values are not
                          * the same* opens by claiming a value is a
-                         * look-alike of itself. Measured, not
-                         * imagined: the first probe run reported 20
-                         * such rows for `github.com`.
+                         * look-alike of itself.
                          */
                         if (strtolower($char) === strtolower($label[$i])) {
                             continue;

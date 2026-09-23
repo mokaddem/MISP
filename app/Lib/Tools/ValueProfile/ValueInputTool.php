@@ -11,7 +11,7 @@ App::uses('ComplexTypeTool', 'Tools');
  * a hundred of them; a reader who resolves `hxxp://evil[.]com` and gets
  * an answer, then pastes the same string in a list and gets nothing,
  * has been told the page is unreliable rather than that their input was
- * odd. So both go through this file. `value-index.md` §3, V4.
+ * odd. So both go through this file.
  *
  * Two functions, and the difference between them is the whole design:
  *
@@ -29,16 +29,14 @@ App::uses('ComplexTypeTool', 'Tools');
  * token names, so the two cannot spell a transformation differently.
  *
  * **It does not lowercase.** The shipped schema collates `value1` as
- * `utf8mb3_unicode_ci` but the verification instance runs `utf8mb3_bin`,
- * where `Google.com` and `google.com` are different values — so
- * case-folding here would silently merge two values on one instance and
- * not on the other. Deduplication is exact for the same reason. Case is
- * the resolver's decision to make, once, on the miss path
- * (`value-index.md` §1.2, §7.1).
+ * `utf8mb3_unicode_ci` but an instance can run `utf8mb3_bin`, where
+ * `Google.com` and `google.com` are different values — so case-folding
+ * here would silently merge two values on one instance and not on the
+ * other. Deduplication is exact for the same reason. Case is the
+ * resolver's decision to make, once, on the miss path.
  *
- * Pure and static, and it takes no `$user`:
- * `value-profile-live/00-contract.md` §14.5. It reads no table, so
- * §14.3's `value1`/`value2` rule is satisfied by having nothing to say.
+ * Pure and static, and it takes no `$user`. It reads no table, so the
+ * rules on querying `value1`/`value2` have nothing to say about it.
  */
 class ValueInputTool
 {
@@ -60,7 +58,7 @@ class ValueInputTool
      * About the size of a report's IOC section. It lives here rather
      * than on the controller because the page mirrors it client-side as
      * a live count, and two copies of a number the reader is measured
-     * against drift. `value-index.md` §7.2, G1.
+     * against drift.
      */
     const CAP = 100;
 
@@ -176,14 +174,14 @@ class ValueInputTool
      * there. A pasted spreadsheet column and a pasted `a, b, c` list
      * therefore both work, and a value containing a comma survives when
      * it arrives among other lines — which is the documented limit of
-     * comma-splitting rather than a solution to it (`value-index.md`
-     * §3.2, G5). A value containing a comma and pasted *alone* still
-     * splits; `normalise()` is where that reader is served.
+     * comma-splitting rather than a solution to it. A value containing
+     * a comma and pasted *alone* still splits; `normalise()` is where
+     * that reader is served.
      *
      * `report` counts the input, not the returned slice: a value beyond
      * the cap still counted towards `refanged` and `duplicates`,
-     * because the caller refuses an overflowing paste outright (§7.2)
-     * and the numbers it refuses with should describe what was pasted.
+     * because the caller refuses an overflowing paste outright and the
+     * numbers it refuses with should describe what was pasted.
      *
      * @param string|null $raw
      * @param int|null $cap Values returned at most; null or <1 for none

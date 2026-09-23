@@ -62,13 +62,10 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * applies it, and it writes `decided_by = 'lean_disputed'` so the
  * band stops naming the lean the rule discarded.
  *
- * **The lean rows and not the quality**, since
- * `review-2026-09-13.md` §D1 and §A2: weighed against the whole
- * ledger the rule fired on thin records rather than contradictory
+ * **The lean rows and not the quality**: weighed against the whole
+ * ledger the rule would fire on thin records rather than contradictory
  * ones — a value with no galaxy, no first-seen, no sighting and
- * nothing recent tripped it on absence penalties alone, which put 55
- * of 60 contested values on the verification instance there by
- * mistake.
+ * nothing recent would trip it on absence penalties alone.
  *
  * ## Why a rule that could not run is reported
  *
@@ -312,10 +309,8 @@ class ValueLeanTool
                     : '',
                 'source' => $rule->source,
                 /*
-                 * The two keys the fixture's own rule block uses, so a
-                 * template reading it today needs no change to read a
-                 * computed rule. They go with the fixture when the
-                 * templates are renamed.
+                 * `id` and `prose` again, under the keys the templates
+                 * read a rule block by.
                  */
                 'name' => $id,
                 'text' => $outcome['prose'],
