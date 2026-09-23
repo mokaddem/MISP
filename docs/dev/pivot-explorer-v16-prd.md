@@ -534,8 +534,8 @@ two-attribute objects cost 2,250, not 750.
 principled rather than convenient: an object is a cluster with a template type and named
 children, so "12 file objects and 3 url objects" conveys the event's composition at a glance. A
 bare event-level attribute has no structure — drawn with no relationship it is an isolated dot
-conveying strictly less than the dock's table row, which shows the full value instead of
-truncating at 42 characters. The asymmetry is also load-bearing: 80% of all attributes are
+conveying strictly less than the dock's table row, which has the width to show the value the
+canvas shortens to fit its node. The asymmetry is also load-bearing: 80% of all attributes are
 event-level, so seeding those means seeding the whole event again.
 
 > **Governing principle:** the graph draws things with **structure or relationships**; the table
@@ -1387,7 +1387,7 @@ library features it rebuilt by hand or left unused. One commit each:
 | # | Task | Depends on |
 |---|---|---|
 | 12 | Remove what the correlation pivots brought, through `graph.removeBySource` | 5, 5d |
-| 13 | Labels carry the whole value; the canvas's `textTruncate` shortens them, not a 42-character cut | — |
+| 13 | ✅ Labels carry the whole value; the canvas's `textTruncate` shortens them, not a 42-character cut | — |
 | 14 | ✅ The Asserts box is Pivotick's `regex` facet, case-blind, instead of MISP's own predicate (5c) | 5c |
 | 15 | Correlated attributes and objects declare their correlation count as rim potential, like related events (R2) | 5, 5d |
 | 16 | Drop `compact()` if null data values no longer break the library | 8 |

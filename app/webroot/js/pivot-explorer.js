@@ -88,7 +88,7 @@
         var isImg = isImageAttribute(attr);
         return compact(Object.assign({
             type:            'attribute',
-            label:           truncate(val, 42),
+            label:           val,
             description:     (attr.object_relation ? attr.object_relation + ' · ' : '')
                              + (attr.category || '') + (attr.type ? ' / ' + attr.type : ''),
             value:           val,
@@ -331,7 +331,7 @@
         if (org)    meta.push(org);
         return compact(Object.assign({
             type:        'event',
-            label:       truncate(info || ('Event ' + (e.id || '')), 42),
+            label:       info || ('Event ' + (e.id || '')),
             description: meta.join(' · ') || 'Event',
             info:        info,
             date:        e.date,
@@ -344,7 +344,7 @@
     function objectNodeData(obj, owner) {
         return compact(Object.assign({
             type:            'object',
-            label:           truncate(obj.name || 'Object', 42),
+            label:           obj.name || 'Object',
             description:     obj['meta-category'] ? (obj['meta-category'] + ' object') : 'Object',
             name:            obj.name,
             'meta-category': obj['meta-category'],
@@ -365,7 +365,7 @@
         var fmt = src.source_format ? src.source_format + ' feed' : '';
         return compact({
             type:          type,
-            label:         truncate(src.name || (type + ' ' + src.id), 42),
+            label:         src.name || (type + ' ' + src.id),
             description:   [src.provider, fmt].filter(Boolean).join(' · ')
                            || (type === 'feed' ? 'Feed' : 'Server'),
             source_id:     String(src.id),
@@ -1668,7 +1668,7 @@
 
         function describeEdge(edge) {
             var d = edge.getData() || {};
-            var end = function (n) { return (nodeData(n) || {}).label || n.id; };
+            var end = function (n) { return truncate((nodeData(n) || {}).label || n.id, 42); };
             return end(edge.from) + ' → ' + (d.label || 'related-to') + ' → ' + end(edge.to);
         }
 

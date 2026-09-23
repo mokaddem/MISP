@@ -386,16 +386,21 @@ test('null fields are dropped from node data (pivotick indexes every value and c
     ok('a present value survives', d.category === 'Other');
 });
 
-test('labels truncate at 42 characters', async () => {
+test('a label is the whole value: the canvas shortens it, not the builder', async () => {
     const long = 'x'.repeat(80);
     const g = await buildGraph(ev({
+        uuid: 'EV', info: 'i'.repeat(80),
         Attribute: [attr({ uuid: 'e1', value: long })],
-        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
+        Object: [obj({ uuid: 'A', name: 'n'.repeat(80),
+                       ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
+        RelatedEvent: [relEvent({ uuid: 'R', info: 'r'.repeat(80) })],
     }));
-    const d = byId(g.nodes, 'attr:e1').data;
-    eq('label length', d.label.length, 42);
-    ok('ellipsis appended', d.label.slice(-1) === '…', d.label);
-    eq('the untruncated value is preserved in data', d.value, long);
+    eq('attribute', byId(g.nodes, 'attr:e1').data.label, long);
+    eq('object', byId(g.nodes, 'obj:A').data.label, 'n'.repeat(80));
+    eq('event', byId(g.nodes, 'event:EV').data.label, 'i'.repeat(80));
+    eq('related event', byId(g.nodes, 'event:R').data.label, 'r'.repeat(80));
+    ok('the canvas is left its default truncation',
+       !('textTruncate' in g.opts.render.defaultNodeStyle));
 });
 
 test('INVARIANT: every live element is either on the canvas or in the tray, never both', async () => {
@@ -1428,6 +1433,17 @@ test('an edge is deleted in MISP only after a danger confirm saying it cannot be
     ok('a soft delete, by uuid, as a POST',
        g.fetchLog.some(f => /\/misp\/objectReferences\/delete\/R1\.json$/.test(f.url) && f.init.method === 'POST'));
     eq('the history row is sealed', [d.accept, d.edges.map(e => e.id), d.persisted], [true, ['ref:R1'], true]);
+});
+
+test('the confirm bounds a long element name itself; the label stays whole', async () => {
+    const g = await withDeletes();
+    const edge = pedge('ref:R1', pnode({ type: 'object', uuid: 'A', label: 'file' }),
+        pnode({ type: 'attribute', uuid: 'e1', label: 'y'.repeat(80) }),
+        { kind: 'object-reference', label: 'drops', uuid: 'R1' });
+    const ctx = delCtx({ edges: [edge] }, false);
+    await g.opts.callbacks.onBeforeDelete(ctx);
+    eq('body', ctx.asked.body, 'This deletes the relationship in MISP: file → drops → '
+       + 'y'.repeat(41) + '…. It cannot be undone from the graph.');
 });
 
 test('cancelling the confirm deletes nothing', async () => {
