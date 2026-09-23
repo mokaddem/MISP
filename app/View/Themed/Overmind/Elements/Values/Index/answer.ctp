@@ -116,7 +116,7 @@ $profileUrl = function ($value) {
 ?>
 <?php   if ($mode === ValueInputTool::MODE_EXTRACT
         && !empty($resolution['lines'])): ?>
-    <p><?= h(sprintf(__n('No value found in that %d line.',
+    <p><?= h(sprintf(__n('No value found in that line.',
         'No value found in those %d lines.',
         $resolution['lines']), $resolution['lines'])) ?></p>
     <p class="vi-quiet"><?= h(__(
