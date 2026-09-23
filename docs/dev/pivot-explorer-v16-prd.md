@@ -548,6 +548,11 @@ a button. This replaces today's silent blank, which four of the six largest even
 Note that D12 **demotes this message considerably**: it now fires only when L0, L1 and L2 are all
 empty, rather than whenever the event is large. A behemoth gets L0's aggregated view instead.
 
+> **Built (task 4, 2026-09-23), with a different action.** The correlation count in the example
+> cannot appear: correlations imply related events, and related events put L0 on the canvas. The
+> message names what is missing and points at the *Event elements* pivot (task 9) instead. Pivotick
+> has no empty state, so the box is MISP's; requested upstream (`prd/misp/empty-canvas-state.md`).
+
 #### D1 — Two edge dimensions, six kinds, plus feed/server nodes ✅ SETTLED
 
 Edges carry **two orthogonal dimensions**, because "show me only analyst relationships" and "show
@@ -1282,7 +1287,7 @@ relationships, and the events in §3.5 as fixtures):
 | 3 | ✅ Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
 | 3b | ✅ L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
 | 3c | ✅ L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
-| 4 | D11 empty-state message, pointing at the correlation pivot | 3c, 5 |
+| 4 | ✅ D11 empty-state message, pointing at the element pivot (an empty seed has no correlations) | 3c, 9 |
 | 5e | ✅ Count source: `/events/correlationCounts/{id}.json` (R1, first slice of D13) | — |
 | 5f | ✅ Fetch path: `POST /events/correlatedAttributes/{id}.json` — the pairs 5e counts, narrowed by `attribute_uuids` or `event_ids` | 5e |
 | 5 | ✅ built, ⏸ edges: correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` from 5f / `maxCandidates` 1,500, no `save` (R1) | 5e, 5f, pivotick fix |
@@ -1300,7 +1305,7 @@ relationships, and the events in §3.5 as fixtures):
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
 `correlation` edges wait on a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
-follows 5, because its message points at the pivot. Enrichment (R3) is not a task here.
+follows 9, whose pivot its message points at. Enrichment (R3) is not a task here.
 
 **✅ Done (prerequisite, not a task above).** The inline JS is extracted out of the `.ctp` into
 `app/webroot/js/pivot-explorer.js`, leaving the element at 117 lines of markup + CSS + config.

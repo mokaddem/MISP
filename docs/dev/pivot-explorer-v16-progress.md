@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `d220446` (v2.0.1 + 29 unreleased commits). PRD §3.7
 - **Last updated:** 2026-09-23
-- **Status:** 15 done · 2 built and blocked upstream (5, 5d) · 7 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); **in progress while the Pivotick fix is out: 4 (6, 9, 10 done)**
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 78 cases, 279 assertions, no dependencies
+- **Status:** 16 done · 2 built and blocked upstream (5, 5d) · 6 not started · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); **done while the Pivotick fix is out: 4, 6, 9, 10**
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 84 cases, 298 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -31,7 +31,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 3 | Generalise `computeConnectivity()` to any authored relationship; analyst-relationship edges as a second layer (L1, D5′) | ✅ | 2 | Also fixed a pre-existing seeding bug — see §2 |
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ✅ | 2 | `7ab4f859f` (2026-08-31), shared with 3c — see §2 |
 | 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ✅ | 3, 3b | `7ab4f859f` (2026-08-31). **Changes what most events draw** — see §2 |
-| 4 | D11 empty-state message, pointing at the correlation pivot | ⬚ | 3c, 5 | Now follows 5: the message points at the pivot |
+| 4 | D11 empty-state message | ✅ | 3c, 9 | 2026-09-23 — points at the element pivot, not the correlation pivot: an empty seed has no correlations to offer. See §2. Upstream: `pivotick/prd/misp/empty-canvas-state.md` |
 | 5e | Count source — `GET /events/correlationCounts/{id}.json` (R1, first slice of D13) | ✅ | — | `7f0b6d041` (2026-09-23) — see §2 |
 | 5f | Fetch path — `POST /events/correlatedAttributes/{id}.json` (`attribute_uuids` / `event_ids`) | ✅ | 5e | `261e06772` — pairs match 5e's counts exactly, per attribute and per event |
 | 5 | Correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | ⏸ | 5e, 5f, **pivotick fix** | `65b782926`. Nodes land; **correlation edges do not** — `pivotick/prd/misp/pivot-edges-to-children.md` |
@@ -52,22 +52,21 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 
 ```
 0 ✅ ─ E ✅ ─ T ✅
-         └──── 1b ⏸ ─┬─ 2 ✅ ─┬─ 3 ✅ ─┬─ 3c ✅ ─ 5 ─ 4 ─ 8 ─ 10 ─┬─ 10b
-                      │        │        │   ↑                     └─ 10c
-                      │        │        │  5e ✅ ─┐
-                      │        ├─ 3b ✅ ─┴─────── 5d
-                      │        ├─ 5b
-                      │        └─ 5c
-                      ├─ 6 ──────────── 7   (also needs 3, 5)
-                      ├─ 9
-                      └─ 11
+         └──── 1b ✅ ─┬─ 2 ✅ ─┬─ 3 ✅ ─┬─ 3c ✅ ─ 5 ⏸ ─ 8
+                       │        │        │  5e ✅ 5f ✅ ┘
+                       │        ├─ 3b ✅ ── 5d ⏸
+                       │        ├─ 5b
+                       │        └─ 5c
+                       ├─ 6 ✅ ─────── 7   (also needs 3, 5)
+                       ├─ 9 ✅ ── 4 ✅
+                       ├─ 10 ✅ ─┬─ 10b
+                       │         └─ 10c
+                       └─ 11
 ```
 
-Task 1b unblocks four independent fronts (2, 6, 9, 11). The seed chain is now complete through
-3c. Under R1 the next link is **task 5**; its count (5e) is built, and what it still needs is a
-fetch path for the correlated elements. The longest chain is `5 → 4 → 8 → 10 → 10b/10c`. Nothing on the write-path branch
-(10, 10c) needs the count: its dependency on 8 is the scope facet, so 10's P0 work — the
-`promptData` picker — could go first if the count question takes time.
+What is left falls in three groups. **Waiting on the Pivotick fix:** 5 and 5d (their edges), then
+8 and 7, which read the correlation layer. **Independent, buildable now:** 10b, 10c, 5b, 5c, 11.
+Task 4 moved off the correlation chain onto 9 (see §2), and 10 off 8.
 
 ---
 
@@ -91,6 +90,7 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | Drawn edges (task 10) | ✅ | Suite 225/225 (9 new: editor gating per role, the ownership gate on both ends, refusal before any form, vocabulary sorted/defaulted/fetched once, the POST and the persisted decision, custom beats list, blank and cancel save nothing, a refused save, the free-text fallback retrying); 7 targeted mutants, 7 caught. Live, admin, event 2014, through Pivotick's click-connect: the form is Pivotick's themed modal with 262 relationships defaulting to `related-to`, the `<script>` row rendered as text (no `<script>` element in the modal); a list choice and a typed one both POST, land as `object-reference` with the typed label, no console error — references 11379/11380, then hard-deleted | The perm-only analyst kind is 10b |
 | Element pivot (task 9) | ✅ | Suite 250/250 (6 new cases: shape, what is offered, search scope, narrowing and summary = fetch, the form's facets and counts, cache invalidation; the tray tests now read the pivot's offer, and the invariant holds against it); 13 targeted mutants, 13 caught. Live, admin, through `graph.pivots` and the real panel/Review tab: 2014 offers its 1 unlinked attribute, ingest puts it on the canvas (29 → 30) and the offer drops to 0, undo takes both back. 4116 offers 28,410 objects (every attribute is inside one); unnarrowed the run is **refused on the cap** (28,410 > 1,500); `80.66.83.162` finds 5 in 197 ms on the first search (search text built then), stages in 70 ms, ingests 5, undo restores. No console error | A read-only user was not driven live — the pivot is declared regardless of edit rights, which the suite checks |
 | Analyst data (task 6) | ✅ | Suite 279/279 (7 new cases: count with replies and without relationships, mood from the element's own opinions, the four band edges, no fields or badge without data, no roll-up onto an object, the panel only where there is data, its entries as text with replies indented, the empty and multi-selection states, the badge click); 13 targeted mutants, 13 caught — three only after the fixture gained a relationship, a 55 and a 0-valued reply, one more after the band edges were added. Live, admin: 3838's object wears one `nw` badge, *1 note or opinion — disputed*, interactive; clicking it shows the panel with *Strongly disagree (10/100) · ORGNAME_6879 · 2026-07-14 · Clearly a FP*. 16's two noted URLs are event-level and unlinked, so not drawn; ingesting `circl.lu` through the element pivot brings one with a *3* badge and three notes in the panel. 2014 (no analyst data) has no panel and no `nw` badge. No console error | Notes on the event node were not seen live — no event with an event-level note also has a related event |
+| Empty canvas (task 4) | ✅ | Suite 298/298 (6 new cases: the statement and its counts without tombstones, the action, the over-budget case beside the resolution line, a bare event with no action, hide on ingest / show on undo / the emptied-by-hand wording, text not markup); 8 targeted mutants, 8 caught. Live, admin: 184 (one attribute, nothing related) opens on the overlay — *Nothing in this event is related yet … Its 1 attribute is listed under Event elements* — the button opens the Pivot panel, ingesting hides it (0 → 1 node), undo brings it back; 2014 keeps it hidden. No console error | — |
 | Pivots (tasks 5, 5d, 5f) | ✅ except edges | Suite 192/192 (8 new: declaration, cap, no `save`, `appliesTo` before/after counts, never this event, fetch bodies, container shape, stable edge ids, this event's side brought along). Live, admin, via `graph.pivots`: `correlatedAttributes` pairs = counts on 1195 (350), 4116 (708), one attribute, one event, and for the org 9 admin (346); Pivot rail button present; `related-event` potential on 23/23 related events of 2014 and 78/89 of 4116 (the other 11 have no count), each equal to 5e; a related-event run ingests its attributes into the proxy (2014: 4, 4116: 33) and undo takes them back | **Correlation edges: 90 staged, 0 landed** — upstream |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
@@ -256,6 +256,19 @@ the canvas. What that changed:
   selected element's notes and opinions as text, replies a step in. The badge carries its own
   `onClick` — select the node, open the sidebar — so the library's related-event potential badges
   keep theirs.
+
+**Task 4 — the message points at the elements, not at correlations.** D11 wrote the message as
+*"No relationships in this event — 5,629 correlations available"*. That cannot occur: the
+correlation counts are a subset of `RelatedEvent`, and any related event puts L0 on the canvas, so
+a seed that drew nothing has no correlation to offer. What an empty canvas does hold is unrelated
+attributes, and objects L2 could not fit — exactly what the element pivot lists. So the statement
+names what is missing, counts what is there, and its one action opens *Event elements*. Two cases
+say something else: an event with no content at all (no action), and a canvas the analyst emptied
+by hand (*The canvas is empty*, since "nothing is related" is only true of the seed).
+
+Pivotick has no empty-canvas state, so this is MISP's own box over its own stage — the one piece of
+chrome in this pass that P0 would rather not have. Requested upstream as
+`pivotick/prd/misp/empty-canvas-state.md`; the statement survives as its `render`.
 
 **Tasks 5 and 5d are blocked on Pivotick, not on MISP.** `PivotManager.ingest()` lands a carried
 edge only when an endpoint is a *top-level* node the run landed: descendants of a new container are

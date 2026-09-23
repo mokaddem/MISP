@@ -37,6 +37,23 @@
         <!-- Graph container (revealed after fetch) -->
         <div id="pivot-explorer-graph"
              style="width:100%;height:72vh;min-height:480px;display:none;"></div>
+
+        <!-- Empty canvas (D11): why nothing is drawn, and where the event's
+             contents are. Filled by pivot-explorer.js; shown only while the
+             canvas holds no node. -->
+        <div id="pe-empty" style="display:none;"></div>
     </div>
 </div>
+
+<style>
+    #pe-empty {
+        position: absolute; inset: 0; z-index: 5; pointer-events: none;
+        display: flex; align-items: center; justify-content: center;
+    }
+    #pe-empty .pe-empty-box {
+        pointer-events: auto; max-width: 28rem; padding: 1rem 1.25rem;
+        border-radius: 8px; text-align: center; color: #e6e8ea;
+        background: rgba(28, 33, 40, .92); border: 1px solid rgba(255, 255, 255, .14);
+    }
+</style>
 

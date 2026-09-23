@@ -106,6 +106,7 @@ function buildGraph(payload, options) {
         'pe-card': card,
         'pe-stage': makeEl('div'),
         'pe-resolution': makeEl('div'),
+        'pe-empty': makeEl('div'),
         'pivot-explorer-loader': makeEl('div'),
         'pivot-explorer-graph': makeEl('div'),
         'tab-pivot-explorer': pane,
@@ -130,6 +131,8 @@ function buildGraph(payload, options) {
                     (nodes || []).forEach(n => { drawn[n.id] = n; index(n.children); });
                 })(data.nodes);
                 this.getNode = id => drawn[id] || undefined;
+                this.nodeList = data.nodes.slice();
+                this.getNodes = () => this.nodeList;
                 this.listeners = {};
                 this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
                 this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
@@ -176,6 +179,7 @@ function buildGraph(payload, options) {
             graph: constructed.graph,
             resolution: byId['pe-resolution'].textContent,
             resolutionShown: byId['pe-resolution'].style.display === '',
+            empty: byId['pe-empty'],
             win: sandbox.window,
             fetchLog,
             tray, errors,
@@ -1491,6 +1495,69 @@ test('clicking the badge selects its node and opens the sidebar', async () => {
     badgesOf(g, n.getData())[0].onClick({}, n);
     eq('selected', g.graph.selected, [n]);
     eq('sidebar shown', g.graph.UIManager.sidebar.shown, 1);
+});
+
+/* ─────────────────── task 4: the empty canvas (D11) ─────────────────── */
+
+const emptyText = g => panelText(g.empty);
+const emptyButton = g => findByClass(g.empty, 'btn')[0];
+
+test('a canvas with nothing on it says why, and where the contents are', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' }), attr({ uuid: 'a2' }), attr({ uuid: 'gone', deleted: true })] }));
+    eq('nothing drawn', g.nodes, []);
+    eq('shown', g.empty.style.display, '');
+    const t = emptyText(g);
+    ok('it names what is missing, correlations included', t.indexOf('Nothing in this event is related yet') !== -1
+       && t.indexOf('No object references, analyst relationships or correlations') !== -1, t);
+    ok('and counts what is there, deleted ones aside', t.indexOf('Its 2 attributes are listed under Event elements') !== -1, t);
+    eq('one action', emptyButton(g).textContent, 'Browse event elements');
+});
+
+test('the action opens the element pivot', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' })] }));
+    const calls = [];
+    g.graph.UIManager.openPivotMode = (nodes, id) => calls.push([nodes, id]);
+    emptyButton(g)._listeners.click[0]();
+    eq('with no origin', calls, [[[], 'event-elements']]);
+    ok('singular', emptyText(g).indexOf('Its 1 attribute is listed') !== -1, emptyText(g));
+});
+
+test('an event whose objects blow the budget says so too', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' })], Object: fillers(1501) }));
+    eq('nothing drawn', g.nodes, []);
+    ok('both counted', emptyText(g).indexOf('Its 1 attribute and 1501 objects are listed') !== -1, emptyText(g));
+    eq('the resolution line still states the skip', g.resolution, 'L2 skipped (1501 objects not shown)');
+});
+
+test('an event with no content at all offers nothing to browse', async () => {
+    const g = await buildGraph(ev({}));
+    ok('says it', emptyText(g).indexOf('This event has no attributes or objects to draw.') !== -1, emptyText(g));
+    ok('no button', !emptyButton(g));
+});
+
+test('a drawn graph hides it, and it follows the canvas as nodes come and go', async () => {
+    const drawn = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    eq('hidden when anything is drawn', drawn.empty.style.display, 'none');
+    drawn.graph.nodeList.length = 0;
+    drawn.graph.listeners.dataBatchChanged.forEach(f => f());
+    eq('emptied by hand, it shows', drawn.empty.style.display, '');
+    ok('without claiming nothing is related', emptyText(drawn).indexOf('The canvas is empty') !== -1
+       && emptyText(drawn).indexOf('related') === -1, emptyText(drawn));
+    ok('and still points at the elements', emptyText(drawn).indexOf("The event's 1 object is listed under Event elements") !== -1, emptyText(drawn));
+
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' })] }));
+    const fire = () => g.graph.listeners.dataBatchChanged.forEach(f => f());
+    g.graph.nodeList.push({ id: 'attr:a1' });
+    fire();
+    eq('an ingest hides it', g.empty.style.display, 'none');
+    g.graph.nodeList.pop();
+    fire();
+    eq('undoing the ingest brings it back', g.empty.style.display, '');
+});
+
+test('the statement is text, never markup', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' })] }));
+    eq('no innerHTML beyond the clear', g.empty.innerHTML, '');
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

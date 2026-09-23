@@ -1007,6 +1007,77 @@
         graph.on('nodeRemove', drop);
     }
 
+    /* ── the empty canvas (D11) ────────────────────────────── */
+    // A canvas with nothing on it says why, and where the event's contents
+    // are. Correlations are never the answer here: any correlated event puts
+    // L0 on the canvas, so an empty seed has none to offer.
+    function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+    // `seededEmpty`: the seed drew nothing. Otherwise the analyst emptied the
+    // canvas, and "nothing is related" would be false.
+    function emptyStatement(ev, seededEmpty) {
+        var attrs = 0, objs = 0;
+        (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a)) attrs++; });
+        (ev.Object || []).forEach(function (o) { if (!isDeleted(o)) objs++; });
+        if (!attrs && !objs) {
+            return { title: 'This event has no attributes or objects to draw.', detail: '', action: false };
+        }
+        var parts = [];
+        if (attrs) parts.push(plural(attrs, 'attribute', 'attributes'));
+        if (objs)  parts.push(plural(objs, 'object', 'objects'));
+        var listed = parts.join(' and ') + (attrs + objs === 1 ? ' is' : ' are')
+                     + ' listed under Event elements, to search and add.';
+        return seededEmpty ? {
+            title:  'Nothing in this event is related yet',
+            detail: 'No object references, analyst relationships or correlations to draw. Its ' + listed,
+            action: true
+        } : {
+            title:  'The canvas is empty',
+            detail: 'The event\'s ' + listed,
+            action: true
+        };
+    }
+
+    function renderEmptyState(el, statement) {
+        el.innerHTML = '';
+        var box = document.createElement('div');
+        box.className = 'pe-empty-box';
+        var h = document.createElement('div');
+        h.className = 'fw-semibold';
+        h.textContent = statement.title;
+        box.appendChild(h);
+        if (statement.detail) {
+            var p = document.createElement('div');
+            p.className = 'small opacity-75 mt-1';
+            p.textContent = statement.detail;
+            box.appendChild(p);
+        }
+        if (statement.action) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-primary mt-2';
+            btn.textContent = 'Browse event elements';
+            btn.addEventListener('click', function () {
+                if (_graph && _graph.UIManager && typeof _graph.UIManager.openPivotMode === 'function') {
+                    _graph.UIManager.openPivotMode([], ELEMENT_PIVOT);
+                }
+            });
+            box.appendChild(btn);
+        }
+        el.appendChild(box);
+    }
+
+    // Shown while the canvas holds nothing, so an ingest hides it and undoing
+    // that ingest brings it back.
+    function watchEmptyCanvas(graph, ev) {
+        var el = document.getElementById('pe-empty');
+        if (!el || !graph || typeof graph.getNodes !== 'function') return;
+        renderEmptyState(el, emptyStatement(ev, !graph.getNodes().length));
+        function update() { el.style.display = graph.getNodes().length ? 'none' : ''; }
+        update();
+        if (typeof graph.on === 'function') graph.on('dataBatchChanged', update);
+    }
+
     /* ── pivotick options ──────────────────────────────────── */
     function graphOptions() {
         return {
@@ -1176,6 +1247,7 @@
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
                 watchElementPivot(_graph);
+                watchEmptyCanvas(_graph, (event && event.Event) || {});
                 loadCorrelationCounts(_graph);
             })
             .catch(function (err) {
