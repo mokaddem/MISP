@@ -2621,7 +2621,7 @@ class ValueProfile extends AppModel
         // After both tag attaches: a row's clusters are the galaxy tags
         // of either scope, ruled on together in one call.
         $this->attachClusters($user, $rows);
-        $this->attachProposalCounts($rows);
+        $this->attachProposalCounts($rows, true);
         $this->attachEffectiveDistribution($user, $rows);
         $this->attachFeedHits($user, $rows);
 
@@ -3719,25 +3719,25 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * How many pending shadow attributes propose a change to each row.
-     *
-     * A tier-2 aggregate over an already-ACL'd id set, and the written
-     * reason §14.4 asks for: the answer is a count per row, and a
-     * proposal row carries a value, a comment, a type and a category
-     * this panel never renders.
+     * The pending shadow attributes proposing a change to each row.
      *
      * The id set comes from the row fetch rather than from a second
      * resolution of the value, so permissions were settled before the
-     * aggregate ran and the two cannot drift.
+     * read ran and the two cannot drift.
      * `ShadowAttribute::buildConditions()` mirrors the attribute
-     * visibility model — a proposal is visible to whoever may see the
-     * attribute it proposes against — so it is already satisfied by the
+     * visibility model — a proposal against an attribute is visible to
+     * whoever may see that attribute — so it is already satisfied by the
      * set this receives and re-applying it would only re-join `events`.
      *
+     * Every caller gets `proposal_count`. With `$content`, each row also
+     * gets `proposals`: who proposed what, as the field changes accepting
+     * it would make. The proposer's email is not read.
+     *
      * @param array $rows
+     * @param bool $content
      * @return void
      */
-    private function attachProposalCounts(array &$rows)
+    private function attachProposalCounts(array &$rows, $content = false)
     {
         if (empty($rows)) {
             return;
@@ -3746,33 +3746,148 @@ class ValueProfile extends AppModel
         foreach ($rows as $row) {
             $ids[] = $row['Attribute']['id'];
         }
-        $counts = $this->model('ShadowAttribute')->find('all', array(
-            'fields' => array(
-                'ShadowAttribute.old_id',
-                'COUNT(*) AS proposal_count',
-            ),
-            'conditions' => array(
-                'ShadowAttribute.old_id' => $ids,
-                // A soft-deleted proposal is a withdrawn one, and the
-                // badge means "somebody is waiting on you".
-                'ShadowAttribute.deleted' => 0,
-            ),
-            'group' => array('ShadowAttribute.old_id'),
-            'recursive' => -1,
-        ));
+        $conditions = array(
+            'ShadowAttribute.old_id' => $ids,
+            // A soft-deleted proposal is a resolved one, and the badge
+            // means "somebody is waiting on you".
+            'ShadowAttribute.deleted' => 0,
+        );
         $byAttribute = array();
-        foreach ($counts as $count) {
-            $byAttribute[$count['ShadowAttribute']['old_id']] =
-                (int)$count[0]['proposal_count'];
+        if ($content) {
+            $proposals = $this->model('ShadowAttribute')->find('all', array(
+                'fields' => array(
+                    'ShadowAttribute.id',
+                    'ShadowAttribute.old_id',
+                    'ShadowAttribute.event_id',
+                    'ShadowAttribute.type',
+                    'ShadowAttribute.category',
+                    'ShadowAttribute.value1',
+                    'ShadowAttribute.value2',
+                    'ShadowAttribute.to_ids',
+                    'ShadowAttribute.comment',
+                    'ShadowAttribute.first_seen',
+                    'ShadowAttribute.last_seen',
+                    'ShadowAttribute.proposal_to_delete',
+                    'ShadowAttribute.timestamp',
+                    'ShadowAttribute.org_id',
+                ),
+                'conditions' => $conditions,
+                'contain' => array('Org' => array('fields' => array('name'))),
+                'order' => array('ShadowAttribute.timestamp' => 'DESC'),
+            ));
+            foreach ($proposals as $proposal) {
+                $byAttribute[$proposal['ShadowAttribute']['old_id']][] =
+                    $proposal;
+            }
+        } else {
+            $counts = $this->model('ShadowAttribute')->find('all', array(
+                'fields' => array(
+                    'ShadowAttribute.old_id',
+                    'COUNT(*) AS proposal_count',
+                ),
+                'conditions' => $conditions,
+                'group' => array('ShadowAttribute.old_id'),
+                'recursive' => -1,
+            ));
+            foreach ($counts as $count) {
+                $byAttribute[$count['ShadowAttribute']['old_id']] =
+                    (int)$count[0]['proposal_count'];
+            }
         }
         foreach ($rows as &$row) {
-            $row['proposal_count'] = isset(
-                $byAttribute[$row['Attribute']['id']]
-            )
-                ? $byAttribute[$row['Attribute']['id']]
-                : 0;
+            $found = $byAttribute[$row['Attribute']['id']] ?? null;
+            if (!$content) {
+                $row['proposal_count'] = $found ?? 0;
+                continue;
+            }
+            $row['proposal_count'] = $found === null ? 0 : count($found);
+            $row['proposals'] = array();
+            foreach ($found ?? array() as $proposal) {
+                $row['proposals'][] = self::proposalChange(
+                    $row['Attribute'],
+                    $proposal
+                );
+            }
         }
         unset($row);
+    }
+
+    /**
+     * What accepting one proposal would do to the attribute it targets:
+     * the fields `ShadowAttribute::acceptProposal()` copies across, each
+     * one that differs as a was/is pair.
+     *
+     * @param array $attribute The row's `Attribute`
+     * @param array $proposal A `ShadowAttribute` row with its `Org`
+     * @return array `id`, `event_id`, `org`, `timestamp`, `op`
+     *     (delete | replace | refile | none), `change`
+     */
+    private static function proposalChange(array $attribute, array $proposal)
+    {
+        $shadow = $proposal['ShadowAttribute'];
+        $item = array(
+            'id' => (int)$shadow['id'],
+            'event_id' => (int)$shadow['event_id'],
+            'org' => $proposal['Org']['name'] ?? __('Unknown organisation'),
+            'timestamp' => (int)$shadow['timestamp'],
+            'op' => 'delete',
+            'change' => array(),
+        );
+        if (!empty($shadow['proposal_to_delete'])) {
+            return $item;
+        }
+        $value = $shadow['value2'] === '' || $shadow['value2'] === null
+            ? (string)$shadow['value1']
+            : $shadow['value1'] . '|' . $shadow['value2'];
+        $seen = function ($iso) {
+            return empty($iso) ? '' : date('Y-m-d H:i', strtotime($iso));
+        };
+        $yesNo = function ($flag) {
+            return empty($flag) ? __('no') : __('yes');
+        };
+        $pairs = array(
+            'value' => array((string)$attribute['value'], $value),
+            'category' => array(
+                (string)$attribute['category'],
+                (string)$shadow['category'],
+            ),
+            'type' => array(
+                (string)$attribute['type'],
+                (string)$shadow['type'],
+            ),
+            'to_ids' => array(
+                $yesNo($attribute['to_ids']),
+                $yesNo($shadow['to_ids']),
+            ),
+            'comment' => array(
+                (string)$attribute['comment'],
+                (string)$shadow['comment'],
+            ),
+            'first_seen' => array(
+                $seen($attribute['first_seen'] ?? null),
+                $seen($shadow['first_seen'] ?? null),
+            ),
+            'last_seen' => array(
+                $seen($attribute['last_seen'] ?? null),
+                $seen($shadow['last_seen'] ?? null),
+            ),
+        );
+        foreach ($pairs as $field => $pair) {
+            if ($pair[0] !== $pair[1]) {
+                $item['change'][] = array(
+                    'field' => $field,
+                    'was' => $pair[0],
+                    'is' => $pair[1],
+                );
+            }
+        }
+        if (empty($item['change'])) {
+            $item['op'] = 'none';
+        } else {
+            $item['op'] = $pairs['value'][0] === $pairs['value'][1]
+                ? 'refile' : 'replace';
+        }
+        return $item;
     }
 
     /**

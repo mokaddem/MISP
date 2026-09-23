@@ -376,9 +376,31 @@ $feedCell = function ($row) use ($baseurl) {
         . '<i class="fas fa-rss me-1"></i>' . $label . '</a>';
 };
 
-$stateCell = function ($row) {
+$stateCell = function ($row) use ($view) {
     $badges = array();
-    if (!empty($row['proposal_count'])) {
+    if (!empty($row['proposals'])) {
+        /*
+         * `fixed`, so the menu is not clipped by the table's scrolling
+         * wrapper.
+         */
+        $badges[] = '<div class="dropdown d-inline-block">'
+            . '<button type="button" class="badge d-inline-flex'
+            . ' align-items-center gap-1 bg-warning-subtle'
+            . ' text-warning-emphasis border border-warning-subtle"'
+            . ' data-bs-toggle="dropdown" data-bs-auto-close="outside"'
+            . ' data-bs-popper-config=\'{"strategy":"fixed"}\''
+            . ' aria-expanded="false" title="' . h(__n(
+                'A pending proposal changes this occurrence',
+                '%d pending proposals change this occurrence',
+                count($row['proposals'])
+            )) . '">'
+            . '<i class="fas fa-code-pull-request"></i>'
+            . h(count($row['proposals'])) . '</button>'
+            . $view->element('Values/View/value_occurrence_proposals', array(
+                'proposals' => $row['proposals'],
+            ))
+            . '</div>';
+    } elseif (!empty($row['proposal_count'])) {
         $badges[] = '<span class="badge d-inline-flex align-items-center'
             . ' gap-1 bg-warning-subtle text-warning-emphasis'
             . ' border border-warning-subtle" title="'

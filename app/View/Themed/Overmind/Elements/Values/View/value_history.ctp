@@ -559,45 +559,15 @@ $renderRow = function ($row) use ($baseurl, $fmt) {
         <?php if (!empty($row['change'])): ?>
             <?php
             /*
-             * **From the row, and there is no second request.** The
-             * fixture-era note here nominated
-             * `AuditLogsController::fullChange` for the live version.
-             * That endpoint cannot serve this panel: it opens with
-             * `__applyAuditAcl`, which restricts a non-site-admin to
-             * their own `user_id`, so on an instance where one
-             * organisation wrote most of the audit log it answers 404
-             * for almost every diff already on screen. `auditRowsFor`
-             * fetches `change` with the row instead, and
-             * `AuditLog::afterFind` has already decompressed it.
-             * `27-history.md` §9.
+             * From the row rather than `AuditLogsController::fullChange`,
+             * whose `__applyAuditAcl` restricts a non-site-admin to their
+             * own `user_id` and would 404 on most diffs on screen.
              */
             ?>
-            <table class="vp-audit-diff d-none">
-                <?php foreach ($row['change'] as $change): ?>
-                    <tr>
-                        <th><?= h($change['field']) ?></th>
-                        <td>
-                            <?php if ($change['was'] === ''): ?>
-                                <em class="text-muted">
-                                    <?= __('not set') ?>
-                                </em>
-                            <?php else: ?>
-                                <s><?= h($change['was']) ?></s>
-                            <?php endif; ?>
-                        </td>
-                        <td><i class="fas fa-arrow-right"></i></td>
-                        <td>
-                            <?php if ($change['is'] === ''): ?>
-                                <em class="text-muted">
-                                    <?= __('cleared') ?>
-                                </em>
-                            <?php else: ?>
-                                <?= h($change['is']) ?>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </table>
+            <?= $this->element('Values/View/value_change_table', array(
+                'changes' => $row['change'],
+                'class' => 'd-none',
+            )) ?>
         <?php endif; ?>
 
         </div>
