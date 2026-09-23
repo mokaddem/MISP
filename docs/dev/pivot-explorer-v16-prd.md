@@ -1,8 +1,9 @@
 # PRD: Pivot Explorer — leveraging Pivotick on `/events/view2`
 
 **Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then
-revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). R1/R2's count source is built
-(`GET /events/correlationCounts/{id}.json` (`7f0b6d041`)).
+revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). **Every §9 task is built**
+(2026-09-23); what is still owed is §8's unchecked items and §11's open questions. State lives in
+[`pivot-explorer-v16-progress.md`](pivot-explorer-v16-progress.md).
 
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
@@ -1314,32 +1315,44 @@ Two smaller items:
 ## 8. Test Plan
 
 Manual, on `/events/view2/{id}` against the dev instance (75 notes, 43 opinions, 120 analyst
-relationships, and the events in §3.5 as fixtures):
+relationships, and the events in §3.5 as fixtures). Each item says what checked it — the
+progress file's §2 ledger has the detail — or what is **still owed**. The tray and the dock pane
+that items 1 and 9 first described were retired by task 9's element pivot (§11.7); the items now
+test what replaced them.
 
-1. **Upgrade regression** — graph renders, objects expand, chips drag in, an edge can be created
-   and persists. Gate before any new feature lands.
-2. Event 1195 (2,362 refs): seeds with the authored spine; layers toggle independently; layout,
-   selection and camera unchanged across a toggle.
-3. Event 4116 (0 refs, 5,629 correlations): D11 message appears; correlation fetch is capped;
-   the graph is navigable afterwards.
-4. An event with references *and* analyst relationships shows both layers distinctly.
-5. Badges appear only on elements with analyst data; clicking one opens the panel; clicking a
-   node's shape still selects it.
-6. Legend: three sections folding independently; two sections filtering AND together;
-   `Relationship` section and the panel's `Relationships` section stay in sync.
-7. Provenance: an `extended:1` event's foreign nodes are visually identical to local ones (D2c);
-   the `scope` facet isolates each set; the header states which event seeded the graph; a
-   correlated-event proxy navigates on double-click.
-8. Write gating: with `$mayModify` false, no Create affordances in the chrome at all; with it
-   true, an invalid connect target is marked during the drag, a vetoed edge leaves no node
-   behind, a persisted edge survives reload.
-8b. Deletion (D6): deleting an edge confirms, names the relationship, and the deletion survives
-   reload; deleting a node is refused with the Hide explanation and removes nothing; a
-   multi-selection containing both nodes and edges is refused whole rather than partially applied.
-8c. Physics (D7): the opening frame matches today's layout on event 1195, and a 1,500-node L2 seed
-   is legibly spaced rather than piled up.
-9. Dock: pane lists the event, filter narrows it, scroll position survives a tab switch.
-10. An event with zero analyst data renders exactly as before (no badges, no empty sections).
+1. ✅ **Upgrade regression** — graph renders, objects expand, the element pivot puts an element on
+   the canvas, an edge can be created and persists across a reload (1b, 9).
+2. Event 1195 (2,362 refs): ✅ seeds with the authored spine (1b); ✅ layers toggle independently
+   (7, on 2014). **Still owed:** layout, selection and camera measured unchanged across a toggle.
+3. ✅ The empty canvas: D11's card on 184 (4). Event 4116 (0 refs, 5,629 correlations) is never
+   empty — its related events seed L0 — so it tests the caps instead: the element pivot is refused
+   past 1,500 candidates, and related-event pulls land and undo cleanly (5, 9).
+4. ✅ References *and* analyst relationships drawn as two layers on one event (10b, 2014).
+5. ✅ Badges only on elements with analyst data; clicking one opens the panel (6).
+   **Still owed:** that clicking the node's shape beside the badge still selects it.
+6. Legend: ✅ the Relationship section drives the panel's layer filter and stays in sync (7).
+   It has two sections, not three — provenance is a facet, not a legend section. **Still owed:**
+   sections folding independently; two sections filtering together.
+7. Provenance: ✅ the `scope` facet isolates each set, and the header states which event seeded
+   the graph (8). **Still owed:** an `extended:1` event's foreign nodes looking identical to local
+   ones — the explorer fetches without `extended:1`, so none have been seen; a correlated-event
+   proxy navigating on double-click (unit-tested only).
+8. Write gating: ✅ read-only users get no write affordance at all (R5); ✅ a persisted edge survives
+   a reload (1b, 10). **Still owed:** an invalid target marked during the drag; a vetoed edge
+   leaving nothing behind.
+8b. ✅ Deletion (D6): an edge's delete confirms, names the relationship and survives a reload; a
+   node's is refused with the Hide explanation (10c). **Still owed:** the bulk-action and
+   context-menu delete buttons clicked live, and a mixed node-and-edge selection refused whole
+   there (both route through the tested `requestDelete`).
+8c. ✅ Physics (D7): 2014's opening frame is today's; 1195 re-tunes to an even disc (11).
+   **Still owed:** a 1,500-node L2 seed checked for spacing.
+9. Element pivot, which replaced the dock pane: ✅ lists what the canvas lacks, search narrows it,
+   ingest and undo (9). **Still owed:** the Review tab's scroll position surviving a tab switch.
+10. ✅ An event with no analyst data draws no badge and no panel (6, 2014).
+11. ✅ Edge types: the Asserts box keeps what matches, case-blind, and hides correlations (5c).
+12. ✅ Feeds: one node per feed, edges matching the payload, the degraded badge and total (5b).
+    **Still owed:** a foreign org's analyst relationship seen spared by a delete; a note on the
+    event node itself — no event at hand had either.
 
 ## 9. Implementation Plan (sequential, one commit per task)
 
@@ -1413,18 +1426,19 @@ of D13.
    objects do not. This is the natural successor to D10's ceiling and needs a new endpoint.
 2. **Lazy expansion.** `childrenProvider` / a fired `onBeforeNodeExpansion` is the one library
    PRD from the set that did not ship (`prd/misp/async-children-provider.md`, still *Proposed*).
-   Until it lands, correlated events cannot expand in place. Highest-value remaining library ask —
-   unless a pivot on the proxy node is enough, which §3.7 asks.
+   R2 made the related-event pivot the stand-in (5d): a proxy does not expand in place, but its
+   pivot brings its elements in. **Open:** whether in-place expansion is still wanted on top.
 3. **Declarative initial filter value** (library ask). `FilterOptions`/`FilterFacet` carry no
    opening value (§3.2). Not needed under D9, but any future default-off layer needs it, and it
    would let a filter apply before the first layout as v1.6.0 intends.
-4. **A dedicated correlation endpoint** — folded into D13's graph endpoint
-   ([`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md)) rather than
-   built separately; until it lands, §6.7 refetches the event with a named parameter.
+4. ✅ **A dedicated correlation endpoint** — built as two, not folded into D13's graph endpoint:
+   `GET /events/correlationCounts/{id}.json` (5e) for what a pivot would bring, and
+   `POST /events/correlatedAttributes/{id}.json` (5f) for the pairs. Nothing refetches the event.
 5. **The pivot entry point** — a route seeding the same component from one indicator, defaulting
    to Explore. §4 keeps it out of scope; the seed/mode parameterisation is designed for it.
-6. **Analyst-data and enrichment write paths** — both gated in §2.2's taxonomy, neither built.
-   Analyst assertion is the natural first one, since D8 already says it is offered everywhere.
+6. **Analyst-data and enrichment write paths.** ✅ Analyst relationships are written and deleted
+   from the graph (10b). Notes and opinions stay read-only (§4). **Open:** enrichment, deferred
+   to its own pass as pivots (R3).
 7. ✅ **Dock paging** — answered by task 9 as proposed here. Under P0, the answer: the unlinked-element
    list becomes an **origin-less pivot** (`origin: 'none'`) whose Review tab *is* the searchable,
    filterable, paged table, and whose ingest *is* putting elements on the canvas — which retires
@@ -1432,5 +1446,11 @@ of D13.
 8. **Extended-event enclosure** — does a foreign event get a container, and can object clusters
    nest inside it three levels deep (event → object → attribute)?
 9. ✅ **Badge aggregation** — neither (task 6): an object's badge is the object's own; its attributes wear theirs.
-10. **Physics `'auto'`** (D7 deferred) — worth an isolated before/after on a large event.
-11. **`RelatedAttribute` cost.** Measure on a heavily-correlated event before shipping task 5.
+10. ✅ **Physics `'auto'`** — shipped (11): skipped inside its deadband on 2014, re-tuning 1195 to
+    rest in 7–10 s. The timings were taken on a loaded machine, so no before/after figure is
+    recorded.
+11. ✅ **`RelatedAttribute` cost** — never paid: correlations come from 5e/5f's endpoints, measured
+    on 1195 and 4116 before task 5 shipped, not from `RelatedAttribute` in the event payload.
+12. **Edges out of a nested child** — a Pivotick defect (§7), left to the Pivotick project
+    (`pivotick/prd/misp/edges-out-of-children.md`). Until it is fixed, an analyst relationship from
+    an object's attribute to anything outside that object is not drawn.
