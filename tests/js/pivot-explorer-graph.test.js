@@ -371,18 +371,20 @@ test('image attachments carry image + imageUrl; other attachments do not', async
     eq('image flagged (extension match is case-insensitive)', img.image, true);
     eq('thumbnail URL is the ACL-checked viewPicture route',
        img.imageUrl, '/misp/attributes/viewPicture/img/webp');
-    ok('non-image attachment has no image key', !('image' in doc), JSON.stringify(doc));
-    ok('non-image attachment has no imageUrl key', !('imageUrl' in doc));
+    ok('non-image attachment is not flagged', doc.image == null, JSON.stringify(doc));
+    ok('non-image attachment has no imageUrl', doc.imageUrl == null);
 });
 
-test('null fields are dropped from node data (pivotick indexes every value and calls .length)', async () => {
+// Pivotick skips a null or undefined value everywhere it scans data (filter,
+// table, Review tab, properties), so node data is passed as the payload has it.
+test('a field the payload leaves null is carried as null, not stripped', async () => {
     const g = await buildGraph(ev({
         Attribute: [attr({ uuid: 'e1', object_relation: null, comment: null, category: 'Other' })],
         Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
     }));
     const d = byId(g.nodes, 'attr:e1').data;
-    ok('object_relation key absent, not null', !('object_relation' in d), JSON.stringify(d));
-    ok('comment key absent, not null', !('comment' in d));
+    eq('object_relation and comment as the payload has them',
+       [d.object_relation, d.comment], [null, null]);
     ok('a present value survives', d.category === 'Other');
 });
 
@@ -798,7 +800,7 @@ test('tombstones apply to analyst relationships too', async () => {
        g.resolution, 'Seeded L2 · 3 nodes');
 });
 
-test('null provenance is dropped from edge data, not carried as null', async () => {
+test('null provenance on an analyst relationship is carried as null', async () => {
     const g = await buildGraph(ev({ Object: [
         obj({ uuid: 'A', Relationship: [
             arel({ object_uuid: 'A', related_object_uuid: 'B', authors: null, orgc_uuid: null }),
@@ -806,8 +808,7 @@ test('null provenance is dropped from edge data, not carried as null', async () 
         obj({ uuid: 'B' }),
     ] }));
     const d = g.edges[0].data;
-    ok('authors key absent', !('authors' in d), JSON.stringify(d));
-    ok('orgc key absent', !('orgc' in d));
+    eq('authors and orgc as the payload has them', [d.authors, d.orgc], [null, null]);
     eq('the kind and label survive', [d.kind, d.label], ['analyst-relationship', 'analysed-with']);
 });
 
@@ -2034,7 +2035,7 @@ test('5b: one node per feed, joined to every drawn attribute seen in it', async 
         type: 'feed', label: 'CIRCL OSINT Feed', description: 'CIRCL · misp feed', source_id: '1',
         provider: 'CIRCL', url: 'https://x/osint', source_format: 'misp', feed_events: 2, scope: 'foreign' });
     ok('no name key — that is the Object facet', !('name' in f));
-    ok('no feed_events without a MISP-format feed', !('feed_events' in byId(g.nodes, 'feed:9').data));
+    ok('no feed_events without a MISP-format feed', byId(g.nodes, 'feed:9').data.feed_events == null);
 });
 
 test('5b: the source map is read by id, as a list or keyed', async () => {
@@ -2081,8 +2082,8 @@ test('5b: past 10,000 hits, a badge on each attribute and the total in the state
     ok('no feed edge', !g.edges.some(e => e.data.kind === 'feed-correlation'));
     const c1 = byId(g.nodes, 'obj:A').children.find(c => c.id === 'attr:c1').data;
     const c2 = byId(g.nodes, 'obj:A').children.find(c => c.id === 'attr:c2').data;
-    eq('the flag rides on the node', [byId(g.nodes, 'attr:e1').data.feed_hit, c1.feed_hit, 'feed_hit' in c2],
-       [true, true, false]);
+    eq('the flag rides on the node', [byId(g.nodes, 'attr:e1').data.feed_hit, c1.feed_hit, c2.feed_hit == null],
+       [true, true, true]);
     const b = badgesOf(g, c1);
     eq('one badge, bottom-left, off the analyst corner', b.map(x => [x.position, x.iconClass, x.color]),
        [['sw', 'fas fa-rss', '#5bc0de']]);

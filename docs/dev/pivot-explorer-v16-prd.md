@@ -1390,7 +1390,7 @@ library features it rebuilt by hand or left unused. One commit each:
 | 13 | ✅ Labels carry the whole value; the canvas's `textTruncate` shortens them, not a 42-character cut | — |
 | 14 | ✅ The Asserts box is Pivotick's `regex` facet, case-blind, instead of MISP's own predicate (5c) | 5c |
 | 15 | Correlated attributes and objects declare their correlation count as rim potential, like related events (R2) | 5, 5d |
-| 16 | Drop `compact()` if null data values no longer break the library | 8 |
+| 16 | ✅ Drop `compact()`: Pivotick skips null data values everywhere it scans (since `4d71efb`), so node and edge data pass as the payload has them | 8 |
 | 17 | The analyst panel through the library's panel lifecycle; the sidebar's fields declared | 6 |
 | 18 | Node context menu: open the element in MISP, copy its value | — |
 

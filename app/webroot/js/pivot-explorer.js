@@ -38,17 +38,6 @@
         return str.length > max ? str.substring(0, max - 1) + '…' : str;
     }
 
-    // Drop null/undefined fields from node data: pivotick's filter builder
-    // indexes every data value and calls `.length` on it, so a null/undefined
-    // value (e.g. object_relation on an event-level attribute) crashes it.
-    function compact(obj) {
-        var out = {};
-        for (var k in obj) {
-            if (obj[k] != null) out[k] = obj[k];   // skips both null and undefined
-        }
-        return out;
-    }
-
     // Screenshots and other pictures are stored as `attachment` attributes whose
     // value is an image filename — mirror MispAttribute::isImage() server-side.
     function isImageAttribute(attr) {
@@ -86,7 +75,7 @@
     function attributeNodeData(attr, owner) {
         var val   = attr.value != null ? String(attr.value) : '';
         var isImg = isImageAttribute(attr);
-        return compact(Object.assign({
+        return Object.assign({
             type:            'attribute',
             label:           val,
             description:     (attr.object_relation ? attr.object_relation + ' · ' : '')
@@ -101,7 +90,7 @@
             image:           isImg || undefined,
             imageUrl:        isImg ? attributeImageUrl(attr) : undefined,
             feed_hit:        attr.FeedHit ? true : undefined
-        }, owner, analystFields(attr)));
+        }, owner, analystFields(attr));
     }
 
     // Soft-deleted records (deleted=1) are tombstones — refs create no edge and
@@ -329,7 +318,7 @@
         var meta = [];
         if (e.date) meta.push(String(e.date));
         if (org)    meta.push(org);
-        return compact(Object.assign({
+        return Object.assign({
             type:        'event',
             label:       info || ('Event ' + (e.id || '')),
             description: meta.join(' · ') || 'Event',
@@ -337,19 +326,19 @@
             date:        e.date,
             org:         org || undefined,
             uuid:        e.uuid
-        }, provenance(e.id, e.uuid), analystFields(e)));
+        }, provenance(e.id, e.uuid), analystFields(e));
     }
 
     // Shared object node data (graph builder + element pivot).
     function objectNodeData(obj, owner) {
-        return compact(Object.assign({
+        return Object.assign({
             type:            'object',
             label:           obj.name || 'Object',
             description:     obj['meta-category'] ? (obj['meta-category'] + ' object') : 'Object',
             name:            obj.name,
             'meta-category': obj['meta-category'],
             uuid:            obj.uuid
-        }, owner, analystFields(obj)));
+        }, owner, analystFields(obj));
     }
 
     // A feed or server this event's values were seen in: one node per source,
@@ -363,7 +352,7 @@
 
     function sourceNodeData(type, src) {
         var fmt = src.source_format ? src.source_format + ' feed' : '';
-        return compact({
+        return {
             type:          type,
             label:         src.name || (type + ' ' + src.id),
             description:   [src.provider, fmt].filter(Boolean).join(' · ')
@@ -376,7 +365,7 @@
             // Not this event's. Provenance is binary (D2); the node's type
             // already says it is a feed and not another event.
             scope:         'foreign'
-        });
+        };
     }
 
     /* ── misp-iconify (webfont) integration ────────────────── */
@@ -430,11 +419,7 @@
             var key = kind + ' ' + from + ' ' + to + ' ' + (label || '');
             if (edgeSet[key]) return false;
             edgeSet[key] = true;
-            var data = { kind: kind, label: label || '' };
-            // Same null-dropping as node data: a null value breaks the filter builder.
-            for (var k in (extra || {})) {
-                if (extra[k] != null) data[k] = extra[k];
-            }
+            var data = Object.assign({ kind: kind, label: label || '' }, extra);
             edges.push({ from: from, to: to, data: data });
             return true;
         }
