@@ -1185,7 +1185,19 @@ const pair = (src, uuid, evId, evUuid) => ({
     Event: { id: evId, uuid: evUuid, info: 'Event ' + evId },
     Object: null,
 });
-const PAIRS = [pair('c1', 'x1', '7', 'R7'), pair('c1', 'x2', '7', 'R7'), pair('e1', 'x1', '8', 'R8')];
+const PAIRS = {
+    pairs: [pair('c1', 'x1', '7', 'R7'), pair('c1', 'x2', '7', 'R7'), pair('e1', 'x1', '8', 'R8')],
+    events: {
+        '7': {
+            id: '7', uuid: 'R7', info: 'Event 7', date: '2024-01-02',
+            published: true, publish_timestamp: '1700000000', distribution: '3',
+            attribute_count: '36', object_count: 9,
+            Orgc: { name: 'CIRCL', uuid: 'O1' },
+            Tag: [{ name: 'tlp:white', colour: '#ffffff', is_galaxy: false }],
+            Galaxy: [{ type: 'tool', GalaxyCluster: [{ value: 'BabyShark' }] }],
+        },
+    },
+};
 
 function pivotFixture() {
     return ev({
@@ -1291,6 +1303,19 @@ test('correlated attributes land inside their event, joined to this event by cor
        [['corr:c1:x1', 'attr:c1', 'attr:x1', 'correlation'],
         ['corr:c1:x2', 'attr:c1', 'attr:x2', 'correlation'],
         ['corr:e1:x1', 'attr:e1', 'attr:x1', 'correlation']]);
+});
+
+test('a correlated event\'s container is drawn from its card, not from the pair', async () => {
+    const g = await withPivots();
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
+    const d = r.nodes.find(n => n.id === 'event:R7').data;
+    eq('the index row', [d.org, d.orgc, d.date, d.published, d.publish_timestamp, d.distribution],
+       ['CIRCL', { name: 'CIRCL', uuid: 'O1' }, '2024-01-02', true, 1700000000, 3]);
+    eq('its own counts, not the correlated children', [d.attribute_count, d.object_count], [36, 9]);
+    eq('its tags', d.tags, [{ name: 'tlp:white', colour: '#ffffff' }]);
+    eq('its galaxy clusters', d.context, [{ galaxy_type: 'tool', value: 'BabyShark' }]);
+    const bare = r.nodes.find(n => n.id === 'event:R8').data;
+    eq('without a card, the pair\'s event still draws its title', [bare.label, bare.tags], ['Event 8', undefined]);
 });
 
 test('this event\'s side of a pair comes along when it is not on the canvas', async () => {

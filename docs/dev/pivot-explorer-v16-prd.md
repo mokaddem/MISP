@@ -374,7 +374,10 @@ ACL'd correlations as the event view's `RelatedAttribute`, with the event's own 
 attributes the user can see. Fetched once per graph; `summarize` reads it for the origin it is
 handed. Measured in `graph-endpoint-prd` §7. **`fetch`** posts to
 `/events/correlatedAttributes/{id}.json` (`attribute_uuids`), which returns exactly the pairs the
-count counted. Results come back as one container per correlated event, keyed `event:<uuid>` like
+count counted, as `{ pairs, events }`: `events` holds, once per correlated event, what its card
+draws — the index row (org, date, publish time, distribution, attribute and object counts), its
+tags and its galaxy clusters — fetched the way the events index does, never the event's content.
+Results come back as one container per correlated event, keyed `event:<uuid>` like
 any event node so ingest merges them into one already drawn, plus a `correlation` edge per pair. `maxCandidates` is
 1,500 — the D12 canvas budget, for the same legibility reason.
 

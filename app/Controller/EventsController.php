@@ -6980,7 +6980,12 @@ class EventsController extends AppController
         $uuids = isset($data['attribute_uuids']) && is_array($data['attribute_uuids']) ? $data['attribute_uuids'] : [];
         $eventIds = isset($data['event_ids']) && is_array($data['event_ids']) ? $data['event_ids'] : [];
         $pairs = $this->Event->getCorrelatedAttributes($user, (int)$event['Event']['id'], $uuids, $eventIds);
-        return $this->RestResponse->viewData($pairs, 'json');
+        $related = array_unique(array_column(array_column($pairs, 'Event'), 'id'));
+        $events = $this->Event->correlatedEventCards($user, $related);
+        return $this->RestResponse->viewData([
+            'pairs' => $pairs,
+            'events' => $events ?: new stdClass(),
+        ], 'json');
     }
 
     public function getEventGraphReferences($id, $type = 'event')

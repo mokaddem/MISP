@@ -316,8 +316,7 @@
     }
 
     // Galaxy clusters and non-galaxy tags, for the event card's context row.
-    // A relationship's target event or a correlation record carries neither,
-    // and draws none.
+    // A relationship's target event carries neither, and draws none.
     function eventContext(e) {
         var out = [];
         (e.Galaxy || []).forEach(function (g) {
@@ -360,7 +359,7 @@
             publish_timestamp: numberOr(e.publish_timestamp) || undefined,
             distribution:      numberOr(e.distribution),
             attribute_count:   numberOr(e.attribute_count),
-            object_count:      e.Object ? e.Object.filter(function (o) { return !isDeleted(o); }).length : undefined,
+            object_count:      e.Object ? e.Object.filter(function (o) { return !isDeleted(o); }).length : numberOr(e.object_count),
             report_count:      e.EventReport ? e.EventReport.length : undefined,
             context:           eventContext(e),
             tags:              eventTags(e)
@@ -969,14 +968,15 @@
     // drawn, if any, since ingest merges children into a container by id.
     // This event's side of each pair is brought along when it is not drawn yet
     // (an event-level attribute, or one inside an object L2 skipped).
-    function correlationResult(pairs) {
+    function correlationResult(payload) {
         var index = ownAttributeIndex();
+        var cards = payload.events || {};
         var containers = {}, order = [], edges = [], seen = {}, sourceNodes = [];
-        pairs.forEach(function (p) {
+        (payload.pairs || []).forEach(function (p) {
             var ev  = p.Event || {};
             var cid = 'event:' + ev.uuid;
             if (!containers[cid]) {
-                containers[cid] = { id: cid, data: eventNodeData(ev), children: [] };
+                containers[cid] = { id: cid, data: eventNodeData(cards[ev.id] || ev), children: [] };
                 order.push(cid);
             }
             var tid = 'attr:' + p.Attribute.uuid;

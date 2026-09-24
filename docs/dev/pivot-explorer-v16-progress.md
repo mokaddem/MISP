@@ -37,7 +37,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ✅ | 3, 3b | `7ab4f859f` (2026-08-31). **Changes what most events draw** — see §2 |
 | 4 | D11 empty-state message | ✅ | 3c, 9 | `ace970f01`, then `aceab26ae` onto Pivotick's `UI.emptyState` — points at the element pivot, not the correlation pivot: an empty seed has no correlations to offer. See §2 |
 | 5e | Count source — `GET /events/correlationCounts/{id}.json` (R1, first slice of D13) | ✅ | — | `7f0b6d041` (2026-09-23) — see §2 |
-| 5f | Fetch path — `POST /events/correlatedAttributes/{id}.json` (`attribute_uuids` / `event_ids`) | ✅ | 5e | `261e06772` — pairs match 5e's counts exactly, per attribute and per event |
+| 5f | Fetch path — `POST /events/correlatedAttributes/{id}.json` (`attribute_uuids` / `event_ids`) | ✅ | 5e | `261e06772` — pairs match 5e's counts exactly, per attribute and per event. Since 2026-09-24 it also returns each correlated event's card metadata (`events`), so a pivoted event card draws its org, counts, tags and clusters, not only its title |
 | 5 | Correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` / `maxCandidates`, no `save` (R1) | ✅ | 5e, 5f, 0c | `65b782926`; edges land since `1296966` — see §2 |
 | 5d | Related-event pivot on L0 proxies + declared potential as the rim badge (R2) | ✅ | 3b, 5e, 5f, 0c | `65b782926`. Badge counts match 5e on every related event; edges land since `1296966` |
 | 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ✅ | 2 | 2026-09-23 — a hit never seeds an element; edges run source → attribute, around a library gap filed upstream. See §2 |

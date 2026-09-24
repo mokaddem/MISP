@@ -974,6 +974,69 @@ class Event extends AppModel
     }
 
     /**
+     * What the Pivot Explorer's event card draws for each of these events:
+     * the index row, its tags and galaxy clusters, none of its content.
+     *
+     * @param array $user
+     * @param array $eventIds
+     * @return array keyed by event id
+     */
+    public function correlatedEventCards(array $user, array $eventIds)
+    {
+        if (empty($eventIds)) {
+            return [];
+        }
+        $conditions = $this->createEventConditions($user);
+        $conditions['AND'][] = ['Event.id' => array_values($eventIds)];
+        $events = $this->find('all', [
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'fields' => [
+                'Event.id', 'Event.uuid', 'Event.info', 'Event.date',
+                'Event.published', 'Event.publish_timestamp',
+                'Event.distribution', 'Event.attribute_count',
+            ],
+            'contain' => [
+                'Orgc' => ['fields' => ['Orgc.name', 'Orgc.uuid']],
+                'EventTag' => [
+                    'fields' => [
+                        'EventTag.event_id', 'EventTag.tag_id',
+                        'EventTag.local', 'EventTag.relationship_type',
+                    ],
+                ],
+            ],
+        ]);
+        $events = $this->attachTagsToEvents($events);
+        $events = ClassRegistry::init('GalaxyCluster')
+            ->attachClustersToEventIndex($user, $events, true);
+        $events = $this->attachObjectAndAttributeCountToEvents($events);
+
+        $cards = [];
+        foreach ($events as $event) {
+            $card = $event['Event'];
+            unset($card['attribute_count_no_objects']);
+            $card['Orgc'] = $event['Orgc'];
+            $card['Tag'] = [];
+            foreach ($event['EventTag'] as $eventTag) {
+                $card['Tag'][] = [
+                    'name' => $eventTag['Tag']['name'],
+                    'colour' => $eventTag['Tag']['colour'],
+                    'is_galaxy' => $eventTag['Tag']['is_galaxy'],
+                ];
+            }
+            $galaxies = [];
+            foreach ($event['GalaxyCluster'] ?? [] as $cluster) {
+                $type = $cluster['Galaxy']['type'] ?? $cluster['type'];
+                $galaxies[$type]['type'] = $type;
+                $galaxies[$type]['GalaxyCluster'][] = ['value' => $cluster['value']];
+            }
+            $card['Galaxy'] = array_values($galaxies);
+            $cards[$card['id']] = $card;
+        }
+        return $cards;
+    }
+
+    /**
      * Clean up an Event Array that was received by an XML request.
      * The structure needs to be changed a little bit to be compatible with what CakePHP expects
      *
