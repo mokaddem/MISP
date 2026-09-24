@@ -761,6 +761,18 @@ type is free text, so a name picked from the reference vocabulary is equally val
 two-kind form is the one-kind form with a *Link type* select in front, defaulting to
 `object-reference`. No custom form markup.
 
+**How it is shared (task 19).** An analyst relationship also asks what MISP's own *Add
+Relationship* form asks beyond its type: **distribution** (levels 0–4, named as MISP names them —
+the model refuses 5), **sharing group** (the user's usable ones, `fetchAllAuthorised(…, 'name', 1)`,
+read only at level 4 and required there) and **authors** (blank lets MISP fill in the user's
+email, shown as the placeholder). The default level is `MISP.default_analyst_data_distribution`,
+else `MISP.default_event_distribution` as that form shows. The element computes all of it for a
+user with analyst rights and hands it over as `data-pe-analyst-sharing`. When the analyst kind is
+the only one, the questions join the one form; when both kinds are possible, a second form, *Share
+the relationship*, follows once the analyst kind is chosen and the first form's button reads
+*Next*. Pivotick's form has no field that depends on another, so that second form is how a
+reference is spared the sharing questions, and the sharing group is listed whatever the level.
+
 **A latent stored-XSS is removed on the way.** The current picker builds its `<option>` list by
 string concatenation into `innerHTML` (`:847-850`). It is fed from the hardcoded 25-entry array
 today, so nothing is exploitable — but `object_relationships` contains a row literally named
@@ -1428,6 +1440,7 @@ library features it rebuilt by hand or left unused. One commit each:
 | 15 | ✅ Correlated attributes and objects declare their correlation count as rim potential, like related events (R1, R2) | 5, 5d |
 | 16 | ✅ Drop `compact()`: Pivotick skips null data values everywhere it scans (since `4d71efb`), so node and edge data pass as the payload has them | 8 |
 | 17 | ✅ The sidebar's Properties declared under MISP's names; the analyst panel's title counts the selection's notes (§6.2). Its lifecycle was the library's already | 6 |
+| 19 | ✅ Analyst relationships ask distribution, sharing group and authors, as MISP's own form does (D2b) | 10b |
 | 18 | ✅ Node context menu: open its event or feed in a new tab, copy an attribute's value; *Pivot ▸* is the library's (§6.4) | — |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their

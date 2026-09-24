@@ -7,6 +7,28 @@
     $canAnalyst = !empty($me['Role']['perm_add'])
         && !empty($me['Role']['perm_analyst_data']);
 
+    // What a drawn analyst relationship can be shared with, as
+    // analystData/add offers it: levels 0-4 (no inherit), the user's usable
+    // sharing groups by name, and the instance's default.
+    $analystSharing = ['levels' => [], 'sharingGroups' => [], 'default' => 1];
+    if ($canAnalyst) {
+        App::uses('ClassRegistry', 'Utility');
+        $levels = $distributionLevels ?? ClassRegistry::init('Event')->distributionLevels;
+        foreach ([0, 1, 2, 3, 4] as $level) {
+            if (isset($levels[$level])) {
+                $analystSharing['levels'][] = [$level, $levels[$level]];
+            }
+        }
+        $sgs = ClassRegistry::init('SharingGroup')->fetchAllAuthorised($me, 'name', 1);
+        asort($sgs);
+        foreach ($sgs as $sgId => $sgName) {
+            $analystSharing['sharingGroups'][] = [(int)$sgId, $sgName];
+        }
+        $analystSharing['default'] = (int)(Configure::read('MISP.default_analyst_data_distribution')
+            ?? Configure::read('MISP.default_event_distribution') ?? 1);
+        $analystSharing['authors'] = $me['email'] ?? '';
+    }
+
     // Behaviour lives in webroot/js/pivot-explorer.js, which reads its
     // config from the data-pe-* attributes on #pe-card below.
     echo $this->element('genericElements/assetLoader', [
@@ -20,6 +42,7 @@
      data-pe-baseurl="<?= h($baseurl ?? '') ?>"
      data-pe-can-edit="<?= $canEdit ? '1' : '0' ?>"
      data-pe-can-analyst="<?= $canAnalyst ? '1' : '0' ?>"
+     data-pe-analyst-sharing="<?= h(json_encode($analystSharing)) ?>"
      data-pe-org-uuid="<?= h($me['Organisation']['uuid'] ?? '') ?>"
      data-pe-site-admin="<?= empty($me['Role']['perm_site_admin']) ? '0' : '1' ?>"
      data-pe-lib-missing="<?= h(__('Graph library failed to load.')) ?>"

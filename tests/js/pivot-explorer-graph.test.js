@@ -97,6 +97,7 @@ function buildGraph(payload, options) {
         peBaseurl: options.baseurl !== undefined ? options.baseurl : '/misp',
         peCanEdit: options.canEdit === false ? '0' : '1',
         peCanAnalyst: options.canAnalyst ? '1' : '0',
+        peAnalystSharing: options.analystSharing !== undefined ? options.analystSharing : '',
         peOrgUuid: options.orgUuid || '',
         peSiteAdmin: options.siteAdmin ? '1' : '0',
         peLibMissing: 'lib missing',
@@ -1626,7 +1627,8 @@ test('one possible kind asks no link type; two ask, defaulting to the reference'
     const a = await withAnalyst(analystOnly);
     const one = edgeCtx(own.objA, own.objB, null);
     await a.opts.callbacks.onBeforeEdgeCreate(one);
-    eq('analyst only: no link type', one.asked.fields.map(f => f.key), ['relationship_type', 'custom']);
+    eq('analyst only: no link type, and how it is shared in the same form', one.asked.fields.map(f => f.key),
+       ['relationship_type', 'custom', 'distribution', 'authors']);
     const b = await withAnalyst(both);
     const two = edgeCtx(own.objA, own.objB, null);
     await b.opts.callbacks.onBeforeEdgeCreate(two);
@@ -1646,7 +1648,8 @@ test('saving an analyst relationship: addressed by MISP type, landing with what 
     const g = await withAnalyst(analystOnly);
     const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.attrE1, foreign.attr, { custom: 'seen-with' }));
     ok('to the source, typed', g.fetchLog.some(f => /\/misp\/analystData\/add\/Relationship\/e1\/Attribute\.json$/.test(f.url)));
-    eq('body', g.adds, [{ Relationship: { related_object_uuid: 'x1', related_object_type: 'Attribute', relationship_type: 'seen-with' } }]);
+    eq('body', g.adds, [{ Relationship: { related_object_uuid: 'x1', related_object_type: 'Attribute',
+                                          relationship_type: 'seen-with', distribution: '1' } }]);
     eq('decision', d, { accept: true,
         data: { kind: 'analyst-relationship', label: 'seen-with', relationship_type: 'seen-with',
                 uuid: 'AR-NEW', orgc: 'ORG-ME', authors: 'me@x' },
@@ -1662,6 +1665,83 @@ test('the chosen link type decides the write; an unoffered one falls back to the
     eq('analyst chosen: analyst POST only', [g.adds.length, g.fetchLog.filter(f => /objectReferences\/add/.test(f.url)).length], [1, 0]);
     const d = await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { kind: 'bogus', custom: 'y' }));
     eq('bogus: the reference', d.data.kind, 'object-reference');
+});
+
+/* ──── how an analyst relationship is shared: distribution, sharing group, authors ──── */
+
+const SHARING = JSON.stringify({
+    levels: [[0, 'Your organisation only'], [1, 'This community only'], [2, 'Connected communities'],
+             [3, 'All communities'], [4, 'Sharing group']],
+    sharingGroups: [[5, 'Alpha'], [3, 'Beta']],
+    default: 2, authors: 'me@x',
+});
+
+// A context answering each form in turn, recording every one it was shown.
+function edgeCtxSeq(source, target, answers) {
+    const ctx = {
+        kind: 'edge', source, target, origin: 'drag', asks: [],
+        promptData: opts => { ctx.asks.push(opts); return Promise.resolve(answers[ctx.asks.length - 1]); },
+    };
+    return ctx;
+}
+
+test('sharing: the form offers MISP\'s levels, the user\'s sharing groups and the author', async () => {
+    const g = await withAnalyst(Object.assign({ analystSharing: SHARING }, analystOnly));
+    const ctx = edgeCtxSeq(own.objA, own.objB, [null]);
+    await g.opts.callbacks.onBeforeEdgeCreate(ctx);
+    eq('one form, saving', [ctx.asks.length, ctx.asks[0].submitLabel], [1, 'Save']);
+    const f = {}; ctx.asks[0].fields.forEach(x => { f[x.key] = x; });
+    eq('distribution: the five levels, the instance default', [f.distribution.type, f.distribution.options.map(o => o.value),
+       f.distribution.defaultValue], ['select', ['0', '1', '2', '3', '4'], '2']);
+    eq('named as MISP names them', f.distribution.options[4].label, 'Sharing group');
+    eq('sharing groups in the order given, none picked', [f.sharing_group_id.options.map(o => o.label), f.sharing_group_id.defaultValue],
+       [['—', 'Alpha', 'Beta'], '']);
+    eq('authors, blank meaning the user', [f.authors.type, f.authors.placeholder], ['text', 'me@x']);
+});
+
+test('sharing: with no sharing group to offer, none is asked', async () => {
+    const none = JSON.stringify(Object.assign(JSON.parse(SHARING), { sharingGroups: [] }));
+    const g = await withAnalyst(Object.assign({ analystSharing: none }, analystOnly));
+    const ctx = edgeCtxSeq(own.objA, own.objB, [null]);
+    await g.opts.callbacks.onBeforeEdgeCreate(ctx);
+    eq('fields', ctx.asks[0].fields.map(x => x.key), ['relationship_type', 'custom', 'distribution', 'authors']);
+});
+
+test('sharing: with two kinds it is asked second, and only for the analyst kind', async () => {
+    const g = await withAnalyst(Object.assign({ analystSharing: SHARING }, both));
+    const ref = edgeCtxSeq(own.objA, own.objB, [{ kind: 'object-reference', custom: 'r' }]);
+    await g.opts.callbacks.onBeforeEdgeCreate(ref);
+    eq('a reference asks once, with no sharing', [ref.asks.length, ref.asks[0].submitLabel,
+       ref.asks[0].fields.some(x => x.key === 'distribution')], [1, 'Next', false]);
+    const ar = edgeCtxSeq(own.objA, own.objB, [{ kind: 'analyst-relationship', custom: 'a' },
+                                               { distribution: '3', authors: ' Alice ' }]);
+    const d = await g.opts.callbacks.onBeforeEdgeCreate(ar);
+    eq('the second form', [ar.asks.length, ar.asks[1].title, ar.asks[1].submitLabel, ar.asks[1].fields.map(x => x.key)],
+       [2, 'Share the relationship', 'Save', ['distribution', 'sharing_group_id', 'authors']]);
+    eq('saved as answered, authors trimmed', g.adds, [{ Relationship: { related_object_uuid: 'B', related_object_type: 'Object',
+       relationship_type: 'a', distribution: '3', authors: 'Alice' } }]);
+    eq('and it lands', d.accept, true);
+    const cancelled = edgeCtxSeq(own.objA, own.objB, [{ kind: 'analyst-relationship', custom: 'a' }, null]);
+    eq('cancelling the second form saves nothing', [await g.opts.callbacks.onBeforeEdgeCreate(cancelled), g.adds.length],
+       [false, 1]);
+});
+
+test('sharing: a sharing group level needs its group; any other level drops one', async () => {
+    const g = await withAnalyst(Object.assign({ analystSharing: SHARING }, analystOnly));
+    const missing = edgeCtxSeq(own.objA, own.objB, [{ custom: 'x', distribution: '4' }]);
+    eq('refused before any POST', [await g.opts.callbacks.onBeforeEdgeCreate(missing), g.adds.length], [false, 0]);
+    eq('and says why', g.graph.notices.map(n => [n.level, n.title]), [['warning', 'No sharing group']]);
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtxSeq(own.objA, own.objB, [{ custom: 'x', distribution: '4', sharing_group_id: '5' }]));
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtxSeq(own.objA, own.objB, [{ custom: 'y', distribution: '0', sharing_group_id: '5' }]));
+    eq('the group goes with level 4 only', g.adds.map(a => [a.Relationship.distribution, a.Relationship.sharing_group_id]),
+       [['4', '5'], ['0', undefined]]);
+});
+
+test('sharing: unreadable options fall back to the defaults', async () => {
+    const g = await withAnalyst(Object.assign({ analystSharing: '{not json' }, analystOnly));
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtxSeq(own.objA, own.objB, [{ custom: 'x' }]));
+    eq('saved at level 1', g.adds.map(a => a.Relationship.distribution), ['1']);
+    ok('and said so in the console', g.errors.some(e => /analyst sharing/.test(e)), JSON.stringify(g.errors));
 });
 
 test('a refused analyst save leaves no edge', async () => {

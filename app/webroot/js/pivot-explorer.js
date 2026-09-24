@@ -26,6 +26,9 @@
     var canAnalyst = false;
     var orgUuid    = '';
     var siteAdmin  = false;
+    // What an analyst relationship can be shared with: [[level, name]],
+    // [[sharing group id, name]], the default level and the user's email.
+    var analystSharing = { levels: [], sharingGroups: [], default: 1, authors: '' };
 
     /* ── state ─────────────────────────────────────────────── */
     var _initialized = false;
@@ -1714,33 +1717,95 @@
             return fields;
         }
 
+        // What analystData/add asks of a relationship beyond its type, as its
+        // own form does. Pivotick's form has no field that depends on another,
+        // so the sharing group is always listed and read only for level 4.
+        function sharingFields() {
+            var fields = [{
+                key:          'distribution',
+                label:        'Distribution',
+                type:         'select',
+                options:      analystSharing.levels.map(function (l) { return { label: l[1], value: String(l[0]) }; }),
+                defaultValue: String(analystSharing.default)
+            }];
+            if (analystSharing.sharingGroups.length) {
+                fields.push({
+                    key:          'sharing_group_id',
+                    label:        'Sharing group (for that distribution)',
+                    type:         'select',
+                    options:      [{ label: '—', value: '' }].concat(analystSharing.sharingGroups.map(function (g) {
+                        return { label: g[1], value: String(g[0]) };
+                    })),
+                    defaultValue: ''
+                });
+            }
+            fields.push({
+                key:         'authors',
+                label:       'Authors',
+                type:        'text',
+                placeholder: analystSharing.authors || 'your email, if left blank'
+            });
+            return fields;
+        }
+
+        // The sharing an analyst relationship is saved with, or null when the
+        // answer cannot be saved: a sharing group level needs its group.
+        function sharingFrom(values) {
+            var level = values.distribution != null ? String(values.distribution) : String(analystSharing.default);
+            var out = { distribution: level };
+            if (level === '4') {
+                if (!values.sharing_group_id) {
+                    notify('warning', 'No sharing group', 'Pick the sharing group to share it with.');
+                    return null;
+                }
+                out.sharing_group_id = String(values.sharing_group_id);
+            }
+            var authors = String(values.authors || '').trim();
+            if (authors) out.authors = authors;
+            return out;
+        }
+
         // The edge only lands once the relationship is saved, so the history
         // records it as persisted and a refused save leaves nothing behind.
+        // An analyst relationship also asks how it is shared: in the one form
+        // when it is the only kind, else in a second once it is chosen.
         function onBeforeEdgeCreate(ctx) {
             if (ctx.kind !== 'edge') return true;
             var kinds = possibleKinds(ctx.source, ctx.target);
             if (!kinds.length) return false;
             var fromData = nodeData(ctx.source);
             var toData   = nodeData(ctx.target);
+            var analystOnly = kinds.length === 1 && kinds[0] === 'analyst-relationship';
+            var rel, kind;
 
             return loadVocabulary().then(function (names) {
                 return ctx.promptData({
                     title:       'Add relationship',
-                    submitLabel: 'Save',
-                    fields:      relationshipFields(names, kinds)
+                    submitLabel: analystOnly || kinds.length === 1 ? 'Save' : 'Next',
+                    fields:      relationshipFields(names, kinds).concat(analystOnly ? sharingFields() : [])
                 });
             }).then(function (values) {
                 if (!values) return false;   // cancelled
-                var rel = String(values.custom || '').trim()
-                          || String(values.relationship_type || '').trim();
+                rel = String(values.custom || '').trim()
+                      || String(values.relationship_type || '').trim();
                 if (!rel) {
                     notify('warning', 'No relationship type', 'Pick one or type your own.');
                     return false;
                 }
-                var kind = kinds.indexOf(values.kind) !== -1 ? values.kind : kinds[0];
+                kind = kinds.indexOf(values.kind) !== -1 ? values.kind : kinds[0];
+                if (kind !== 'analyst-relationship' || analystOnly) return values;
+                return ctx.promptData({
+                    title:       'Share the relationship',
+                    submitLabel: 'Save',
+                    fields:      sharingFields()
+                });
+            }).then(function (values) {
+                if (!values) return false;   // cancelled, or refused above
+                var sharing = kind === 'analyst-relationship' ? sharingFrom(values) : null;
+                if (kind === 'analyst-relationship' && !sharing) return false;
                 var save = kind === 'object-reference'
                     ? saveReference(fromData, toData, rel)
-                    : saveRelationship(fromData, toData, rel);
+                    : saveRelationship(fromData, toData, rel, sharing);
                 return save.then(function (saved) {
                     if (!saved) return false;
                     var data = { kind: kind, label: rel, relationship_type: rel };
@@ -1786,14 +1851,14 @@
             }).then(function (body) { return body.ObjectReference || {}; }, saveFailed);
         }
 
-        function saveRelationship(from, to, rel) {
+        function saveRelationship(from, to, rel, sharing) {
             return post('/analystData/add/Relationship/' + encodeURIComponent(from.uuid)
                         + '/' + ANALYST_TYPES[from.type] + '.json', {
-                Relationship: {
+                Relationship: Object.assign({
                     related_object_uuid: to.uuid,
                     related_object_type: ANALYST_TYPES[to.type],
                     relationship_type:   rel
-                }
+                }, sharing)
             }).then(function (body) { return body.Relationship || {}; }, saveFailed);
         }
 
@@ -1894,6 +1959,11 @@
         baseurl = d.peBaseurl || '';
         canEdit = d.peCanEdit === '1';
         canAnalyst = d.peCanAnalyst === '1';
+        try {
+            analystSharing = Object.assign(analystSharing, JSON.parse(d.peAnalystSharing || '{}'));
+        } catch (e) {
+            console.error('[pivot-explorer] unreadable analyst sharing options:', e);
+        }
         orgUuid    = d.peOrgUuid || '';
         siteAdmin  = d.peSiteAdmin === '1';
         text = {
