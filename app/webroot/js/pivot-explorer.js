@@ -1499,6 +1499,7 @@
                 mode: 'full',
                 theme: 'dark',
                 sidebar: { collapsed: true },
+                tooltip: { enabled: false },
                 propertiesPanel: {
                     nodePropertiesMap: nodeProperties,
                     edgePropertiesMap: edgeProperties
