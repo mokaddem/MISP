@@ -1109,8 +1109,13 @@ elements not shown"*. The element pivot still offers those elements; one it brin
 without its feed edges, as it arrives without its references. Source nodes are few (one per feed,
 88 at most on the dev instance) and are counted in the node total but not in the budget.
 
-A source node is a `triangle` — cyan `#5bc0de` for a feed, purple `#9b59b6` for a server, the colour
-of its edge layer — with Font Awesome's `fa-rss` / `fa-server` (misp-iconify has neither). Its data
+A feed is drawn by misp-pivot-nodes (2026-09-24), as the event family's value-only feed hit —
+the feed *is* the node. At rest it is `event-s-ring` with the feed mark in the hexagon and the
+dotted ring; zoomed in it is `event-m-authority` for a source: the feed mark in the 20px
+authority slot, the feed name on line 1, the provider (else the URL's host) on line 2, the dotted
+teal rail, and no preview triangle since nothing on the node opens the feed. It has no XL, so
+its focus card is that chip. The entity lives in `prd/pivot-node-designs/renderers/` like the
+others. A server is still a purple `#9b59b6` `triangle` with Font Awesome's `fa-server`. Its data
 carries the label, provider, format and URL where MISP sends them, `feed_events` for a MISP-format
 feed, and `scope: 'foreign'`: provenance stays binary (D2), and a value the Provenance facet does
 not offer would hide the node under either choice. It has no `name` key, which the Object facet

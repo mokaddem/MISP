@@ -1431,9 +1431,9 @@
                 // with no expand chevron or Enter shortcut.
                 enableNodeExpansion: false,
                 nodeTypeAccessor: elementOf,
+                // A feed is drawn by misp-pivot-nodes, like the elements.
                 nodeStyleMap: Object.assign(mispNodeStyles(), {
-                    // misp-iconify has neither mark; pivotick resolves any icon font's class.
-                    feed:      { shape: 'triangle', color: FEED_COLOR, size: 24, iconClass: 'fas fa-rss' },
+                    // misp-iconify has no server mark; pivotick resolves any icon font's class.
                     server:    { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' },
                     // Image attachments (screenshots) draw an embedded thumbnail.
                     image:     {

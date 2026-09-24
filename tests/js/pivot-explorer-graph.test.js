@@ -2466,9 +2466,13 @@ test('5b: a feed and a server sharing an id are two nodes', async () => {
 test('5b: sources are styled, iconed and keyed like the other elements', async () => {
     const g = await buildGraph(feedEvent());
     const r = g.opts.render;
-    eq('triangles in their layer\'s colour, a glyph each', [r.nodeStyleMap.feed, r.nodeStyleMap.server],
-       [{ shape: 'triangle', color: '#5bc0de', size: 24, iconClass: 'fas fa-rss' },
-        { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' }]);
+    const feed = r.nodeStyleMap.feed;
+    eq('a feed is drawn by misp-pivot-nodes: composed at rest, the authority card as its chip',
+       [feed.shape, typeof feed.svgIcon, feed.tiers[0].width, feed.tiers[0].height,
+        typeof feed.tiers[0].style.html],
+       ['none', 'function', 140, 44, 'function']);
+    eq('a server is still a triangle in its layer\'s colour', r.nodeStyleMap.server,
+       { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' });
     eq('the accessor reads the type', r.nodeTypeAccessor(pnode({ type: 'feed' })), 'feed');
     const styled = Object.keys(r.edgeStyleMap);
     g.edges.forEach(e => ok('kind ' + e.data.kind + ' is styled',
