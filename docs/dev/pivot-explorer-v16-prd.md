@@ -1124,6 +1124,20 @@ feed, and `scope: 'foreign'`: provenance stays binary (D2), and a value the Prov
 not offer would hide the node under either choice. It has no `name` key, which the Object facet
 reads. A restricted `Server` source carries only id and name, and draws as a bare label.
 
+**A MISP-format feed opens onto its events (the `feed-events` pivot).** Each hit on an attribute
+names the feed events its value is in (`event_uuids`); a feed listed once per lookup batch is merged
+by id, so the node and its badge count every event. The feed wears that count as the pivot's
+potential. Running it posts the uuids to `POST /feeds/manifestEvents.json`
+(`{feeds: {id: [uuid]}}`), which reads the manifest the instance already holds — a local feed's own
+file, a remote feed's cached `misp_feed_<id>_manifest.cache.gz` — and never requests one; gated like
+`previewIndex` (`__canViewFeed`), capped at 1,500 uuids. Each event lands as a cached-feed event
+card, `feed-event:<feed id>:<uuid>`: info, date, org and tags from the manifest, galaxy tags
+resolved to the user's visible clusters, `_provenance: 'feed'` and the feed as `source`. A
+`feed-event` edge joins it to its feed and a `feed-correlation` edge to each of this event's
+attributes it holds, one not drawn yet coming along. A remote feed without a cached manifest lands
+uuid-only cards. *Preview in feed* opens `feeds/previewEvent`. The manifest carries no counts or
+distribution, so the card's footer names the feed instead.
+
 **Server correlations are built but not requested.** The code is the feed code on `ev.Server`; the
 REST fetch leaves `includeServerCorrelations` at 0, so the layer stays empty (§4).
 

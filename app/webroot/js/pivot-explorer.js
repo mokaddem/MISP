@@ -387,6 +387,24 @@
         { scope: 'Server', type: 'server', kind: 'server-correlation' }
     ];
 
+    // The event's feeds or servers by id. Keyed by id when MISP builds it,
+    // but serialised as a list, and a source can appear once per batch of
+    // attributes MISP looked up, each naming only its share of the events.
+    function sourceMap(ev, scope) {
+        var known = {};
+        Object.keys(ev[scope] || {}).forEach(function (k) {
+            var src = ev[scope][k];
+            if (!src || src.id == null) return;
+            var id = String(src.id);
+            if (!known[id]) known[id] = Object.assign({}, src, { event_uuids: undefined });
+            (src.event_uuids || []).forEach(function (uuid) {
+                var list = known[id].event_uuids = known[id].event_uuids || [];
+                if (list.indexOf(uuid) === -1) list.push(uuid);
+            });
+        });
+        return known;
+    }
+
     function sourceNodeData(type, src) {
         var fmt = src.source_format ? src.source_format + ' feed' : '';
         return {
@@ -620,12 +638,7 @@
             });
         }
         SOURCES.forEach(function (s) {
-            // Keyed by id when MISP builds it, but serialised as a list.
-            var known = {};
-            Object.keys(ev[s.scope] || {}).forEach(function (k) {
-                var src = ev[s.scope][k];
-                if (src && src.id != null) known[String(src.id)] = src;
-            });
+            var known = sourceMap(ev, s.scope);
             eachLiveAttribute(function (a) {
                 (a[s.scope] || []).forEach(function (hit) {
                     var attrId = 'attr:' + a.uuid;
@@ -1082,6 +1095,155 @@
         });
     }
 
+    /* ── pivot: the events of a MISP feed ──────────────────── */
+    // The payload names, per attribute, the MISP-feed events its value is in;
+    // /feeds/manifestEvents adds what each card draws, from the manifest the
+    // instance holds. A feed event is a leaf, like another event, keyed by its
+    // feed: two feeds can carry the same event.
+    var FEED_EVENTS_PIVOT = 'feed-events';
+
+    var _feeds = null, _feedsFor = null;
+    function feedSource(feedId) {
+        if (!_feeds || _feedsFor !== _event) {
+            _feeds = sourceMap((_event && _event.Event) || {}, 'Feed');
+            _feedsFor = _event;
+        }
+        return _feeds[String(feedId)] || null;
+    }
+
+    function feedEventUuids(d) {
+        if (!d || d.type !== 'feed') return [];
+        var src = feedSource(d.source_id);
+        return (src && src.event_uuids) || [];
+    }
+
+    function feedEventId(feedId, uuid) {
+        return 'feed-event:' + feedId + ':' + uuid;
+    }
+
+    function feedEventNodeData(card, src) {
+        var orgc = card.Orgc && card.Orgc.name ? card.Orgc : null;
+        var info = card.info != null ? String(card.info) : '';
+        return {
+            type:        'event',
+            label:       info || card.uuid,
+            description: [card.date, orgc && orgc.name, 'in ' + src.name].filter(Boolean).join(' · '),
+            info:        info || undefined,
+            date:        card.date || undefined,
+            org:         orgc ? orgc.name : undefined,
+            orgc:        orgc ? { name: orgc.name, uuid: orgc.uuid } : undefined,
+            uuid:        card.uuid,
+            context:     eventContext(card),
+            tags:        eventTags(card),
+            // Read by the event drawings: a cached hit, and whose.
+            _provenance: 'feed',
+            source:      { kind: 'feed', type: 'Feed', name: src.name,
+                           provider: src.provider, url: src.url },
+            feed_id:     String(src.id),
+            feed_name:   src.name,
+            scope:       'foreign'
+        };
+    }
+
+    // Each feed event lands beside its feed, joined to the attributes of this
+    // event whose values it holds; one not drawn yet comes along.
+    function feedEventsResult(feedNodes, payload) {
+        var cards = (payload && payload.events) || {};
+        var index = ownAttributeIndex();
+        var nodes = [], edges = [], seen = {};
+        function drawn(id) {
+            return !!(_graph && typeof _graph.getNode === 'function' && _graph.getNode(id));
+        }
+        feedNodes.forEach(function (fn) {
+            var d = fn.getData();
+            var src = feedSource(d.source_id);
+            if (!src) return;
+            var feedCards = cards[String(src.id)] || {};
+            var srcId = 'feed:' + src.id;
+            (src.event_uuids || []).forEach(function (uuid) {
+                var id = feedEventId(src.id, uuid);
+                if (seen[id]) return;
+                seen[id] = true;
+                nodes.push({ id: id, data: feedEventNodeData(feedCards[uuid] || { uuid: uuid }, src) });
+                edges.push({ id: 'feedev:' + src.id + ':' + uuid, from: srcId, to: id,
+                             data: { kind: 'feed-event', label: '' } });
+            });
+            Object.keys(index.byUuid).forEach(function (attrUuid) {
+                var a = index.byUuid[attrUuid];
+                (a.Feed || []).forEach(function (hit) {
+                    if (String(hit.id) !== String(src.id)) return;
+                    var attrId = 'attr:' + attrUuid;
+                    (hit.event_uuids || []).forEach(function (uuid) {
+                        if (!seen[feedEventId(src.id, uuid)]) return;
+                        if (!seen[attrId] && !drawn(attrId)) {
+                            nodes.push({ id: attrId, data: attributeNodeData(a, ownerIn(_event.Event, a)) });
+                        }
+                        seen[attrId] = true;
+                        edges.push({ id: 'feedhit:' + src.id + ':' + uuid + ':' + attrUuid,
+                                     from: feedEventId(src.id, uuid), to: attrId,
+                                     data: { kind: 'feed-correlation', label: '' } });
+                    });
+                });
+            });
+        });
+        return { nodes: nodes, edges: edges };
+    }
+
+    function fetchFeedEvents(feedNodes, signal) {
+        var feeds = {};
+        feedNodes.forEach(function (n) {
+            var d = n.getData();
+            feeds[d.source_id] = feedEventUuids(d);
+        });
+        return fetch(baseurl + '/feeds/manifestEvents.json', {
+            method: 'POST',
+            credentials: 'same-origin',
+            signal: signal,
+            headers: {
+                'Content-Type':     'application/json',
+                'Accept':           'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ feeds: feeds })
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function (payload) { return feedEventsResult(feedNodes, payload); });
+    }
+
+    function feedEventsPivot() {
+        return {
+            id:            FEED_EVENTS_PIVOT,
+            label:         'Feed events',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) {
+                return nodes.filter(function (n) { return feedEventUuids(n.getData()).length > 0; });
+            },
+            summarize: function (nodes) {
+                return { total: sumCounts(nodes, function (d) { return feedEventUuids(d).length; }) };
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                return fetchFeedEvents(nodes, ctx && ctx.signal);
+            }
+        };
+    }
+
+    // A MISP feed wears the number of its events this event's values are in.
+    function declareFeedPotential(node) {
+        var n = feedEventUuids(node.getData()).length;
+        if (n) node.setPotential(FEED_EVENTS_PIVOT, n);
+        return n > 0;
+    }
+
+    function declareAllFeedPotential(graph) {
+        var any = false;
+        graph.getMutableNodes().forEach(function (n) { any = declareFeedPotential(n) || any; });
+        if (any) graph.renderer.update();
+        graph.on('nodeAdd', declareFeedPotential);
+    }
+
     /* ── the event's elements, as an origin-less pivot (D4, P0) ── */
     // Everything the canvas does not hold yet: event-level attributes, and
     // objects whole. Its Review tab is the searchable, paged list; ingesting
@@ -1274,6 +1436,7 @@
         'analyst-relationship': 'Analyst relationship',
         'correlation':          'Correlation',
         'feed-correlation':     'Seen in a feed',
+        'feed-event':           'Event in a feed',
         'server-correlation':   'Seen on a server'
     };
 
@@ -1303,7 +1466,7 @@
                     field('Event', belongsTo(d)), field('UUID', d.uuid)];
         } else if (d.type === 'event') {
             rows = [field('Info', d.info), field('Date', d.date), field('Organisation', d.org),
-                    field('Event ID', d.event_id), field('UUID', d.uuid)];
+                    field('Feed', d.feed_name), field('Event ID', d.event_id), field('UUID', d.uuid)];
         } else if (d.type === 'feed' || d.type === 'server') {
             rows = [field('Provider', d.provider), field('URL', d.url), field('Format', d.source_format),
                     field('Events', d.feed_events),
@@ -1363,6 +1526,15 @@
                 iconClass: 'fas fa-rss',
                 visible:   function (el) { var d = menuData(el); return !!d && d.type === 'feed' && !!d.source_id; },
                 onclick:   function (e, el) { openInTab('/feeds/previewIndex/' + menuData(el).source_id); }
+            },
+            {
+                text:      'Preview in feed',
+                iconClass: 'fas fa-rss',
+                visible:   function (el) { var d = menuData(el); return !!d && !!d.feed_id && !!d.uuid; },
+                onclick:   function (e, el) {
+                    var d = menuData(el);
+                    openInTab('/feeds/previewEvent/' + d.feed_id + '/' + d.uuid);
+                }
             },
             {
                 text:      'Copy value',
@@ -1478,6 +1650,7 @@
                     'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
                     'correlation':          { strokeColor: '#888', dashed: true },
                     'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
+                    'feed-event':           { strokeColor: FEED_COLOR },
                     'server-correlation':   { strokeColor: '#9b59b6', dashed: true }
                 },
                 // Draw the relationship_type on every edge (referenced + newly created).
@@ -1495,7 +1668,7 @@
                 d3LinkDistance: 200
             },
             // No `save`: correlations are derived, never counted unsaved.
-            pivots: [elementPivot(), correlationPivot()],
+            pivots: [elementPivot(), correlationPivot(), feedEventsPivot()],
             callbacks: {
                 // Another event is a leaf here (PRD §4) — it cannot expand in
                 // place, so double-click hands the analyst over to its own
@@ -1618,6 +1791,7 @@
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
                 watchElementPivot(_graph);
+                declareAllFeedPotential(_graph);
                 loadCorrelationCounts(_graph);
             })
             .catch(function (err) {

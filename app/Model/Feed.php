@@ -371,6 +371,100 @@ class Feed extends AppModel
     }
 
     /**
+     * What the Pivot Explorer's event card draws for these events of a MISP
+     * feed, from the manifest copy the instance already holds: a local feed's
+     * own file, or a remote feed's cached manifest. Nothing is requested, so a
+     * remote feed without a cached manifest answers with no events.
+     *
+     * @param array $user
+     * @param array $feed
+     * @param array $uuids
+     * @return array keyed by event uuid
+     */
+    public function manifestEventCards(array $user, array $feed, array $uuids)
+    {
+        if ($feed['Feed']['source_format'] !== 'misp' || empty($uuids)) {
+            return [];
+        }
+        try {
+            if ($this->isFeedLocal($feed)) {
+                $manifest = $this->downloadManifest($feed);
+            } else {
+                $path = self::CACHE_DIR . 'misp_feed_' . (int)$feed['Feed']['id'] . '_manifest.cache.gz';
+                if (!file_exists($path)) {
+                    return [];
+                }
+                $manifest = JsonTool::decodeArray(FileAccessTool::readCompressedFile($path));
+            }
+        } catch (Exception $e) {
+            $this->logException("Could not read the manifest of feed {$feed['Feed']['id']}.", $e, LOG_NOTICE);
+            return [];
+        }
+
+        $cards = [];
+        $galaxyTags = [];
+        foreach (array_unique($uuids) as $uuid) {
+            if (!isset($manifest[$uuid]) || !is_array($manifest[$uuid])) {
+                continue;
+            }
+            $event = $manifest[$uuid];
+            $orgc = $event['Orgc'] ?? $event['orgc'] ?? [];
+            $tags = [];
+            foreach ($event['Tag'] ?? [] as $tag) {
+                if (empty($tag['name'])) {
+                    continue;
+                }
+                $tags[] = ['name' => $tag['name'], 'colour' => $tag['colour'] ?? null];
+                if (str_starts_with($tag['name'], 'misp-galaxy:')) {
+                    $galaxyTags[$tag['name']] = true;
+                }
+            }
+            $cards[$uuid] = [
+                'uuid' => $uuid,
+                'info' => $event['info'] ?? null,
+                'date' => $event['date'] ?? null,
+                'timestamp' => $event['timestamp'] ?? null,
+                'threat_level_id' => $event['threat_level_id'] ?? null,
+                'analysis' => $event['analysis'] ?? null,
+                'Orgc' => ['name' => $orgc['name'] ?? null, 'uuid' => $orgc['uuid'] ?? null],
+                'Tag' => $tags,
+                'Galaxy' => [],
+            ];
+        }
+        if (empty($galaxyTags)) {
+            return $cards;
+        }
+
+        $clusters = ClassRegistry::init('GalaxyCluster')->fetchGalaxyClusters($user, [
+            'conditions' => ['GalaxyCluster.tag_name' => array_keys($galaxyTags)],
+            'fields' => ['GalaxyCluster.tag_name', 'GalaxyCluster.value', 'GalaxyCluster.type'],
+        ]);
+        $byTag = [];
+        foreach ($clusters as $cluster) {
+            $byTag[strtolower($cluster['GalaxyCluster']['tag_name'])] = [
+                'type' => $cluster['GalaxyCluster']['type'],
+                'value' => $cluster['GalaxyCluster']['value'],
+            ];
+        }
+        foreach ($cards as &$card) {
+            $tags = [];
+            $galaxies = [];
+            foreach ($card['Tag'] as $tag) {
+                $cluster = $byTag[strtolower($tag['name'])] ?? null;
+                if ($cluster === null) {
+                    $tags[] = $tag;
+                    continue;
+                }
+                $galaxies[$cluster['type']]['type'] = $cluster['type'];
+                $galaxies[$cluster['type']]['GalaxyCluster'][] = ['value' => $cluster['value']];
+            }
+            $card['Tag'] = $tags;
+            $card['Galaxy'] = array_values($galaxies);
+        }
+        return $cards;
+    }
+
+    /**
      * Load remote file with cache support and etag checking.
      * @param array $feed
      * @param HttpSocket $HttpSocket

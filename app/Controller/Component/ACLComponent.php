@@ -471,6 +471,7 @@ class ACLComponent extends Component
             'importFeeds' => ['AND' => ['perm_site_admin', 'theming_enabled']],
             'index' => ['*'],
             'loadDefaultFeeds' => array(),
+            'manifestEvents' => ['*'],
             'previewEvent' => ['*'],
             'previewEventAttributes' => ['theming_enabled*'],
             'previewEventObjects' => ['theming_enabled'],

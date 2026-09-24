@@ -558,7 +558,7 @@ test('the edge-kind dimension is declared for pivotick', async () => {
     eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
        ['object-reference', 'analyst-relationship', 'correlation',
-        'feed-correlation', 'server-correlation']);
+        'feed-correlation', 'feed-event', 'server-correlation']);
     eq('correlations are dashed grey (D1 palette)',
        r.edgeStyleMap['correlation'], { strokeColor: '#888', dashed: true });
     eq('analyst relationships are dashed orange (D1 palette)',
@@ -1221,8 +1221,8 @@ const pivot = (g, id) => g.opts.pivots.find(p => p.id === id);
 
 test('the correlation pivot is declared, capped at the canvas budget, and savable by nobody', async () => {
     const g = await withPivots();
-    eq('one pivot after the element pivot — correlations are per element, never per event',
-       g.opts.pivots.map(p => p.id), ['event-elements', 'correlations']);
+    eq('after the element pivot, correlations and feed events — per element, never per event',
+       g.opts.pivots.map(p => p.id), ['event-elements', 'correlations', 'feed-events']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
@@ -1897,8 +1897,8 @@ test('the form: a search box, then element and category with their counts', asyn
 test('its summaries are dropped whenever a node comes or goes', async () => {
     const g = await buildGraph(ev({}));
     ['nodeAdd', 'nodeRemove'].forEach(evt => {
-        eq(evt + ' is watched', (g.graph.listeners[evt] || []).length, 1);
-        g.graph.listeners[evt][0]();
+        ok(evt + ' is watched', (g.graph.listeners[evt] || []).length >= 1);
+        g.graph.listeners[evt].forEach(f => f(pnode({})));
     });
     eq('each drops this pivot\'s cache', g.graph.pivots.invalidated, ['event-elements', 'event-elements']);
 });
@@ -2074,10 +2074,11 @@ test('17: an edge reads by the kind of link and what it asserts', async () => {
 const menuItem = (g, text) => g.opts.UI.contextMenu.menuNode.menu.find(i => i.text === text);
 const shows = (g, text, data) => menuItem(g, text).visible(data === null ? null : pnode(data));
 
-test('18: MISP adds three entries to the node menu, after the library\'s own', async () => {
+test('18: MISP adds four entries to the node menu, after the library\'s own', async () => {
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     eq('in this order', g.opts.UI.contextMenu.menuNode.menu.map(i => [i.text, i.iconClass]), [
-        ['Open its event', 'fas fa-external-link-alt'], ['Browse feed', 'fas fa-rss'], ['Copy value', 'fas fa-copy']]);
+        ['Open its event', 'fas fa-external-link-alt'], ['Browse feed', 'fas fa-rss'],
+        ['Preview in feed', 'fas fa-rss'], ['Copy value', 'fas fa-copy']]);
     ok('no topbar of ours, and the edge and note menus left alone',
        !g.opts.UI.contextMenu.menuNode.topbar
        && JSON.stringify(Object.keys(g.opts.UI.contextMenu)) === JSON.stringify(['menuNode', 'menuCanvas']));
@@ -2506,7 +2507,7 @@ test('5b: sources are styled, iconed and keyed like the other elements', async (
        g.nodes.filter(n => n.data.type === 'feed').map(n => n.data.scope), ['foreign', 'foreign']);
 });
 
-test('5b: no pivot and no write reaches a source node', async () => {
+test('5b: no write reaches a source node, nor a pivot one that names no events', async () => {
     const g = await withEditor();
     const feed = pnode({ type: 'feed', source_id: '1', scope: 'foreign', label: 'F' });
     const offered = g.opts.pivots.filter(p => p.appliesTo && p.appliesTo([feed]).length);
@@ -2516,6 +2517,89 @@ test('5b: no pivot and no write reaches a source node', async () => {
     const fe = pedge('fc:1', own.attrE1, feed, { kind: 'feed-correlation', label: '' });
     const d = await g.opts.callbacks.onBeforeDelete({ nodes: [], edges: [fe], confirm: () => Promise.resolve(true) });
     eq('its edge is spared, not deleted', d, { accept: true, edges: [] });
+});
+
+/* ─────────────── feed events: the events of a MISP feed ─────────────── */
+
+// Each hit names the feed events its value is in; the map holds them all.
+function feedEventsEvent() {
+    return ev({
+        Feed: [FEED1, FEED9],
+        Attribute: [attr({ uuid: 'e1', value: 'linked', Feed: [{ id: '1', name: 'CIRCL OSINT Feed', event_uuids: ['u1'] }] }),
+                    attr({ uuid: 'e2', value: 'loose', Feed: [{ id: '1', name: 'CIRCL OSINT Feed', event_uuids: ['u2'] }] })],
+        Object: [
+            obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })],
+                  Attribute: [attr({ uuid: 'c1', Feed: [{ id: '1', name: 'CIRCL OSINT Feed', event_uuids: ['u1', 'u2'] }, FEED9] })] }),
+        ],
+    });
+}
+
+const CARD_U1 = {
+    uuid: 'u1', info: 'ThreatFox IOCs for 2026-09-03', date: '2026-09-03',
+    Orgc: { name: 'abuse.ch', uuid: 'O2' },
+    Tag: [{ name: 'tlp:white', colour: '#ffffff' }],
+    Galaxy: [{ type: 'malpedia', GalaxyCluster: [{ value: 'Cobalt Strike' }] }],
+};
+
+function withFeedEvents(onPost) {
+    return buildGraph(feedEventsEvent(), {
+        routes: [[/feeds\/manifestEvents\.json$/, init => {
+            if (onPost) onPost(JSON.parse(init.body));
+            return { events: { '1': { u1: CARD_U1 } } };
+        }]],
+    }).then(g => new Promise(res => setTimeout(() => res(g), 0)));
+}
+
+test('feed events: a MISP feed wears the number of its events this event\'s values are in', async () => {
+    const g = await withFeedEvents();
+    eq('the MISP feed', potentials(g, 'feed:1'), [['feed-events', 2]]);
+    eq('a CSV feed names no events', potentials(g, 'feed:9'), []);
+    const p = pivot(g, 'feed-events');
+    const nodes = [pnode(byId(g.nodes, 'feed:1').data), pnode(byId(g.nodes, 'feed:9').data),
+                   pnode({ type: 'attribute', uuid: 'e1' })];
+    eq('it applies to the MISP feed alone', p.appliesTo(nodes).map(n => n.getData().source_id), ['1']);
+    eq('summarize is its events', p.summarize(p.appliesTo(nodes)), { total: 2 });
+    eq('capped at the canvas budget, never saved', [p.maxCandidates, p.save], [1500, undefined]);
+});
+
+test('feed events: each lands as a cached event card, joined to its feed and its attributes', async () => {
+    let body = null;
+    const g = await withFeedEvents(b => { body = b; });
+    const r = await pivot(g, 'feed-events').fetch([pnode(byId(g.nodes, 'feed:1').data)], {}, {});
+    eq('it asks for the feed\'s events by uuid', body, { feeds: { '1': ['u1', 'u2'] } });
+    eq('two feed events, and the attribute not drawn yet',
+       r.nodes.map(n => n.id), ['feed-event:1:u1', 'feed-event:1:u2', 'attr:e2']);
+    const d = r.nodes[0].data;
+    eq('the card is drawn from the manifest entry',
+       [d.type, d.label, d.date, d.orgc, d.tags, d.context],
+       ['event', 'ThreatFox IOCs for 2026-09-03', '2026-09-03', { name: 'abuse.ch', uuid: 'O2' },
+        [{ name: 'tlp:white', colour: '#ffffff' }], [{ galaxy_type: 'malpedia', value: 'Cobalt Strike' }]]);
+    eq('as a cached hit of that feed', [d._provenance, d.source.kind, d.source.name, d.feed_id, d.scope],
+       ['feed', 'feed', 'CIRCL OSINT Feed', '1', 'foreign']);
+    eq('without a manifest entry it is its uuid', [r.nodes[1].data.label, r.nodes[1].data.orgc], ['u2', undefined]);
+    eq('the feed holds its events; each event holds the values it was seen with',
+       r.edges.map(e => [e.from, e.to, e.data.kind]),
+       [['feed:1', 'feed-event:1:u1', 'feed-event'], ['feed:1', 'feed-event:1:u2', 'feed-event'],
+        ['feed-event:1:u1', 'attr:e1', 'feed-correlation'], ['feed-event:1:u2', 'attr:e2', 'feed-correlation'],
+        ['feed-event:1:u1', 'attr:c1', 'feed-correlation'], ['feed-event:1:u2', 'attr:c1', 'feed-correlation']]);
+});
+
+test('feed events: a feed listed once per lookup batch is one feed with all their events', async () => {
+    const payload = feedEventsEvent();
+    payload.Event.Feed = [Object.assign({}, FEED1, { event_uuids: ['u1'] }), FEED9,
+                          Object.assign({}, FEED1, { event_uuids: ['u2'] })];
+    const g = await buildGraph(payload);
+    eq('its node counts both batches', byId(g.nodes, 'feed:1').data.feed_events, 2);
+    eq('and so does its badge', potentials(g, 'feed:1'), [['feed-events', 2]]);
+});
+
+test('feed events: one previews in its feed, in a new tab', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }), { baseurl: '/misp' });
+    eq('feed events only', [shows(g, 'Preview in feed', { type: 'event', feed_id: '1', uuid: 'u1' }),
+                            shows(g, 'Preview in feed', { type: 'event', event_id: '7', uuid: 'R7' }),
+                            shows(g, 'Preview in feed', { type: 'feed', source_id: '1' })], [true, false, false]);
+    menuItem(g, 'Preview in feed').onclick({}, pnode({ type: 'event', feed_id: '1', uuid: 'u1' }));
+    eq('previewEvent', g.win.opened, [['/misp/feeds/previewEvent/1/u1', '_blank', 'noopener']]);
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */
