@@ -117,8 +117,8 @@
     // Node id an analyst relationship's target maps to, or null when it has no
     // node on this canvas. AnalystData::valid_targets is far wider than the
     // canvas — EventReport, GalaxyCluster, Organisation, SharingGroup and the
-    // analyst-data types are all legal targets. 'Event' resolves now that L0
-    // draws this event and the events it correlates with.
+    // analyst-data types are all legal targets. An 'Event' target is drawn as
+    // an event node, from the record the payload attaches (relationshipEvent).
     function analystTargetId(rel) {
         var t = String(rel.related_object_type || '');
         if (t === 'Attribute') return 'attr:'  + rel.related_object_uuid;
@@ -127,30 +127,21 @@
         return null;
     }
 
-    // L0's candidate event nodes: this event, plus one proxy per correlated
-    // event. `RelatedEvent` is the correlation aggregate MISP already ships
-    // (Event.php:3358) — 5,629 correlations collapse to 86 neighbours.
-    function relatedEvents(ev) {
-        var selfUuid = ev.uuid ? String(ev.uuid) : '';
-        var seen     = {};
-        var out      = [];
-        (ev.RelatedEvent || []).forEach(function (entry) {
-            var e = (entry && entry.Event) ? entry.Event : entry;
-            if (!e || !e.uuid || String(e.uuid) === selfUuid) return;
-            if (seen[e.uuid]) return;         // extended events merge two lists
-            seen[e.uuid] = true;
-            out.push(e);
-        });
-        return out;
+    // The event an 'Event'-typed relationship points at, as Relationship's
+    // afterFind attaches it (fetchSimpleEvent), or null. Empty when the viewer
+    // cannot see that event, which leaves the relationship undrawable.
+    function relationshipEvent(rel) {
+        var e = rel.related_object && rel.related_object.Event;
+        return (e && e.uuid && String(e.uuid) === String(rel.related_object_uuid)) ? e : null;
     }
 
     // Walk every outbound analyst relationship in the event, calling
-    // cb(relationship, sourceNodeId). Sources are event-level attributes,
-    // objects, and objects' child attributes; a tombstoned owner is skipped
-    // whole, exactly as it is on the canvas.
+    // cb(relationship, sourceNodeId). Sources are the event itself, event-level
+    // attributes, objects, and objects' child attributes; a tombstoned owner is
+    // skipped whole, exactly as it is on the canvas.
     //
     // RelationshipInbound is deliberately absent: the bulk path attaches it only
-    // at event level (PRD §3.4), and the event node arrives with L0 (task 3b).
+    // at event level (PRD §3.4).
     function eachAnalystRelationship(ev, cb) {
         function walk(rec, sourceId) {
             if (isDeleted(rec)) return;
@@ -158,6 +149,7 @@
                 if (!isDeleted(rel)) cb(rel, sourceId);
             });
         }
+        if (ev.uuid) walk(ev, 'event:' + ev.uuid);
         (ev.Attribute || []).forEach(function (a) { walk(a, 'attr:' + a.uuid); });
         (ev.Object || []).forEach(function (obj) {
             if (isDeleted(obj)) return;
@@ -174,14 +166,13 @@
     function computeConnectivity(ev) {
         var linkedAttrUuids   = {};
         var connectedObjUuids = {};
-        var eventTouched      = {};   // event node id -> true
+        var eventTouched      = {};   // event node id -> the record it draws from
         var attrOwner         = {};   // object child attr uuid -> owning object uuid
         var liveObj           = {};   // uuid -> true, for endpoint resolution
         var liveAttr          = {};
-        var liveEvent         = {};   // event node id -> true (L0 candidates)
+        var liveEvent         = {};   // event node id -> record; others join per relationship
 
-        if (ev.uuid) liveEvent['event:' + ev.uuid] = true;
-        relatedEvents(ev).forEach(function (e) { liveEvent['event:' + e.uuid] = true; });
+        if (ev.uuid) liveEvent['event:' + ev.uuid] = ev;
 
         (ev.Attribute || []).forEach(function (a) {
             if (!isDeleted(a)) liveAttr[a.uuid] = true;
@@ -213,7 +204,7 @@
         function markEndpoint(id) {
             if (!id) return;
             if (id.indexOf('event:') === 0) {
-                eventTouched[id] = true;
+                eventTouched[id] = liveEvent[id];
                 return;
             }
             if (id.indexOf('obj:') === 0) {
@@ -242,6 +233,10 @@
                 return;   // self-reference; the model rejects these, guard anyway
             }
             var targetId = analystTargetId(rel);
+            if (targetId && targetId.indexOf('event:') === 0 && !liveEvent[targetId]) {
+                var other = relationshipEvent(rel);
+                if (other) liveEvent[targetId] = other;
+            }
             if (!exists(targetId)) return;
             markEndpoint(sourceId);
             markEndpoint(targetId);
@@ -269,26 +264,26 @@
     // which elements each one contributes, analytically — no nodes are built.
     // The canvas builder reads it; the element pivot offers whatever it left out.
     //
-    //   L0  event node + one proxy per correlated event
     //   L1  everything an object reference or analyst relationship touches
     //   L2  the remaining objects, containment only, if the whole set fits
     //
+    // Correlations are not a level: they are fetched per element (R1), and the
+    // Correlations tab already lists the events this one shares values with.
+    //
     // L2 is all-or-nothing on purpose. D10 says that above the budget "the seed
-    // stops at L0+L1": a greedy partial fill would draw an arbitrary 40 of
+    // stops at L1": a greedy partial fill would draw an arbitrary 40 of
     // 28,410 objects, and no statement could honestly explain which 40.
     function computeSeed(ev) {
-        var conn    = computeConnectivity(ev);
-        var selfId  = ev.uuid ? 'event:' + ev.uuid : null;
-        var proxies = selfId ? relatedEvents(ev) : [];
+        var conn = computeConnectivity(ev);
 
-        // The event node needs an edge to be worth drawing — a proxy to
-        // correlate with, or an analyst relationship pointing at the event.
-        // Without that gate a bare hexagon would make L0 permanently non-empty
-        // and D11's "nothing to draw" message unreachable.
-        var seedEventNode = !!selfId
-            && (proxies.length > 0 || !!conn.eventTouched[selfId]);
+        // An event node is an analyst relationship's endpoint or nothing: a
+        // bare hexagon would make the seed permanently non-empty and D11's
+        // "nothing to draw" message unreachable.
+        var eventNodes = Object.keys(conn.eventTouched).map(function (id) {
+            return { id: id, record: conn.eventTouched[id] };
+        });
 
-        var l1 = 0;
+        var l1 = eventNodes.length;
         (ev.Attribute || []).forEach(function (a) {
             if (!isDeleted(a) && conn.linkedAttrUuids[a.uuid]) l1++;
         });
@@ -305,30 +300,24 @@
             l2Cost += cost;
         });
 
-        var l0     = seedEventNode ? 1 + proxies.length : 0;
-        var l2Fits = (l0 + l1 + l2Cost) <= NODE_BUDGET;
+        var l2Fits = (l1 + l2Cost) <= NODE_BUDGET;
 
         return {
             linkedAttrUuids:   conn.linkedAttrUuids,
             connectedObjUuids: conn.connectedObjUuids,
-            selfId:            selfId,
-            proxies:           proxies,
-            seedEventNode:     seedEventNode,
+            eventNodes:        eventNodes,
             // Objects L2 actually draws — empty when the level did not fit, so
             // "is this object on the canvas?" is one lookup for every caller.
             l2Uuids:           l2Fits ? l2Uuids : {},
             objectsSkipped:    l2Fits ? 0 : l2Count,
-            cost:              { l0: l0, l1: l1, l2: l2Fits ? l2Cost : 0 },
+            cost:              { l1: l1, l2: l2Fits ? l2Cost : 0 },
             budget:            NODE_BUDGET
         };
     }
 
-    // Event node — this event, or a correlated-event proxy. `info` is what an
-    // analyst recognises an event by; `event_id` is what the double-click
-    // navigation needs. Proxies are leaves: correlated events do not expand in
-    // this phase (PRD §4).
     // Galaxy clusters and non-galaxy tags, for the event card's context row.
-    // A RelatedEvent or correlation record carries neither, and draws none.
+    // A relationship's target event or a correlation record carries neither,
+    // and draws none.
     function eventContext(e) {
         var out = [];
         (e.Galaxy || []).forEach(function (g) {
@@ -525,15 +514,11 @@
         var linkedAttrUuids     = seed.linkedAttrUuids;
         var connectedObjUuids   = seed.connectedObjUuids;
 
-        /* L0 — the event and the events it correlates with. Only drawn when the
-           event node has an edge to carry (see computeSeed). */
-        if (seed.seedEventNode) {
-            addNode(seed.selfId, { id: seed.selfId, data: eventNodeData(ev) });
-            seed.proxies.forEach(function (e) {
-                var id = 'event:' + e.uuid;
-                addNode(id, { id: id, data: eventNodeData(e) });
-            });
-        }
+        /* L1 events — this one or another, each an analyst relationship's
+           endpoint. Another event is a leaf: only its record came along. */
+        seed.eventNodes.forEach(function (e) {
+            addNode(e.id, { id: e.id, data: eventNodeData(e.record) });
+        });
 
         /* L1 — event-level attributes, surfaced only when an authored
            relationship touches them, so every node stays connected to the
@@ -570,18 +555,6 @@
                 data:     objectNodeData(obj, ownerIn(ev, obj))
             });
         });
-
-        /* L0's edges — the correlation aggregate, event to event. Its own kind
-           rather than `correlation`: 86 correlated events and 5,629 attribute
-           correlations (event 4116) are different granularities that must
-           toggle apart, and under D9 the `correlation` layer has to stay empty
-           until it is fetched. The label is blank because there is no assertion
-           here — only "these two events share a value". */
-        if (seed.seedEventNode) {
-            seed.proxies.forEach(function (e) {
-                addEdge(seed.selfId, 'event:' + e.uuid, '', 'event-correlation');
-            });
-        }
 
         /* Object references (added last so both ends already exist) */
         (ev.Object || []).forEach(function (obj) {
@@ -660,7 +633,6 @@
         /* What the graph must be able to say about itself (D12, §7): which
            levels it took, how big that made it, and what it left out. */
         var levels = [];
-        if (seed.cost.l0) levels.push('L0');
         if (seed.cost.l1) levels.push('L1');
         if (seed.cost.l2) levels.push('L2');
 
@@ -669,7 +641,7 @@
             edges: edges,
             stats: {
                 levels:               levels,
-                nodeCount:            seed.cost.l0 + seed.cost.l1 + seed.cost.l2 + sourceNodes,
+                nodeCount:            seed.cost.l1 + seed.cost.l2 + sourceNodes,
                 budget:               seed.budget,
                 objectsSkipped:       seed.objectsSkipped,
                 relationshipsSkipped: relationshipsSkipped,
@@ -680,9 +652,9 @@
     }
 
     // Which levels the seed took and what it left out. Without it 87 nodes
-    // read as the whole of a 28,410-object event. `correlations` joins it
-    // once the counts arrive.
-    function resolutionStatement(stats, correlations) {
+    // read as the whole of a 28,410-object event. `counts` joins it once the
+    // correlation counts arrive.
+    function resolutionStatement(stats, counts) {
         var parts = [];
         // A seed that took no level at all still owes the skip clause: an event
         // whose only content is 28,410 relationship-less objects draws nothing
@@ -708,8 +680,11 @@
             parts.push(plural(stats.feedHitsHidden, 'feed hit', 'feed hits')
                        + ' on elements not shown');
         }
-        if (correlations) {
-            parts.push(plural(correlations, 'correlation', 'correlations') + ' available');
+        if (counts && counts.total) {
+            var events = Object.keys(counts.events || {}).length;
+            parts.push(plural(counts.total, 'correlation', 'correlations')
+                       + (events ? ' with ' + plural(events, 'event', 'events') : '')
+                       + ' available');
         }
         return parts.join(' · ');
     }
@@ -733,7 +708,7 @@
             idEl.setAttribute('title', idEl.textContent);
         }
         if (resEl && _stats) {
-            var res = resolutionStatement(_stats, _counts && _counts.total);
+            var res = resolutionStatement(_stats, _counts);
             resEl.textContent   = res;
             resEl.style.display = res ? '' : 'none';
         }
@@ -918,7 +893,7 @@
         return { id: 'analyst-data', title: analystPanelTitle, render: renderAnalystPanel };
     }
 
-    /* ── pivots: correlations (R1) and related events (R2) ──── */
+    /* ── pivot: correlations (R1) ──────────────────────────── */
     // Counts come from /events/correlationCounts, which counts exactly the
     // pairs /events/correlatedAttributes returns — so a summary never promises
     // what the fetch cannot bring. Null until loaded: nothing applies until then.
@@ -929,12 +904,6 @@
         if (d.type === 'attribute') return _counts.attributes[d.uuid] || 0;
         if (d.type === 'object')    return _counts.objects[d.uuid] || 0;
         return 0;
-    }
-
-    function relatedEventCount(d) {
-        if (!_counts || !d || d.type !== 'event') return 0;
-        if (String(d.event_id) === String(eventId)) return 0;
-        return _counts.events[String(d.event_id)] || 0;
     }
 
     function sumCounts(nodes, count) {
@@ -984,8 +953,8 @@
         return out;
     }
 
-    // Correlated attributes land inside their event's node — the L0 proxy when
-    // it is on the canvas, since ingest merges children into a container by id.
+    // Correlated attributes land inside their event's node — the one already
+    // drawn, if any, since ingest merges children into a container by id.
     // This event's side of each pair is brought along when it is not drawn yet
     // (an event-level attribute, or one inside an object L2 skipped).
     function correlationResult(pairs) {
@@ -1046,9 +1015,11 @@
         .then(correlationResult);
     }
 
+    var CORRELATION_PIVOT = 'correlations';
+
     function correlationPivot() {
         return {
-            id:            'correlations',
+            id:            CORRELATION_PIVOT,
             label:         'Correlations',
             maxCandidates: NODE_BUDGET,
             appliesTo: function (nodes) {
@@ -1063,34 +1034,12 @@
         };
     }
 
-    function relatedEventPivot() {
-        return {
-            id:            'related-event',
-            label:         'Correlations with this event',
-            maxCandidates: NODE_BUDGET,
-            appliesTo: function (nodes) {
-                return nodes.filter(function (n) { return relatedEventCount(n.getData()) > 0; });
-            },
-            summarize: function (nodes) {
-                return { total: sumCounts(nodes, relatedEventCount) };
-            },
-            fetch: function (nodes, narrowing, ctx) {
-                var ids = nodes.map(function (n) { return (n.getData() || {}).event_id; });
-                return fetchCorrelated({ event_ids: ids }, ctx && ctx.signal);
-            }
-        };
-    }
-
-    // Declared, never queried (pivotick draws the rim badge from it): an
-    // element wears the number of correlations its pivot would bring — this
-    // event's attributes and objects for one pivot, a related event for the
-    // other. Zero declares nothing.
+    // Declared, never queried (pivotick draws the rim badge from it): this
+    // event's attributes and objects wear the number of correlations the pivot
+    // would bring. Zero declares nothing.
     function declarePotential(node) {
-        var d = node.getData();
-        var own = ownElementCount(d);
+        var own = ownElementCount(node.getData());
         if (own) node.setPotential('correlations', own);
-        var related = relatedEventCount(d);
-        if (related) node.setPotential('related-event', related);
     }
 
     // Once on the counts, then on each node as it lands (an ingest, an undo's
@@ -1240,8 +1189,8 @@
 
     /* ── the empty canvas (D11) ────────────────────────────── */
     // A canvas with nothing on it says why, and where the event's contents
-    // are. Correlations are never the answer here: any correlated event puts
-    // L0 on the canvas, so an empty seed has none to offer.
+    // are. Correlations do not seed the canvas: they are reached from the
+    // elements put on it.
     function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
     // `seededEmpty`: the seed drew nothing. Otherwise the analyst emptied the
@@ -1259,8 +1208,9 @@
         var listed = parts.join(' and ') + (attrs + objs === 1 ? ' is' : ' are')
                      + ' listed under Event elements, to search and add.';
         return seededEmpty ? {
-            title:  'Nothing in this event is related yet',
-            detail: 'No object references, analyst relationships or correlations to draw. Its ' + listed,
+            title:  'Nothing in this event is linked yet',
+            detail: 'No object references or analyst relationships to draw. Its ' + listed
+                    + ' Correlations are fetched from the elements on the canvas.',
             action: true
         } : {
             title:  'The canvas is empty',
@@ -1310,7 +1260,6 @@
     var KIND_LABELS = {
         'object-reference':     'Object reference',
         'analyst-relationship': 'Analyst relationship',
-        'event-correlation':    'Event correlation',
         'correlation':          'Correlation',
         'feed-correlation':     'Seen in a feed',
         'server-correlation':   'Seen on a server'
@@ -1413,13 +1362,11 @@
     }
 
     /* ── canvas menu: taking fetched correlations back off ─── */
-    // Everything either correlation pivot brought, over however many runs;
-    // what the seed or the element pivot also vouches for stays. Pivotick
-    // records no history row for it, so the notice says it is final.
-    var CORRELATION_PIVOTS = ['correlations', 'related-event'];
+    // Everything the correlation pivot brought, over however many runs; what
+    // the seed or the element pivot also vouches for stays.
 
     function fromCorrelationPivot(element) {
-        return CORRELATION_PIVOTS.some(function (p) { return element.hasSource(p); });
+        return element.hasSource(CORRELATION_PIVOT);
     }
 
     function holdsFetchedCorrelations() {
@@ -1428,14 +1375,10 @@
     }
 
     function removeFetchedCorrelations() {
-        var nodes = 0, edges = 0;
-        CORRELATION_PIVOTS.forEach(function (p) {
-            var removed = _graph.removeBySource(p);
-            nodes += removed.nodes.length;
-            edges += removed.edges.length;
-        });
+        var removed = _graph.removeBySource(CORRELATION_PIVOT);
         _graph.notifier.success('Correlations removed',
-            plural(nodes, 'element', 'elements') + ' and ' + plural(edges, 'link', 'links')
+            plural(removed.nodes.length, 'element', 'elements') + ' and '
+            + plural(removed.edges.length, 'link', 'links')
             + ' off the canvas. Undo puts them back.');
     }
 
@@ -1518,9 +1461,6 @@
                 edgeStyleMap: {
                     'object-reference':     { strokeColor: '#428bca' },
                     'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
-                    // The hue of the event nodes it joins; dashed like every
-                    // other derived (as opposed to authored) relationship.
-                    'event-correlation':    { strokeColor: window.MispPivotNodes.palette().event.core, dashed: true },
                     'correlation':          { strokeColor: '#888', dashed: true },
                     'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
                     'server-correlation':   { strokeColor: '#9b59b6', dashed: true }
@@ -1540,11 +1480,11 @@
                 d3LinkDistance: 200
             },
             // No `save`: correlations are derived, never counted unsaved.
-            pivots: [elementPivot(), correlationPivot(), relatedEventPivot()],
+            pivots: [elementPivot(), correlationPivot()],
             callbacks: {
-                // A correlated event is a leaf here (PRD §4) — it cannot expand
-                // in place, so double-click hands the analyst over to its own
-                // event page rather than leaving the proxy a dead end.
+                // Another event is a leaf here (PRD §4) — it cannot expand in
+                // place, so double-click hands the analyst over to its own
+                // event page rather than leaving the node a dead end.
                 onNodeDbclick: function (e, node) {
                     var d = node && node.getData ? node.getData() : null;
                     if (!d || d.type !== 'event') return;

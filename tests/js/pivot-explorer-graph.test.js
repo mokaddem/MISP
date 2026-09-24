@@ -247,8 +247,8 @@ function buildGraph(payload, options) {
 
 /* ─────────────────────── fixture builders ─────────────────────── */
 
-// Real payloads always carry the event's uuid; L0 needs it, and an analyst
-// relationship targeting an Event resolves against it.
+// Real payloads always carry the event's uuid; an analyst relationship
+// targeting an Event resolves against it.
 const ev = parts => ({
     Event: Object.assign({ id: '1', uuid: 'EV-SELF', Attribute: [], Object: [] }, parts),
 });
@@ -263,12 +263,12 @@ const obj = o => Object.assign({
 
 const ref = o => Object.assign({ referenced_type: '1', relationship_type: 'related-to' }, o);
 
-// One `RelatedEvent` entry, in the shape Event::getRelatedEvents() rearranges
-// it into: the event under an 'Event' key, with Org/Orgc folded inside.
-const relEvent = o => ({ Event: Object.assign({ id: '99', uuid: 'R', info: '', date: '' }, o) });
+// Another event, as Relationship::getRelatedElement() attaches it: a
+// fetchSimpleEvent row, with no Orgc.
+const otherEvent = o => Object.assign({ id: '99', uuid: 'R', info: '', date: '' }, o);
 
 // Enough relationship-less objects to blow the 1,500-node budget, so the seed
-// stops at L0+L1 and the L1 rule becomes observable on its own. No test seam —
+// stops at L1 and the L1 rule becomes observable on its own. No test seam —
 // this is the same arithmetic a 28,410-object event triggers.
 const fillers = n => {
     const out = [];
@@ -281,6 +281,13 @@ const arel = o => Object.assign({
     relationship_type: 'analysed-with', authors: 'alice', orgc_uuid: 'org-1',
     related_object_type: 'Object',
 }, o);
+
+// An analyst relationship pointing at another event, carrying that event's
+// record the way the payload does.
+const toEvent = (record, o) => arel(Object.assign({
+    related_object_type: 'Event', related_object_uuid: record.uuid,
+    related_object: { Event: record },
+}, o));
 
 /* ──────────────────────── assertions ──────────────────────────── */
 
@@ -443,7 +450,7 @@ test('a label is the whole value: the canvas shortens it, not the builder', asyn
         Attribute: [attr({ uuid: 'e1', value: long })],
         Object: [obj({ uuid: 'A', name: 'n'.repeat(80),
                        ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
-        RelatedEvent: [relEvent({ uuid: 'R', info: 'r'.repeat(80) })],
+        Relationship: [toEvent(otherEvent({ uuid: 'R', info: 'r'.repeat(80) }), { object_uuid: 'EV' })],
     }));
     eq('attribute', byId(g.nodes, 'attr:e1').data.label, long);
     eq('object', byId(g.nodes, 'obj:A').data.label, 'n'.repeat(80));
@@ -543,14 +550,12 @@ test('the edge-kind dimension is declared for pivotick', async () => {
        r.edgeStyleMap['object-reference'], { strokeColor: '#428bca' });
     eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
-       ['object-reference', 'analyst-relationship', 'event-correlation', 'correlation',
+       ['object-reference', 'analyst-relationship', 'correlation',
         'feed-correlation', 'server-correlation']);
     eq('correlations are dashed grey (D1 palette)',
        r.edgeStyleMap['correlation'], { strokeColor: '#888', dashed: true });
     eq('analyst relationships are dashed orange (D1 palette)',
        r.edgeStyleMap['analyst-relationship'], { strokeColor: '#f39a1f', dashed: true });
-    eq('event correlations are dashed green, matching the event nodes they join',
-       r.edgeStyleMap['event-correlation'], { strokeColor: '#1892B1', dashed: true });
 
     const facets = g.opts.UI.filter.edgeFacets;
     eq('two edge facets — the layer switch, then what an edge asserts', facets.length, 2);
@@ -578,12 +583,9 @@ test('5c: relationship_type is the second edge dimension, a pattern box', async 
 });
 
 test('5c: derived edges assert nothing, so carry no relationship_type', async () => {
-    const g = await buildGraph(ev({
-        Attribute: [attr({ uuid: 'e1' })],
-        RelatedEvent: [{ Event: { id: '77', uuid: 'R1', info: 'other', Orgc: { name: 'o' } } }],
-    }));
-    const derived = g.edges.filter(e => e.data.kind === 'event-correlation');
-    ok('there are event-correlation edges', derived.length > 0, String(derived.length));
+    const g = await buildGraph(feedEvent());
+    const derived = g.edges.filter(e => /-correlation$/.test(e.data.kind));
+    ok('there are derived edges', derived.length > 0, String(derived.length));
     derived.forEach(e => ok('no relationship_type on ' + e.from + '->' + e.to,
                             !('relationship_type' in e.data), JSON.stringify(e.data)));
 });
@@ -886,50 +888,44 @@ test('INVARIANT still holds with two kinds in play', async () => {
     });
 });
 
-/* ─────────────────────── task 3b — L0 ─────────────────────────── */
+/* ──────────────────── event nodes (task 3b, revised) ───────────────────── */
 
-test('L0: the event and one proxy per correlated event, joined by the aggregate', async () => {
-    const g = await buildGraph(ev({ RelatedEvent: [
-        relEvent({ id: '22', uuid: 'R1', info: 'campaign x', date: '2026-01-02',
-                   Orgc: { name: 'CIRCL' } }),
-        relEvent({ id: '23', uuid: 'R2' }),
-    ] }));
-    eq('the event, plus a proxy each', ids(g.nodes),
-       ['event:EV-SELF', 'event:R1', 'event:R2']);
-    eq('each proxy hangs off the event', edgeKeys(g.edges).sort(),
-       ['event:EV-SELF->event:R1:', 'event:EV-SELF->event:R2:']);
-    eq('every L0 edge carries the aggregate kind',
-       [...new Set(g.edges.map(e => e.data.kind))], ['event-correlation']);
-    eq('and asserts nothing — sharing a value is not a claim',
-       [...new Set(g.edges.map(e => e.data.label))], ['']);
-    ok('proxies are leaves, not expandable containers (PRD §4)',
-       g.nodes.every(n => !n.children));
-    eq('the statement says L0 and only L0', g.resolution, 'Seeded L0 · 3 nodes');
+test('correlated events are not drawn: the Correlations tab lists them', async () => {
+    const g = await buildGraph(ev({
+        RelatedEvent: [{ Event: otherEvent({ id: '22', uuid: 'R1' }) }],
+        Attribute: [attr({ uuid: 'e1' })],
+    }));
+    eq('nothing seeded', g.nodes, []);
+    eq('no edges', g.edges, []);
+    eq('and nothing claimed', g.resolution, '');
 });
 
-test('a correlated-event proxy is labelled by what an analyst recognises it by', async () => {
-    const g = await buildGraph(ev({ RelatedEvent: [
-        relEvent({ id: '22', uuid: 'R1', info: 'campaign x', date: '2026-01-02',
-                   Orgc: { name: 'CIRCL' }, Org: { name: 'HOST' } }),
-        relEvent({ id: '23', uuid: 'R2', info: '', date: '2026-01-03' }),
-    ] }));
+test('another event is labelled by what an analyst recognises it by', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Relationship: [
+        toEvent(otherEvent({ id: '22', uuid: 'R1', info: 'campaign x', date: '2026-01-02',
+                             Orgc: { name: 'CIRCL' }, Org: { name: 'HOST' } }), { object_uuid: 'e1' }),
+        toEvent(otherEvent({ id: '23', uuid: 'R2', info: '', date: '2026-01-03' }), { object_uuid: 'e1' }),
+    ] })] }));
     const a = byId(g.nodes, 'event:R1').data;
-    eq('type drives the green hexagon nodeStyleMap already registers', a.type, 'event');
+    eq('type drives the event node style', a.type, 'event');
     eq('label is the event info', a.label, 'campaign x');
     eq('description is date and creating org', a.description, '2026-01-02 · CIRCL');
     eq('it carries the id the navigation needs', a.event_id, '22');
+    eq('and says it is not this event', a.scope, 'foreign');
 
     const b = byId(g.nodes, 'event:R2').data;
     eq('an event with no info falls back to its id', b.label, 'Event 23');
-    eq('and its description to the date alone', b.description, '2026-01-03');
+    eq('and its description to the date alone — the record has no Orgc', b.description, '2026-01-03');
+    ok('another event is a leaf, not an expandable container (PRD §4)',
+       g.nodes.every(n => !n.children));
 });
 
 test('the event node is drawn only when something connects to it', async () => {
-    // A bare hexagon would make L0 permanently non-empty and put D11's
+    // A bare hexagon would make the seed permanently non-empty and put D11's
     // "nothing to draw" message (task 4) out of reach.
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     ok('no event node', !byId(g.nodes, 'event:EV-SELF'), ids(g.nodes));
-    eq('so L0 contributed nothing', g.resolution, 'Seeded L2 · 1 node');
+    eq('so no event was charged to the seed', g.resolution, 'Seeded L2 · 1 node');
 });
 
 test('an analyst relationship can point at the event itself', async () => {
@@ -939,55 +935,77 @@ test('an analyst relationship can point at the event itself', async () => {
     eq('the event node is drawn for the assertion to land on',
        ids(g.nodes), ['attr:e1', 'event:EV-SELF']);
     eq('edge', edgeKeys(g.edges), ['attr:e1->event:EV-SELF:analysed-with']);
-    eq('with the analyst kind, not the correlation aggregate',
-       g.edges[0].data.kind, 'analyst-relationship');
-    eq('levels', g.resolution, 'Seeded L0+L1 · 2 nodes');
+    eq('with the analyst kind', g.edges[0].data.kind, 'analyst-relationship');
+    eq('an event endpoint is L1 like any other', g.resolution, 'Seeded L1 · 2 nodes');
 });
 
-test('an analyst relationship can point at a correlated event', async () => {
+test('an analyst relationship can point at another event, drawn from the record it carries', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Relationship: [
+        toEvent(otherEvent({ id: '22', uuid: 'R1', info: 'other' }), { object_uuid: 'e1' }),
+    ] })] }));
+    eq('the other event, and not this one', ids(g.nodes), ['attr:e1', 'event:R1']);
+    eq('one analyst edge', g.edges.map(e => e.from + '->' + e.to + ':' + e.data.kind),
+       ['attr:e1->event:R1:analyst-relationship']);
+    eq('drawn from the attached record', byId(g.nodes, 'event:R1').data.label, 'other');
+    eq('levels', g.resolution, 'Seeded L1 · 2 nodes');
+});
+
+test('an event the viewer cannot see is not drawable', async () => {
+    // getRelatedElement() comes back empty for an event the user may not see,
+    // or one that does not exist — the relationship still arrives.
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Relationship: [
+        arel({ object_uuid: 'e1', related_object_uuid: 'R1', related_object_type: 'Event',
+               related_object: [] }),
+        arel({ object_uuid: 'e1', related_object_uuid: 'R2', related_object_type: 'Event',
+               related_object: { Event: otherEvent({ uuid: 'NOT-R2' }) } }),
+    ] })] }));
+    eq('neither end is seeded', g.nodes, []);
+    eq('both are counted', g.resolution, '2 relationships not drawable');
+});
+
+test('the event itself can be a relationship source', async () => {
     const g = await buildGraph(ev({
-        RelatedEvent: [relEvent({ id: '22', uuid: 'R1' })],
-        Attribute: [attr({ uuid: 'e1', Relationship: [
-            arel({ object_uuid: 'e1', related_object_uuid: 'R1',
-                   related_object_type: 'Event' }),
-        ] })],
+        Attribute: [attr({ uuid: 'e1' })],
+        Relationship: [
+            arel({ object_uuid: 'EV-SELF', object_type: 'Event', related_object_uuid: 'e1',
+                   related_object_type: 'Attribute', relationship_type: 'blocks' }),
+            toEvent(otherEvent({ id: '22', uuid: 'R1' }),
+                    { object_uuid: 'EV-SELF', object_type: 'Event', relationship_type: 'similar' }),
+        ],
     }));
-    eq('the proxy is a legal target', ids(g.nodes),
-       ['attr:e1', 'event:EV-SELF', 'event:R1']);
-    eq('both edges land, each with its own kind',
-       g.edges.map(e => e.from + '->' + e.to + ':' + e.data.kind).sort(),
-       ['attr:e1->event:R1:analyst-relationship',
-        'event:EV-SELF->event:R1:event-correlation']);
+    eq('the event and both targets', ids(g.nodes), ['attr:e1', 'event:EV-SELF', 'event:R1']);
+    eq('an edge each, out of the event', edgeKeys(g.edges),
+       ['event:EV-SELF->attr:e1:blocks', 'event:EV-SELF->event:R1:similar']);
+    eq('levels', g.resolution, 'Seeded L1 · 3 nodes');
 });
 
-test('RelatedEvent dedupes, and the event never proxies itself', async () => {
-    // Extended events merge two RelatedEvent lists (Event.php:3788-3794).
-    const g = await buildGraph(ev({ RelatedEvent: [
-        relEvent({ uuid: 'R1' }), relEvent({ uuid: 'R1' }), relEvent({ uuid: 'EV-SELF' }),
+test('two relationships to one event draw it once, and charge it once', async () => {
+    const r1 = otherEvent({ id: '22', uuid: 'R1' });
+    const g = await buildGraph(ev({ Attribute: [
+        attr({ uuid: 'e1', Relationship: [toEvent(r1, { object_uuid: 'e1' })] }),
+        attr({ uuid: 'e2', Relationship: [toEvent(r1, { object_uuid: 'e2' })] }),
     ] }));
-    eq('one proxy, and no self-loop', ids(g.nodes), ['event:EV-SELF', 'event:R1']);
-    eq('one edge', g.edges.length, 1);
-    // addNode/addEdge dedupe by id, so a duplicate proxy is invisible in the
-    // graph itself — it shows up only as a node the budget paid for and the
-    // canvas never drew.
-    eq('and the budget was charged for two nodes, not three',
-       g.resolution, 'Seeded L0 · 2 nodes');
+    eq('one event node', ids(g.nodes), ['attr:e1', 'attr:e2', 'event:R1']);
+    eq('two edges', g.edges.length, 2);
+    eq('three nodes paid for', g.resolution, 'Seeded L1 · 3 nodes');
 });
 
-test('with no event uuid in the payload there is no L0 at all', async () => {
-    // Proxies edge to the event node; without one they would be floating dots.
-    const g = await buildGraph(ev({ uuid: null, RelatedEvent: [relEvent({ uuid: 'R1' })] }));
+test('with no event uuid in the payload the event is no endpoint', async () => {
+    const g = await buildGraph(ev({ uuid: null,
+        Relationship: [toEvent(otherEvent({ uuid: 'R1' }), { object_uuid: 'x' })] }));
     eq('nothing drawn', g.nodes, []);
     eq('no edges', g.edges, []);
 });
 
-test('double-click on a proxy opens that event, and does nothing anywhere else', async () => {
-    const g = await buildGraph(ev({ RelatedEvent: [relEvent({ id: '22', uuid: 'R1' })] }));
+test('double-click on another event opens it, and does nothing anywhere else', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Relationship: [
+        toEvent(otherEvent({ id: '22', uuid: 'R1' }), { object_uuid: 'e1' }),
+    ] })] }));
     const dbl = g.opts.callbacks.onNodeDbclick;
     ok('the callback is declared', typeof dbl === 'function');
 
     dbl({}, { getData: () => ({ type: 'event', event_id: '22' }) });
-    eq('navigates to the neighbour', g.win.location.href, '/misp/events/view2/22');
+    eq('navigates to the other event', g.win.location.href, '/misp/events/view2/22');
 
     g.win.location.href = '';
     dbl({}, { getData: () => ({ type: 'event', event_id: '1' }) });
@@ -1040,20 +1058,20 @@ test('the budget is all-or-nothing: one node over and L2 is skipped whole', asyn
 });
 
 test('over budget, the seed falls back to the relationship spine', async () => {
-    // Event 4116 in miniature: L2 does not fit, so L0+L1 carry the graph and
+    // Event 4116 in miniature: L2 does not fit, so L1 carries the graph and
     // the statement carries the rest.
     const g = await buildGraph(ev({
-        RelatedEvent: [relEvent({ uuid: 'R1' })],
         Object: [
-            obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })] }),
+            obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })],
+                  Relationship: [toEvent(otherEvent({ uuid: 'R1' }), { object_uuid: 'A' })] }),
             obj({ uuid: 'B' }),
         ].concat(fillers(1501)),
     }));
-    eq('L0 and L1 survive', ids(g.nodes),
-       ['event:EV-SELF', 'event:R1', 'obj:A', 'obj:B']);
+    eq('L1 survives, the event it relates to included', ids(g.nodes),
+       ['event:R1', 'obj:A', 'obj:B']);
     eq('with both their edges', g.edges.length, 2);
     eq('and the graph states exactly what it did and did not draw', g.resolution,
-       'Seeded L0+L1 · 4 nodes · L2 skipped (1501 objects not shown)');
+       'Seeded L1 · 3 nodes · L2 skipped (1501 objects not shown)');
 });
 
 test('an object is counted at its true cost — children included — before L2 is judged', async () => {
@@ -1085,8 +1103,10 @@ test('the statement counts every node the builder actually emitted', async () =>
     // Guards the seed\'s analytic arithmetic against the build: they are
     // computed by different code and must not drift.
     const g = await buildGraph(ev({
-        RelatedEvent: [relEvent({ uuid: 'R1' }), relEvent({ uuid: 'R2' })],
-        Attribute: [attr({ uuid: 'e1' }), attr({ uuid: 'e2', value: 'loose' })],
+        Relationship: [toEvent(otherEvent({ uuid: 'R1' }), { object_uuid: 'EV-SELF' })],
+        Attribute: [attr({ uuid: 'e1', Relationship: [
+                        toEvent(otherEvent({ uuid: 'R2' }), { object_uuid: 'e1' })] }),
+                    attr({ uuid: 'e2', value: 'loose' })],
         Object: [
             obj({ uuid: 'A', Attribute: [attr({ uuid: 'a1' })],
                   ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] }),
@@ -1095,7 +1115,7 @@ test('the statement counts every node the builder actually emitted', async () =>
         ],
     }));
     const declared = Number(/· (\d+) nodes/.exec(g.resolution)[1]);
-    eq('every level contributed', g.resolution.indexOf('Seeded L0+L1+L2') === 0, true);
+    eq('every level contributed', g.resolution.indexOf('Seeded L1+L2') === 0, true);
     eq('the declared count matches the graph, nested children included',
        declared, countAll(g.nodes));
     eq('3 event nodes + 1 linked attribute + 3 objects + 3 nested children',
@@ -1114,23 +1134,23 @@ test('a skipped L2 leaves the tray as the only route to those objects', async ()
     eq('the attribute among them', trayLabels(g), ['loose']);
 });
 
-test('INVARIANT: every kind the builder emits resolves to a styled kind — all three', async () => {
+test('INVARIANT: every kind the builder emits resolves to a styled kind — both authored ones', async () => {
     const g = await buildGraph(ev({
-        RelatedEvent: [relEvent({ uuid: 'R1' })],
         Attribute: [attr({ uuid: 'e1' })],
         Object: [
             obj({ uuid: 'A',
                   ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })],
-                  Relationship: [arel({ object_uuid: 'A', related_object_uuid: 'B' })] }),
+                  Relationship: [arel({ object_uuid: 'A', related_object_uuid: 'B' }),
+                                 toEvent(otherEvent({ uuid: 'R1' }), { object_uuid: 'A' })] }),
             obj({ uuid: 'B' }),
         ],
     }));
     const styled = Object.keys(g.opts.render.edgeStyleMap);
     const accessor = g.opts.render.edgeTypeAccessor;
 
-    eq('all three kinds are in play at once',
+    eq('both kinds are in play at once',
        [...new Set(g.edges.map(e => e.data.kind))].sort(),
-       ['analyst-relationship', 'event-correlation', 'object-reference']);
+       ['analyst-relationship', 'object-reference']);
     g.edges.forEach(e => {
         const resolved = accessor({ getData: () => e.data });
         ok('kind ' + JSON.stringify(resolved) + ' for ' + e.from + '->' + e.to + ' is styled',
@@ -1138,7 +1158,7 @@ test('INVARIANT: every kind the builder emits resolves to a styled kind — all 
     });
 });
 
-/* ───────────────────── pivots (R1, R2) ───────────────────────── */
+/* ───────────────────────── pivot (R1) ────────────────────────── */
 
 // A node as pivotick hands it to a pivot: only getData() is read.
 const pnode = data => ({ getData: () => data });
@@ -1162,9 +1182,10 @@ const PAIRS = [pair('c1', 'x1', '7', 'R7'), pair('c1', 'x2', '7', 'R7'), pair('e
 
 function pivotFixture() {
     return ev({
-        RelatedEvent: [relEvent({ uuid: 'R7', id: '7' }), relEvent({ uuid: 'R8', id: '8' })],
         Attribute: [attr({ uuid: 'e1' })],
-        Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1' })] }), obj({ uuid: 'B' })],
+        Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1' })] }),
+                 obj({ uuid: 'B', Relationship: [
+                     toEvent(otherEvent({ uuid: 'R7', id: '7' }), { object_uuid: 'B' })] })],
     });
 }
 
@@ -1179,10 +1200,10 @@ function withPivots(extraRoutes) {
 
 const pivot = (g, id) => g.opts.pivots.find(p => p.id === id);
 
-test('both pivots are declared, capped at the canvas budget, and savable by nobody', async () => {
+test('the correlation pivot is declared, capped at the canvas budget, and savable by nobody', async () => {
     const g = await withPivots();
-    eq('the two pivots, after the element pivot', g.opts.pivots.map(p => p.id),
-       ['event-elements', 'correlations', 'related-event']);
+    eq('one pivot after the element pivot — correlations are per element, never per event',
+       g.opts.pivots.map(p => p.id), ['event-elements', 'correlations']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
@@ -1209,19 +1230,6 @@ test('the correlation pivot applies only where the counts say something correlat
 test('before the counts arrive, no pivot applies', async () => {
     const g = await buildGraph(pivotFixture());     // counts route answers with the event payload
     eq('correlations', pivot(g, 'correlations').appliesTo([pnode({ type: 'attribute', uuid: 'e1' })]).length, 0);
-    eq('related-event', pivot(g, 'related-event').appliesTo([pnode({ type: 'event', event_id: '7' })]).length, 0);
-});
-
-test('the related-event pivot applies to other events, never to this one', async () => {
-    const g = await withPivots();
-    const p = pivot(g, 'related-event');
-    const nodes = [
-        pnode({ type: 'event', uuid: 'R7', event_id: '7' }),
-        pnode({ type: 'event', uuid: 'R9', event_id: '9' }),
-        pnode({ type: 'event', uuid: 'SELF', event_id: '1' }),
-    ];
-    eq('only the counted foreign event', p.appliesTo(nodes).map(n => n.getData().event_id), ['7']);
-    eq('its summary is that event\'s count', p.summarize(p.appliesTo(nodes)), { total: 2 });
 });
 
 const potentials = (g, id) => {
@@ -1235,9 +1243,7 @@ test('15: every counted element declares what its pivot would bring, as rim pote
     eq('an object, its own count', potentials(g, 'obj:A'), [['correlations', 2]]);
     eq('a child attribute, for when its object is expanded', potentials(g, 'attr:c1'), [['correlations', 2]]);
     eq('an object nothing correlates with declares nothing', potentials(g, 'obj:B'), []);
-    eq('a related event, as R2', [potentials(g, 'event:R7'), potentials(g, 'event:R8')],
-       [[['related-event', 2]], [['related-event', 1]]]);
-    eq('never this event', potentials(g, 'event:EV-SELF'), []);
+    eq('another event declares nothing, however much it shares', potentials(g, 'event:R7'), []);
     eq('one render to draw them', g.graph.renderer.updates, 1);
     eq('no console errors', g.errors, []);
 });
@@ -1263,18 +1269,12 @@ test('an object origin fetches by its live attributes', async () => {
        body, { attribute_uuids: ['c1', 'e1'] });
 });
 
-test('a related-event origin fetches by event id', async () => {
-    let body = null;
-    const g = await withPivots([[/correlatedAttributes/, init => { body = JSON.parse(init.body); return PAIRS; }]]);
-    await pivot(g, 'related-event').fetch([pnode({ type: 'event', uuid: 'R7', event_id: '7' })], {}, {});
-    eq('event ids', body, { event_ids: ['7'] });
-});
-
 test('correlated attributes land inside their event, joined to this event by correlation edges', async () => {
     const g = await withPivots();
     const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
     const containers = r.nodes.filter(n => n.id.indexOf('event:') === 0);
-    eq('one container per correlated event, keyed like the L0 proxy', containers.map(n => n.id), ['event:R7', 'event:R8']);
+    eq('one container per correlated event, keyed like a drawn event so ingest merges into it',
+       containers.map(n => n.id), ['event:R7', 'event:R8']);
     eq('R7 holds both of its attributes once', containers[0].children.map(c => c.id), ['attr:x1', 'attr:x2']);
     eq('a correlated attribute is drawn like any attribute, and says which event it is in',
        [containers[0].children[0].data.type, containers[0].children[0].data.event_id], ['attribute', '7']);
@@ -1879,7 +1879,9 @@ const opinion = o => Object.assign({ note_type_name: 'Opinion', opinion: '50', c
 function analystFixture() {
     return ev({
         Note: [note({ note: 'about the event' })],
-        RelatedEvent: [relEvent({ uuid: 'R7', id: '7' })],
+        // What puts the event node on the canvas for its note to sit on.
+        Relationship: [arel({ object_uuid: 'EV-SELF', related_object_uuid: 'c2',
+                              related_object_type: 'Attribute' })],
         Object: [
             obj({ uuid: 'A', Opinion: [opinion({ opinion: '10', comment: 'Clearly a FP' })], Attribute: [
                 attr({ uuid: 'c1', value: 'noted',
@@ -2012,7 +2014,7 @@ test('17: an attribute reads by value, type and category, then where it belongs'
 
 test('17: objects, events and sources each read by their own fields', async () => {
     const g = await buildGraph(ev({ info: 'Seed', date: '2025-01-02', Orgc: { name: 'CIRCL' },
-        RelatedEvent: [relEvent({ uuid: 'R', id: '7', info: 'Other' })],
+        Relationship: [toEvent(otherEvent({ uuid: 'R', id: '7', info: 'Other' }), { object_uuid: 'EV-SELF' })],
         Object: [obj({ uuid: 'A', name: 'domain-ip', 'meta-category': 'network' })] }));
     eq('object', props(g, byId(g.nodes, 'obj:A').data),
        ['Template: domain-ip', 'Meta-category: network', 'Event: This event', 'UUID: A']);
@@ -2030,9 +2032,9 @@ test('17: an edge reads by the kind of link and what it asserts', async () => {
     eq('an analyst relationship', edgeProps(g, { kind: 'analyst-relationship', relationship_type: 'seen-with',
                                                   authors: 'alice', uuid: 'U1', orgc: 'o' }),
        ['Link: Analyst relationship', 'Relationship: seen-with', 'Authors: alice', 'UUID: U1']);
-    eq('every derived kind has a name', ['event-correlation', 'correlation', 'feed-correlation', 'server-correlation']
+    eq('every derived kind has a name', ['correlation', 'feed-correlation', 'server-correlation']
        .map(k => edgeProps(g, { kind: k, label: '' })[0]),
-       ['Link: Event correlation', 'Link: Correlation', 'Link: Seen in a feed', 'Link: Seen on a server']);
+       ['Link: Correlation', 'Link: Seen in a feed', 'Link: Seen on a server']);
 });
 
 /* ─────────────────── task 18: the node context menu ─────────────────── */
@@ -2114,17 +2116,17 @@ async function withFetched() {
     const g = await withPivots();
     const gr = g.graph;
     gr.liveNode({ id: 'attr:x1', data: { type: 'attribute', uuid: 'x1' } }, ['correlations']);
-    gr.liveNode({ id: 'attr:x2', data: { type: 'attribute', uuid: 'x2' } }, ['related-event']);
+    gr.liveNode({ id: 'attr:x2', data: { type: 'attribute', uuid: 'x2' } }, ['correlations']);
     gr.liveNode({ id: 'attr:e1', data: { type: 'attribute', uuid: 'e1' } }, ['correlations', 'event-elements']);
-    ['c1>x1', 'c1>x2'].forEach((id, i) => gr.liveEdges.push({
-        id, getData: () => ({ kind: 'correlation' }), vouched: new Set([i ? 'related-event' : 'correlations']),
+    ['c1>x1', 'c1>x2'].forEach(id => gr.liveEdges.push({
+        id, getData: () => ({ kind: 'correlation' }), vouched: new Set(['correlations']),
         hasSource(s) { return this.vouched.has(s); },
         dropSource(s) { this.vouched.delete(s); return this.vouched.size === 0; },
     }));
     return g;
 }
 
-test('12: the canvas menu offers it only while a correlation pivot has brought something', async () => {
+test('12: the canvas menu offers it only while the correlation pivot has brought something', async () => {
     const seeded = await withPivots();
     eq('one entry', [canvasItem(seeded).text, canvasItem(seeded).iconClass],
        ['Remove fetched correlations', 'fas fa-eraser']);
@@ -2133,16 +2135,16 @@ test('12: the canvas menu offers it only while a correlation pivot has brought s
     eq('after a run, offered', canvasItem(fetched).visible(null), true);
 });
 
-test('12: it removes what both correlation pivots brought, and only that', async () => {
+test('12: it removes what the correlation pivot brought, and only that', async () => {
     const g = await withFetched();
     const seedNodes = g.graph.getMutableNodes().length - 3, seedEdges = g.graph.getMutableEdges().length - 2;
     canvasItem(g).onclick({}, null);
-    eq('each pivot, through the library', g.graph.removedBy, ['correlations', 'related-event']);
+    eq('through the library', g.graph.removedBy, ['correlations']);
     ok('the fetched elements are gone', !g.graph.getMutableNode('attr:x1') && !g.graph.getMutableNode('attr:x2'));
     ok('one the element pivot also put there stays', !!g.graph.getMutableNode('attr:e1'));
     eq('the seed is untouched', [g.graph.getMutableNodes().length - 1, g.graph.getMutableEdges().length],
        [seedNodes, seedEdges]);
-    eq('the notice counts it and says it is final', g.graph.notices.map(n => [n.level, n.title, n.msg]), [[
+    eq('the notice counts it and says Undo puts it back', g.graph.notices.map(n => [n.level, n.title, n.msg]), [[
         'success', 'Correlations removed',
         '2 elements and 2 links off the canvas. Undo puts them back.']]);
     eq('and then there is nothing left to offer', canvasItem(g).visible(null), false);
@@ -2159,8 +2161,9 @@ test('an empty seed says why, and where the contents are', async () => {
     const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' }), attr({ uuid: 'a2' }), attr({ uuid: 'gone', deleted: true })] }));
     eq('nothing drawn', g.nodes, []);
     const t = emptyText(g);
-    ok('it names what is missing, correlations included', t.indexOf('Nothing in this event is related yet') !== -1
-       && t.indexOf('No object references, analyst relationships or correlations') !== -1, t);
+    ok('it names what is missing', t.indexOf('Nothing in this event is linked yet') !== -1
+       && t.indexOf('No object references or analyst relationships to draw') !== -1, t);
+    ok('and where correlations come from', t.indexOf('Correlations are fetched from the elements on the canvas') !== -1, t);
     ok('and counts what is there, deleted ones aside', t.indexOf('Its 2 attributes are listed under Event elements') !== -1, t);
     eq('one action', emptyButton(g).textContent, 'Browse event elements');
 });
@@ -2210,14 +2213,14 @@ const prov = n => [n.data.scope, n.data.event_id, n.data.event_uuid];
 
 test('every seeded node says which event it belongs to', async () => {
     const g = await buildGraph(ev({
-        RelatedEvent: [relEvent({ uuid: 'R7', id: '7' })],
+        Relationship: [toEvent(otherEvent({ uuid: 'R7', id: '7' }), { object_uuid: 'EV-SELF' })],
         Attribute: [attr({ uuid: 'e1', event_id: '1' })],
         Object: [obj({ uuid: 'A', event_id: '1', Attribute: [attr({ uuid: 'c1', event_id: '1' })],
                        ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] })],
     }));
     const all = flat(g.nodes);
     eq('this event', prov(byId(all, 'event:EV-SELF')), ['self', '1', 'EV-SELF']);
-    eq('a correlated event', prov(byId(all, 'event:R7')), ['foreign', '7', 'R7']);
+    eq('another event', prov(byId(all, 'event:R7')), ['foreign', '7', 'R7']);
     eq('an object', prov(byId(all, 'obj:A')), ['self', '1', 'EV-SELF']);
     eq('its child attribute', prov(byId(all, 'attr:c1')), ['self', '1', 'EV-SELF']);
     eq('an event-level attribute', prov(byId(all, 'attr:e1')), ['self', '1', 'EV-SELF']);
@@ -2316,7 +2319,15 @@ test('the identity line leaves out what the event lacks', async () => {
 
 test('the correlation total joins the resolution line once counted', async () => {
     const g = await withPivots();
-    ok('it ends the statement', /· 3 correlations available$/.test(g.resolution), g.resolution);
+    ok('it ends the statement, with the events it reaches',
+       /· 3 correlations with 2 events available$/.test(g.resolution), g.resolution);
+});
+
+test('one correlation into one event reads in the singular', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }), { routes: [[/correlationCounts/,
+        { total: 1, attributes: { x: 1 }, objects: {}, events: { '7': 1 } }]] });
+    await new Promise(res => setTimeout(res, 0));
+    eq('singular', g.resolution, 'Seeded L2 · 1 node · 1 correlation with 1 event available');
 });
 
 test('no correlations, no clause', async () => {

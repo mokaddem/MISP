@@ -375,20 +375,20 @@ attributes the user can see. Fetched once per graph; `summarize` reads it for th
 handed. Measured in `graph-endpoint-prd` §7. **`fetch`** posts to
 `/events/correlatedAttributes/{id}.json` (`attribute_uuids`), which returns exactly the pairs the
 count counted. Results come back as one container per correlated event, keyed `event:<uuid>` like
-the L0 proxy so ingest merges them into it, plus a `correlation` edge per pair. `maxCandidates` is
+any event node so ingest merges them into one already drawn, plus a `correlation` edge per pair. `maxCandidates` is
 1,500 — the D12 canvas budget, for the same legibility reason.
 
 **The count is on the rim too (task 15).** Each of this event's attributes and objects declares
-its count as the pivot's potential, `node.setPotential('correlations', n)` — the same declared,
-never-queried badge R2 gives a related event, opening Pivot mode on that element. It is declared
+its count as the pivot's potential, `node.setPotential('correlations', n)` — a declared,
+never-queried badge, opening Pivot mode on that element. It is declared
 once the counts arrive, and again on every node as it lands (an element-pivot ingest, the event's
 own side a correlation run brings along), before the render that follows. An object's badge is its
 own count, which already covers its attributes; the attributes wear theirs once it is expanded.
-Like R2's, the badge says what the pivot *would* bring, and stays after a run has brought it.
+The badge says what the pivot *would* bring, and stays after a run has brought it.
 
-**Taking them back off (task 12).** Undo takes back the newest run; everything the two
-correlation pivots brought, over any number of runs, comes off through the canvas menu's *Remove
-fetched correlations* — `graph.removeBySource` for `correlations` and `related-event`, which
+**Taking them back off (task 12).** Undo takes back the newest run; everything the correlation
+pivot brought, over any number of runs, comes off through the canvas menu's *Remove fetched
+correlations* — `graph.removeBySource('correlations')`, which
 deletes only what nothing else vouches for, so the seed and whatever the element pivot put there
 stay. The entry shows only while something fetched is on the canvas. The removal is a history
 entry since Pivotick `f598444` (§11.13, task 0d), so Undo puts it back, and the notice says so.
@@ -398,7 +398,9 @@ It changes a number this PRD leaned on: **event 4116 has 708 correlations to off
 fetch — leaves out correlation-exclusion and over-correlating values. Still well past a sane
 `maxCandidates`, so the gate is still load-bearing.
 
-#### R2 — Related events are a pivot, and the badge shows what they would bring ✅ RULED (revises §4, D12 L0)
+#### R2 — Related events are a pivot, and the badge shows what they would bring ✗ WITHDRAWN by R7
+
+*Kept for the record: with no correlated-event nodes on the canvas there is nothing to pivot on.*
 
 A correlated-event proxy (L0) is a pivot origin. Pivoting on it fetches the elements of that
 event which correlate with this one, staged for triage like R1's. The node carries the count as
@@ -435,6 +437,37 @@ back for that kind alone (D8). **Done in 10b:** `perm_add` and `perm_analyst_dat
 
 `render.minLabelFontSize` stays at the library's 9 px. The graph may open with labels hidden and
 names appear as the analyst zooms in.
+
+#### R7 — Correlated events leave the canvas; an event node is a relationship endpoint ✅ RULED, DONE (2026-09-24) (withdraws R2 and D12's L0, revises D1, D11, §6.4, task 3b)
+
+The canvas no longer opens on this event with a spoke to every event it correlates with. That
+star (86 spokes on 4116) repeated what the event's Correlation tab already lists, in a worse form:
+the layout carries no meaning, an event-to-event edge does not say *which* value is shared, and
+the hub took the layout over from the authored structure only this graph can show. Correlations
+are now attribute to attribute only, fetched on demand through R1's pivot; the other event
+appears solely as the container holding the attribute it shares.
+
+- **No L0.** `RelatedEvent` is no longer read. The seed is L1 + L2 (D12); the statement reads
+  `Seeded L1+L2 · …`.
+- **An event node is drawn only as an analyst relationship's endpoint**, and counts toward L1:
+  this event, when one of its attributes or objects points at it or when it has an outbound
+  relationship of its own (`Event.Relationship`, now walked); another event, drawn as a leaf from
+  the record the payload attaches to the relationship (`related_object.Event`,
+  `Relationship::getRelatedElement` → `fetchSimpleEvent`). That record carries no `Orgc`, so the
+  card shows the date alone. A target the viewer cannot see comes back with an empty
+  `related_object` and is counted as *not drawable*, like any other undrawable target.
+- **Gone:** the `event-correlation` edge kind (style, legend name, filter), the related-event
+  pivot and its rim badge (R2). The server side is unchanged: `correlationCounts` still returns
+  `events`, which the statement now uses — `708 correlations with 78 events available` on 4116 —
+  and `correlatedAttributes` keeps its `event_ids` filter.
+- **D11 fires more often, by design.** A large event with correlations but no references or
+  relationships (4116) now opens empty, saying so, pointing at Event elements, and adding that
+  correlations are fetched from the elements put on the canvas.
+
+Checked live on the dev instance: 3989 (an attribute `similar-to` event 4182) draws 4182 alone,
+with one analyst edge and no spokes; 4182 (an attribute `related-to` itself) draws its own node;
+1545's event→event relationship targets an event this instance does not hold and is counted not
+drawable; 4116 opens on the empty state.
 
 ### All settled in review (2026-08-28 → 2026-08-31)
 
@@ -489,7 +522,11 @@ On-demand loading delivers what default-hidden was for (uncluttered opening, cor
 click away) while making the first paint *cheaper*, and it turns the 92% empty case into a
 designed first step rather than a defect.
 
-#### D12 — Resolution levels: the seed takes the highest level that fits the budget ✅ SETTLED
+#### D12 — Resolution levels: the seed takes the highest level that fits the budget ✅ SETTLED (L0 withdrawn by R7)
+
+> **R7 (2026-09-24):** L0 is gone — correlated events are not drawn, and an event node is an
+> analyst relationship's endpoint, charged to L1. The seed is L1 + L2. The L0 row and the
+> paragraphs built on it below are kept as the reasoning that was revised.
 
 The graph has four resolution levels. The seed takes the highest that fits a **single node budget
 of 1,500** (pivotick's own detail threshold — past it the minimap stops resolving per-node style
@@ -569,6 +606,10 @@ empty, rather than whenever the event is large. A behemoth gets L0's aggregated 
 > cannot appear: correlations imply related events, and related events put L0 on the canvas. The
 > message names what is missing and points at the *Event elements* pivot (task 9) instead. It is
 > Pivotick's `UI.emptyState` card (added upstream on MISP's request), with MISP's words.
+>
+> **R7 (2026-09-24):** with L0 gone, correlations no longer keep a large event off this card —
+> 4116 now opens on it. The title reads *Nothing in this event is linked yet*, and the body adds
+> that correlations are fetched from the elements on the canvas.
 
 #### D1 — Two edge dimensions, six kinds, plus feed/server nodes ✅ SETTLED
 
@@ -602,13 +643,13 @@ filter hides them — asking "what asserts `-by`" is asking about authored edges
 |---|---|---|
 | `object-reference` | `obj.ObjectReference` | yes |
 | `analyst-relationship` | `.Relationship[]` + `.RelationshipInbound[]` | yes |
-| `event-correlation` | `RelatedEvent` | **yes, free** (`includeEventCorrelations` defaults true) |
+| ~~`event-correlation`~~ | ~~`RelatedEvent`~~ — **removed by R7**: correlations are attribute to attribute only | — |
 | `correlation` | `RelatedAttribute` | **no** — on demand (D9) |
 | `feed-correlation` | `attribute.Feed[]` | **yes, free** (`includeFeedCorrelations = 1` unconditionally, `EventsController.php:1857`) |
 | `server-correlation` | `attribute.Server[]` | no — needs `includeServerCorrelations:1` (forced to 0 for REST, `:1864-1866`) |
 
-**`event-correlation` is not folded into `correlation`** (settled 2026-08-31, task 3b), and the
-split is load-bearing.
+**`event-correlation` is not folded into `correlation`** (settled 2026-08-31, task 3b; the kind
+itself is gone since R7), and the split is load-bearing.
 Both are correlation-derived, but they are different granularities of the same fact: event 4116
 has **86** `event-correlation` edges and **5,629** `correlation` edges saying the same thing at
 attribute resolution. One `kind` for both would break two things at once — the layer switch could
@@ -1182,12 +1223,13 @@ sidebar panel and the dock's column — and **nothing on the canvas** (D2c). Wit
 also deleted (D2), `styleCb` has no remaining job on this page and the rim belongs entirely to the
 library.
 
-Correlated events (`RelatedEvent`) render as **leaf proxy nodes** of type `event` — the
-`nodeStyleMap` already registers a green hexagon for `event` that nothing currently creates —
-labelled from `info`/`date`/`org`. They are **not** expandable containers in this phase (§4);
-double-click navigates to that event's own `view2`. ✅ Built in task 3b, navigation included:
-`callbacks.onNodeDbclick` sends the analyst to `/events/view2/{id}` for any `event` node but the
-one the graph was seeded from. ✅ Task 8 gave them `data.scope: 'foreign'` and the header.
+**Since R7, correlated events are not drawn;** another event appears only as an analyst
+relationship's target (from `related_object.Event`) or as the container a correlation run fills.
+Either is a **leaf node** of type `event`, labelled from `info`/`date`/`org`. It is **not** an
+expandable container in this phase (§4); double-click navigates to that event's own `view2`.
+✅ Built in task 3b, navigation included: `callbacks.onNodeDbclick` sends the analyst to
+`/events/view2/{id}` for any `event` node but the one the graph was seeded from. ✅ Task 8 gave
+them `data.scope: 'foreign'` and the header.
 
 **The node menu (task 18)** makes that discoverable without navigating away. MISP appends three
 entries after the library's own, *Pivot ▸* among them (Pivotick's, one click per applicable pivot):
@@ -1431,13 +1473,13 @@ test what replaced them.
 | 1 | Regression pass on the existing graph under v2 (§8.1); refresh the stale Edit▸Add-edge comment | 0b |
 | 2 | ✅ Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer) | 1 |
 | 3 | ✅ Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
-| 3b | ✅ L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
+| 3b | ✅ L0: event node + `RelatedEvent` proxy nodes (free, already in payload) — withdrawn by R7 (task 20) | 2 |
 | 3c | ✅ L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
 | 4 | ✅ D11 empty-state message, pointing at the element pivot (an empty seed has no correlations) | 3c, 9 |
 | 5e | ✅ Count source: `/events/correlationCounts/{id}.json` (R1, first slice of D13) | — |
 | 5f | ✅ Fetch path: `POST /events/correlatedAttributes/{id}.json` — the pairs 5e counts, narrowed by `attribute_uuids` or `event_ids` | 5e |
 | 5 | ✅ correlations as a pivot — `appliesTo` / `summarize` from 5e / `fetch` from 5f / `maxCandidates` 1,500, no `save` (R1) | 5e, 5f, pivotick fix |
-| 5d | ✅ related-event pivot on L0 proxies + declared potential as the rim badge (R2) | 3b, 5e, 5f, pivotick fix |
+| 5d | ✅ related-event pivot on L0 proxies + declared potential as the rim badge (R2) — withdrawn by R7 (task 20) | 3b, 5e, 5f, pivotick fix |
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | ✅ Analyst-data badges + selection-reactive sidebar panel | 1 |
@@ -1462,6 +1504,7 @@ library features it rebuilt by hand or left unused. One commit each:
 | 17 | ✅ The sidebar's Properties declared under MISP's names; the analyst panel's title counts the selection's notes (§6.2). Its lifecycle was the library's already | 6 |
 | 19 | ✅ Analyst relationships ask distribution, sharing group and authors, as MISP's own form does (D2b) | 10b |
 | 18 | ✅ Node context menu: open its event or feed in a new tab, copy an attribute's value; *Pivot ▸* is the library's (§6.4) | — |
+| 20 | ✅ R7: no correlated-event nodes, no `event-correlation` edges, no related-event pivot; an event node is an analyst relationship's endpoint (event-level `Relationship` walked, other events from `related_object.Event`); the statement names the events correlations reach | 3b, 5d |
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
 `correlation` edges needed a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
