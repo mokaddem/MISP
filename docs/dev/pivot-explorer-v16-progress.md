@@ -408,10 +408,6 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
   slow to open (~100 MB for event 4116 to draw 86 nodes).
-- **Pivotick: `svgIcon` drops `dominant-baseline`** — every S drawing's glyph sits on the
-  alphabetic baseline, about half its height above centre (the M and XL cards go through
-  `html` and are unaffected). Upstream as `~/git/pivotick/prd/svgicon-sanitizer-dominant-baseline.md`;
-  a re-vendored bundle fixes it with no change here.
 - **Node drawings: data the module reads but the explorer does not supply.** `ui_priority` on
   object children (the lead attribute falls back to `to_ids`, then template order — resolved
   server-side per `CHANNELS.md`), and `warnings[]` for the warninglist badge, which the
