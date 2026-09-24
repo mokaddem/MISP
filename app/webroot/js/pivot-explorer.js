@@ -414,6 +414,10 @@
     // footprint, and so one threshold. Badges stay the explorer's own.
     var CHIP = { width: 140, height: 44 };
 
+    // The others fall back to their chip at XL, so once the chip tier is on
+    // screen their hover drawing would only repeat it, smaller.
+    var HAS_OWN_XL = { event: true, object: true };
+
     function withBadges(style) {
         return Object.assign({}, style, { badges: nodeBadges });
     }
@@ -460,6 +464,7 @@
                 tiers:     [{ width: CHIP.width, height: CHIP.height, style: withBadges(chip[entity]) }],
                 focusTier: withBadges(focus[entity])
             });
+            if (!HAS_OWN_XL[entity]) map[entity].focusTierYieldsAt = 0;
         });
         return map;
     }
