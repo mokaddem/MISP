@@ -1518,4 +1518,6 @@ of D13.
     object's attribute to anything outside that object is drawn.
 13. ✅ **`removeBySource` is in Undo** — a Pivotick defect (`pivotick/prd/misp/remove-by-source-history.md`),
     fixed in `a5ebbfc` and bundled in 0d. Task 12's removal is a history entry; Undo restores what
-    left and who vouched for it, and the notice says so.
+    left and who vouched for it, and the notice says so. **Open:** one removal is two entries, one
+    per correlation pivot, because `removeBySource` takes a single source and `history.group`
+    coalesces only visibility changes — so a full restore takes two Undos.
