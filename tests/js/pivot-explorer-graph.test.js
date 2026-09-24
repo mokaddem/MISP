@@ -36,6 +36,9 @@ const vm = require('vm');
 const MODULE_PATH = process.env.PIVOT_EXPLORER_JS
     || path.join(__dirname, '..', '..', 'app', 'webroot', 'js', 'pivot-explorer.js');
 const SRC = fs.readFileSync(MODULE_PATH, 'utf8');
+// The node renderers the module requires beside Pivotick, loaded for real.
+const NODES_SRC = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'app', 'webroot', 'js', 'misp-pivot-nodes.js'), 'utf8');
 
 /* ─────────────────────────── DOM stub ─────────────────────────── */
 
@@ -50,6 +53,8 @@ function makeEl(tag) {
         className: '', type: '', placeholder: '', autocomplete: '', value: '',
         children: [], style: {}, attrs: {}, _html: '', _listeners: {},
         appendChild(c) { this.children.push(c); return c; },
+        insertBefore(c) { this.children.unshift(c); return c; },
+        get firstChild() { return this.children[0] || null; },
         removeChild(c) { this.children = this.children.filter(x => x !== c); return c; },
         setAttribute(k, v) { this.attrs[k] = String(v); },
         getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
@@ -126,6 +131,7 @@ function buildGraph(payload, options) {
             addEventListener() {},
             removeEventListener() {},
             body: makeEl('body'),
+            head: makeEl('head'),
         },
         window: {
             // Just enough graph for the element pivot to ask what is drawn.
@@ -209,6 +215,7 @@ function buildGraph(payload, options) {
     sandbox.globalThis = sandbox;
 
     vm.createContext(sandbox);
+    vm.runInContext(NODES_SRC, sandbox, { filename: 'misp-pivot-nodes.js' });
     vm.runInContext(SRC, sandbox, { filename: 'pivot-explorer.js' });
 
     // The build happens in a promise chain off fetch(); let it settle.
@@ -543,7 +550,7 @@ test('the edge-kind dimension is declared for pivotick', async () => {
     eq('analyst relationships are dashed orange (D1 palette)',
        r.edgeStyleMap['analyst-relationship'], { strokeColor: '#f39a1f', dashed: true });
     eq('event correlations are dashed green, matching the event nodes they join',
-       r.edgeStyleMap['event-correlation'], { strokeColor: '#6fbe80', dashed: true });
+       r.edgeStyleMap['event-correlation'], { strokeColor: '#1892B1', dashed: true });
 
     const facets = g.opts.UI.filter.edgeFacets;
     eq('two edge facets — the layer switch, then what an edge asserts', facets.length, 2);
@@ -2271,8 +2278,8 @@ test('the legend keys elements and relationships, the latter on the layer facet'
     const g = await buildGraph(ev({}));
     const sections = g.opts.UI.legend.sections;
     eq('two sections', sections.map(s => s.title), ['Element', 'Relationship']);
-    ok('Element is the nodeTypeAccessor dimension: no key, no entries',
-       sections[0].key === undefined && sections[0].entries === undefined && sections[0].scope === undefined);
+    ok('Element is the nodeTypeAccessor dimension, its hues declared (drawn nodes have none)',
+       sections[0].key === undefined && typeof sections[0].entries === 'function' && sections[0].scope === undefined);
     eq('Relationship keys on edges by kind', [sections[1].scope, sections[1].key], ['edge', 'kind']);
     ok('the same key the layer facet declares',
        g.opts.UI.filter.edgeFacets.some(f => f.key === sections[1].key));
@@ -2441,11 +2448,10 @@ test('5b: a feed and a server sharing an id are two nodes', async () => {
 test('5b: sources are styled, iconed and keyed like the other elements', async () => {
     const g = await buildGraph(feedEvent());
     const r = g.opts.render;
-    eq('triangles, in their layer\'s colour', [r.nodeStyleMap.feed, r.nodeStyleMap.server],
-       [{ shape: 'triangle', color: '#5bc0de', size: 24 }, { shape: 'triangle', color: '#9b59b6', size: 24 }]);
+    eq('triangles in their layer\'s colour, a glyph each', [r.nodeStyleMap.feed, r.nodeStyleMap.server],
+       [{ shape: 'triangle', color: '#5bc0de', size: 24, iconClass: 'fas fa-rss' },
+        { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' }]);
     eq('the accessor reads the type', r.nodeTypeAccessor(pnode({ type: 'feed' })), 'feed');
-    eq('a glyph each', [r.defaultNodeStyle.iconClass(pnode({ type: 'feed' })),
-                        r.defaultNodeStyle.iconClass(pnode({ type: 'server' }))], ['fas fa-rss', 'fas fa-server']);
     const styled = Object.keys(r.edgeStyleMap);
     g.edges.forEach(e => ok('kind ' + e.data.kind + ' is styled',
                             styled.indexOf(r.edgeTypeAccessor({ getData: () => e.data })) !== -1));
