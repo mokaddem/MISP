@@ -25,6 +25,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 0b | Bundle to v2 + audit; edge save onto `onBeforeEdgeCreate` + `isValidConnection` | ✅ | 0 | `3c4d1f0b1` bundle, `9ed240f92` write path (2026-09-23) — see §2 |
 | 0c | Bundle to `develop` `1296966`: pivot edges to children, `UI.emptyState` | ✅ | 0b | `d7a179e9c` (2026-09-23), built from a clean export — the checkout's own `dist/` differed |
 | 0d | Bundle to `develop` `f598444`: edges out of nested children, `removeBySource` in Undo | ✅ | 0c | 2026-09-24, built from a clean export; the CSS came out byte-identical. The removal notice now says Undo puts it back. See §2 |
+| 0e | Bundle to `05fe810` (`worktree-collapsed-cue`, one commit on `develop` `95cc681`): the dashed collapsed cue follows `enableNodeExpansion` | ✅ | 0d, R8 | 2026-09-24, built from a clean export, not yet merged into `develop` upstream. Live on 3989: no node carries `pvt-node-expandable`, objects draw their own outline (`#8A7A73`, 1.5px) undashed; the only dashes left are the feeds' dotted provenance rings |
 | E | Extract inline JS out of the `.ctp` into `webroot/js/pivot-explorer.js` | ✅ | 0 | `edc6a0caa` (2026-08-31) |
 | T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
 | 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
