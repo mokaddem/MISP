@@ -1498,6 +1498,7 @@
             UI: {
                 mode: 'full',
                 theme: 'dark',
+                sidebar: { collapsed: true },
                 propertiesPanel: {
                     nodePropertiesMap: nodeProperties,
                     edgePropertiesMap: edgeProperties
