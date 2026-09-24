@@ -2137,7 +2137,7 @@ test('12: it removes what both correlation pivots brought, and only that', async
        [seedNodes, seedEdges]);
     eq('the notice counts it and says it is final', g.graph.notices.map(n => [n.level, n.title, n.msg]), [[
         'success', 'Correlations removed',
-        '2 elements and 2 links off the canvas. This is not in Undo; Pivot fetches them again.']]);
+        '2 elements and 2 links off the canvas. Undo puts them back.']]);
     eq('and then there is nothing left to offer', canvasItem(g).visible(null), false);
 });
 

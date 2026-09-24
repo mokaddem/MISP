@@ -1361,7 +1361,7 @@
         });
         _graph.notifier.success('Correlations removed',
             plural(nodes, 'element', 'elements') + ' and ' + plural(edges, 'link', 'links')
-            + ' off the canvas. This is not in Undo; Pivot fetches them again.');
+            + ' off the canvas. Undo puts them back.');
     }
 
     function canvasMenu() {

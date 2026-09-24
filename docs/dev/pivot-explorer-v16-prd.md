@@ -10,7 +10,7 @@ revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). **Every §9 tas
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
 **Working dir:** /home/sami/git/MISP
 **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (which holds the v1.6.0 work)
-**Library:** Pivotick v2.0.1+, built from `develop` at `1296966` (`app/webroot/js/pivotick.iife.js`,
+**Library:** Pivotick v2.0.1+, built from `develop` at `f598444` (`app/webroot/js/pivotick.iife.js`,
 `app/webroot/css/pivotick.css`). Written against v1.6.0; the file name keeps `v16` so links hold.
 
 ---
@@ -390,9 +390,8 @@ Like R2's, the badge says what the pivot *would* bring, and stays after a run ha
 correlation pivots brought, over any number of runs, comes off through the canvas menu's *Remove
 fetched correlations* — `graph.removeBySource` for `correlations` and `related-event`, which
 deletes only what nothing else vouches for, so the seed and whatever the element pivot put there
-stay. The entry shows only while something fetched is on the canvas. Pivotick does not record the
-removal in its history, although its docs say it does (§11.13), so the notice says it is final
-and that Pivot fetches them again.
+stay. The entry shows only while something fetched is on the canvas. The removal is a history
+entry since Pivotick `f598444` (§11.13, task 0d), so Undo puts it back, and the notice says so.
 
 It changes a number this PRD leaned on: **event 4116 has 708 correlations to offer, not
 5,629.** 5,629 is the raw table; the event view's correlation list — and so anything a pivot can
@@ -1336,12 +1335,12 @@ Two smaller items:
 - **Cluster stand-in edges** are deduped by node pair and can speak for several kinds; the
   library keeps them alive while any represented edge passes the filter. Nothing to do, but a
   stand-in's style may not match any single layer.
-- **Edges out of a nested child are never drawn** (Pivotick `1296966`). A collapsed object gets a
-  stand-in for an edge into one of its attributes, but nothing for an edge out of one — not even
-  once expanded (`toggleSyntheticEdges` re-shows only a child's incoming edges). Feed edges run
-  source → attribute because of it. **An analyst relationship from an object's attribute to
-  anything outside that object is hidden today**, and its direction cannot be flipped. Filed as
-  `pivotick/prd/misp/edges-out-of-children.md`.
+- **Edges out of a nested child** were never drawn under Pivotick `1296966`: a collapsed object
+  got a stand-in for an edge into one of its attributes but nothing for an edge out of one, so an
+  analyst relationship from an object's attribute to anything outside that object was hidden.
+  Fixed upstream — edges across clusters are drawn from one projection (`a0a4c9a`,
+  `pivotick/prd/cluster-edge-projection.md`) — and bundled in task 0d. Feed edges still run
+  source → attribute, the direction chosen around the defect; nothing needs them flipped.
 - **Feed correlations in degraded mode.** Past 10,000 hits without `overrideLimit` the sources are
   dropped and the payload carries only `attribute['FeedHit'] = true` and `event['FeedCount']`
   (`Feed.php:604-611`). There is nothing to draw an edge *to* — no feed node exists. Render this as
@@ -1408,6 +1407,7 @@ test what replaced them.
 |---|---|---|
 | 0 | ✅ Bundle to v1.6.0 + compatibility audit | — |
 | 0b | ✅ Bundle to v2 (`develop` `d220446`) + audit; edge save moved onto `onBeforeEdgeCreate` (§3.7) | 0 |
+| 0d | ✅ Bundle to `develop` `f598444`: edges out of nested children drawn (§11.12), `removeBySource` in Undo (§11.13); the removal notice says Undo puts it back | 0b |
 | 1 | Regression pass on the existing graph under v2 (§8.1); refresh the stale Edit▸Add-edge comment | 0b |
 | 2 | ✅ Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer) | 1 |
 | 3 | ✅ Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
@@ -1445,7 +1445,7 @@ library features it rebuilt by hand or left unused. One commit each:
 
 Tasks 2, 6, 9 and 10 are mutually independent. Tasks 5 and 5d are built on 5e and 5f; their
 `correlation` edges needed a Pivotick fix (`pivotick/prd/misp/pivot-edges-to-children.md`). 4
-follows 9, whose pivot its message points at. Both upstream requests landed in Pivotick `develop` `1296966` (bundled in MISP as `d7a179e9c`). Enrichment (R3) is not a task here.
+follows 9, whose pivot its message points at. Both upstream requests landed in Pivotick `develop` `1296966` (bundled in MISP as `d7a179e9c`); the two defects that left open (§11.12, §11.13) were fixed in `f598444`, bundled as task 0d. Enrichment (R3) is not a task here.
 
 **✅ Done (prerequisite, not a task above).** The inline JS is extracted out of the `.ctp` into
 `app/webroot/js/pivot-explorer.js`, leaving the element at 117 lines of markup + CSS + config.
@@ -1465,8 +1465,8 @@ for CSS.
 
 | File | Change |
 |---|---|
-| `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`) |
-| `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`) |
+| `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`, then `f598444`) |
+| `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0, then v2 at `d220446`, then `1296966`; byte-identical at `f598444`) |
 | `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c); ✅ `#pe-header` with `#pe-identity` above it (task 8) |
 | `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
 | `tests/js/pivot-explorer-graph.test.js` | ✅ new — zero-dependency unit suite over the seed and the graph builder |
@@ -1513,10 +1513,9 @@ of D13.
     recorded.
 11. ✅ **`RelatedAttribute` cost** — never paid: correlations come from 5e/5f's endpoints, measured
     on 1195 and 4116 before task 5 shipped, not from `RelatedAttribute` in the event payload.
-12. **Edges out of a nested child** — a Pivotick defect (§7), left to the Pivotick project
-    (`pivotick/prd/misp/edges-out-of-children.md`). Until it is fixed, an analyst relationship from
-    an object's attribute to anything outside that object is not drawn.
-13. **`removeBySource` is not in Undo** — a Pivotick defect (`pivotick/prd/misp/remove-by-source-history.md`):
-    its docs call it a forward operation recorded in the history, and nothing records it. Task 12's
-    removal cannot be undone, and the next Undo is spent on the emptied run. Until it is fixed, the
-    notice says so.
+12. ✅ **Edges out of a nested child** — a Pivotick defect (§7), fixed upstream (`a0a4c9a`, superseding
+    `pivotick/prd/misp/edges-out-of-children.md`) and bundled in 0d. An analyst relationship from an
+    object's attribute to anything outside that object is drawn.
+13. ✅ **`removeBySource` is in Undo** — a Pivotick defect (`pivotick/prd/misp/remove-by-source-history.md`),
+    fixed in `a5ebbfc` and bundled in 0d. Task 12's removal is a history entry; Undo restores what
+    left and who vouched for it, and the notice says so.
