@@ -456,7 +456,7 @@
         var colour = {
             event: P.event.core, object: P.object.core, attribute: P.attribute.core,
             image: P.attribute.core, cluster: P.galaxy.core, taxonomy: P.tag.core,
-            feed: FEED_COLOR, server: '#9b59b6'
+            feed: P.feed.core, server: '#9b59b6'
         };
         var seen = {};
         graph.getMutableNodes().forEach(function (n) {
