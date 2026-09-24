@@ -1427,6 +1427,9 @@
             isDirected: true,
             render: {
                 type: 'svg',
+                // Renderer-wide: objects and correlation containers stay closed,
+                // with no expand chevron or Enter shortcut.
+                enableNodeExpansion: false,
                 nodeTypeAccessor: elementOf,
                 nodeStyleMap: Object.assign(mispNodeStyles(), {
                     // misp-iconify has neither mark; pivotick resolves any icon font's class.

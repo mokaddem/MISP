@@ -460,6 +460,13 @@ test('a label is the whole value: the canvas shortens it, not the builder', asyn
        !('textTruncate' in g.opts.render.defaultNodeStyle));
 });
 
+test('no node can be expanded: the renderer draws no chevron and binds no Enter', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'a1' })] })] }));
+    eq('expansion is off renderer-wide', g.opts.render.enableNodeExpansion, false);
+    eq('the object still carries its attributes as children',
+       byId(g.nodes, 'obj:A').children.map(c => c.id), ['attr:a1']);
+});
+
 test('INVARIANT: every live element is either on the canvas or in the tray, never both', async () => {
     const payload = ev({
         Attribute: [

@@ -469,6 +469,16 @@ with one analyst edge and no spokes; 4182 (an attribute `related-to` itself) dra
 1545's event→event relationship targets an event this instance does not hold and is counted not
 drawable; 4116 opens on the empty state.
 
+#### R8 — No node expands ✅ RULED, DONE (2026-09-24), on trial
+
+`render.enableNodeExpansion: false`. Pivotick has no per-node form of the switch, so it applies to
+every node: an object stays a closed box over its attributes, and so does the container a
+correlation run fills. It removes the chevron and the Enter shortcut, and an expanded node draws
+no cluster; the library's *Expand Node* menu entry is hidden regardless. Nodes keep their
+children, so the data, the element pivot and the correlation fetch are unchanged — but a
+correlation edge into an attribute ends on the closed box holding it. Taken as a trial, to revert
+if that cost shows; locking only some nodes would need a per-node predicate upstream.
+
 ### All settled in review (2026-08-28 → 2026-08-31)
 
 #### D8 — One implementation; writes gated by what you clicked ✅ SETTLED
