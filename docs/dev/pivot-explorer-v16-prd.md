@@ -655,12 +655,27 @@ and overriding: selection, highlight, MISP's pending-reference ring, and MISP's 
 
 | What it says | Channel |
 |---|---|
-| what kind of thing it is (attribute / object / event / feed / server) | fill `color`, `shape`, `size` |
-| which attribute or object type | `iconClass` (misp-iconify) |
+| what kind of thing it is (attribute / object / event) | the node's drawing — `misp-pivot-nodes.js` |
+| what kind of thing it is (feed / server) | fill `color`, `shape`, `size` |
+| which attribute or object type | the drawing's glyph (misp-iconify, from the webfont) |
+| how much it says | `tiers` — S at rest, M chip from zoom 1 — and `focusTier` (below) |
 | attachment preview | `imagePath` |
 | **an analyst has commented here** | **one folded badge** — count as `text`, colour as sentiment |
 | from another event | **undecided — see D2c** |
 | selected / hovered | **rim — left entirely to the library** |
+
+✅ **Node drawings (2026-09-24).** Attribute, object and event nodes draw the chosen set from
+`prd/pivot-node-designs/` (`summary.md`, *The chosen set*), vendored as the generated
+`app/webroot/js/misp-pivot-nodes.js` with its icon font `webroot/webfonts/misp-iconify.woff2`.
+`mispNodeStyles()` composes the module's three sizes into one style per element: the S
+drawing is the base, the 140×44 M chip is the only zoom tier, and the richest drawing — XL
+for events and objects, M otherwise — is the `focusTier`. XL is kept out of `tiers` so every
+element shares one footprint (`layoutSize` 70, half the chip) and one threshold: the whole
+canvas swaps to chips at zoom 1. The explorer's own badges replace the module's on every
+drawing, and the Element legend rows declare the entity hues, since a drawn node leaves
+`color` transparent. The event card reads `orgc`, `publish_timestamp`, the counts,
+`distribution`, and the galaxy/tag context that `eventNodeData()` now carries; a
+`RelatedEvent` proxy or a correlation hit has none of the context, and the card omits the row.
 
 **Provenance is binary** wherever it is drawn. There are four ways to be foreign — extended
 event, correlated event, feed, server — but feed, server and event-proxy nodes already announce

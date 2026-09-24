@@ -10,8 +10,9 @@
 //   [data-pe-lib-missing]  translated error: pivotick failed to load
 //   [data-pe-load-failed]  translated error: the event fetch failed
 //
-// Requires window.Pivotick (pivotick.iife.js); the element's assetLoader call
-// pulls in both.
+// Requires window.Pivotick (pivotick.iife.js) and window.MispPivotNodes
+// (misp-pivot-nodes.js, the node drawings); the element's assetLoader call
+// pulls in all three.
 
 (function () {
     'use strict';
@@ -315,9 +316,32 @@
     // analyst recognises an event by; `event_id` is what the double-click
     // navigation needs. Proxies are leaves: correlated events do not expand in
     // this phase (PRD §4).
+    // Galaxy clusters and non-galaxy tags, for the event card's context row.
+    // A RelatedEvent or correlation record carries neither, and draws none.
+    function eventContext(e) {
+        var out = [];
+        (e.Galaxy || []).forEach(function (g) {
+            (g.GalaxyCluster || []).forEach(function (c) {
+                out.push({ galaxy_type: g.type, value: c.value });
+            });
+        });
+        return out.length ? out : undefined;
+    }
+
+    function eventTags(e) {
+        var out = (e.Tag || []).filter(function (t) { return !t.is_galaxy; })
+            .map(function (t) { return { name: t.name, colour: t.colour }; });
+        return out.length ? out : undefined;
+    }
+
+    function numberOr(v) {
+        return (v == null || v === '') ? undefined : Number(v);
+    }
+
     function eventNodeData(e) {
         var info = e.info != null ? String(e.info) : '';
-        var org  = (e.Orgc && e.Orgc.name) || (e.Org && e.Org.name) || '';
+        var orgc = e.Orgc || e.Org;
+        var org  = (orgc && orgc.name) || '';
         var meta = [];
         if (e.date) meta.push(String(e.date));
         if (org)    meta.push(org);
@@ -328,7 +352,18 @@
             info:        info,
             date:        e.date,
             org:         org || undefined,
-            uuid:        e.uuid
+            uuid:        e.uuid,
+            // Read by the event card (misp-pivot-nodes), not by the sidebar.
+            id:                e.id,
+            orgc:              orgc ? { name: orgc.name, uuid: orgc.uuid } : undefined,
+            published:         e.published,
+            publish_timestamp: numberOr(e.publish_timestamp) || undefined,
+            distribution:      numberOr(e.distribution),
+            attribute_count:   numberOr(e.attribute_count),
+            object_count:      e.Object ? e.Object.filter(function (o) { return !isDeleted(o); }).length : undefined,
+            report_count:      e.EventReport ? e.EventReport.length : undefined,
+            context:           eventContext(e),
+            tags:              eventTags(e)
         }, provenance(e.id, e.uuid), analystFields(e));
     }
 
@@ -371,34 +406,62 @@
         };
     }
 
-    /* ── misp-iconify (webfont) integration ────────────────── */
-    // Pivotick resolves the glyph AND its font from the icon class itself
-    // (font-agnostically, off the computed `::before`) and simply skips any
-    // class it can't resolve — so an attribute type without a dedicated icon
-    // just shows the bare coloured chip. We only map a node to its class name.
-    function nodeIconClass(node) {
-        var d = (node && node.getData) ? node.getData() : null;
+    /* ── node drawings (misp-pivot-nodes) ──────────────────── */
+    // Each MISP element draws its S design at rest, its M chip once the
+    // canvas renders it at the chip's size, and its richest drawing (the XL
+    // card for events and objects, the chip otherwise) on hover or a lone
+    // selection. XL stays out of the zoom tiers so every element shares one
+    // footprint, and so one threshold. Badges stay the explorer's own.
+    var CHIP = { width: 140, height: 44 };
+
+    function withBadges(style) {
+        return Object.assign({}, style, { badges: nodeBadges });
+    }
+
+    function elementOf(node) {
+        var d = node.getData();
         if (!d) return undefined;
-        if (d.type === 'attribute') {
-            // Image attachments render as an embedded thumbnail (imagePath),
-            // so leave the icon unset to let the picture take over.
-            if (d.image) return undefined;
-            return d['attr-type']
-                ? 'misp-icon misp-icon-' + d['attr-type'] + ' misp-attributes'
-                : undefined;
-        }
-        if (d.type === 'object') {
-            return d.name
-                ? 'misp-icon misp-icon-' + d.name + ' misp-objects-framed'
-                : undefined;
-        }
-        if (d.type === 'event') {
-            return 'misp-icon misp-icon-event misp-simple';
-        }
-        // misp-iconify has neither; pivotick resolves any icon font's class.
-        if (d.type === 'feed')   return 'fas fa-rss';
-        if (d.type === 'server') return 'fas fa-server';
-        return undefined;
+        return d.image ? 'image' : d.type;
+    }
+
+    // The legend samples a node's resolved `color`, which a drawn node leaves
+    // transparent, so the Element rows carry the entity hues themselves.
+    function elementLegendEntries(graph) {
+        var P = window.MispPivotNodes.palette();
+        var colour = {
+            event: P.event.core, object: P.object.core, attribute: P.attribute.core,
+            image: P.attribute.core, cluster: P.galaxy.core, taxonomy: P.tag.core,
+            feed: FEED_COLOR, server: '#9b59b6'
+        };
+        var seen = {};
+        graph.getMutableNodes().forEach(function (n) {
+            var e = elementOf(n);
+            if (e) seen[e] = true;
+        });
+        return Object.keys(seen).map(function (e) {
+            return {
+                id: e, color: colour[e] || '#888',
+                predicate: function (node) { return elementOf(node) === e; }
+            };
+        });
+    }
+
+    function mispNodeStyles() {
+        var N = window.MispPivotNodes;
+        var rest = N.options({
+            size:    'S',
+            theme:   'dark',
+            fontUrl: baseurl + '/webfonts/misp-iconify.woff2'
+        }).nodeStyleMap;
+        var chip = N.styleMap('M'), focus = N.styleMap('XL');
+        var map = {};
+        Object.keys(rest).forEach(function (entity) {
+            map[entity] = Object.assign(withBadges(rest[entity]), {
+                tiers:     [{ width: CHIP.width, height: CHIP.height, style: withBadges(chip[entity]) }],
+                focusTier: withBadges(focus[entity])
+            });
+        });
+        return map;
     }
 
     /* ── build pivotick nodes/edges from a MISP event ──────── */
@@ -1409,39 +1472,28 @@
             isDirected: true,
             render: {
                 type: 'svg',
-                nodeTypeAccessor: function (node) {
-                    var d = node.getData();
-                    if (!d) return undefined;
-                    return d.image ? 'image' : d.type;
-                },
-                nodeStyleMap: {
-                    event:     { shape: 'hexagon', color: '#6fbe80', size: 26 },
-                    object:    { shape: 'square',  color: '#428bca', size: 20 },
-                    attribute: { shape: 'circle',  color: '#f39a1f', size: 13 },
-                    feed:      { shape: 'triangle', color: FEED_COLOR, size: 24 },
-                    server:    { shape: 'triangle', color: '#9b59b6', size: 24 },
+                nodeTypeAccessor: elementOf,
+                nodeStyleMap: Object.assign(mispNodeStyles(), {
+                    // misp-iconify has neither mark; pivotick resolves any icon font's class.
+                    feed:      { shape: 'triangle', color: FEED_COLOR, size: 24, iconClass: 'fas fa-rss' },
+                    server:    { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' },
+                    // Image attachments (screenshots) draw an embedded thumbnail.
                     image:     {
                         imageFit:    'frame',
                         size:        80,
                         strokeColor: 'rgba(255,255,255,0.55)',
-                        strokeWidth: 2
+                        strokeWidth: 2,
+                        imagePath:   function (node) {
+                            var d = node.getData();
+                            return d ? d.imageUrl : undefined;
+                        }
                     }
-                },
+                }),
                 defaultNodeStyle: {
                     // Labels are not drawn by default — render data.label above each node.
                     text: function (node) {
                         var d = node.getData();
                         return d ? d.label : '';
-                    },
-                    // Overlay a misp-iconify glyph on the coloured shape; pivotick
-                    // resolves the glyph + "MISP Icons" font from the class itself.
-                    iconClass: nodeIconClass,
-                    // Image attachments (screenshots) draw an embedded thumbnail
-                    // instead of a glyph — pivotick renders imagePath as an
-                    // <image>, but only when iconClass is left unset (see above).
-                    imagePath: function (node) {
-                        var d = node.getData();
-                        return (d && d.image) ? d.imageUrl : undefined;
                     },
                     textVerticalShift: -1,
                     badges: nodeBadges
@@ -1454,9 +1506,9 @@
                 edgeStyleMap: {
                     'object-reference':     { strokeColor: '#428bca' },
                     'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
-                    // Green to match the event nodes it joins; dashed like every
+                    // The hue of the event nodes it joins; dashed like every
                     // other derived (as opposed to authored) relationship.
-                    'event-correlation':    { strokeColor: '#6fbe80', dashed: true },
+                    'event-correlation':    { strokeColor: window.MispPivotNodes.palette().event.core, dashed: true },
                     'correlation':          { strokeColor: '#888', dashed: true },
                     'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
                     'server-correlation':   { strokeColor: '#9b59b6', dashed: true }
@@ -1515,7 +1567,7 @@
                 // edge facet's key, so legend and panel drive one filter.
                 legend: {
                     sections: [
-                        { title: 'Element' },
+                        { title: 'Element', entries: elementLegendEntries },
                         { title: 'Relationship', scope: 'edge', key: 'kind' }
                     ]
                 },
@@ -1557,7 +1609,7 @@
         var loaderEl    = document.getElementById('pivot-explorer-loader');
         var containerEl = document.getElementById('pivot-explorer-graph');
 
-        if (typeof window.Pivotick !== 'function') {
+        if (typeof window.Pivotick !== 'function' || !window.MispPivotNodes) {
             showError(loaderEl, text.libMissing);
             return;
         }

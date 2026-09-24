@@ -32,7 +32,7 @@
     // Behaviour lives in webroot/js/pivot-explorer.js, which reads its
     // config from the data-pe-* attributes on #pe-card below.
     echo $this->element('genericElements/assetLoader', [
-        'js'  => ['pivotick.iife', 'pivot-explorer'],
+        'js'  => ['pivotick.iife', 'misp-pivot-nodes', 'pivot-explorer'],
         'css' => ['pivotick'],
     ]);
 ?>
