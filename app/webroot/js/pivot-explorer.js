@@ -414,6 +414,10 @@
     // footprint, and so one threshold. Badges stay the explorer's own.
     var CHIP = { width: 140, height: 44 };
 
+    // Spaces the layout for the glyph at rest rather than the chip's half
+    // width, so chips may touch once zoomed in.
+    var LAYOUT_SIZE = 45;
+
     // The others fall back to their chip at XL, so once the chip tier is on
     // screen their hover drawing would only repeat it, smaller.
     var HAS_OWN_XL = { event: true, object: true };
@@ -461,8 +465,11 @@
         var map = {};
         Object.keys(rest).forEach(function (entity) {
             map[entity] = Object.assign(withBadges(rest[entity]), {
-                tiers:     [{ width: CHIP.width, height: CHIP.height, style: withBadges(chip[entity]) }],
-                focusTier: withBadges(focus[entity])
+                // At zoom 1, as when the footprint was the chip's own.
+                tiers:      [{ width: CHIP.width, height: CHIP.height, minRenderedSize: 2 * LAYOUT_SIZE,
+                               style: withBadges(chip[entity]) }],
+                focusTier:  withBadges(focus[entity]),
+                layoutSize: LAYOUT_SIZE
             });
             if (!HAS_OWN_XL[entity]) map[entity].focusTierYieldsAt = 0;
         });
