@@ -995,7 +995,6 @@ class Event extends AppModel
                 'Event.id', 'Event.uuid', 'Event.info', 'Event.date',
                 'Event.published', 'Event.publish_timestamp',
                 'Event.distribution', 'Event.attribute_count',
-                'Event.threat_level_id',
             ],
             'contain' => [
                 'Orgc' => ['fields' => ['Orgc.name', 'Orgc.uuid']],
