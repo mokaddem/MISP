@@ -676,6 +676,11 @@ drawing, and the Element legend rows declare the entity hues, since a drawn node
 `color` transparent. The event card reads `orgc`, `publish_timestamp`, the counts,
 `distribution`, and the galaxy/tag context that `eventNodeData()` now carries; a
 `RelatedEvent` proxy or a correlation hit has none of the context, and the card omits the row.
+An object leads with its template's highest `ui-priority` relation:
+`ObjectTemplate::uiPrioritiesForEvent()` resolves it for the templates the viewer's visible
+objects use (exact version, else the newest installed), the element hands it over as
+`data-pe-ui-priorities`, and `objectChildData()` puts `ui_priority` on each child. A zero
+priority is left out, so ordering falls back to `to_ids`, then template order.
 
 **Provenance is binary** wherever it is drawn. There are four ways to be foreign — extended
 event, correlated event, feed, server — but feed, server and event-proxy nodes already announce

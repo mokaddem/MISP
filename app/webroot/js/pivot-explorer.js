@@ -30,6 +30,8 @@
     // What an analyst relationship can be shared with: [[level, name]],
     // [[sharing group id, name]], the default level and the user's email.
     var analystSharing = { levels: [], sharingGroups: [], default: 1, authors: '' };
+    // Per object template ('uuid.version'), the ui-priority of each relation.
+    var uiPriorities = {};
 
     /* ── state ─────────────────────────────────────────────── */
     var _initialized = false;
@@ -95,6 +97,15 @@
             imageUrl:        isImg ? attributeImageUrl(attr) : undefined,
             feed_hit:        attr.FeedHit ? true : undefined
         }, owner, analystFields(attr));
+    }
+
+    // An object's attribute, ranked by its template: the node drawing leads
+    // with the highest ui_priority.
+    function objectChildData(obj, attr, owner) {
+        var ranks = uiPriorities[obj.template_uuid + '.' + obj.template_version];
+        var data = attributeNodeData(attr, owner);
+        if (ranks && ranks[attr.object_relation]) data.ui_priority = ranks[attr.object_relation];
+        return data;
     }
 
     // Soft-deleted records (deleted=1) are tombstones — refs create no edge and
@@ -493,11 +504,12 @@
         // Register an attribute's id (dedupe + edge existence) and return its node
         // dict, or null if already added. The caller decides where to place it —
         // top-level (nodes) or nested inside an object (children).
-        function buildAttributeNode(attr) {
+        function buildAttributeNode(attr, obj) {
             var id = 'attr:' + attr.uuid;
             if (nodeSet[id]) return null;
             nodeSet[id] = true;
-            return { id: id, data: attributeNodeData(attr, ownerIn(ev, attr)) };
+            var owner = ownerIn(ev, attr);
+            return { id: id, data: obj ? objectChildData(obj, attr, owner) : attributeNodeData(attr, owner) };
         }
 
         // Top-level attribute node (used for event-level attributes).
@@ -548,7 +560,7 @@
             var children = [];
             (obj.Attribute || []).forEach(function (attr) {
                 if (isDeleted(attr)) return;
-                var child = buildAttributeNode(attr);
+                var child = buildAttributeNode(attr, obj);
                 if (child) children.push(child);
             });
 
@@ -1181,7 +1193,7 @@
             id:       'obj:' + c.rec.uuid,
             data:     objectNodeData(c.rec, ownerIn(ev, c.rec)),
             children: (c.rec.Attribute || []).filter(function (a) { return !isDeleted(a); })
-                .map(function (a) { return { id: 'attr:' + a.uuid, data: attributeNodeData(a, ownerIn(ev, a)) }; })
+                .map(function (a) { return { id: 'attr:' + a.uuid, data: objectChildData(c.rec, a, ownerIn(ev, a)) }; })
         };
     }
 
@@ -2015,6 +2027,11 @@
             analystSharing = Object.assign(analystSharing, JSON.parse(d.peAnalystSharing || '{}'));
         } catch (e) {
             console.error('[pivot-explorer] unreadable analyst sharing options:', e);
+        }
+        try {
+            uiPriorities = JSON.parse(d.peUiPriorities || '{}');
+        } catch (e) {
+            console.error('[pivot-explorer] unreadable object template priorities:', e);
         }
         orgUuid    = d.peOrgUuid || '';
         siteAdmin  = d.peSiteAdmin === '1';

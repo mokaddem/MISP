@@ -408,10 +408,8 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
   slow to open (~100 MB for event 4116 to draw 86 nodes).
-- **Node drawings: data the module reads but the explorer does not supply.** `ui_priority` on
-  object children (the lead attribute falls back to `to_ids`, then template order — resolved
-  server-side per `CHANNELS.md`), and `warnings[]` for the warninglist badge, which the
-  explorer's own badges replace anyway.
+- **Node drawings: `warnings[]`** for the module's warninglist badge is not supplied; the
+  explorer's own badges replace the module's anyway.
 - **Pivotick: `getEdges()` reports stale provenance** — a hand-drawn edge's read-only view
   says `getSources()` = `["seed"]` while `getMutableEdge()` says `["manual"]`. No MISP code
   reads it; upstream, not a workaround here.

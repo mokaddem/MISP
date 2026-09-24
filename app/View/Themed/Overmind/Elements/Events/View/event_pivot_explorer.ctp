@@ -29,6 +29,10 @@
         $analystSharing['authors'] = $me['email'] ?? '';
     }
 
+    // Which attribute an object node leads with, per template relation.
+    $uiPriorities = $eventId === '' ? [] : ClassRegistry::init('ObjectTemplate')
+        ->uiPrioritiesForEvent($me, $eventId);
+
     // Behaviour lives in webroot/js/pivot-explorer.js, which reads its
     // config from the data-pe-* attributes on #pe-card below.
     echo $this->element('genericElements/assetLoader', [
@@ -43,6 +47,7 @@
      data-pe-can-edit="<?= $canEdit ? '1' : '0' ?>"
      data-pe-can-analyst="<?= $canAnalyst ? '1' : '0' ?>"
      data-pe-analyst-sharing="<?= h(json_encode($analystSharing)) ?>"
+     data-pe-ui-priorities="<?= h(json_encode((object)$uiPriorities)) ?>"
      data-pe-org-uuid="<?= h($me['Organisation']['uuid'] ?? '') ?>"
      data-pe-site-admin="<?= empty($me['Role']['perm_site_admin']) ? '0' : '1' ?>"
      data-pe-lib-missing="<?= h(__('Graph library failed to load.')) ?>"
