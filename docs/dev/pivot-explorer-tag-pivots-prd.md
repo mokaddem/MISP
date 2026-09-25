@@ -32,7 +32,7 @@ This PRD adds one pivot for each.
 | ACL entries | ✅ | `findMissingFunctionNames` empty on both controllers |
 | *Events with this tag* pivot | ✅ | summarize and fetch share one request |
 | *Related clusters* pivot, `cluster-relation` edge kind | ✅ | |
-| Unit tests | ✅ | 540 assertions |
+| Unit tests | ✅ | 545 assertions |
 | PHP access tests | — | `app/Test` holds only tool tests, no endpoint pattern; access checked live instead (§7) |
 | Full total in the summary (T8) | ⏸ | library gap, `~/git/pivotick/prd/pivot-summary-window.md` |
 | Acceptance (§7) | ✅ | 3's full total is in the response, not yet on screen (T8) |
@@ -47,6 +47,10 @@ Select a tag or cluster node and open *Pivot ▸*:
 - **Related clusters** — on cluster nodes only. The clusters this cluster's galaxy points at land
   as cluster nodes, each edge labelled with the relation (`uses`, `similar`, …) and pointing away
   from the selected cluster.
+
+Whatever any pivot lands is also joined to the tag and cluster nodes already on the canvas that it
+carries, and a tag or cluster node that lands is joined to every carrier already drawn. The order
+things reached the canvas in does not decide their links (T10).
 
 Neither pivot is offered on attributes, objects or events directly. The path is always
 element → *Tags & clusters* → tag node → one of these, so every event or cluster that lands has
@@ -67,6 +71,7 @@ Settled in review on 2026-09-25.
 | T7 | Who decides event- vs attribute-level (built) | **The server**, per event and tag, in `matched`. The card's `Tag` list cannot: `attachClustersToEventIndex(…, true)` moves every visible cluster's tag out of it, so a directly tagged cluster would read `via attribute`. It also makes union one request instead of one per tag. |
 | T8 | A total beyond the 200 (built) | **The summary says at most 200**; the endpoint's `total` keeps the real number. The library judges `maxCandidates` on the summary's `total` and has nowhere else to put a count, so 4,812 would refuse the run T2 promises. Showing both waits on the library. |
 | T9 | A cluster reached through another event's card (built) | **The card's clusters carry `tag_name` and `uuid`**, so they key and pivot like any other cluster node. |
+| T10 | A carrier landing after its tag is drawn (built) | **Every pivot's result gains the tag edges to drawn nodes**, both ways. Each is a carried edge, so it lands with its node and is undone with it. Before this, an event landing after its tag node stayed unjoined. |
 
 ## 4. Pivot 1 — Events with this tag
 

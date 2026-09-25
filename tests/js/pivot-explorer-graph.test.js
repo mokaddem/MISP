@@ -2723,6 +2723,38 @@ test('tagged events: each lands as an event card, joined to the tags it carries'
        r.edges[0].id, 'tagged:event:R812>tag:tlp:amber');
 });
 
+test('tagged events: a card is joined to the other tags already drawn, not only the selected one', async () => {
+    const g = await withTagged();
+    g.graph.liveNode({ id: 'tag:tlp:amber', data: { type: 'tag', name: 'tlp:amber' } });
+    const r = await pivot(g, 'tagged-events').fetch([APT_NODE()], {}, {});
+    eq('R812 carries tlp:amber too',
+       r.edges.map(e => [e.from, e.to, e.data.label]),
+       [['event:R812', 'cluster:' + TAG_APT.name, ''], ['event:R812', 'tag:tlp:amber', '']]);
+});
+
+test('tags: an element landing after its tag is joined to it', async () => {
+    // Over the budget, so the object is not drawn and is on offer.
+    const g = await buildGraph(ev({ Object: fillers(1500).concat([obj({ uuid: 'A', Attribute: [
+        attr({ uuid: 'c1', value: '1.2.3.4', Tag: [TAG_TLP] }),
+        attr({ uuid: 'c2', value: 'untagged', Tag: [TAG_LUMMA] })] })]) }));
+    g.graph.liveNode({ id: 'tag:tlp:amber', data: { type: 'tag', name: 'tlp:amber' } });
+    const r = pivot(g, 'event-elements').fetch([], { q: '1.2.3.4' }, {});
+    eq('the object is offered', r.nodes.map(n => n.id), ['obj:A']);
+    ok('the object\'s attribute rides in joined to the drawn tag',
+       r.edges.some(e => e.from === 'attr:c1' && e.to === 'tag:tlp:amber' && e.data.kind === 'tag'),
+       r.edges.map(e => e.id));
+    ok('nothing to a tag not drawn', !r.edges.some(e => e.to === 'tag:LummaC2'));
+});
+
+test('tags: a cluster landing from another pivot is joined to the carriers already drawn', async () => {
+    const g = await withRelations(() => ({ relations: [{ relation: 'similar',
+        cluster: { uuid: 'CL-APT28', value: 'APT28', type: 'threat-actor', tag_name: TAG_APT.name } }] }));
+    const src = tagNode('cluster:misp-galaxy:x="Y"', { type: 'cluster', tag_name: 'misp-galaxy:x="Y"', uuid: 'CL-Y' });
+    const r = await pivot(g, 'related-clusters').fetch([src], {}, {});
+    eq('APT28 lands with its carriers on the canvas',
+       r.edges.filter(e => e.data.kind === 'tag').map(e => e.from).sort(), ['attr:c1', 'attr:e1']);
+});
+
 test('tagged events: a failed request is not kept', async () => {
     let fail = true;
     const g = await withTagged(() => (fail ? { __status: 500 } : TAGGED));

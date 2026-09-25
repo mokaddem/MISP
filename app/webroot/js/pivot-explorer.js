@@ -1222,9 +1222,13 @@
 
     // Who carries what, for one node: [{ id, tags, clusters }].
     function carriers(node) {
-        var d = node.getData() || {};
+        return carriersOfData(node.id, node.getData());
+    }
+
+    function carriersOfData(id, d) {
+        d = d || {};
         if (d.type === 'attribute' || d.type === 'event') {
-            return (d.tags || d.clusters) ? [{ id: node.id, tags: d.tags, clusters: d.clusters }] : [];
+            return (d.tags || d.clusters) ? [{ id: id, tags: d.tags, clusters: d.clusters }] : [];
         }
         if (d.type === 'object') {
             return (ownAttributeIndex().byObject[d.uuid] || []).map(function (uuid) {
@@ -1273,6 +1277,12 @@
                  data: { kind: 'tag', label: rel || '' } };
     }
 
+    // One carrier's edges to every tag and cluster it carries.
+    function tagEdgesOf(c) {
+        return (c.tags || []).map(function (t) { return tagEdge(c.id, tagNodeId(t), t.relationship_type); })
+            .concat((c.clusters || []).map(function (cl) { return tagEdge(c.id, clusterNodeId(cl)); }));
+    }
+
     // The selection's tags and clusters, each joined to its carriers in the
     // selection and to any other carrier already on the canvas.
     function tagsResult(nodes) {
@@ -1280,13 +1290,8 @@
         var drawn = _graph ? carriersOf(_graph.getMutableNodes()) : [];
         var edges = [], seen = {};
         carriersOf(nodes).concat(drawn).forEach(function (c) {
-            (c.tags || []).forEach(function (t) {
-                var id = tagNodeId(t), e = tagEdge(c.id, id, t.relationship_type);
-                if (labels[id] && !seen[e.id]) { seen[e.id] = true; edges.push(e); }
-            });
-            (c.clusters || []).forEach(function (cl) {
-                var id = clusterNodeId(cl), e = tagEdge(c.id, id);
-                if (labels[id] && !seen[e.id]) { seen[e.id] = true; edges.push(e); }
+            tagEdgesOf(c).forEach(function (e) {
+                if (labels[e.to] && !seen[e.id]) { seen[e.id] = true; edges.push(e); }
             });
         });
         return {
@@ -1308,6 +1313,48 @@
             },
             fetch: function (nodes) { return tagsResult(nodes); }
         };
+    }
+
+    // Whatever a pivot lands is joined to the tags and clusters already
+    // drawn, and a tag or cluster it lands to the carriers already drawn, so
+    // the order things reached the canvas in does not decide their links.
+    // Each edge rides with the node that lands it.
+    function joinDrawnTags(result) {
+        if (!_graph || !result || !result.nodes) return result;
+        var edges = result.edges = result.edges || [], have = {}, landing = [], labels = {};
+        edges.forEach(function (e) { have[e.id] = true; });
+        function add(e) { if (!have[e.id]) { have[e.id] = true; edges.push(e); } }
+        function drawn(id) { return !!_graph.getMutableNode(id); }
+        (function walk(list) {
+            list.forEach(function (raw) {
+                if (!drawn(raw.id)) {
+                    landing.push(raw);
+                    var t = (raw.data || {}).type;
+                    if (t === 'tag' || t === 'cluster') labels[raw.id] = true;
+                }
+                walk(raw.children || []);
+            });
+        })(result.nodes);
+        landing.forEach(function (raw) {
+            carriersOfData(raw.id, raw.data).forEach(function (c) {
+                tagEdgesOf(c).forEach(function (e) { if (drawn(e.to)) add(e); });
+            });
+        });
+        if (Object.keys(labels).length) {
+            carriersOf(_graph.getMutableNodes()).forEach(function (c) {
+                tagEdgesOf(c).forEach(function (e) { if (labels[e.to]) add(e); });
+            });
+        }
+        return result;
+    }
+
+    function joiningDrawnTags(def) {
+        var fetchResult = def.fetch;
+        def.fetch = function () {
+            var r = fetchResult.apply(this, arguments);
+            return r && typeof r.then === 'function' ? r.then(joinDrawnTags) : joinDrawnTags(r);
+        };
+        return def;
     }
 
     function declareTagPotential(node) {
@@ -1947,7 +1994,7 @@
             },
             // No `save`: correlations are derived, never counted unsaved.
             pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
-                     taggedEventsPivot(), relatedClustersPivot()],
+                     taggedEventsPivot(), relatedClustersPivot()].map(joiningDrawnTags),
             callbacks: {
                 // Another event is a leaf here (PRD §4) — it cannot expand in
                 // place, so double-click hands the analyst over to its own
