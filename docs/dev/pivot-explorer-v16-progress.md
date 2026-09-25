@@ -8,7 +8,7 @@ same pass as the code, not in a catch-up sweep.
 - **Library:** Pivotick v2 — `develop` at `8db49e9` with `05fe810` (`worktree-collapsed-cue`) applied on top, which `develop` still lacks. PRD §3.7
 - **Last updated:** 2026-09-25
 - **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33 and bundle bumps 0–0j · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 555 assertions, no dependencies
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 568 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -77,7 +77,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 31 | From a tag or cluster node: **Events with this tag** (`POST /events/taggedEvents/{id}.json`, newest 200 by `timestamp`, all of them or any, each card saying per tag whether the event or one of its attributes carries it) and **Related clusters** (`GET /galaxy_clusters/relatedClusters/{id}.json`, outbound, targets resolved by id), as the `cluster-relation` edge kind | ✅ | 30 | 2026-09-25, [`pivot-explorer-tag-pivots-prd.md`](pivot-explorer-tag-pivots-prd.md) §7 — live on 4242 (4 ATT&CK clusters → 21 events, 84 `via attribute` edges) and 1525 (APT28 → 4 `similar` clusters, one merged). `tlp:white` 0.36 s, the heaviest attribute tag 2.2 s. The summary says at most 200 until the library can state a larger total |
 | 32 | **Correlations** on a selection holding more than one correlating attribute offers an *Attribute* multiselect, each option its own count, so one attribute of a closed object can be asked for alone. The total follows the picks; with none ticked every attribute is asked for, counted or not | ✅ | 5 | 2026-09-25 — live on 1562: the passive-dns object's two `rdata` attributes are listed with 1 each, and ticking one takes the total from 2 to 1 |
 | 33 | Warninglist hits: an attribute carries its `warnings` (the payload already asks for them), in MISP's field names; the M card draws MISP's triangle in its free top-right corner (red for a false positive, orange for a known identifier); the sidebar lists them; the filter has *On a warninglist* | ✅ | 30 | 2026-09-25 — live on 4074: `8.8.8.8` wears the red triangle, titled `Likely false positive — List of known IPv4 public DNS resolvers`. The look is the one CHANNELS.md already set, moved from the rim into the card |
-| 34 | Another event's contents: a pivot on an event card lands its attributes and objects inside it, and that card opens (R8 amended: event cards expand, objects stay shut) | ⏸ | 33 | Needs `enableNodeExpansion` as a per-node predicate, `~/git/pivotick/prd/node-expansion-per-node.md` |
+| 34 | Another event's contents: **Event contents**, on another MISP event's card (not this event, not a feed's), reads `/events/view/{id}.json` once and lands what the canvas lacks inside the card, an object with its attributes, narrowed like Event elements (search, element, category). That card opens once R8 is amended (event cards expand, objects stay shut) | ⏸ | 33 | Pivot built 2026-09-25 — live on 1562: the card of 4120 (18,036 records) refuses at the cap; searched `104.21`, 939 land inside it (1 → 940 children), nothing is left to offer, and undo takes it back to 1. The card opening needs `enableNodeExpansion` as a per-node predicate, `~/git/pivotick/prd/node-expansion-per-node.md` |
 
 ### Critical path
 

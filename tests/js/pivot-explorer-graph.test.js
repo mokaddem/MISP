@@ -1174,7 +1174,7 @@ test('the correlation pivot is declared, capped at the canvas budget, and savabl
     const g = await withPivots();
     eq('after the element pivot, correlations, feed events, tags and clusters, then what a tag leads to',
        g.opts.pivots.map(p => p.id),
-       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters']);
+       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters', 'event-contents']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
@@ -1865,7 +1865,8 @@ test('its summaries are dropped whenever a node comes or goes', async () => {
         ok(evt + ' is watched', (g.graph.listeners[evt] || []).length >= 1);
         g.graph.listeners[evt].forEach(f => f(pnode({})));
     });
-    eq('each drops this pivot\'s cache', g.graph.pivots.invalidated, ['event-elements', 'event-elements']);
+    eq('each drops this pivot\'s cache, and the event contents one', g.graph.pivots.invalidated,
+       ['event-elements', 'event-contents', 'event-elements', 'event-contents']);
 });
 
 /* ─────────────── task 6: analyst-data badges and panel ─────────────── */
@@ -2798,6 +2799,66 @@ test('tagged events: a failed request is not kept', async () => {
     ok('the failure reaches the library', threw);
     fail = false;
     eq('asked again', (await p.summarize([TLP_NODE()], {}, {})).total, 200);
+});
+
+/* ─────────────────────── another event's contents ─────────────────── */
+
+const OTHER = { Event: { id: '7', uuid: 'R7', info: 'Event 7',
+    Attribute: [attr({ uuid: 'o1', value: 'evil.example', type: 'domain', category: 'Network activity' }),
+                attr({ uuid: 'o2', value: 'gone', deleted: true }),
+                attr({ uuid: 'e1', value: 'already drawn' })],
+    Object: [obj({ uuid: 'OB', name: 'file', 'meta-category': 'file', Attribute: [
+        attr({ uuid: 'oc1', value: 'deadbeef', type: 'md5', object_relation: 'md5' })] })] } };
+
+function withContents(route) {
+    let asked = 0;
+    return buildGraph(taggedEvent(), { routes: [[/events\/view\/7\.json$/, init => {
+        asked++;
+        return route ? route(init) : OTHER;
+    }]] }).then(g => Object.assign(g, { asked: () => asked }));
+}
+
+const CARD = () => tagNode('event:R7', { type: 'event', event_id: '7', uuid: 'R7', label: 'Event 7' });
+
+test('event contents: offered on another MISP event\'s card only', async () => {
+    const g = await withContents();
+    const p = pivot(g, 'event-contents');
+    const nodes = [CARD(), tagNode('event:SELF', { type: 'event', event_id: '1', uuid: 'EV-SELF' }),
+                   tagNode('event:F1', { type: 'event', event_id: '9', _provenance: 'feed' }),
+                   g.graph.getMutableNode('attr:e1')];
+    eq('not this event, not a feed\'s card, not an element', p.appliesTo(nodes).map(n => n.id), ['event:R7']);
+    eq('capped, never saved', [p.maxCandidates, p.save], [1500, undefined]);
+});
+
+test('event contents: counts what the canvas lacks, with the element pivot\'s narrowing', async () => {
+    const g = await withContents();
+    const p = pivot(g, 'event-contents');
+    const s = await p.summarize([CARD()], {}, {});
+    eq('the live attribute and the object; not the deleted one, nor one already drawn', s.total, 2);
+    eq('search, element, category', s.facets.map(f => f.key), ['q', 'element', 'category']);
+    eq('narrowed to objects', (await p.summarize([CARD()], { element: 'object' }, {})).total, 1);
+    eq('read once', g.asked(), 1);
+});
+
+test('event contents: land inside the card, an object with its attributes', async () => {
+    const g = await withContents();
+    const r = await pivot(g, 'event-contents').fetch([CARD()], {}, {});
+    eq('one container, the card itself', r.nodes.map(n => [n.id, n.data.label]), [['event:R7', 'Event 7']]);
+    eq('its new children', r.nodes[0].children.map(c => [c.id, c.data.type, c.data.scope]),
+       [['attr:o1', 'attribute', 'foreign'], ['obj:OB', 'object', 'foreign']]);
+    eq('the object brings its own', r.nodes[0].children[1].children.map(c => [c.id, c.data.event_id]),
+       [['attr:oc1', '7']]);
+});
+
+test('event contents: a failed request is not kept', async () => {
+    let fail = true;
+    const g = await withContents(() => (fail ? { __status: 403 } : OTHER));
+    const p = pivot(g, 'event-contents');
+    let threw = false;
+    await p.summarize([CARD()], {}, {}).catch(() => { threw = true; });
+    ok('the failure reaches the library', threw);
+    fail = false;
+    eq('asked again', (await p.summarize([CARD()], {}, {})).total, 2);
 });
 
 /* ─────────────────── a cluster's galaxy relations ───────────────── */

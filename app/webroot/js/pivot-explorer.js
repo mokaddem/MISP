@@ -1696,11 +1696,115 @@
         };
     }
 
+    /* ── pivot: another event's contents ───────────────────── */
+    // What an event card holds, landed inside it: ingest merges children into
+    // a container already on the canvas by id. Offered on MISP events only, a
+    // feed's card having no event to read.
+    var EVENT_CONTENTS_PIVOT = 'event-contents';
+
+    function otherEventId(node) {
+        var d = node.getData() || {};
+        if (d.type !== 'event' || d._provenance === 'feed' || d.event_id == null) return null;
+        return String(d.event_id) === String(eventId) ? null : String(d.event_id);
+    }
+
+    var _contents = {};
+    function eventContents(id, signal) {
+        if (!_contents[id]) {
+            _contents[id] = fetch(baseurl + '/events/view/' + encodeURIComponent(id) + '.json', {
+                credentials: 'same-origin',
+                signal: signal,
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (payload) { return (payload && payload.Event) || {}; })
+            .catch(function (err) {
+                delete _contents[id];
+                throw err;
+            });
+        }
+        return _contents[id];
+    }
+
+    // Each card's records not on the canvas yet: [{ node, ev, kind, rec }].
+    function contentsCandidates(nodes, signal) {
+        var cards = nodes.filter(otherEventId);
+        return Promise.all(cards.map(function (n) { return eventContents(otherEventId(n), signal); }))
+            .then(function (events) {
+                var drawn = function (id) { return !!(_graph && _graph.getMutableNode(id)); };
+                var out = [];
+                events.forEach(function (ev, i) {
+                    (ev.Attribute || []).forEach(function (a) {
+                        if (!isDeleted(a) && !drawn('attr:' + a.uuid)) out.push({ node: cards[i], ev: ev, kind: 'attribute', rec: a });
+                    });
+                    (ev.Object || []).forEach(function (o) {
+                        if (!isDeleted(o) && !drawn('obj:' + o.uuid)) out.push({ node: cards[i], ev: ev, kind: 'object', rec: o });
+                    });
+                });
+                return out;
+            });
+    }
+
+    function contentsNode(c) {
+        var owner = provenance(c.ev.id, c.ev.uuid);
+        if (c.kind === 'attribute') return { id: 'attr:' + c.rec.uuid, data: attributeNodeData(c.rec, owner) };
+        return {
+            id:       'obj:' + c.rec.uuid,
+            data:     objectNodeData(c.rec, owner),
+            children: (c.rec.Attribute || []).filter(function (a) { return !isDeleted(a); })
+                .map(function (a) { return { id: 'attr:' + a.uuid, data: objectChildData(c.rec, a, owner) }; })
+        };
+    }
+
+    function eventContentsPivot() {
+        return {
+            id:            EVENT_CONTENTS_PIVOT,
+            label:         'Event contents',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) { return nodes.filter(otherEventId); },
+            summarize: function (nodes, narrowing, ctx) {
+                narrowing = narrowing || {};
+                return contentsCandidates(nodes, ctx && ctx.signal).then(function (all) {
+                    return {
+                        total: all.filter(function (c) { return matchesNarrowing(c, narrowing); }).length,
+                        facets: [
+                            { key: 'q', label: 'Search', type: 'text' },
+                            { key: 'element', label: 'Element', type: 'select',
+                              options: countOptions(all, function (c) { return c.kind; }) },
+                            { key: 'category', label: 'Category', type: 'select',
+                              options: countOptions(all, function (c) { return elementCategory(c.kind, c.rec); }) }
+                        ]
+                    };
+                });
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                narrowing = narrowing || {};
+                return contentsCandidates(nodes, ctx && ctx.signal).then(function (all) {
+                    var byCard = {}, order = [];
+                    all.filter(function (c) { return matchesNarrowing(c, narrowing); }).forEach(function (c) {
+                        if (!byCard[c.node.id]) {
+                            byCard[c.node.id] = { id: c.node.id, data: c.node.getData(), children: [] };
+                            order.push(c.node.id);
+                        }
+                        byCard[c.node.id].children.push(contentsNode(c));
+                    });
+                    return { nodes: order.map(function (id) { return byCard[id]; }), edges: [] };
+                });
+            }
+        };
+    }
+
     // The library caches summaries until told otherwise, and what this pivot
     // offers is exactly what the canvas lacks.
     function watchElementPivot(graph) {
         if (!graph || typeof graph.on !== 'function' || !graph.pivots) return;
-        var drop = function () { graph.pivots.invalidate(ELEMENT_PIVOT); };
+        var drop = function () {
+            graph.pivots.invalidate(ELEMENT_PIVOT);
+            graph.pivots.invalidate(EVENT_CONTENTS_PIVOT);
+        };
         graph.on('nodeAdd', drop);
         graph.on('nodeRemove', drop);
     }
@@ -2044,7 +2148,7 @@
             },
             // No `save`: correlations are derived, never counted unsaved.
             pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
-                     taggedEventsPivot(), relatedClustersPivot()].map(joiningDrawnTags),
+                     taggedEventsPivot(), relatedClustersPivot(), eventContentsPivot()].map(joiningDrawnTags),
             callbacks: {
                 // Another event is a leaf here (PRD §4) — it cannot expand in
                 // place, so double-click hands the analyst over to its own
