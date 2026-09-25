@@ -1968,6 +1968,9 @@
                     var d = edge.getData ? edge.getData() : null;
                     return d ? d.kind : undefined;
                 },
+                // A moving dash is reserved for what must draw the eye; a kind
+                // opts in with animateDash: true.
+                defaultEdgeStyle: { animateDash: false },
                 edgeStyleMap: {
                     'object-reference':     { strokeColor: '#428bca' },
                     'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },

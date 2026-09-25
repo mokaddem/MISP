@@ -2820,6 +2820,13 @@ test('related clusters: a galaxy relation is its own edge kind', async () => {
         { getData: () => ({ kind: 'cluster-relation', label: 'uses' }) }), [{ name: 'Link', value: 'Galaxy relation' }]);
 });
 
+test('a dashed edge holds still unless its kind asks to move', async () => {
+    const g = await buildGraph(taggedEvent());
+    eq('off by default', g.opts.render.defaultEdgeStyle.animateDash, false);
+    eq('no kind opts in', Object.keys(g.opts.render.edgeStyleMap)
+        .filter(k => g.opts.render.edgeStyleMap[k].animateDash), []);
+});
+
 test('related clusters: a failed request is not kept', async () => {
     let fail = true;
     const g = await withRelations(() => (fail ? { __status: 404 } : RELATIONS));
