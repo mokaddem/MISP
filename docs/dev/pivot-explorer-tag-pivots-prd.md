@@ -1,6 +1,6 @@
 # PRD: From a tag or cluster to the rest of the instance
 
-**Status:** DRAFT — decided in review 2026-09-25, not built.
+**Status:** BUILT 2026-09-25 — decided in review the same day; T7–T9 settled while building (§3).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-25
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md). Builds on task 30 in
@@ -22,6 +22,20 @@ questions it invites:
   `subtechnique-of`, and so on.
 
 This PRD adds one pivot for each.
+
+### State
+
+| Part | Status | Note |
+|---|---|---|
+| `POST /events/taggedEvents/{id}.json` | ✅ | `Event::taggedEventCards()`; per-event `matched` (T7) |
+| `GET /galaxy_clusters/relatedClusters/{id}.json` | ✅ | `GalaxyCluster::outboundRelations()` |
+| ACL entries | ✅ | `findMissingFunctionNames` empty on both controllers |
+| *Events with this tag* pivot | ✅ | summarize and fetch share one request |
+| *Related clusters* pivot, `cluster-relation` edge kind | ✅ | |
+| Unit tests | ✅ | 540 assertions |
+| PHP access tests | — | `app/Test` holds only tool tests, no endpoint pattern; access checked live instead (§7) |
+| Full total in the summary (T8) | ⏸ | library gap, `~/git/pivotick/prd/pivot-summary-window.md` |
+| Acceptance (§7) | ✅ | 3's full total is in the response, not yet on screen (T8) |
 
 ## 2. What the analyst sees
 
@@ -50,6 +64,9 @@ Settled in review on 2026-09-25.
 | T4 | Several tag nodes selected | **Intersection by default** — events carrying all of them — with **union** as a narrowing option. One tag behaves the same either way. |
 | T5 | Where the pivots are offered | **Only on tag and cluster nodes.** |
 | T6 | Event-level vs attribute-level carrier | **Label only the attribute case** (`via attribute`); a directly tagged event draws a plain edge. |
+| T7 | Who decides event- vs attribute-level (built) | **The server**, per event and tag, in `matched`. The card's `Tag` list cannot: `attachClustersToEventIndex(…, true)` moves every visible cluster's tag out of it, so a directly tagged cluster would read `via attribute`. It also makes union one request instead of one per tag. |
+| T8 | A total beyond the 200 (built) | **The summary says at most 200**; the endpoint's `total` keeps the real number. The library judges `maxCandidates` on the summary's `total` and has nowhere else to put a count, so 4,812 would refuse the run T2 promises. Showing both waits on the library. |
+| T9 | A cluster reached through another event's card (built) | **The card's clusters carry `tag_name` and `uuid`**, so they key and pivot like any other cluster node. |
 
 ## 4. Pivot 1 — Events with this tag
 
@@ -61,51 +78,56 @@ Settled in review on 2026-09-25.
 { "tags": ["misp-galaxy:threat-actor=\"APT28\"", "tlp:amber"], "mode": "and" }
 ```
 
-Response:
+Response — `events` is a list, newest first:
 
 ```json
 {
   "total": 4812,
-  "events": {
-    "812": { "id": "812", "uuid": "…", "info": "…", "Orgc": {…}, "Tag": [ … ], "Galaxy": [ … ], … }
-  }
+  "events": [
+    { "id": "812", "uuid": "…", "info": "…", "Orgc": {…}, "Tag": [ … ], "Galaxy": [ … ], …,
+      "matched": { "misp-galaxy:threat-actor=\"APT28\"": "event", "tlp:amber": "attribute" } }
+  ]
 }
 ```
 
 - **Matching.** For each tag name, the event ids from `event_tags` ∪ `attribute_tags` (live
-  attributes only). `mode: "and"` intersects the per-tag sets, `"or"` unions them. Unknown tag
-  names match nothing, which under `and` means no events.
+  attributes in live objects). `mode: "and"` intersects the per-tag sets, `"or"` unions them.
+  Unknown tag names match nothing, which under `and` means no events. `matched` names, per
+  event, each asked-for tag it carries: `event` when the event carries it, else `attribute`.
 - **Access.** Only events the user may see, via `Event::createEventConditions()`, the same as
-  every other explorer endpoint. The event `{id}` itself is left out.
+  every other explorer endpoint; only attributes they may see count as a match
+  (`MispAttribute::buildConditions()`), and only tags they may use (`Tag::createConditions()`).
+  The event `{id}` itself is left out.
 - **Order and cap.** `ORDER BY Event.timestamp DESC LIMIT 200`. `total` counts every event that
   matched and is visible, before the cap.
 - **Cards.** Built by the existing `Event::correlatedEventCards()`, so the card is identical to a
-  correlated event's. Its `Tag` list is event-level only, and the client relies on that for T6.
+  correlated event's. Its `Tag` list lacks visible cluster tags, hence `matched` (T7); its
+  `Galaxy` clusters now carry `tag_name` and `uuid` (T9).
 - **Why not `/events/index`.** Its `tags` filter unions event and attribute tags only in OR mode;
   its AND branch reads `event_tags` alone, so it cannot answer T4's default.
 
-**Cost to watch.** A hub tag's id set is large (every event carrying `tlp:white`). The id columns
-are indexed and only integers leave the database until the final 200, but measure on a real hub
-tag before calling it done. If it is slow, intersect in SQL for `and` instead of in PHP.
+**Cost, measured 2026-09-25** (admin, machine at load 3.7): `tlp:white` (3,622 events) 0.36 s;
+`tlp:clear` 1.6 s; `exe`, the instance's heaviest attribute tag (425,561 attribute tags over
+267 events), 2.2 s; `exe` ∧ `tlp:white` 1.7 s. The time goes on reading attribute tags, not on
+intersecting, so intersecting in SQL would not help. A hub attribute tag is where to look if
+it matters.
 
 ### 4.2 Client
 
 - **`appliesTo`** — tag and cluster nodes. A cluster queries by its `tag_name`, a tag by its
   `name`.
-- **`summarize`** — calls the endpoint and returns `{ total }`, plus one narrowing facet:
-  `mode`, a select of *All of them* (default) or *Any of them*, shown only when more than one
-  node is selected.
-- **`fetch`** — the same call. Each event lands as `event:<uuid>` with `eventNodeData(card)`;
-  one already on the canvas merges by id. For each selected tag node the event carries, one edge
-  `event → tag node`, kind `tag`:
-  - label `''` when the card's `Tag` list names the tag (event-level);
-  - label `via attribute` when it does not (the match came from an attribute).
-- Under **union**, an event carries only some of the selected tags. The same card test decides
-  which edges to draw for event-level tags, but an attribute-level match does not say which tag
-  it was. So union asks once per tag, each capped at 200, rather than once for all. Intersection
-  needs no such split: every returned event carries every tag.
-- `maxCandidates: 200`, no `save`, no rim potential. The count needs a request, and declared
-  potential is never queried (v16 task 15).
+- **`summarize`** — calls the endpoint and returns `{ total }`, capped at 200 (T8), plus one
+  narrowing facet: `mode`, *Match*, a select of *All of them* or *Any of them*, shown only
+  when more than one node is selected. Left unset, it means all of them.
+- **`fetch`** — the same call; the last question's promise is kept, so summarize then fetch
+  is one request. Each event lands as `event:<uuid>` with `eventNodeData(card)`; one already
+  on the canvas merges by id. For each selected tag node the event carries per `matched`, one
+  edge `event → tag node`, kind `tag`, with the Tags & clusters pivot's edge id:
+  - label `''` when `matched` says `event`;
+  - label `via attribute` when it says `attribute`.
+- Union is one request like intersection: `matched` lists only the tags each event carries.
+- `maxCandidates` is the canvas budget like every other pivot, no `save`, no rim potential.
+  The count needs a request, and declared potential is never queried (v16 task 15).
 
 ## 5. Pivot 2 — Related clusters
 
@@ -118,7 +140,7 @@ tag before calling it done. If it is slow, intersect in SQL for `and` instead of
   "relations": [
     { "relation": "similar",
       "cluster": { "id": "47753", "uuid": "…", "value": "APT28 - G0007",
-                   "type": "mitre-intrusion-set", "galaxy_name": "Intrusion Set",
+                   "type": "mitre-intrusion-set", "galaxy_name": "MITRE ATT&CK Groups",
                    "tag_name": "misp-galaxy:mitre-intrusion-set=\"APT28 - G0007\"" } }
   ]
 }
@@ -136,17 +158,23 @@ What the existing code does and does not give:
 - **Access.** The source cluster through `fetchIfAuthorized($user, $uuid, 'view')`. Each relation
   is kept only if the user may see the relation (its distribution) and its target cluster.
   `fetchGalaxyClusters($user, …)` applies the cluster side.
-- A relation whose target is not on this instance (id 0, or a galaxy not installed) is dropped.
+- A relation whose target is not on this instance (id 0, or a galaxy not installed) is dropped,
+  as is one whose target is deleted.
+- **Duplicate sources.** The dev instance holds the threat-actor *APT28* twice (72579, 72580),
+  same uuid, same tag. `fetchIfAuthorized` by uuid picks one; both carry the same four
+  relations, so it does not show.
 
 ### 5.2 Client
 
 - **`appliesTo`** — cluster nodes with a `uuid`. Clusters parsed from a bare tag name have none
   (task 30). The endpoint could also accept a `tag_name`, but only once a real case needs it.
-- **`summarize`** — `{ total: relations.length }`. The counts are small (APT28's threat-actor
-  cluster: 16 rows, 4 visible), so no cap beyond the canvas budget.
+- **`summarize`** — `{ total: relations.length }`, one request per cluster, kept for the
+  session. The counts are small (APT28's threat-actor cluster: 4; its intrusion set: 124 of
+  125 stored), so no cap beyond the canvas budget.
 - **`fetch`** — each target lands as `cluster:<tag_name>`, so it merges with a cluster node the
   Tags & clusters pivot already drew. One edge per relation, `selected → target`, kind
-  `cluster-relation`, label the relation type.
+  `cluster-relation`, label the relation type. A relation onto the selected node's own tag
+  draws nothing.
 - A new edge kind, `cluster-relation`: its own entry in `edgeStyleMap`, `KIND_LABELS`
   (*Galaxy relation*) and the Relationship legend. Solid, in the galaxy hue, since it is an
   authored assertion rather than a derived one.
@@ -188,3 +216,24 @@ test for each endpoint's access rules if the suite has a pattern for it.
 6. A reader who cannot see an event or cluster never receives it, and no count includes it.
    Check with one of the lesser dev readers.
 7. Unit suite green; tracker row added in the same commit as the code.
+
+### Results, 2026-09-25
+
+1. ✅ On 4242, the four `mitre-attack-pattern` clusters under *All of them* land 21 events,
+   the count SQL gives, each with 4 edges. *Any of them* lands the same 21: those events carry
+   all four.
+2. ✅ All 84 of those edges read `via attribute`: on 4242's clusters every match is on an
+   attribute. The event-level case is in the unit suite, and live in `matched` for
+   `tlp:white`, where 199 of the 200 returned cards say `event`.
+3. ✅ in the response, ⏸ on screen: `tlp:white` returns `total` 3,623 and 200 cards, newest
+   `timestamp` first, in 0.36 s. The panel shows ~200 (T8).
+4. ✅ 4242 is in none of the results.
+5. ✅ From APT28 (threat-actor) on 1525's canvas: four `similar` targets, *APT28 – G0007* in
+   `mitre-intrusion-set` out of the four galaxies sharing its uuid, merged with the node
+   already drawn (3 ingested, 1 already on canvas). The APT28 node was put on the canvas by
+   hand: 1525 carries it on the event, which the canvas does not draw, and 1525 is not among
+   the newest 200 of any tag another event shares with it.
+6. ✅ `orgadmin@circl.lu` gets 1,760 of admin's 3,623 on `tlp:white`. Counting by
+   distribution alone gives 1,761; the extra one is 1563, shared with a sharing group that
+   org is not in.
+7. ✅ 540 assertions.

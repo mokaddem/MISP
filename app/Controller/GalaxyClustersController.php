@@ -1051,6 +1051,16 @@ class GalaxyClustersController extends AppController
     /**
      * @param  mixed $id ID or UUID of the cluster
      */
+    public function relatedClusters($id)
+    {
+        $this->request->allowMethod(['get']);
+        $relations = $this->GalaxyCluster->outboundRelations($this->Auth->user(), $id);
+        return $this->RestResponse->viewData(['relations' => $relations], 'json');
+    }
+
+    /**
+     * @param  mixed $id ID or UUID of the cluster
+     */
     public function viewRelationTree($id, $includeInbound=1)
     {
         $cluster = $this->GalaxyCluster->fetchIfAuthorized($this->Auth->user(), $id, 'view', $throwErrors=true, $full=true);

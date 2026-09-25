@@ -1323,6 +1323,181 @@
         graph.on('nodeAdd', declareTagPotential);
     }
 
+    /* ── pivot: other events carrying a tag or cluster ─────── */
+    // Each event lands as a card joined to the selected tag and cluster nodes
+    // it carries. /events/taggedEvents says, per event and tag, whether the
+    // event carries it or only one of its attributes does.
+    var TAGGED_EVENTS_PIVOT = 'tagged-events';
+    var TAGGED_EVENTS_LIMIT = 200;
+
+    function tagNameOf(node) {
+        var d = node.getData() || {};
+        if (d.type === 'tag') return d.name || null;
+        if (d.type === 'cluster') return d.tag_name || null;
+        return null;
+    }
+
+    function tagNamesOf(nodes) {
+        var seen = {};
+        return nodes.map(tagNameOf).filter(function (name) {
+            if (!name || seen[name]) return false;
+            return (seen[name] = true);
+        });
+    }
+
+    function matchMode(narrowing) {
+        return narrowing && narrowing.mode === 'or' ? 'or' : 'and';
+    }
+
+    // summarize and fetch ask the same question back to back.
+    var _tagged = { key: null, promise: null };
+    function fetchTaggedEvents(names, mode, signal) {
+        var body = JSON.stringify({ tags: names, mode: mode });
+        if (_tagged.key !== body) {
+            var promise = fetch(baseurl + '/events/taggedEvents/' + encodeURIComponent(eventId) + '.json', {
+                method: 'POST',
+                credentials: 'same-origin',
+                signal: signal,
+                headers: {
+                    'Content-Type':     'application/json',
+                    'Accept':           'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .catch(function (err) {
+                if (_tagged.promise === promise) _tagged = { key: null, promise: null };
+                throw err;
+            });
+            _tagged = { key: body, promise: promise };
+        }
+        return _tagged.promise;
+    }
+
+    function taggedEventsResult(nodes, payload) {
+        var out = [], edges = [];
+        ((payload && payload.events) || []).forEach(function (card) {
+            var id = 'event:' + card.uuid;
+            out.push({ id: id, data: eventNodeData(card) });
+            nodes.forEach(function (n) {
+                var how = (card.matched || {})[tagNameOf(n)];
+                if (how) edges.push(tagEdge(id, n.id, how === 'attribute' ? 'via attribute' : ''));
+            });
+        });
+        return { nodes: out, edges: edges };
+    }
+
+    function taggedEventsPivot() {
+        return {
+            id:            TAGGED_EVENTS_PIVOT,
+            label:         'Events with this tag',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) {
+                return nodes.filter(function (n) { return !!tagNameOf(n); });
+            },
+            summarize: function (nodes, narrowing, ctx) {
+                var names = tagNamesOf(nodes);
+                return fetchTaggedEvents(names, matchMode(narrowing), ctx && ctx.signal)
+                    .then(function (r) {
+                        var summary = { total: Math.min(r.total || 0, TAGGED_EVENTS_LIMIT) };
+                        if (names.length > 1) {
+                            summary.facets = [{ key: 'mode', label: 'Match', type: 'select', options: [
+                                { label: 'All of them', value: 'and' },
+                                { label: 'Any of them', value: 'or' }
+                            ] }];
+                        }
+                        return summary;
+                    });
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                return fetchTaggedEvents(tagNamesOf(nodes), matchMode(narrowing), ctx && ctx.signal)
+                    .then(function (r) { return taggedEventsResult(nodes, r); });
+            }
+        };
+    }
+
+    /* ── pivot: a cluster's galaxy relations ───────────────── */
+    // The relations stored on the selected cluster, outbound only: each
+    // target lands as a cluster node, so it merges with one already drawn.
+    var RELATED_CLUSTERS_PIVOT = 'related-clusters';
+
+    var _relations = {};
+    function clusterRelations(uuid, signal) {
+        if (!_relations[uuid]) {
+            _relations[uuid] = fetch(baseurl + '/galaxy_clusters/relatedClusters/' + encodeURIComponent(uuid) + '.json', {
+                credentials: 'same-origin',
+                signal: signal,
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (payload) { return (payload && payload.relations) || []; })
+            .catch(function (err) {
+                delete _relations[uuid];
+                throw err;
+            });
+        }
+        return _relations[uuid];
+    }
+
+    function relationsOf(nodes, signal) {
+        return Promise.all(nodes.map(function (n) { return clusterRelations(n.getData().uuid, signal); }));
+    }
+
+    function relatedClustersResult(nodes, lists) {
+        var out = [], edges = [], seen = {};
+        nodes.forEach(function (n, i) {
+            lists[i].forEach(function (r) {
+                var c = r.cluster || {};
+                if (!c.tag_name) return;
+                var id = clusterNodeId(c);
+                if (id === n.id) return;
+                if (!seen[id]) {
+                    seen[id] = true;
+                    out.push(labelNode(id, { cluster: { tag_name: c.tag_name, value: c.value,
+                        galaxy_type: c.type, galaxy_name: c.galaxy_name, uuid: c.uuid } }));
+                }
+                var eid = 'clrel:' + n.id + '>' + id + ':' + r.relation;
+                if (!seen[eid]) {
+                    seen[eid] = true;
+                    edges.push({ id: eid, from: n.id, to: id,
+                                 data: { kind: 'cluster-relation', label: r.relation || '' } });
+                }
+            });
+        });
+        return { nodes: out, edges: edges };
+    }
+
+    function relatedClustersPivot() {
+        return {
+            id:            RELATED_CLUSTERS_PIVOT,
+            label:         'Related clusters',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) {
+                return nodes.filter(function (n) {
+                    var d = n.getData() || {};
+                    return d.type === 'cluster' && !!d.uuid;
+                });
+            },
+            summarize: function (nodes, narrowing, ctx) {
+                return relationsOf(nodes, ctx && ctx.signal).then(function (lists) {
+                    return { total: lists.reduce(function (s, l) { return s + l.length; }, 0) };
+                });
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                return relationsOf(nodes, ctx && ctx.signal).then(function (lists) {
+                    return relatedClustersResult(nodes, lists);
+                });
+            }
+        };
+    }
+
     /* ── the event's elements, as an origin-less pivot (D4, P0) ── */
     // Everything the canvas does not hold yet: event-level attributes, and
     // objects whole. Its Review tab is the searchable, paged list; ingesting
@@ -1517,7 +1692,8 @@
         'feed-correlation':     'Seen in a feed',
         'feed-event':           'Event in a feed',
         'server-correlation':   'Seen on a server',
-        'tag':                  'Tagged'
+        'tag':                  'Tagged',
+        'cluster-relation':     'Galaxy relation'
     };
 
     function field(name, value) {
@@ -1752,7 +1928,8 @@
                     'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
                     'feed-event':           { strokeColor: FEED_COLOR },
                     'server-correlation':   { strokeColor: '#9b59b6', dashed: true },
-                    'tag':                  { strokeColor: '#8a8f98', dashed: true }
+                    'tag':                  { strokeColor: '#8a8f98', dashed: true },
+                    'cluster-relation':     { strokeColor: window.MispPivotNodes.palette().galaxy.core }
                 },
                 // Draw the relationship_type on every edge (referenced + newly created).
                 defaultLabelStyle: {
@@ -1769,7 +1946,8 @@
                 d3LinkDistance: 200
             },
             // No `save`: correlations are derived, never counted unsaved.
-            pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot()],
+            pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
+                     taggedEventsPivot(), relatedClustersPivot()],
             callbacks: {
                 // Another event is a leaf here (PRD §4) — it cannot expand in
                 // place, so double-click hands the analyst over to its own

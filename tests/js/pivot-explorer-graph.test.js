@@ -544,7 +544,7 @@ test('the edge-kind dimension is declared for pivotick', async () => {
     eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
        ['object-reference', 'analyst-relationship', 'correlation',
-        'feed-correlation', 'feed-event', 'server-correlation', 'tag']);
+        'feed-correlation', 'feed-event', 'server-correlation', 'tag', 'cluster-relation']);
     eq('correlations are dashed grey (D1 palette)',
        r.edgeStyleMap['correlation'], { strokeColor: '#888', dashed: true });
     eq('analyst relationships are dashed orange (D1 palette)',
@@ -1172,8 +1172,9 @@ const pivot = (g, id) => g.opts.pivots.find(p => p.id === id);
 
 test('the correlation pivot is declared, capped at the canvas budget, and savable by nobody', async () => {
     const g = await withPivots();
-    eq('after the element pivot, correlations, feed events, tags and clusters',
-       g.opts.pivots.map(p => p.id), ['event-elements', 'correlations', 'feed-events', 'tags']);
+    eq('after the element pivot, correlations, feed events, tags and clusters, then what a tag leads to',
+       g.opts.pivots.map(p => p.id),
+       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
@@ -2636,6 +2637,166 @@ test('tags: a tag edge is not deleted in MISP', async () => {
     const del = g.opts.callbacks.onBeforeDelete;
     const res = await del({ nodes: [], edges: [{ getData: () => ({ kind: 'tag' }) }], confirm: () => true });
     eq('it stays, hide it instead', res, { accept: true, edges: [] });
+});
+
+/* ─────────────── from a tag or cluster to other events ─────────── */
+
+const tagNode = (id, data) => Object.assign(pnode(data), { id });
+const TLP_NODE = () => tagNode('tag:tlp:amber', { type: 'tag', name: 'tlp:amber' });
+const APT_NODE = () => tagNode('cluster:' + TAG_APT.name,
+    { type: 'cluster', tag_name: TAG_APT.name, value: 'APT28', uuid: 'CL-APT28' });
+
+// As /events/taggedEvents shapes it: newest first, each card saying how it
+// carries each asked-for tag.
+const TAGGED = {
+    total: 4812,
+    events: [
+        { id: '812', uuid: 'R812', info: 'Tagged on the event', date: '2026-01-02',
+          Orgc: { name: 'CIRCL', uuid: 'O1' },
+          Tag: [{ name: 'tlp:amber', colour: '#ffc000', is_galaxy: false }],
+          Galaxy: [{ type: 'threat-actor', GalaxyCluster: [{ value: 'APT28', tag_name: TAG_APT.name }] }],
+          matched: { 'tlp:amber': 'event', [TAG_APT.name]: 'event' } },
+        { id: '813', uuid: 'R813', info: 'Tagged on an attribute', Tag: [], Galaxy: [],
+          matched: { 'tlp:amber': 'attribute' } },
+    ],
+};
+
+function withTagged(route) {
+    let bodies = [];
+    return buildGraph(taggedEvent(), { routes: [[/events\/taggedEvents\/1\.json$/, init => {
+        bodies.push(JSON.parse(init.body));
+        return route ? route(init) : TAGGED;
+    }]] }).then(g => Object.assign(g, { bodies }));
+}
+
+test('tagged events: offered on tag and cluster nodes only', async () => {
+    const g = await withTagged();
+    const p = pivot(g, 'tagged-events');
+    const nodes = [TLP_NODE(), APT_NODE(), tagNode('cluster:x', { type: 'cluster' }),
+                   g.graph.getMutableNode('attr:e1'), tagNode('event:R1', { type: 'event', tags: [{ name: 'x' }] })];
+    eq('a tag, a cluster with its tag; not a cluster without one, an element or an event',
+       p.appliesTo(nodes).map(n => n.id), ['tag:tlp:amber', 'cluster:' + TAG_APT.name]);
+    eq('capped at the canvas budget, never saved', [p.maxCandidates, p.save], [1500, undefined]);
+});
+
+test('tagged events: one tag asks by name, counts at most the newest 200, offers no mode', async () => {
+    const g = await withTagged();
+    const s = await pivot(g, 'tagged-events').summarize([TLP_NODE()], {}, {});
+    eq('the request', g.bodies, [{ tags: ['tlp:amber'], mode: 'and' }]);
+    eq('the count is what the fetch brings', s, { total: 200 });
+});
+
+test('tagged events: several tags intersect by default, union on request', async () => {
+    const g = await withTagged();
+    const p = pivot(g, 'tagged-events');
+    const s = await p.summarize([TLP_NODE(), APT_NODE()], {}, {});
+    eq('a cluster asks by its tag', g.bodies[0], { tags: ['tlp:amber', TAG_APT.name], mode: 'and' });
+    eq('one narrowing control, all of them first',
+       s.facets.map(f => [f.key, f.type, f.options.map(o => o.value)]), [['mode', 'select', ['and', 'or']]]);
+    await p.summarize([TLP_NODE(), APT_NODE()], { mode: 'or' }, {});
+    eq('any of them', g.bodies[1].mode, 'or');
+});
+
+test('tagged events: summarize then fetch is one request', async () => {
+    const g = await withTagged();
+    const p = pivot(g, 'tagged-events');
+    await p.summarize([TLP_NODE()], {}, {});
+    await p.fetch([TLP_NODE()], {}, {});
+    eq('asked once', g.bodies.length, 1);
+    await p.fetch([TLP_NODE()], { mode: 'or' }, {});
+    eq('a different question is asked again', g.bodies.length, 2);
+});
+
+test('tagged events: each lands as an event card, joined to the tags it carries', async () => {
+    const g = await withTagged();
+    const r = await pivot(g, 'tagged-events').fetch([TLP_NODE(), APT_NODE()], { mode: 'or' }, {});
+    eq('cards, keyed like every other event', r.nodes.map(n => [n.id, n.data.type, n.data.label, n.data.event_id]),
+       [['event:R812', 'event', 'Tagged on the event', '812'], ['event:R813', 'event', 'Tagged on an attribute', '813']]);
+    eq('a card reads its clusters by tag, so the Tags & clusters pivot finds them',
+       r.nodes[0].data.clusters.map(c => c.tag_name), [TAG_APT.name]);
+    eq('event-level unlabelled, attribute-level said, and only for what each carries',
+       r.edges.map(e => [e.from, e.to, e.data.kind, e.data.label]),
+       [['event:R812', 'tag:tlp:amber', 'tag', ''],
+        ['event:R812', 'cluster:' + TAG_APT.name, 'tag', ''],
+        ['event:R813', 'tag:tlp:amber', 'tag', 'via attribute']]);
+    eq('an edge the Tags & clusters pivot would draw has the same id',
+       r.edges[0].id, 'tagged:event:R812>tag:tlp:amber');
+});
+
+test('tagged events: a failed request is not kept', async () => {
+    let fail = true;
+    const g = await withTagged(() => (fail ? { __status: 500 } : TAGGED));
+    const p = pivot(g, 'tagged-events');
+    let threw = false;
+    await p.summarize([TLP_NODE()], {}, {}).catch(() => { threw = true; });
+    ok('the failure reaches the library', threw);
+    fail = false;
+    eq('asked again', (await p.summarize([TLP_NODE()], {}, {})).total, 200);
+});
+
+/* ─────────────────── a cluster's galaxy relations ───────────────── */
+
+const RELATIONS = {
+    relations: [
+        { relation: 'similar', cluster: { id: '47753', uuid: 'CL-G0007', value: 'APT28 - G0007',
+            type: 'mitre-intrusion-set', galaxy_name: 'MITRE ATT&CK Groups',
+            tag_name: 'misp-galaxy:mitre-intrusion-set="APT28 - G0007"' } },
+        { relation: 'uses', cluster: { id: '5', uuid: 'CL-X', value: 'X-Agent', type: 'tool',
+            galaxy_name: 'Tool', tag_name: 'misp-galaxy:tool="X-Agent"' } },
+        { relation: 'similar', cluster: { id: '72580', uuid: 'CL-APT28', value: 'APT28', type: 'threat-actor',
+            tag_name: TAG_APT.name } },
+    ],
+};
+
+function withRelations(route) {
+    return buildGraph(taggedEvent(), { routes: [[/galaxy_clusters\/relatedClusters\/[^/]+\.json$/,
+        route || (() => RELATIONS)]] });
+}
+
+test('related clusters: offered on a cluster node that has a uuid', async () => {
+    const g = await withRelations();
+    const p = pivot(g, 'related-clusters');
+    const nodes = [APT_NODE(), tagNode('cluster:y', { type: 'cluster', tag_name: 'y' }), TLP_NODE()];
+    eq('a cluster parsed from a bare tag has none', p.appliesTo(nodes).map(n => n.id), ['cluster:' + TAG_APT.name]);
+    eq('the count is the relations', await p.summarize([APT_NODE()], {}, {}), { total: 3 });
+    ok('asked by uuid', g.fetchLog.some(f => /\/galaxy_clusters\/relatedClusters\/CL-APT28\.json$/.test(f.url)));
+});
+
+test('related clusters: each target lands as a cluster node, the edge naming the relation', async () => {
+    const g = await withRelations();
+    const p = pivot(g, 'related-clusters');
+    await p.summarize([APT_NODE()], {}, {});
+    const r = await p.fetch([APT_NODE()], {}, {});
+    eq('asked once per cluster', g.fetchLog.filter(f => /relatedClusters/.test(f.url)).length, 1);
+    eq('keyed by tag, so a cluster already drawn merges',
+       r.nodes.map(n => [n.id, n.data.type, n.data.label, n.data.galaxy_type, n.data.galaxy_name, n.data.uuid]),
+       [['cluster:misp-galaxy:mitre-intrusion-set="APT28 - G0007"', 'cluster', 'APT28 - G0007',
+         'mitre-intrusion-set', 'MITRE ATT&CK Groups', 'CL-G0007'],
+        ['cluster:misp-galaxy:tool="X-Agent"', 'cluster', 'X-Agent', 'tool', 'Tool', 'CL-X']]);
+    eq('away from the selected cluster; a relation to its own tag is left out',
+       r.edges.map(e => [e.from, e.to, e.data.kind, e.data.label]),
+       [['cluster:' + TAG_APT.name, 'cluster:misp-galaxy:mitre-intrusion-set="APT28 - G0007"', 'cluster-relation', 'similar'],
+        ['cluster:' + TAG_APT.name, 'cluster:misp-galaxy:tool="X-Agent"', 'cluster-relation', 'uses']]);
+});
+
+test('related clusters: a galaxy relation is its own edge kind', async () => {
+    const g = await withRelations();
+    const style = g.opts.render.edgeStyleMap['cluster-relation'];
+    eq('solid, in the galaxy hue', [style.dashed, style.strokeColor],
+       [undefined, g.win.MispPivotNodes.palette().galaxy.core]);
+    eq('the sidebar names it', g.opts.UI.propertiesPanel.edgePropertiesMap(
+        { getData: () => ({ kind: 'cluster-relation', label: 'uses' }) }), [{ name: 'Link', value: 'Galaxy relation' }]);
+});
+
+test('related clusters: a failed request is not kept', async () => {
+    let fail = true;
+    const g = await withRelations(() => (fail ? { __status: 404 } : RELATIONS));
+    const p = pivot(g, 'related-clusters');
+    let threw = false;
+    await p.summarize([APT_NODE()], {}, {}).catch(() => { threw = true; });
+    ok('the failure reaches the library', threw);
+    fail = false;
+    eq('asked again', (await p.summarize([APT_NODE()], {}, {})).total, 3);
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

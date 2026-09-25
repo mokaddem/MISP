@@ -1028,12 +1028,125 @@ class Event extends AppModel
             foreach ($event['GalaxyCluster'] ?? [] as $cluster) {
                 $type = $cluster['Galaxy']['type'] ?? $cluster['type'];
                 $galaxies[$type]['type'] = $type;
-                $galaxies[$type]['GalaxyCluster'][] = ['value' => $cluster['value']];
+                $galaxies[$type]['GalaxyCluster'][] = [
+                    'value' => $cluster['value'],
+                    'tag_name' => $cluster['tag_name'],
+                    'uuid' => $cluster['uuid'],
+                ];
             }
             $card['Galaxy'] = array_values($galaxies);
             $cards[$card['id']] = $card;
         }
         return $cards;
+    }
+
+    /**
+     * The events other than $eventId that carry these tags, on the event
+     * itself or on one of its live attributes, as correlatedEventCards()
+     * draws them, newest first.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @param array $tagNames
+     * @param string $mode 'and' for events carrying every tag, 'or' for any
+     * @param int $limit
+     * @return array ['total' => int, 'events' => list of cards], each card
+     *               with 'matched' => [tag name => 'event'|'attribute']
+     */
+    public function taggedEventCards(array $user, $eventId, array $tagNames, $mode = 'and', $limit = 200)
+    {
+        $none = ['total' => 0, 'events' => []];
+        $tagNames = array_values(array_unique(array_filter(array_map('strval', $tagNames), 'strlen')));
+        if (empty($tagNames)) {
+            return $none;
+        }
+        $Tag = $this->EventTag->Tag;
+        $tags = $Tag->find('list', [
+            'conditions' => array_merge($Tag->createConditions($user), ['Tag.name' => $tagNames]),
+            'fields' => ['Tag.id', 'Tag.name'],
+            'recursive' => -1,
+        ]);
+        if (empty($tags) || ($mode === 'and' && count(array_unique($tags)) < count($tagNames))) {
+            return $none;
+        }
+
+        $matched = [];
+        $eventTags = $this->EventTag->find('all', [
+            'conditions' => ['EventTag.tag_id' => array_keys($tags)],
+            'fields' => ['DISTINCT EventTag.event_id', 'EventTag.tag_id'],
+            'recursive' => -1,
+        ]);
+        foreach ($eventTags as $row) {
+            $matched[$row['EventTag']['event_id']][$tags[$row['EventTag']['tag_id']]] = 'event';
+        }
+
+        $conditions = [
+            ['AttributeTag.tag_id' => array_keys($tags)],
+            ['Attribute.deleted' => 0],
+            ['OR' => ['Attribute.object_id' => 0, 'Object.deleted' => 0]],
+        ];
+        $acl = $this->Attribute->buildConditions($user);
+        if (!empty($acl)) {
+            $conditions[] = $acl;
+        }
+        $attributeTags = $this->Attribute->find('all', [
+            'conditions' => ['AND' => $conditions],
+            'fields' => ['DISTINCT Attribute.event_id', 'AttributeTag.tag_id'],
+            'joins' => [
+                [
+                    'table' => 'attribute_tags',
+                    'alias' => 'AttributeTag',
+                    'type' => 'INNER',
+                    'conditions' => ['AttributeTag.attribute_id = Attribute.id'],
+                ],
+                [
+                    'table' => 'events',
+                    'alias' => 'Event',
+                    'type' => 'INNER',
+                    'conditions' => ['Event.id = Attribute.event_id'],
+                ],
+                [
+                    'table' => 'objects',
+                    'alias' => 'Object',
+                    'type' => 'LEFT',
+                    'conditions' => ['Object.id = Attribute.object_id'],
+                ],
+            ],
+            'recursive' => -1,
+            'order' => [],
+        ]);
+        foreach ($attributeTags as $row) {
+            $name = $tags[$row['AttributeTag']['tag_id']];
+            $matched[$row['Attribute']['event_id']][$name] ??= 'attribute';
+        }
+
+        unset($matched[$eventId]);
+        if ($mode === 'and') {
+            $wanted = count($tagNames);
+            $matched = array_filter($matched, function ($m) use ($wanted) {
+                return count($m) === $wanted;
+            });
+        }
+        if (empty($matched)) {
+            return $none;
+        }
+
+        $conditions = $this->createEventConditions($user);
+        $conditions['AND'][] = ['Event.id' => array_keys($matched)];
+        $visible = $this->find('column', [
+            'conditions' => $conditions,
+            'fields' => ['Event.id'],
+            'order' => ['Event.timestamp DESC', 'Event.id DESC'],
+        ]);
+        $ids = array_slice($visible, 0, $limit);
+        $cards = $this->correlatedEventCards($user, $ids);
+        $events = [];
+        foreach ($ids as $id) {
+            if (isset($cards[$id])) {
+                $events[] = $cards[$id] + ['matched' => $matched[$id]];
+            }
+        }
+        return ['total' => count($visible), 'events' => $events];
     }
 
     /**

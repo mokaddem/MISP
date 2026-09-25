@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `53b51fc` with `05fe810` (`worktree-collapsed-cue`) applied on top, which `develop` still lacks. PRD §3.7
 - **Last updated:** 2026-09-25
-- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–30 and bundle bumps 0–0h · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 511 assertions, no dependencies
+- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–31 and bundle bumps 0–0h · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 540 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -72,6 +72,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 28 | A MISP-format feed pivots onto its events (`feed-events`), from its cached manifest | ✅ | 5b | `d9f293c84` (2026-09-24) |
 | 29 | Header withdrawn (owner): identity line and resolution statement removed, with the builder's `stats` | ✅ | 8 | `c1905d9c5` (2026-09-25) — a skipped L2 is now said only by the empty state and the element pivot |
 | 30 | Tags and galaxy clusters: attributes and events carry `tags` / `clusters` (a cluster keyed by its tag), shown in the sidebar and as a `se` tag badge on attributes; a **Tags & clusters** pivot brings one node per tag or cluster, joined to every carrier on the canvas (an object through its attributes), as the `tag` edge kind | ✅ | 21 | 2026-09-25 — live on 2014 (1 tag, badge, 1 edge) and 4242 (4 tags + 4 ATT&CK clusters, 280 edges over 35 objects). Reaching other events from a tag is the next pass |
+| 31 | From a tag or cluster node: **Events with this tag** (`POST /events/taggedEvents/{id}.json`, newest 200 by `timestamp`, all of them or any, each card saying per tag whether the event or one of its attributes carries it) and **Related clusters** (`GET /galaxy_clusters/relatedClusters/{id}.json`, outbound, targets resolved by id), as the `cluster-relation` edge kind | ✅ | 30 | 2026-09-25, [`pivot-explorer-tag-pivots-prd.md`](pivot-explorer-tag-pivots-prd.md) §7 — live on 4242 (4 ATT&CK clusters → 21 events, 84 `via attribute` edges) and 1525 (APT28 → 4 `similar` clusters, one merged). `tlp:white` 0.36 s, the heaviest attribute tag 2.2 s. The summary says at most 200 until the library can state a larger total |
 
 ### Critical path
 

@@ -6988,6 +6988,21 @@ class EventsController extends AppController
         ], 'json');
     }
 
+    public function taggedEvents($id)
+    {
+        $this->request->allowMethod(['post']);
+        $user = $this->Auth->user();
+        $event = $this->Event->fetchSimpleEvent($user, $id, ['fields' => ['Event.id']]);
+        if (empty($event)) {
+            throw new NotFoundException(__('Invalid event'));
+        }
+        $data = $this->request->data;
+        $tags = isset($data['tags']) && is_array($data['tags']) ? $data['tags'] : [];
+        $mode = isset($data['mode']) && $data['mode'] === 'or' ? 'or' : 'and';
+        $result = $this->Event->taggedEventCards($user, (int)$event['Event']['id'], $tags, $mode);
+        return $this->RestResponse->viewData($result, 'json');
+    }
+
     public function getEventGraphReferences($id, $type = 'event')
     {
         $validTools = array('event');
