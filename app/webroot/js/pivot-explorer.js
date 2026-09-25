@@ -272,7 +272,7 @@
     //
     // L2 is all-or-nothing on purpose. D10 says that above the budget "the seed
     // stops at L1": a greedy partial fill would draw an arbitrary 40 of
-    // 28,410 objects, and no statement could honestly explain which 40.
+    // 28,410 objects, with nothing to say which 40.
     function computeSeed(ev) {
         var conn = computeConnectivity(ev);
 
@@ -289,14 +289,12 @@
         });
 
         var l2Uuids = {};
-        var l2Count = 0;   // objects
         var l2Cost  = 0;   // nodes: the object plus its live children
         (ev.Object || []).forEach(function (obj) {
             if (isDeleted(obj)) return;
             var cost = 1 + liveChildCount(obj);
             if (conn.connectedObjUuids[obj.uuid]) { l1 += cost; return; }
             l2Uuids[obj.uuid] = true;
-            l2Count++;
             l2Cost += cost;
         });
 
@@ -308,10 +306,7 @@
             eventNodes:        eventNodes,
             // Objects L2 actually draws — empty when the level did not fit, so
             // "is this object on the canvas?" is one lookup for every caller.
-            l2Uuids:           l2Fits ? l2Uuids : {},
-            objectsSkipped:    l2Fits ? 0 : l2Count,
-            cost:              { l1: l1, l2: l2Fits ? l2Cost : 0 },
-            budget:            NODE_BUDGET
+            l2Uuids:           l2Fits ? l2Uuids : {}
         };
     }
 
@@ -605,18 +600,11 @@
            references). Both endpoints were seeded above, so a rejected edge
            means the target has no node on this canvas at all — a relationship
            pointing at another event's attribute, or at an element type the
-           canvas does not draw. Those are counted, not silently dropped. */
-        var relationshipsSkipped = 0;
+           canvas does not draw. */
         eachAnalystRelationship(ev, function (rel, sourceId) {
-            if (rel.related_object_uuid && rel.object_uuid === rel.related_object_uuid) {
-                relationshipsSkipped++;
-                return;
-            }
+            if (rel.related_object_uuid && rel.object_uuid === rel.related_object_uuid) return;
             var targetId = analystTargetId(rel);
-            if (!targetId || !nodeSet[targetId] || !nodeSet[sourceId]) {
-                relationshipsSkipped++;
-                return;
-            }
+            if (!targetId || !nodeSet[targetId] || !nodeSet[sourceId]) return;
             var type = rel.relationship_type || 'related-to';
             addEdge(sourceId, targetId, type, 'analyst-relationship',
                     { authors: rel.authors, orgc: rel.orgc_uuid, uuid: rel.uuid,
@@ -626,13 +614,11 @@
         /* Feed and server correlations (D1). Derived, like correlations, so a
            hit never puts an element on the canvas: it is drawn from elements
            the seed already took, and a source node appears with its first
-           drawable hit. Hits on elements not drawn are counted. Past 10,000
+           drawable hit. Past 10,000
            hits MISP drops the sources and flags each attribute FeedHit, which
-           attributeNodeData turns into a badge; FeedCount is the total.
+           attributeNodeData turns into a badge.
            The edge runs source → attribute: pivotick stands in for an edge
            into a collapsed object's child, and draws none out of one. */
-        var sourceNodes    = 0;
-        var feedHitsHidden = 0;
         function eachLiveAttribute(fn) {
             (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a)) fn(a); });
             (ev.Object || []).forEach(function (o) {
@@ -645,101 +631,18 @@
             eachLiveAttribute(function (a) {
                 (a[s.scope] || []).forEach(function (hit) {
                     var attrId = 'attr:' + a.uuid;
-                    if (!nodeSet[attrId]) { feedHitsHidden++; return; }
+                    if (!nodeSet[attrId]) return;
                     var srcId = s.type + ':' + hit.id;
                     if (!nodeSet[srcId]) {
                         addNode(srcId, { id: srcId,
                             data: sourceNodeData(s.type, known[String(hit.id)] || hit) });
-                        sourceNodes++;
                     }
                     addEdge(srcId, attrId, '', s.kind);
                 });
             });
         });
 
-        /* What the graph must be able to say about itself (D12, §7): which
-           levels it took, how big that made it, and what it left out. */
-        var levels = [];
-        if (seed.cost.l1) levels.push('L1');
-        if (seed.cost.l2) levels.push('L2');
-
-        return {
-            nodes: nodes,
-            edges: edges,
-            stats: {
-                levels:               levels,
-                nodeCount:            seed.cost.l1 + seed.cost.l2 + sourceNodes,
-                budget:               seed.budget,
-                objectsSkipped:       seed.objectsSkipped,
-                relationshipsSkipped: relationshipsSkipped,
-                feedHitsHidden:       feedHitsHidden,
-                feedCount:            Number(ev.FeedCount) || 0
-            }
-        };
-    }
-
-    // Which levels the seed took and what it left out. Without it 87 nodes
-    // read as the whole of a 28,410-object event. `counts` joins it once the
-    // correlation counts arrive.
-    function resolutionStatement(stats, counts) {
-        var parts = [];
-        // A seed that took no level at all still owes the skip clause: an event
-        // whose only content is 28,410 relationship-less objects draws nothing
-        // and must say why, not fall silent.
-        if (stats.levels.length) {
-            parts.push('Seeded ' + stats.levels.join('+'));
-            parts.push(stats.nodeCount + (stats.nodeCount === 1 ? ' node' : ' nodes'));
-        }
-        if (stats.objectsSkipped) {
-            parts.push('L2 skipped (' + stats.objectsSkipped + ' object'
-                       + (stats.objectsSkipped === 1 ? '' : 's') + ' not shown)');
-        }
-        if (stats.relationshipsSkipped) {
-            parts.push(stats.relationshipsSkipped + ' relationship'
-                       + (stats.relationshipsSkipped === 1 ? '' : 's')
-                       + ' not drawable');
-        }
-        if (stats.feedCount) {
-            parts.push(plural(stats.feedCount, 'feed hit', 'feed hits')
-                       + ', too many to name their feeds');
-        }
-        if (stats.feedHitsHidden) {
-            parts.push(plural(stats.feedHitsHidden, 'feed hit', 'feed hits')
-                       + ' on elements not shown');
-        }
-        if (counts && counts.total) {
-            var events = Object.keys(counts.events || {}).length;
-            parts.push(plural(counts.total, 'correlation', 'correlations')
-                       + (events ? ' with ' + plural(events, 'event', 'events') : '')
-                       + ' available');
-        }
-        return parts.join(' · ');
-    }
-
-    // Nothing on the canvas says which event seeded it, so the card does.
-    function identityLine(ev) {
-        var org = (ev.Orgc && ev.Orgc.name) || '';
-        return ['Event ' + (ev.id || eventId), ev.info, org, ev.date]
-            .filter(function (p) { return p != null && p !== ''; })
-            .join(' · ');
-    }
-
-    var _stats = null;
-    function renderHeader() {
-        var headerEl = document.getElementById('pe-header');
-        var idEl     = document.getElementById('pe-identity');
-        var resEl    = document.getElementById('pe-resolution');
-        var ev       = (_event && _event.Event) || {};
-        if (idEl) {
-            idEl.textContent = identityLine(ev);
-            idEl.setAttribute('title', idEl.textContent);
-        }
-        if (resEl && _stats) {
-            var res = resolutionStatement(_stats, _counts);
-            resEl.textContent   = res;
-            resEl.style.display = res ? '' : 'none';
-        }
-        if (headerEl) headerEl.style.display = '';
+        return { nodes: nodes, edges: edges };
     }
 
     /* ── analyst data: one folded badge, detail in the sidebar (D2, §6.2) ── */
@@ -1090,7 +993,6 @@
         .then(function (c) {
             if (!c || !c.attributes) return;
             _counts = c;
-            renderHeader();
             declareAllPotential(graph);
         })
         .catch(function (err) {
@@ -1772,9 +1674,6 @@
                 if (loaderEl)    loaderEl.style.display    = 'none';
                 if (containerEl) containerEl.style.display = '';
 
-                _stats = data.stats;
-                renderHeader();
-
                 var editor = (canEdit || canAnalyst) ? createEditor() : null;
                 var opts   = graphOptions();
                 if (editor) Object.assign(opts.callbacks, editor.callbacks);
@@ -1786,7 +1685,7 @@
 
                 _graph = new window.Pivotick(
                     containerEl,
-                    { nodes: data.nodes, edges: data.edges },   // `stats` is ours, not pivotick's
+                    data,
                     opts
                 );
 

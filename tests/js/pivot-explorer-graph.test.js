@@ -13,10 +13,9 @@
 // /events/view2. Anything visual (styling, legend, layout) still needs the
 // manual pass in PRD §8.
 //
-// The resolution statement (#pe-resolution) is read back as `g.resolution`.
-// It is more than chrome here: since task 3c draws every live object, "which
-// level put this object on the canvas" is otherwise unobservable, and the
-// statement is what separates a seeded L1 spine from an L2 fallback.
+// Since task 3c draws every live object, "which level put this object on the
+// canvas" shows only once L2 is over budget: the tests that care rebuild the
+// event with `fillers(1501)` and check what L1 alone seeds.
 //
 // How it works: the module is an IIFE with no exports, so rather than reaching
 // inside it, we stub just enough DOM for it to boot, resolve its event fetch
@@ -114,9 +113,6 @@ function buildGraph(payload, options) {
     const byId = {
         'pe-card': card,
         'pe-stage': makeEl('div'),
-        'pe-header': makeEl('div'),
-        'pe-identity': makeEl('div'),
-        'pe-resolution': makeEl('div'),
         'pivot-explorer-loader': makeEl('div'),
         'pivot-explorer-graph': makeEl('div'),
         'tab-pivot-explorer': pane,
@@ -234,10 +230,6 @@ function buildGraph(payload, options) {
             edges: constructed.data.edges,
             opts: constructed.opts,
             graph: constructed.graph,
-            // Read live: the correlation counts rewrite the line after construction.
-            get resolution() { return byId['pe-resolution'].textContent; },
-            get resolutionShown() { return byId['pe-resolution'].style.display === ''; },
-            header: byId,
             win: sandbox.window,
             fetchLog,
             tray, errors,
@@ -331,7 +323,6 @@ test('connectivity: a reference seeds both ends into L1; an untouched object arr
     eq('the untouched object draws no edge — its containment is all it says',
        g.edges.filter(e => e.from === 'obj:C' || e.to === 'obj:C'), []);
     eq('so nothing is left for the tray', g.tray, []);
-    eq('and the statement names both levels', g.resolution, 'Seeded L1+L2 · 3 nodes');
     eq('no console errors', g.errors, []);
 });
 
@@ -506,9 +497,6 @@ test('an event with nothing in it builds an empty graph and offers nothing', asy
     eq('no edges', g.edges, []);
     eq('the element pivot counts nothing',
        g.opts.pivots.find(p => p.id === 'event-elements').summarize([], {}).total, 0);
-    eq('the statement stays silent — nothing was seeded and nothing was skipped',
-       g.resolution, '');
-    ok('and the line stays hidden', !g.resolutionShown);
     eq('no console errors', g.errors, []);
 });
 
@@ -521,8 +509,6 @@ test('a read-only viewer still gets the element pivot — putting an element on 
     eq('graph still builds', ids(g.nodes), ['obj:A', 'obj:B', 'obj:C']);
     ok('the element pivot is declared', g.opts.pivots.some(p => p.id === 'event-elements'));
     eq('and has nothing to offer here', g.tray, []);
-    eq('the statement is not editor chrome — a read-only viewer gets it too',
-       g.resolution, 'Seeded L1+L2 · 3 nodes');
 });
 
 test('edges are tagged with the kind that created them (D1 dimension 1)', async () => {
@@ -751,15 +737,16 @@ test('...and once L2 does not fit, the dangler is gone entirely', async () => {
 });
 
 test('a reference to a deleted element does not seed its source', async () => {
-    const g = await buildGraph(ev({ Object: [
+    const objects = [
         obj({ uuid: 'A', name: 'points-at-tombstone',
               ObjectReference: [ref({ referenced_uuid: 'D' })] }),
         obj({ uuid: 'D', deleted: true }),
-    ] }));
+    ];
+    const g = await buildGraph(ev({ Object: objects }));
     eq('the tombstone is not drawn', ids(g.nodes), ['obj:A']);
     eq('and it seeded no edge', g.edges, []);
-    eq('the statement proves L2 put the source there, not the reference',
-       g.resolution, 'Seeded L2 · 1 node');
+    const over = await buildGraph(ev({ Object: objects.concat(fillers(1501)) }));
+    eq('L2 put the source there, not the reference', over.nodes, []);
 });
 
 test('a deleted link between two on-canvas elements still draws nothing', async () => {
@@ -784,36 +771,39 @@ test('a deleted link between two on-canvas elements still draws nothing', async 
 test('a relationship pointing at a tombstoned element seeds neither end', async () => {
     // The deleted attribute is never drawn, so seeding its partner would leave
     // that partner alone on the canvas with nothing to connect to.
-    const g = await buildGraph(ev({
+    const parts = {
         Attribute: [attr({ uuid: 'e1', value: 'gone', deleted: true })],
         Object: [obj({ uuid: 'A', name: 'points-at-gone', Relationship: [
             arel({ object_uuid: 'A', related_object_uuid: 'e1',
                    related_object_type: 'Attribute' }),
         ] })],
-    }));
+    };
+    const g = await buildGraph(ev(parts));
     eq('the tombstoned attribute is not drawn', ids(g.nodes), ['obj:A']);
     eq('no edges', g.edges, []);
-    eq('the statement proves L2 put the source there, not the relationship',
-       g.resolution, 'Seeded L2 · 1 node · 1 relationship not drawable');
+    const over = await buildGraph(ev(Object.assign({}, parts,
+        { Object: parts.Object.concat(fillers(1501)) })));
+    eq('L2 put the source there, not the relationship', over.nodes, []);
 });
 
 test('the target TYPE gates resolution, not just whether the uuid exists', async () => {
     // 'B' is a real Object here. A relationship naming uuid B but declaring a
     // non-canvas target type must still be skipped — otherwise the type check is
     // only working by accident, rescued by uuids that happen not to exist.
-    const g = await buildGraph(ev({ Object: [
+    const objects = [
         obj({ uuid: 'A', Relationship: [
             arel({ object_uuid: 'A', related_object_uuid: 'B', related_object_type: 'EventReport' }),
             arel({ object_uuid: 'A', related_object_uuid: 'B', related_object_type: 'GalaxyCluster' }),
             arel({ object_uuid: 'A', related_object_uuid: 'B', related_object_type: 'Event' }),
         ] }),
         obj({ uuid: 'B' }),
-    ] }));
+    ];
+    const g = await buildGraph(ev({ Object: objects }));
     eq('no edges — every target type is off-canvas', g.edges, []);
     eq('both objects are on the canvas by containment alone', ids(g.nodes),
        ['obj:A', 'obj:B']);
-    eq('nothing was seeded by them, and all three skips are reported',
-       g.resolution, 'Seeded L2 · 2 nodes · 3 relationships not drawable');
+    const over = await buildGraph(ev({ Object: objects.concat(fillers(1501)) }));
+    eq('nothing was seeded by them', over.nodes, []);
 });
 
 test('an event-level attribute can be the source of a relationship', async () => {
@@ -830,7 +820,7 @@ test('an event-level attribute can be the source of a relationship', async () =>
 });
 
 test('tombstones apply to analyst relationships too', async () => {
-    const g = await buildGraph(ev({ Object: [
+    const objects = [
         // a deleted relationship on a live object
         obj({ uuid: 'A', Relationship: [
             arel({ object_uuid: 'A', related_object_uuid: 'B', deleted: true }),
@@ -849,12 +839,13 @@ test('tombstones apply to analyst relationships too', async () => {
         obj({ uuid: 'W', deleted: true, Attribute: [attr({ uuid: 'w1', Relationship: [
             arel({ object_uuid: 'w1', related_object_uuid: 'B' }),
         ] })] }),
-    ] }));
+    ];
+    const g = await buildGraph(ev({ Object: objects }));
     eq('the live objects are drawn by L2; the tombstoned owners are not',
        ids(g.nodes), ['obj:A', 'obj:B', 'obj:Y']);
     eq('no edges', g.edges, []);
-    eq('nothing was seeded by a tombstoned relationship',
-       g.resolution, 'Seeded L2 · 3 nodes');
+    const over = await buildGraph(ev({ Object: objects.concat(fillers(1501)) }));
+    eq('nothing was seeded by a tombstoned relationship', over.nodes, []);
 });
 
 test('null provenance on an analyst relationship is carried as null', async () => {
@@ -904,7 +895,6 @@ test('correlated events are not drawn: the Correlations tab lists them', async (
     }));
     eq('nothing seeded', g.nodes, []);
     eq('no edges', g.edges, []);
-    eq('and nothing claimed', g.resolution, '');
 });
 
 test('another event is labelled by what an analyst recognises it by', async () => {
@@ -932,7 +922,6 @@ test('the event node is drawn only when something connects to it', async () => {
     // "nothing to draw" message (task 4) out of reach.
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     ok('no event node', !byId(g.nodes, 'event:EV-SELF'), ids(g.nodes));
-    eq('so no event was charged to the seed', g.resolution, 'Seeded L2 · 1 node');
 });
 
 test('an analyst relationship can point at the event itself', async () => {
@@ -943,7 +932,6 @@ test('an analyst relationship can point at the event itself', async () => {
        ids(g.nodes), ['attr:e1', 'event:EV-SELF']);
     eq('edge', edgeKeys(g.edges), ['attr:e1->event:EV-SELF:analysed-with']);
     eq('with the analyst kind', g.edges[0].data.kind, 'analyst-relationship');
-    eq('an event endpoint is L1 like any other', g.resolution, 'Seeded L1 · 2 nodes');
 });
 
 test('an analyst relationship can point at another event, drawn from the record it carries', async () => {
@@ -954,7 +942,6 @@ test('an analyst relationship can point at another event, drawn from the record 
     eq('one analyst edge', g.edges.map(e => e.from + '->' + e.to + ':' + e.data.kind),
        ['attr:e1->event:R1:analyst-relationship']);
     eq('drawn from the attached record', byId(g.nodes, 'event:R1').data.label, 'other');
-    eq('levels', g.resolution, 'Seeded L1 · 2 nodes');
 });
 
 test('an event the viewer cannot see is not drawable', async () => {
@@ -967,7 +954,6 @@ test('an event the viewer cannot see is not drawable', async () => {
                related_object: { Event: otherEvent({ uuid: 'NOT-R2' }) } }),
     ] })] }));
     eq('neither end is seeded', g.nodes, []);
-    eq('both are counted', g.resolution, '2 relationships not drawable');
 });
 
 test('the event itself can be a relationship source', async () => {
@@ -983,7 +969,6 @@ test('the event itself can be a relationship source', async () => {
     eq('the event and both targets', ids(g.nodes), ['attr:e1', 'event:EV-SELF', 'event:R1']);
     eq('an edge each, out of the event', edgeKeys(g.edges),
        ['event:EV-SELF->attr:e1:blocks', 'event:EV-SELF->event:R1:similar']);
-    eq('levels', g.resolution, 'Seeded L1 · 3 nodes');
 });
 
 test('two relationships to one event draw it once, and charge it once', async () => {
@@ -994,7 +979,6 @@ test('two relationships to one event draw it once, and charge it once', async ()
     ] }));
     eq('one event node', ids(g.nodes), ['attr:e1', 'attr:e2', 'event:R1']);
     eq('two edges', g.edges.length, 2);
-    eq('three nodes paid for', g.resolution, 'Seeded L1 · 3 nodes');
 });
 
 test('with no event uuid in the payload the event is no endpoint', async () => {
@@ -1036,7 +1020,6 @@ test('L2: a relationship-less object is a containment cluster — parent, childr
     eq('with its attributes nested inside it',
        byId(g.nodes, 'obj:C').children.map(c => c.id), ['attr:c1', 'attr:c2']);
     eq('and no edges — containment is the whole statement', g.edges, []);
-    eq('the children count against the budget too', g.resolution, 'Seeded L2 · 3 nodes');
 });
 
 test('L2 never adds a bare event-level attribute (D10 governing principle)', async () => {
@@ -1046,27 +1029,22 @@ test('L2 never adds a bare event-level attribute (D10 governing principle)', asy
         Attribute: [attr({ uuid: 'e1', value: 'one' }), attr({ uuid: 'e2', value: 'two' })],
     }));
     eq('nothing on the canvas', g.nodes, []);
-    eq('nothing to state', g.resolution, '');
     eq('both are in the tray', trayLabels(g).sort(), ['one', 'two']);
 });
 
 test('the budget is all-or-nothing: one node over and L2 is skipped whole', async () => {
     const at = await buildGraph(ev({ Object: fillers(1500) }));
-    eq('exactly at the budget, L2 fits', at.resolution, 'Seeded L2 · 1500 nodes');
     eq('and every object is drawn', at.nodes.length, 1500);
     eq('so the tray is empty', at.tray, []);
 
     const over = await buildGraph(ev({ Object: fillers(1501) }));
     eq('one node over, and not a single one is drawn', over.nodes, []);
-    eq('but the graph still says what it left out — never falls silent (§7)',
-       over.resolution, 'L2 skipped (1501 objects not shown)');
-    ok('and the line is shown', over.resolutionShown);
     eq('the skipped objects fall back to the tray (D4)', over.tray.length, 1501);
 });
 
 test('over budget, the seed falls back to the relationship spine', async () => {
     // Event 4116 in miniature: L2 does not fit, so L1 carries the graph and
-    // the statement carries the rest.
+    // the element pivot carries the rest.
     const g = await buildGraph(ev({
         Object: [
             obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })],
@@ -1077,8 +1055,6 @@ test('over budget, the seed falls back to the relationship spine', async () => {
     eq('L1 survives, the event it relates to included', ids(g.nodes),
        ['event:R1', 'obj:A', 'obj:B']);
     eq('with both their edges', g.edges.length, 2);
-    eq('and the graph states exactly what it did and did not draw', g.resolution,
-       'Seeded L1 · 3 nodes · L2 skipped (1501 objects not shown)');
 });
 
 test('an object is counted at its true cost — children included — before L2 is judged', async () => {
@@ -1091,8 +1067,7 @@ test('an object is counted at its true cost — children included — before L2 
     }
     const g = await buildGraph(ev({ Object: heavy }));
     eq('L2 is refused', g.nodes, []);
-    eq('and says so by object count, not by node count', g.resolution,
-       'L2 skipped (750 objects not shown)');
+    eq('all 750 fall back to the element pivot', g.tray.length, 750);
 });
 
 test('a deleted child does not cost the budget anything', async () => {
@@ -1102,31 +1077,7 @@ test('a deleted child does not cost the budget anything', async () => {
         many.push(obj({ uuid: 'd' + i, Attribute: [attr({ uuid: 'd' + i + 'x', deleted: true })] }));
     }
     const g = await buildGraph(ev({ Object: many }));
-    eq('it fits exactly', g.resolution, 'Seeded L2 · 1500 nodes');
     eq('and no tombstone was nested', countAll(g.nodes), 1500);
-});
-
-test('the statement counts every node the builder actually emitted', async () => {
-    // Guards the seed\'s analytic arithmetic against the build: they are
-    // computed by different code and must not drift.
-    const g = await buildGraph(ev({
-        Relationship: [toEvent(otherEvent({ uuid: 'R1' }), { object_uuid: 'EV-SELF' })],
-        Attribute: [attr({ uuid: 'e1', Relationship: [
-                        toEvent(otherEvent({ uuid: 'R2' }), { object_uuid: 'e1' })] }),
-                    attr({ uuid: 'e2', value: 'loose' })],
-        Object: [
-            obj({ uuid: 'A', Attribute: [attr({ uuid: 'a1' })],
-                  ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })] }),
-            obj({ uuid: 'B', Attribute: [attr({ uuid: 'b1' }), attr({ uuid: 'b2' })] }),
-            obj({ uuid: 'C' }),
-        ],
-    }));
-    const declared = Number(/· (\d+) nodes/.exec(g.resolution)[1]);
-    eq('every level contributed', g.resolution.indexOf('Seeded L1+L2') === 0, true);
-    eq('the declared count matches the graph, nested children included',
-       declared, countAll(g.nodes));
-    eq('3 event nodes + 1 linked attribute + 3 objects + 3 nested children',
-       declared, 10);
 });
 
 test('a skipped L2 leaves the tray as the only route to those objects', async () => {
@@ -2214,7 +2165,6 @@ test('an event whose objects blow the budget says so too', async () => {
     const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1' })], Object: fillers(1501) }));
     eq('nothing drawn', g.nodes, []);
     ok('both counted', emptyText(g).indexOf('Its 1 attribute and 1501 objects are listed') !== -1, emptyText(g));
-    eq('the resolution line still states the skip', g.resolution, 'L2 skipped (1501 objects not shown)');
 });
 
 test('an event with no content at all offers nothing to browse', async () => {
@@ -2334,42 +2284,6 @@ test('a facet\'s options are what the live graph holds, children included', asyn
         { label: 'Payload delivery', value: 'Payload delivery' }]);
 });
 
-test('the header names the event the graph was seeded from', async () => {
-    const g = await buildGraph(ev({ info: 'Phishing <b>wave</b>', date: '2026-09-01',
-                                    Orgc: { name: 'CIRCL' }, Object: [obj({ uuid: 'A' })] }));
-    eq('identity line', g.header['pe-identity'].textContent, 'Event 1 · Phishing <b>wave</b> · CIRCL · 2026-09-01');
-    eq('the full line is its tooltip, since it truncates',
-       g.header['pe-identity'].getAttribute('title'), 'Event 1 · Phishing <b>wave</b> · CIRCL · 2026-09-01');
-    ok('written as text', !g.header['pe-identity']._html);
-    ok('the header is shown', g.header['pe-header'].style.display === '');
-    eq('the resolution line sits under it', g.resolution, 'Seeded L2 · 1 node');
-});
-
-test('the identity line leaves out what the event lacks', async () => {
-    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
-    eq('id only', g.header['pe-identity'].textContent, 'Event 1');
-});
-
-test('the correlation total joins the resolution line once counted', async () => {
-    const g = await withPivots();
-    ok('it ends the statement, with the events it reaches',
-       /· 3 correlations with 2 events available$/.test(g.resolution), g.resolution);
-});
-
-test('one correlation into one event reads in the singular', async () => {
-    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }), { routes: [[/correlationCounts/,
-        { total: 1, attributes: { x: 1 }, objects: {}, events: { '7': 1 } }]] });
-    await new Promise(res => setTimeout(res, 0));
-    eq('singular', g.resolution, 'Seeded L2 · 1 node · 1 correlation with 1 event available');
-});
-
-test('no correlations, no clause', async () => {
-    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }),
-        { routes: [[/correlationCounts/, { total: 0, attributes: {}, objects: {}, events: {} }]] });
-    await new Promise(res => setTimeout(res, 0));
-    eq('unchanged', g.resolution, 'Seeded L2 · 1 node');
-});
-
 /* ────────────── task 5b: feed and server correlations ────────────── */
 
 // A feed as Feed::attachFeedCorrelations() attaches it: the full record on the
@@ -2420,8 +2334,6 @@ test('5b: the source map is read by id, as a list or keyed', async () => {
 test('5b: a feed hit never puts an element on the canvas', async () => {
     const g = await buildGraph(feedEvent());
     ok('the loose attribute stays off', !byId(g.nodes, 'attr:e2'));
-    eq('its hits are stated, the feeds and the source nodes counted', g.resolution,
-       'Seeded L1 · 6 nodes · 2 feed hits on elements not shown');
     eq('and it is still offered by the element pivot', trayLabels(g), ['loose']);
 });
 
@@ -2432,7 +2344,6 @@ test('5b: a feed seen only by elements not drawn draws no node', async () => {
         Object: [obj({ uuid: 'A' })],
     }));
     eq('no feed node', ids(g.nodes), ['obj:A']);
-    eq('the hit is stated', g.resolution, 'Seeded L2 · 1 node · 1 feed hit on elements not shown');
 });
 
 test('5b: deleted attributes carry no hits', async () => {
@@ -2440,10 +2351,10 @@ test('5b: deleted attributes carry no hits', async () => {
         Feed: [FEED1],
         Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1', deleted: true, Feed: [FEED1] })] })],
     }));
-    eq('no feed node, nothing stated', [ids(g.nodes), g.resolution], [['obj:A'], 'Seeded L2 · 1 node']);
+    eq('no feed node', ids(g.nodes), ['obj:A']);
 });
 
-test('5b: past 10,000 hits, a badge on each attribute and the total in the statement', async () => {
+test('5b: past 10,000 hits, a badge on each attribute', async () => {
     const g = await buildGraph(ev({
         FeedCount: 16246,
         Attribute: [attr({ uuid: 'e1', FeedHit: true })],
@@ -2463,8 +2374,6 @@ test('5b: past 10,000 hits, a badge on each attribute and the total in the state
     eq('no badge without the flag', badgesOf(g, c2), []);
     eq('both badges when there is analyst data too',
        badgesOf(g, { feed_hit: true, analyst_count: 2, analyst_mood: 'none' }).map(x => x.position), ['nw', 'sw']);
-    eq('the statement carries the total', g.resolution,
-       'Seeded L1 · 4 nodes · 16246 feed hits, too many to name their feeds');
 });
 
 test('5b: a server is a source like a feed, on its own layer, even with only id and name', async () => {
