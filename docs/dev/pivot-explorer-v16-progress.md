@@ -203,9 +203,10 @@ that, so a refused save left an undo row for a vanished edge and a saved one und
 The edge now lands only once `objectReferences/add` succeeds, marked `persisted: true`. Verified
 by gesture in the harness, not by the unit suite — the editor has no unit tests.
 
-**One visible regression is left open on purpose:** `render.minLabelFontSize` (9 px) hides every
-label at the opening fit on the harness fixture (zoom 0.62). The library default, so the call is
-the owner's — PRD §3.7.
+**The label floor is 8 px** (2026-09-25, the owner's call): `render.minLabelFontSize` was the
+library's 9 px, which hid every label at the harness fixture's opening fit (zoom 0.62). The chip
+tier also engages at zoom 0.8 rather than 1 (`CHIP_FROM_ZOOM`). Live on 2014: labels from zoom
+0.67, chips from 0.81.
 
 **What the live pass turned up:**
 

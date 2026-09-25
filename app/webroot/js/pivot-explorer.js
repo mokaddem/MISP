@@ -435,6 +435,9 @@
     // width, so chips may touch once zoomed in.
     var LAYOUT_SIZE = 45;
 
+    // The chip engages a little before zoom 1, drawn slightly under its size.
+    var CHIP_FROM_ZOOM = 0.8;
+
     // The others fall back to their chip at XL, so once the chip tier is on
     // screen their hover drawing would only repeat it, smaller.
     var HAS_OWN_XL = { event: true, object: true };
@@ -482,8 +485,8 @@
         var map = {};
         Object.keys(rest).forEach(function (entity) {
             map[entity] = Object.assign(withBadges(rest[entity]), {
-                // At zoom 1, as when the footprint was the chip's own.
-                tiers:      [{ width: CHIP.width, height: CHIP.height, minRenderedSize: 2 * LAYOUT_SIZE,
+                tiers:      [{ width: CHIP.width, height: CHIP.height,
+                               minRenderedSize: 2 * LAYOUT_SIZE * CHIP_FROM_ZOOM,
                                style: withBadges(chip[entity]) }],
                 focusTier:  withBadges(focus[entity]),
                 layoutSize: LAYOUT_SIZE
@@ -1611,6 +1614,7 @@
             isDirected: true,
             render: {
                 type: 'svg',
+                minLabelFontSize: 8,
                 // Renderer-wide: objects and correlation containers stay closed,
                 // with no expand chevron or Enter shortcut.
                 enableNodeExpansion: false,
