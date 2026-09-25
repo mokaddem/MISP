@@ -422,6 +422,9 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   is the established route for a translated string — though a sentence with counts and plurals
   wants more than one attribute.
 
+- **From a tag or cluster outward** — *Events with this tag* and *Related clusters*, specified in
+  [`pivot-explorer-tag-pivots-prd.md`](pivot-explorer-tag-pivots-prd.md) (decided 2026-09-25,
+  not built).
 - **Dedicated graph endpoint (D13)** — deferred to
   [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
