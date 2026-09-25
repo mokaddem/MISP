@@ -96,7 +96,7 @@
             image:           isImg || undefined,
             imageUrl:        isImg ? attributeImageUrl(attr) : undefined,
             feed_hit:        attr.FeedHit ? true : undefined
-        }, owner, analystFields(attr));
+        }, tagFields(attr), owner, analystFields(attr));
     }
 
     // An object's attribute, ranked by its template: the node drawing leads
@@ -322,10 +322,38 @@
         return out.length ? out : undefined;
     }
 
-    function eventTags(e) {
-        var out = (e.Tag || []).filter(function (t) { return !t.is_galaxy; })
-            .map(function (t) { return { name: t.name, colour: t.colour }; });
-        return out.length ? out : undefined;
+    // A galaxy cluster's tag, misp-galaxy:TYPE="VALUE".
+    function galaxyTag(name) {
+        var m = /^misp-galaxy:([^=]+)="(.*)"$/.exec(String(name || ''));
+        return m ? { galaxy_type: m[1], value: m[2] } : null;
+    }
+
+    // An element's tags and galaxy clusters, as `tags` and `clusters`. A
+    // cluster is keyed by its tag, which is how it is attached everywhere:
+    // the Tag list names it even where Galaxy is missing or trimmed.
+    function tagFields(rec) {
+        var named = {};
+        (rec.Galaxy || []).forEach(function (g) {
+            (g.GalaxyCluster || []).forEach(function (c) {
+                if (c.tag_name) named[c.tag_name] = { galaxy_type: g.type, galaxy_name: g.name, value: c.value, uuid: c.uuid };
+            });
+        });
+        var tags = [], clusters = [], seen = {};
+        function cluster(tagName, local) {
+            var n = named[tagName] || {}, g = galaxyTag(tagName) || {};
+            clusters.push({ tag_name: tagName, galaxy_type: n.galaxy_type || g.galaxy_type,
+                            galaxy_name: n.galaxy_name, value: n.value || g.value || tagName,
+                            uuid: n.uuid, local: local || undefined });
+        }
+        (rec.Tag || []).forEach(function (t) {
+            if (!t || !t.name || t.hide_tag || seen[t.name]) return;
+            seen[t.name] = true;
+            if (t.is_galaxy || galaxyTag(t.name)) { cluster(t.name, !!t.local); return; }
+            tags.push({ name: t.name, colour: t.colour, local: t.local ? true : undefined,
+                        relationship_type: t.relationship_type || undefined });
+        });
+        Object.keys(named).forEach(function (tagName) { if (!seen[tagName]) cluster(tagName, false); });
+        return { tags: tags.length ? tags : undefined, clusters: clusters.length ? clusters : undefined };
     }
 
     function numberOr(v) {
@@ -356,9 +384,8 @@
             attribute_count:   numberOr(e.attribute_count),
             object_count:      e.Object ? e.Object.filter(function (o) { return !isDeleted(o); }).length : numberOr(e.object_count),
             report_count:      e.EventReport ? e.EventReport.length : undefined,
-            context:           eventContext(e),
-            tags:              eventTags(e)
-        }, provenance(e.id, e.uuid), analystFields(e));
+            context:           eventContext(e)
+        }, tagFields(e), provenance(e.id, e.uuid), analystFields(e));
     }
 
     // Shared object node data (graph builder + element pivot).
@@ -444,8 +471,11 @@
     function elementOf(node) {
         var d = node.getData();
         if (!d) return undefined;
-        return d.image ? 'image' : d.type;
+        if (d.image) return 'image';
+        return d.type === 'tag' ? 'taxonomy' : d.type;
     }
+
+    var ELEMENT_LABELS = { taxonomy: 'tag', cluster: 'galaxy cluster' };
 
     // The legend samples a node's resolved `color`, which a drawn node leaves
     // transparent, so the Element rows carry the entity hues themselves.
@@ -463,7 +493,7 @@
         });
         return Object.keys(seen).map(function (e) {
             return {
-                id: e, color: colour[e] || '#888',
+                id: e, label: ELEMENT_LABELS[e] || e, color: colour[e] || '#888',
                 predicate: function (node) { return elementOf(node) === e; }
             };
         });
@@ -692,7 +722,27 @@
     var FEED_COLOR = '#5bc0de';
 
     function nodeBadges(node) {
-        return analystBadges(node).concat(feedHitBadges(node));
+        return analystBadges(node).concat(feedHitBadges(node), tagBadges(node));
+    }
+
+    function clusterName(c) {
+        return (c.galaxy_name || c.galaxy_type || 'Cluster') + ': ' + c.value;
+    }
+
+    // An attribute's tags and clusters, read in the sidebar. An event card
+    // draws its own.
+    function tagBadges(node) {
+        var d = node && node.getData ? node.getData() : null;
+        if (!d || d.type !== 'attribute' || !(d.tags || d.clusters)) return [];
+        var tags = d.tags || [], clusters = d.clusters || [];
+        var P = window.MispPivotNodes && window.MispPivotNodes.palette();
+        return [{
+            position:  'se',
+            iconClass: 'fas fa-tag',
+            color:     tags.length ? (tags[0].colour || '#888') : ((P && P.galaxy.core) || '#888'),
+            title:     tags.map(function (t) { return t.name; }).concat(clusters.map(clusterName)).join('\n'),
+            onClick:   function (e, clicked) { showInSidebar(clicked); }
+        }];
     }
 
     // The degraded shape: MISP saw the value in a feed but did not say which,
@@ -718,7 +768,7 @@
             color:    MOOD_COLOR[d.analyst_mood] || MOOD_COLOR.none,
             title:    n + (n === 1 ? ' note or opinion' : ' notes and opinions')
                       + (d.analyst_mood !== 'none' ? ' — ' + d.analyst_mood : ''),
-            onClick:  function (e, clicked) { showAnalystData(clicked); }
+            onClick:  function (e, clicked) { showInSidebar(clicked); }
         }];
     }
 
@@ -748,7 +798,7 @@
             });
     }
 
-    function showAnalystData(node) {
+    function showInSidebar(node) {
         if (!_graph || !node) return;
         if (typeof _graph.selectElement === 'function') _graph.selectElement(node);
         var sidebar = _graph.UIManager && _graph.UIManager.sidebar;
@@ -1039,7 +1089,8 @@
             orgc:        orgc ? { name: orgc.name, uuid: orgc.uuid } : undefined,
             uuid:        card.uuid,
             context:     eventContext(card),
-            tags:        eventTags(card),
+            tags:        tagFields(card).tags,
+            clusters:    tagFields(card).clusters,
             // Read by the event drawings: a cached hit, and whose.
             _provenance: 'feed',
             source:      { kind: 'feed', type: 'Feed', name: src.name,
@@ -1147,6 +1198,129 @@
         graph.getMutableNodes().forEach(function (n) { any = declareFeedPotential(n) || any; });
         if (any) graph.renderer.update();
         graph.on('nodeAdd', declareFeedPotential);
+    }
+
+    /* ── pivot: tags and galaxy clusters ───────────────────── */
+    // One node per tag or cluster, joined to every element on the canvas that
+    // carries it, so two elements sharing a cluster are visibly linked. An
+    // object answers for its attributes: MISP tags those, not the object.
+    var TAG_PIVOT = 'tags';
+
+    function tagNodeId(t)     { return 'tag:' + t.name; }
+    function clusterNodeId(c) { return 'cluster:' + c.tag_name; }
+
+    // Tag data per attribute uuid, for objects whose children are not drawn.
+    var _tagIndex = {}, _tagIndexFor = null;
+    function attributeTags(uuid) {
+        if (_tagIndexFor !== _event) { _tagIndex = {}; _tagIndexFor = _event; }
+        if (!(uuid in _tagIndex)) {
+            var a = ownAttributeIndex().byUuid[uuid];
+            _tagIndex[uuid] = a ? tagFields(a) : {};
+        }
+        return _tagIndex[uuid];
+    }
+
+    // Who carries what, for one node: [{ id, tags, clusters }].
+    function carriers(node) {
+        var d = node.getData() || {};
+        if (d.type === 'attribute' || d.type === 'event') {
+            return (d.tags || d.clusters) ? [{ id: node.id, tags: d.tags, clusters: d.clusters }] : [];
+        }
+        if (d.type === 'object') {
+            return (ownAttributeIndex().byObject[d.uuid] || []).map(function (uuid) {
+                var f = attributeTags(uuid);
+                return { id: 'attr:' + uuid, tags: f.tags, clusters: f.clusters };
+            }).filter(function (c) { return c.tags || c.clusters; });
+        }
+        return [];
+    }
+
+    // Distinct tags and clusters over some carriers, by node id.
+    function labelsOf(list) {
+        var out = {};
+        list.forEach(function (c) {
+            (c.tags || []).forEach(function (t) {
+                if (!out[tagNodeId(t)]) out[tagNodeId(t)] = { tag: t };
+            });
+            (c.clusters || []).forEach(function (cl) {
+                if (!out[clusterNodeId(cl)]) out[clusterNodeId(cl)] = { cluster: cl };
+            });
+        });
+        return out;
+    }
+
+    function carriersOf(nodes) {
+        return nodes.reduce(function (all, n) { return all.concat(carriers(n)); }, []);
+    }
+
+    function labelCount(node) {
+        return Object.keys(labelsOf(carriers(node))).length;
+    }
+
+    function labelNode(id, l) {
+        if (l.tag) {
+            return { id: id, data: { type: 'tag', label: l.tag.name, name: l.tag.name,
+                                     colour: l.tag.colour, local: l.tag.local } };
+        }
+        var c = l.cluster;
+        return { id: id, data: { type: 'cluster', label: c.value, value: c.value,
+                                 galaxy_type: c.galaxy_type, galaxy_name: c.galaxy_name,
+                                 tag_name: c.tag_name, uuid: c.uuid } };
+    }
+
+    function tagEdge(from, to, rel) {
+        return { id: 'tagged:' + from + '>' + to, from: from, to: to,
+                 data: { kind: 'tag', label: rel || '' } };
+    }
+
+    // The selection's tags and clusters, each joined to its carriers in the
+    // selection and to any other carrier already on the canvas.
+    function tagsResult(nodes) {
+        var labels = labelsOf(carriersOf(nodes));
+        var drawn = _graph ? carriersOf(_graph.getMutableNodes()) : [];
+        var edges = [], seen = {};
+        carriersOf(nodes).concat(drawn).forEach(function (c) {
+            (c.tags || []).forEach(function (t) {
+                var id = tagNodeId(t), e = tagEdge(c.id, id, t.relationship_type);
+                if (labels[id] && !seen[e.id]) { seen[e.id] = true; edges.push(e); }
+            });
+            (c.clusters || []).forEach(function (cl) {
+                var id = clusterNodeId(cl), e = tagEdge(c.id, id);
+                if (labels[id] && !seen[e.id]) { seen[e.id] = true; edges.push(e); }
+            });
+        });
+        return {
+            nodes: Object.keys(labels).map(function (id) { return labelNode(id, labels[id]); }),
+            edges: edges
+        };
+    }
+
+    function tagPivot() {
+        return {
+            id:            TAG_PIVOT,
+            label:         'Tags & clusters',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) {
+                return nodes.filter(function (n) { return labelCount(n) > 0; });
+            },
+            summarize: function (nodes) {
+                return { total: Object.keys(labelsOf(carriersOf(nodes))).length };
+            },
+            fetch: function (nodes) { return tagsResult(nodes); }
+        };
+    }
+
+    function declareTagPotential(node) {
+        var n = labelCount(node);
+        if (n) node.setPotential(TAG_PIVOT, n);
+        return n > 0;
+    }
+
+    function declareAllTagPotential(graph) {
+        var any = false;
+        graph.getMutableNodes().forEach(function (n) { any = declareTagPotential(n) || any; });
+        if (any) graph.renderer.update();
+        graph.on('nodeAdd', declareTagPotential);
     }
 
     /* ── the event's elements, as an origin-less pivot (D4, P0) ── */
@@ -1342,11 +1516,24 @@
         'correlation':          'Correlation',
         'feed-correlation':     'Seen in a feed',
         'feed-event':           'Event in a feed',
-        'server-correlation':   'Seen on a server'
+        'server-correlation':   'Seen on a server',
+        'tag':                  'Tagged'
     };
 
     function field(name, value) {
         return (value == null || value === '') ? null : { name: name, value: String(value) };
+    }
+
+    function localMark(t) { return t.local ? ' (local)' : ''; }
+
+    function tagsField(d) {
+        return field('Tags', (d.tags || []).map(function (t) { return t.name + localMark(t); }).join(', '));
+    }
+
+    function clustersField(d) {
+        return field('Galaxy clusters', (d.clusters || []).map(function (c) {
+            return clusterName(c) + localMark(c);
+        }).join(', '));
     }
 
     function belongsTo(d) {
@@ -1364,6 +1551,7 @@
                 field('IDS flag', d.to_ids == null ? null : (d.to_ids ? 'Yes' : 'No')),
                 field('Comment', d.comment), field('Event', belongsTo(d)),
                 field('Seen in a feed', d.feed_hit ? 'Yes — too many hits in this event to name which' : null),
+                tagsField(d), clustersField(d),
                 field('UUID', d.uuid)
             ];
         } else if (d.type === 'object') {
@@ -1371,7 +1559,13 @@
                     field('Event', belongsTo(d)), field('UUID', d.uuid)];
         } else if (d.type === 'event') {
             rows = [field('Info', d.info), field('Date', d.date), field('Organisation', d.org),
-                    field('Feed', d.feed_name), field('Event ID', d.event_id), field('UUID', d.uuid)];
+                    field('Feed', d.feed_name), tagsField(d), clustersField(d),
+                    field('Event ID', d.event_id), field('UUID', d.uuid)];
+        } else if (d.type === 'tag') {
+            rows = [field('Tag', d.name), field('Local', d.local ? 'Yes' : null)];
+        } else if (d.type === 'cluster') {
+            rows = [field('Cluster', d.value), field('Galaxy', d.galaxy_name || d.galaxy_type),
+                    field('Tag', d.tag_name), field('UUID', d.uuid)];
         } else if (d.type === 'feed' || d.type === 'server') {
             rows = [field('Provider', d.provider), field('URL', d.url), field('Format', d.source_format),
                     field('Events', d.feed_events),
@@ -1557,7 +1751,8 @@
                     'correlation':          { strokeColor: '#888', dashed: true },
                     'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
                     'feed-event':           { strokeColor: FEED_COLOR },
-                    'server-correlation':   { strokeColor: '#9b59b6', dashed: true }
+                    'server-correlation':   { strokeColor: '#9b59b6', dashed: true },
+                    'tag':                  { strokeColor: '#8a8f98', dashed: true }
                 },
                 // Draw the relationship_type on every edge (referenced + newly created).
                 defaultLabelStyle: {
@@ -1574,7 +1769,7 @@
                 d3LinkDistance: 200
             },
             // No `save`: correlations are derived, never counted unsaved.
-            pivots: [elementPivot(), correlationPivot(), feedEventsPivot()],
+            pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot()],
             callbacks: {
                 // Another event is a leaf here (PRD §4) — it cannot expand in
                 // place, so double-click hands the analyst over to its own
@@ -1695,6 +1890,7 @@
                 }
                 watchElementPivot(_graph);
                 declareAllFeedPotential(_graph);
+                declareAllTagPotential(_graph);
                 loadCorrelationCounts(_graph);
             })
             .catch(function (err) {
@@ -1999,7 +2195,7 @@
             var doomed = ctx.edges.filter(isDeletable);
             if (doomed.length < ctx.edges.length) {
                 notify('info', 'Some relationships stay',
-                       'Correlations, and relationships you cannot delete in MISP, stay; hide them instead.');
+                       'Correlations, tags, and relationships you cannot delete in MISP, stay; hide them instead.');
             }
             if (!doomed.length) return ctx.edges.length ? { accept: true, edges: [] } : true;
 

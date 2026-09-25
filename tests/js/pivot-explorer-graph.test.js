@@ -544,7 +544,7 @@ test('the edge-kind dimension is declared for pivotick', async () => {
     eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
        ['object-reference', 'analyst-relationship', 'correlation',
-        'feed-correlation', 'feed-event', 'server-correlation']);
+        'feed-correlation', 'feed-event', 'server-correlation', 'tag']);
     eq('correlations are dashed grey (D1 palette)',
        r.edgeStyleMap['correlation'], { strokeColor: '#888', dashed: true });
     eq('analyst relationships are dashed orange (D1 palette)',
@@ -1172,8 +1172,8 @@ const pivot = (g, id) => g.opts.pivots.find(p => p.id === id);
 
 test('the correlation pivot is declared, capped at the canvas budget, and savable by nobody', async () => {
     const g = await withPivots();
-    eq('after the element pivot, correlations and feed events — per element, never per event',
-       g.opts.pivots.map(p => p.id), ['event-elements', 'correlations', 'feed-events']);
+    eq('after the element pivot, correlations, feed events, tags and clusters',
+       g.opts.pivots.map(p => p.id), ['event-elements', 'correlations', 'feed-events', 'tags']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
@@ -2509,6 +2509,133 @@ test('feed events: one previews in its feed, in a new tab', async () => {
                             shows(g, 'Preview in feed', { type: 'feed', source_id: '1' })], [true, false, false]);
     menuItem(g, 'Preview in feed').onclick({}, pnode({ type: 'event', feed_id: '1', uuid: 'u1' }));
     eq('previewEvent', g.win.opened, [['/misp/feeds/previewEvent/1/u1', '_blank', 'noopener']]);
+});
+
+/* ─────────────────────── tags and galaxy clusters ─────────────────────── */
+
+const TAG_TLP = { id: '1', name: 'tlp:amber', colour: '#ffc000', is_galaxy: false, local: false };
+const TAG_LUMMA = { id: '2', name: 'LummaC2', colour: '#5000fa', is_galaxy: false, local: true };
+const TAG_APT = { id: '3', name: 'misp-galaxy:threat-actor="APT28"', colour: '#0088cc', is_galaxy: true };
+const GAL_APT = { type: 'threat-actor', name: 'Threat Actor', GalaxyCluster: [
+    { uuid: 'CL-APT28', value: 'APT28', tag_name: 'misp-galaxy:threat-actor="APT28"' }] };
+
+function taggedEvent() {
+    return ev({
+        Attribute: [
+            attr({ uuid: 'e1', value: 'lumma.example', Tag: [TAG_LUMMA, TAG_APT], Galaxy: [GAL_APT],
+                   Relationship: [arel({ object_uuid: 'e1', related_object_uuid: 'A' })] }),
+            attr({ uuid: 'e2', value: 'plain' }),
+        ],
+        Object: [obj({ uuid: 'A', Attribute: [
+            attr({ uuid: 'c1', value: '1.2.3.4', Tag: [TAG_TLP, TAG_APT], Galaxy: [GAL_APT] }),
+            attr({ uuid: 'c2', value: 'untagged' }),
+        ] })],
+    });
+}
+
+test('tags: an attribute carries its tags and its clusters, a cluster keyed by its tag', async () => {
+    const g = await buildGraph(taggedEvent());
+    const d = byId(g.nodes, 'attr:e1').data;
+    eq('the plain tag, marked local', d.tags.map(t => [t.name, t.colour, !!t.local]), [['LummaC2', '#5000fa', true]]);
+    eq('the galaxy tag is a cluster, not a tag',
+       d.clusters.map(c => [c.tag_name, c.galaxy_type, c.galaxy_name, c.value, c.uuid]),
+       [['misp-galaxy:threat-actor="APT28"', 'threat-actor', 'Threat Actor', 'APT28', 'CL-APT28']]);
+    ok('an untagged attribute carries neither',
+       ['tags', 'clusters'].every(k => byId(g.nodes, 'obj:A').children[1].data[k] === undefined));
+});
+
+test('tags: a cluster named only by its tag still reads its galaxy and value', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Tag: [TAG_APT],
+        Relationship: [arel({ object_uuid: 'e1', related_object_uuid: 'EV-SELF', related_object_type: 'Event' })] })] }));
+    eq('parsed off misp-galaxy:TYPE="VALUE"',
+       byId(g.nodes, 'attr:e1').data.clusters.map(c => [c.galaxy_type, c.value, c.galaxy_name]),
+       [['threat-actor', 'APT28', undefined]]);
+});
+
+test('tags: a hidden tag is left out', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1',
+        Tag: [Object.assign({}, TAG_TLP, { hide_tag: true })],
+        Relationship: [arel({ object_uuid: 'e1', related_object_uuid: 'EV-SELF', related_object_type: 'Event' })] })] }));
+    eq('nothing', byId(g.nodes, 'attr:e1').data.tags, undefined);
+});
+
+test('tags: the sidebar lists them, and a tagged attribute wears a tag badge', async () => {
+    const g = await buildGraph(taggedEvent());
+    const rows = props(g, byId(g.nodes, 'attr:e1').data);
+    ok('Tags', rows.indexOf('Tags: LummaC2 (local)') !== -1, rows);
+    ok('Galaxy clusters', rows.indexOf('Galaxy clusters: Threat Actor: APT28') !== -1, rows);
+    const b = badgesOf(g, byId(g.nodes, 'attr:e1').data);
+    eq('one badge, bottom-right, in the first tag\'s colour', b.map(x => [x.position, x.iconClass, x.color]),
+       [['se', 'fas fa-tag', '#5000fa']]);
+    eq('its title names them all', b[0].title, 'LummaC2\nThreat Actor: APT28');
+    eq('no badge without tags', badgesOf(g, { type: 'attribute', value: 'x' }), []);
+    eq('an event card draws its own', badgesOf(g, { type: 'event', tags: [{ name: 'x' }] }), []);
+    eq('a tag node reads as a tag', props(g, { type: 'tag', name: 'tlp:amber' }), ['Tag: tlp:amber']);
+    eq('a cluster node reads as a cluster',
+       props(g, { type: 'cluster', value: 'APT28', galaxy_name: 'Threat Actor', tag_name: 't', uuid: 'U' }),
+       ['Cluster: APT28', 'Galaxy: Threat Actor', 'Tag: t', 'UUID: U']);
+});
+
+test('tags: a tag draws as the taxonomy entity and the legend calls it a tag', async () => {
+    const g = await buildGraph(taggedEvent());
+    eq('style key', g.opts.render.nodeTypeAccessor(pnode({ type: 'tag' })), 'taxonomy');
+    ok('drawn by misp-pivot-nodes', !!g.opts.render.nodeStyleMap.taxonomy && !!g.opts.render.nodeStyleMap.cluster);
+    const legend = g.opts.UI.legend.sections[0].entries({ getMutableNodes: () => [
+        pnode({ type: 'tag' }), pnode({ type: 'cluster' }), pnode({ type: 'attribute' })] });
+    eq('labels', legend.map(e => [e.id, e.label]),
+       [['taxonomy', 'tag'], ['cluster', 'galaxy cluster'], ['attribute', 'attribute']]);
+});
+
+test('tags: the pivot applies to what carries a tag, an object through its attributes', async () => {
+    const g = await buildGraph(taggedEvent());
+    const p = pivot(g, 'tags');
+    const nodes = ['attr:e1', 'obj:A', 'attr:c2'].map(id => g.graph.getMutableNode(id));
+    eq('the plain attribute is left out', p.appliesTo(nodes).map(n => n.id), ['attr:e1', 'obj:A']);
+    eq('distinct tags and clusters: LummaC2, APT28, tlp:amber', p.summarize(p.appliesTo(nodes)), { total: 3 });
+    eq('capped, never saved', [p.maxCandidates, p.save], [1500, undefined]);
+    eq('each carrier wears its count as rim potential',
+       [potentials(g, 'attr:e1'), potentials(g, 'obj:A'), potentials(g, 'attr:c2')],
+       [[['tags', 2]], [['tags', 2]], []]);
+});
+
+test('tags: one node per tag or cluster, joined to every carrier on the canvas', async () => {
+    const g = await buildGraph(taggedEvent());
+    const r = pivot(g, 'tags').fetch([g.graph.getMutableNode('attr:e1')], {}, {});
+    eq('the selection\'s tag and cluster', r.nodes.map(n => [n.id, n.data.type, n.data.label]),
+       [['tag:LummaC2', 'tag', 'LummaC2'], ['cluster:misp-galaxy:threat-actor="APT28"', 'cluster', 'APT28']]);
+    eq('the cluster node is what its drawing reads',
+       [r.nodes[1].data.galaxy_type, r.nodes[1].data.galaxy_name, r.nodes[1].data.value],
+       ['threat-actor', 'Threat Actor', 'APT28']);
+    eq('the object\'s attribute already on the canvas shares the cluster, so it is joined too',
+       r.edges.map(e => [e.from, e.to, e.data.kind]),
+       [['attr:e1', 'tag:LummaC2', 'tag'], ['attr:e1', 'cluster:misp-galaxy:threat-actor="APT28"', 'tag'],
+        ['attr:c1', 'cluster:misp-galaxy:threat-actor="APT28"', 'tag']]);
+    ok('tlp:amber was not asked for', !r.nodes.some(n => n.id === 'tag:tlp:amber'));
+});
+
+test('tags: a tag\'s relationship type labels its edge', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1',
+        Tag: [Object.assign({}, TAG_TLP, { relationship_type: 'classified-as' })],
+        Relationship: [arel({ object_uuid: 'e1', related_object_uuid: 'EV-SELF', related_object_type: 'Event' })] })] }));
+    const r = pivot(g, 'tags').fetch([g.graph.getMutableNode('attr:e1')], {}, {});
+    eq('label', r.edges.map(e => e.data.label), ['classified-as']);
+});
+
+test('tags: another event\'s card is a carrier, its galaxy tags read as clusters', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    const card = pnode({ type: 'event', tags: [{ name: 'tlp:white' }],
+                         clusters: [{ tag_name: 'misp-galaxy:threat-actor="APT28"', value: 'APT28' }] });
+    card.id = 'event:R1';
+    const r = pivot(g, 'tags').fetch([card], {}, {});
+    eq('both', r.nodes.map(n => n.id), ['tag:tlp:white', 'cluster:misp-galaxy:threat-actor="APT28"']);
+    eq('joined to the card', r.edges.map(e => e.from), ['event:R1', 'event:R1']);
+});
+
+test('tags: a tag edge is not deleted in MISP', async () => {
+    const g = await buildGraph(taggedEvent());
+    const del = g.opts.callbacks.onBeforeDelete;
+    const res = await del({ nodes: [], edges: [{ getData: () => ({ kind: 'tag' }) }], confirm: () => true });
+    eq('it stays, hide it instead', res, { accept: true, edges: [] });
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */
