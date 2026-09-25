@@ -1743,6 +1743,18 @@ window.MispPivotNodes = (function () {
 
     function tagColour(d) { return (d && d.colour) || '#0088cc'; }
 
+    /* The M chip's geometry. Its card is the chip plus room for the drop
+       shadow, so edges stop on the chip rather than on a 140x44 box around
+       it. */
+    var TAG_PAD = 4, TAG_PAD_X = 4, TAG_FONT_PX = 12, TAG_CHIP_H = 18, TAG_MAX_W = 140;
+    function tagChip(d, H) {
+        var font = H.SANS(TAG_FONT_PX, 700);
+        var label = H.fit(String((d && d.name) || ''), font, TAG_MAX_W - TAG_PAD_X * 2 - 12);
+        var chipW = H.measure(label, font) + TAG_PAD_X * 2;
+        return { label: label, chipW: chipW,
+                 w: chipW + TAG_PAD * 2, h: TAG_CHIP_H + TAG_PAD * 2 };
+    }
+
 
     /* =====================================================================
        The table
@@ -2557,11 +2569,15 @@ window.MispPivotNodes = (function () {
             M: {
                 channel: 'card',
                 box: { w: 140, h: 44 },
+                fit: function (d, H) {
+                    var c = tagChip(d, H);
+                    return { w: c.w, h: c.h };
+                },
                 draw: function (d, H, P) {
-                    var W = 140, HH = 44;
+                    var c = tagChip(d, H);
+                    var W = c.w, HH = c.h;
                     var colour = tagColour(d);
                     var ink = H.mispTextColour(colour);
-                    var name = String((d && d.name) || '');
                     var fid = nextId('pn-misp-shadow-');
                     var s = '';
 
@@ -2575,20 +2591,13 @@ window.MispPivotNodes = (function () {
                     /* One segment, so all four corners take MISP's 3px radius
                        — the shape .tagComplete produces when a chip has no
                        scope pill and no delete affordance beside it. */
-                    var padX = 4, fontPx = 12;
-                    var avail = W - padX * 2 - 12;
-                    var font = H.SANS(fontPx, 700);
-                    var label = H.fit(name, font, avail);
-                    var textW = H.measure(label, font);
-                    var chipW = textW + padX * 2;
-                    var chipH = 18;
-                    var x0 = (W - chipW) / 2, y0 = (HH - chipH) / 2;
+                    var x0 = TAG_PAD, y0 = TAG_PAD;
 
-                    s += '<rect x="' + x0 + '" y="' + y0 + '" width="' + chipW +
-                         '" height="' + chipH + '" rx="3" fill="' + H.esc(colour) +
+                    s += '<rect x="' + x0 + '" y="' + y0 + '" width="' + c.chipW +
+                         '" height="' + TAG_CHIP_H + '" rx="3" fill="' + H.esc(colour) +
                          '" filter="url(#' + fid + ')"/>';
-                    s += H.txt(x0 + padX, y0 + 13, label, {
-                        size: fontPx, weight: 700, fill: ink
+                    s += H.txt(x0 + TAG_PAD_X, y0 + 13, c.label, {
+                        size: TAG_FONT_PX, weight: 700, fill: ink
                     });
 
                     return H.svg(W, HH, s);
@@ -3104,7 +3113,8 @@ window.MispPivotNodes = (function () {
                 text: '',            // the card carries its own title
                 html: function (node) {
                     var d = dataOf(node);
-                    return cardElement(spec.draw(d, H, P()), box);
+                    // A card narrower than its slot sizes itself to its drawing.
+                    return cardElement(spec.draw(d, H, P()), spec.fit ? spec.fit(d, H) : box);
                 }
             };
             // [BADGES] A card's badges ride the same rim as a shape's —
