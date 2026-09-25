@@ -5,10 +5,10 @@ Delivery tracker for [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 same pass as the code, not in a catch-up sweep.
 
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
-- **Library:** Pivotick v2 — `develop` at `f598444` (`d220446` + the MISP requests: pivot edges to children, `UI.emptyState`, edges out of children, `removeBySource` in Undo, tiers replacing the base drawing). PRD §3.7
-- **Last updated:** 2026-09-24
-- **Status:** 34 done — the §9 plan, the 7-task P0 sweep (12–18), 19 and the 0d bundle bump · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R6); both upstream requests landed in `1296966`
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 146 cases, 489 assertions, no dependencies
+- **Library:** Pivotick v2 — `develop` at `53b51fc` with `05fe810` (`worktree-collapsed-cue`) applied on top, which `develop` still lacks. PRD §3.7
+- **Last updated:** 2026-09-25
+- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–29 and bundle bumps 0–0h · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 481 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -62,6 +62,15 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 19 | Analyst relationships: distribution, sharing group, authors | ✅ | 10b | 2026-09-24 — requested after the sweep. A second form when both kinds are possible. See §2 |
 | 18 | Node context menu: open in MISP, copy value | ✅ | — | 2026-09-23 — three entries after the library's; *Pivot ▸* needed nothing. See §2 |
 | 20 | R7: correlated events off the canvas; an event node is an analyst relationship's endpoint | ✅ | 3b, 5d | 2026-09-24 — withdraws 3b's proxies and 5d. See §2 |
+| 21 | Events, objects and attributes draw the `prd/pivot-node-designs` set (`misp-pivot-nodes.js`): S at rest, M chip by zoom tier, XL on focus | ✅ | — | `76b613a40` (2026-09-24), with the `95cc681` bundle (`5c4de0731`, svgIcon keeps `dominant-baseline`) and the harness loading the module (`5d5568aba`) |
+| 22 | Object nodes lead with their template's ui-priority attribute | ✅ | 21 | `58d4ed7e5` (2026-09-24) |
+| 23 | R8: no node can be expanded; the collapsed cue follows `enableNodeExpansion` | ✅ | 21 | `41f14c00e`, bundle 0e (2026-09-24) |
+| 24 | A feed draws as the event family's authority card, in its own amber hue | ✅ | 21, 5b | `41c4d0944`, `2ac3ed2e7` (2026-09-24) |
+| 25 | Quieter chrome: sidebar starts collapsed, no Pivotick tooltip, no hover drawing on a chip-only node once chips show (`focusTierYieldsAt`) | ✅ | 21, 0f | `c7d08a85a`, `c580de81e`, `cbb44d760` (2026-09-24) |
+| 26 | Layout spaced for a 45-unit footprint; the chip tier engages at zoom 0.8 and labels show from 8 px | ✅ | 21 | `bb99c7d37` (2026-09-24), `c02d7c41f` (2026-09-25) — live on 2014: labels from zoom 0.67, chips from 0.81 |
+| 27 | Event cards: a correlated event draws its org, counts, tags and clusters (5f returns `events`); the chip is teal, title full width, size instead of threat level | ✅ | 21, 5f | `0b631d133`, `f2e12b917`, `609307444` (2026-09-24) |
+| 28 | A MISP-format feed pivots onto its events (`feed-events`), from its cached manifest | ✅ | 5b | `d9f293c84` (2026-09-24) |
+| 29 | Header withdrawn (owner): identity line and resolution statement removed, with the builder's `stats` | ✅ | 8 | `c1905d9c5` (2026-09-25) — a skipped L2 is now said only by the empty state and the element pivot |
 
 ### Critical path
 
