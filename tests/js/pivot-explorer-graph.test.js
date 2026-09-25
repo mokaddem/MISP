@@ -1194,8 +1194,21 @@ test('the correlation pivot applies only where the counts say something correlat
     ];
     eq('it keeps the correlated attribute and object',
        p.appliesTo(nodes).map(n => n.getData().uuid), ['e1', 'A']);
-    eq('summarize is the counts, summed over the origin',
-       p.summarize(p.appliesTo(nodes)), { total: 3 });
+    const s = p.summarize(p.appliesTo(nodes), {});
+    eq('summarize is the counts, summed over the origin', s.total, 3);
+    eq('each correlating attribute can be picked, with its own count',
+       s.facets.map(f => [f.key, f.type, f.options.map(o => [o.value, o.count])]),
+       [['attribute', 'multiselect', [['e1', 1], ['c1', 2]]]]);
+    eq('picking one counts only it', p.summarize(p.appliesTo(nodes), { attribute: ['c1'] }).total, 2);
+    eq('one attribute offers no choice', p.summarize([nodes[0]], {}), { total: 1 });
+});
+
+test('an object\'s correlations can be fetched for one of its attributes', async () => {
+    let body = null;
+    const g = await withPivots([[/correlatedAttributes/, init => { body = JSON.parse(init.body); return PAIRS; }]]);
+    await pivot(g, 'correlations').fetch([pnode({ type: 'object', uuid: 'A' }), pnode({ type: 'attribute', uuid: 'e1' })],
+                                         { attribute: ['c1'] }, {});
+    eq('only the picked one is asked for', body, { attribute_uuids: ['c1'] });
 });
 
 test('before the counts arrive, no pivot applies', async () => {

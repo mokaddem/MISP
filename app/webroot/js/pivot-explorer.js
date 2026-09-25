@@ -998,6 +998,24 @@
 
     var CORRELATION_PIVOT = 'correlations';
 
+    // The selection's attributes that correlate, each with its own count: an
+    // object is closed, so this is where one of its attributes is picked.
+    function correlatingAttributes(nodes) {
+        var index = ownAttributeIndex();
+        return attributeUuidsOf(nodes).map(function (uuid) {
+            var a = index.byUuid[uuid] || {};
+            var name = a.object_relation || a.type || 'attribute';
+            return { uuid: uuid, label: name + ': ' + String(a.value == null ? '' : a.value).slice(0, 60),
+                     count: (_counts && _counts.attributes[uuid]) || 0 };
+        }).filter(function (a) { return a.count > 0; });
+    }
+
+    function pickedAttributes(nodes, narrowing) {
+        var all = correlatingAttributes(nodes);
+        var picks = (narrowing && narrowing.attribute) || [];
+        return picks.length ? all.filter(function (a) { return picks.indexOf(a.uuid) !== -1; }) : all;
+    }
+
     function correlationPivot() {
         return {
             id:            CORRELATION_PIVOT,
@@ -1006,11 +1024,21 @@
             appliesTo: function (nodes) {
                 return nodes.filter(function (n) { return ownElementCount(n.getData()) > 0; });
             },
-            summarize: function (nodes) {
-                return { total: sumCounts(nodes, ownElementCount) };
+            summarize: function (nodes, narrowing) {
+                var all = correlatingAttributes(nodes);
+                var summary = { total: pickedAttributes(nodes, narrowing).reduce(function (s, a) { return s + a.count; }, 0) };
+                if (all.length > 1) {
+                    summary.facets = [{ key: 'attribute', label: 'Attribute', type: 'multiselect',
+                        options: all.map(function (a) { return { label: a.label, value: a.uuid, count: a.count }; }) }];
+                }
+                return summary;
             },
             fetch: function (nodes, narrowing, ctx) {
-                return fetchCorrelated({ attribute_uuids: attributeUuidsOf(nodes) }, ctx && ctx.signal);
+                var picks = (narrowing && narrowing.attribute) || [];
+                var uuids = attributeUuidsOf(nodes).filter(function (uuid) {
+                    return !picks.length || picks.indexOf(uuid) !== -1;
+                });
+                return fetchCorrelated({ attribute_uuids: uuids }, ctx && ctx.signal);
             }
         };
     }
