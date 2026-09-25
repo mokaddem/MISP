@@ -2266,7 +2266,8 @@ test('the filter panel declares its facets, provenance first', async () => {
     const facets = g.opts.UI.filter.facets;
     eq('the facet set', facets.map(f => [f.key, f.type]),
        [['scope', 'multiselect'], ['type', 'multiselect'], ['category', 'multiselect'],
-        ['attr-type', 'multiselect'], ['name', 'multiselect'], ['to_ids', 'boolean'], ['value', 'regex']]);
+        ['attr-type', 'multiselect'], ['name', 'multiselect'], ['to_ids', 'boolean'],
+        ['warninglisted', 'boolean'], ['value', 'regex']]);
     eq('provenance names both sides in words', facets[0].options,
        [{ label: 'This event', value: 'self' }, { label: 'Other events', value: 'foreign' }]);
     eq('provenance is labelled as such', facets[0].label, 'Provenance');
@@ -2556,6 +2557,25 @@ test('tags: an attribute carries its tags and its clusters, a cluster keyed by i
        [['misp-galaxy:threat-actor="APT28"', 'threat-actor', 'Threat Actor', 'APT28', 'CL-APT28']]);
     ok('an untagged attribute carries neither',
        ['tags', 'clusters'].every(k => byId(g.nodes, 'obj:A').children[1].data[k] === undefined));
+});
+
+test('warninglists: an attribute carries the lists its value is on, once each', async () => {
+    const hit = (id, name, category) => ({ value: '8.8.8.8', match: '8.8.8.8/32', warninglist_id: id,
+                                           warninglist_name: name, warninglist_category: category });
+    const g = await buildGraph(ev({ Attribute: [
+        attr({ uuid: 'e1', value: '8.8.8.8', warnings: [hit(60, 'Public DNS resolvers', 'false_positive'),
+            hit(60, 'Public DNS resolvers', 'false_positive'), hit(7, 'Known hosting', 'known')],
+            Relationship: [arel({ object_uuid: 'e1', related_object_uuid: 'EV-SELF', related_object_type: 'Event' })] }),
+        attr({ uuid: 'e2', value: 'plain',
+            Relationship: [arel({ object_uuid: 'e2', related_object_uuid: 'EV-SELF', related_object_type: 'Event' })] }),
+    ] }));
+    const d = byId(g.nodes, 'attr:e1').data;
+    eq('deduplicated by list', d.warnings.map(w => [w.id, w.name, w.category]),
+       [['60', 'Public DNS resolvers', 'false_positive'], ['7', 'Known hosting', 'known']]);
+    eq('flagged for the filter', [d.warninglisted, byId(g.nodes, 'attr:e2').data.warninglisted], [true, false]);
+    eq('none, none', byId(g.nodes, 'attr:e2').data.warnings, undefined);
+    ok('the sidebar names them, a false positive said so',
+       props(g, d).indexOf('Warninglists: Public DNS resolvers (false positive), Known hosting') !== -1, props(g, d));
 });
 
 test('tags: a cluster named only by its tag still reads its galaxy and value', async () => {

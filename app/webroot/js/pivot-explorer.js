@@ -96,7 +96,22 @@
             image:           isImg || undefined,
             imageUrl:        isImg ? attributeImageUrl(attr) : undefined,
             feed_hit:        attr.FeedHit ? true : undefined
-        }, tagFields(attr), owner, analystFields(attr));
+        }, warningFields(attr), tagFields(attr), owner, analystFields(attr));
+    }
+
+    // The warninglists an attribute's value is on, as MISP's event payload
+    // names them. Only to_ids attributes are checked, unless the instance
+    // checks every attribute.
+    function warningFields(attr) {
+        var seen = {};
+        var out = (attr.warnings || []).filter(function (w) {
+            if (!w || w.warninglist_id == null || seen[w.warninglist_id]) return false;
+            return (seen[w.warninglist_id] = true);
+        }).map(function (w) {
+            return { id: String(w.warninglist_id), name: w.warninglist_name,
+                     category: w.warninglist_category, match: w.match };
+        });
+        return { warnings: out.length ? out : undefined, warninglisted: out.length > 0 };
     }
 
     // An object's attribute, ranked by its template: the node drawing leads
@@ -1802,6 +1817,9 @@
                 field('IDS flag', d.to_ids == null ? null : (d.to_ids ? 'Yes' : 'No')),
                 field('Comment', d.comment), field('Event', belongsTo(d)),
                 field('Seen in a feed', d.feed_hit ? 'Yes — too many hits in this event to name which' : null),
+                field('Warninglists', (d.warnings || []).map(function (w) {
+                    return w.name + (w.category === 'false_positive' ? ' (false positive)' : '');
+                }).join(', ')),
                 tagsField(d), clustersField(d),
                 field('UUID', d.uuid)
             ];
@@ -1951,6 +1969,7 @@
             { key: 'attr-type', label: 'Attribute type', type: 'multiselect', options: distinctOptions('attr-type') },
             { key: 'name',      label: 'Object',         type: 'multiselect', options: distinctOptions('name') },
             { key: 'to_ids',    label: 'IDS flag',       type: 'boolean' },
+            { key: 'warninglisted', label: 'On a warninglist', type: 'boolean' },
             { key: 'value',     label: 'Value',          type: 'regex' }
         ];
     }
