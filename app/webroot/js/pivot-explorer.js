@@ -108,8 +108,8 @@
             if (!w || w.warninglist_id == null || seen[w.warninglist_id]) return false;
             return (seen[w.warninglist_id] = true);
         }).map(function (w) {
-            return { id: String(w.warninglist_id), name: w.warninglist_name,
-                     category: w.warninglist_category, match: w.match };
+            return { warninglist_id: String(w.warninglist_id), warninglist_name: w.warninglist_name,
+                     warninglist_category: w.warninglist_category, match: w.match };
         });
         return { warnings: out.length ? out : undefined, warninglisted: out.length > 0 };
     }
@@ -1818,7 +1818,7 @@
                 field('Comment', d.comment), field('Event', belongsTo(d)),
                 field('Seen in a feed', d.feed_hit ? 'Yes — too many hits in this event to name which' : null),
                 field('Warninglists', (d.warnings || []).map(function (w) {
-                    return w.name + (w.category === 'false_positive' ? ' (false positive)' : '');
+                    return w.warninglist_name + (w.warninglist_category === 'false_positive' ? ' (false positive)' : '');
                 }).join(', ')),
                 tagsField(d), clustersField(d),
                 field('UUID', d.uuid)

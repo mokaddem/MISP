@@ -2412,8 +2412,22 @@ window.MispPivotNodes = (function () {
                          (on ? '' : ' stroke="' + P.attribute.core +
                                     '" stroke-width="1.5"') + '/>';
 
+                    /* A warninglist hit takes the free top-right corner, in
+                       MISP's own triangle and category colours (CHANNELS.md,
+                       *Node badges*). Inside the card rather than on its rim:
+                       the explorer's own badges hold the rim's corners. */
+                    var warn = warningInfo(d);
+                    if (warn) {
+                        s += '<g>' + H.use('warning-triangle', {
+                                 x: 118, y: 6, size: 14,
+                                 color: warn.fp ? P.warn.fp : P.warn.known }) +
+                             '<title>' + H.esc((warn.fp ? 'Likely false positive' : 'Known identifier') +
+                                 (warn.names.length ? ' — ' + warn.names.join(', ') : '')) +
+                             '</title></g>';
+                    }
+
                     s += H.txt(16, 20,
-                        H.fit(displayValue(d), H.MONO(12, 500), 116, -0.12), {
+                        H.fit(displayValue(d), H.MONO(12, 500), warn ? 98 : 116, -0.12), {
                         size: 12, weight: 500, mono: true,
                         tracking: '-0.01em', fill: P.ink
                     });

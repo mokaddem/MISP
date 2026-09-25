@@ -2570,7 +2570,8 @@ test('warninglists: an attribute carries the lists its value is on, once each', 
             Relationship: [arel({ object_uuid: 'e2', related_object_uuid: 'EV-SELF', related_object_type: 'Event' })] }),
     ] }));
     const d = byId(g.nodes, 'attr:e1').data;
-    eq('deduplicated by list', d.warnings.map(w => [w.id, w.name, w.category]),
+    eq('deduplicated by list, in MISP\'s own field names, which the node drawing reads',
+       d.warnings.map(w => [w.warninglist_id, w.warninglist_name, w.warninglist_category]),
        [['60', 'Public DNS resolvers', 'false_positive'], ['7', 'Known hosting', 'known']]);
     eq('flagged for the filter', [d.warninglisted, byId(g.nodes, 'attr:e2').data.warninglisted], [true, false]);
     eq('none, none', byId(g.nodes, 'attr:e2').data.warnings, undefined);
