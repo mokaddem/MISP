@@ -5,10 +5,10 @@ Delivery tracker for [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 same pass as the code, not in a catch-up sweep.
 
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
-- **Library:** Pivotick v2 — `develop` at `790226d` with `05fe810` (`worktree-collapsed-cue`) applied on top, which `develop` still lacks. PRD §3.7
+- **Library:** Pivotick v2 — `develop` at `8db49e9` with `05fe810` (`worktree-collapsed-cue`) applied on top, which `develop` still lacks. PRD §3.7
 - **Last updated:** 2026-09-25
-- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–31 and bundle bumps 0–0i · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 540 assertions, no dependencies
+- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–31 and bundle bumps 0–0j · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 547 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -30,6 +30,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 0g | Bundle to `develop` `c47d7fe` + `05fe810`: rim badges show only while Pivot mode is open (`pivotRimBadgeVisible`, default `'pivot-mode'`) | ✅ | 0f | 2026-09-25, built from a clean export of `c47d7fe` with `05fe810` applied, which `develop` still lacks; the CSS came out byte-identical. The explorer keeps the default. Live on 3989: at rest no `.pvt-node-badge` (the previous bundle drew 14, all pivot badges: 12 Correlations, 2 Feed events); opening Pivot mode brings the same 14 back |
 | 0h | Bundle to `develop` `53b51fc` + `05fe810`: the Pivot panel offers Fetch & ingest beside Fetch | ✅ | 0g | 2026-09-25, built from a clean export of `53b51fc` with `05fe810` applied, which `develop` still lacks; the CSS changes with it (`.pvt-pivot-ingest-button`). Live on 3989: the panel shows the button (100×26) beside Fetch; scoped to a feed through its Feed events rim badge, it lands the feed's 3 events without triage (119 → 122 nodes) |
 | 0i | Bundle to `develop` `790226d` + `05fe810`: a menu row declared without a `variant` defaults to `outline-primary`, so it highlights on hover | ✅ | 0h | 2026-09-25, built from a clean export of `790226d` with `05fe810` applied, which `develop` still lacks; the CSS came out byte-identical. Live on 2014: *Copy value* on an attribute carries `pvt-action-item-outline-primary` and hovers to the same `rgb(235, 46, 83)` as *Pivot* and the other built-in rows; before, it had no hover state |
+| 0j | Bundle to `develop` `8db49e9` + `05fe810`: a badge is sized by its node's short side, so a wide card no longer dwarfs it | ✅ | 0i | 2026-09-25, built from a clean export of `8db49e9` with `05fe810` applied, which `develop` still lacks; the CSS came out byte-identical. Live on 780, rim badges forced on: on the 140×44 event and attribute cards a badge is 19.8 px tall, 45% of the card, down from 28 px (64%) |
 | E | Extract inline JS out of the `.ctp` into `webroot/js/pivot-explorer.js` | ✅ | 0 | `edc6a0caa` (2026-08-31) |
 | T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
 | 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
