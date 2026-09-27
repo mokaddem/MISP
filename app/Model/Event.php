@@ -1051,6 +1051,142 @@ class Event extends AppModel
     }
 
     /**
+     * How many landing units an event's slice holds: each matching attribute
+     * inside an object stands for that object, each other one for itself.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @param array $options slice ('all'|'ids'|'network'), q, types, category,
+     *                       ids (null|bool), exclude (object and attribute uuids)
+     * @return array ['total' => units, 'by_type' and 'by_category' =>
+     *               matching attributes, each ignoring its own narrowing]
+     */
+    public function cardElementCounts(array $user, $eventId, array $options)
+    {
+        $units = $this->Attribute->find('first', [
+            'fields' => ['COUNT(DISTINCT NULLIF(Attribute.object_id, 0)) AS objects', 'SUM(Attribute.object_id = 0) AS free'],
+        ] + $this->cardElementQuery($user, $eventId, $options));
+        $result = ['total' => (int)$units[0]['objects'] + (int)$units[0]['free']];
+        foreach (['by_type' => ['types', 'type'], 'by_category' => ['category', 'category']] as $key => [$skip, $column]) {
+            $rows = $this->Attribute->find('all', [
+                'fields' => ['Attribute.' . $column, 'COUNT(*) AS n'],
+                'group' => ['Attribute.' . $column],
+            ] + $this->cardElementQuery($user, $eventId, $options, $skip));
+            $result[$key] = [];
+            foreach ($rows as $row) {
+                $result[$key][$row['Attribute'][$column]] = (int)$row[0]['n'];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * The slice cardElementCounts() counts: the objects holding a matching
+     * attribute, with all their live attributes, and the matching attributes
+     * outside any object.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @param array $options as for cardElementCounts()
+     * @return array 'attributes': free attributes; 'objects': as
+     *               MispObject::fetchGraphObjects() shapes them; 'matched':
+     *               the uuids of the attributes that matched
+     */
+    public function cardElements(array $user, $eventId, array $options)
+    {
+        $rows = $this->Attribute->find('all', [
+            'fields' => ['Attribute.id', 'Attribute.uuid', 'Attribute.object_id'],
+            'order' => ['Attribute.id'],
+        ] + $this->cardElementQuery($user, $eventId, $options));
+        $objectIds = [];
+        $freeIds = [];
+        $matched = [];
+        foreach ($rows as $row) {
+            $attribute = $row['Attribute'];
+            $matched[] = $attribute['uuid'];
+            if (empty($attribute['object_id'])) {
+                $freeIds[] = $attribute['id'];
+            } else {
+                $objectIds[$attribute['object_id']] = true;
+            }
+        }
+        $objects = empty($objectIds) ? [] : $this->Object->fetchGraphObjects($user, [
+            'Object.id' => array_map('strval', array_keys($objectIds)),
+            'Object.event_id' => $eventId,
+        ]);
+        $attributes = [];
+        if (!empty($freeIds)) {
+            $free = $this->Attribute->find('all', [
+                'conditions' => ['Attribute.id' => $freeIds],
+                'contain' => ['AttributeTag' => ['Tag']],
+                'order' => ['Attribute.id'],
+            ]);
+            $orgId = $this->find('first', [
+                'conditions' => ['Event.id' => $eventId],
+                'fields' => ['Event.org_id'],
+                'recursive' => -1,
+            ])['Event']['org_id'];
+            $attributes = $this->Object->graphAttributes($user, array_map(function ($row) {
+                return $row['Attribute'] + ['AttributeTag' => $row['AttributeTag']];
+            }, $free), $orgId);
+        }
+        return ['attributes' => $attributes, 'objects' => $objects, 'matched' => $matched];
+    }
+
+    /**
+     * The live attributes of $eventId the user may read in one slice,
+     * narrowed, with Event and Object joined. $skip leaves out one narrowing
+     * ('types' or 'category'), for that facet's own counts.
+     */
+    private function cardElementQuery(array $user, $eventId, array $options, $skip = null)
+    {
+        $conditions = $this->Attribute->buildConditions($user);
+        $conditions['AND'][] = ['Attribute.event_id' => $eventId, 'Attribute.deleted' => 0];
+        $conditions['AND'][] = ['OR' => ['Attribute.object_id' => 0, 'Object.deleted' => 0]];
+        if ($options['slice'] === 'ids') {
+            $conditions['AND'][] = ['Attribute.to_ids' => 1];
+        } elseif ($options['ids'] !== null) {
+            $conditions['AND'][] = ['Attribute.to_ids' => $options['ids'] ? 1 : 0];
+        }
+        if ($options['slice'] === 'network') {
+            App::uses('NetworkIndicators', 'Tools/PivotExplorer');
+            $conditions['AND'][] = NetworkIndicators::conditions();
+        }
+        if ($options['q'] !== '') {
+            $like = '%' . addcslashes($options['q'], '%_\\') . '%';
+            // value1 and value2 are case-insensitive, the rest is not.
+            $lower = mb_strtolower($like);
+            $conditions['AND'][] = ['OR' => [
+                'Attribute.value1 LIKE' => $like,
+                'Attribute.value2 LIKE' => $like,
+                'LOWER(Attribute.comment) LIKE' => $lower,
+                'LOWER(Attribute.object_relation) LIKE' => $lower,
+                'LOWER(Object.name) LIKE' => $lower,
+            ]];
+        }
+        if (!empty($options['types']) && $skip !== 'types') {
+            $conditions['AND'][] = ['Attribute.type' => $options['types']];
+        }
+        if ($options['category'] !== '' && $skip !== 'category') {
+            $conditions['AND'][] = ['Attribute.category' => $options['category']];
+        }
+        if (!empty($options['exclude'])) {
+            $conditions['AND'][] = ['Attribute.uuid !=' => $options['exclude']];
+            $conditions['AND'][] = ['OR' => ['Attribute.object_id' => 0, 'Object.uuid !=' => $options['exclude']]];
+        }
+        return [
+            'conditions' => $conditions,
+            'joins' => [
+                ['table' => 'events', 'alias' => 'Event', 'type' => 'INNER', 'conditions' => ['Event.id = Attribute.event_id']],
+                ['table' => 'objects', 'alias' => 'Object', 'type' => 'LEFT', 'conditions' => ['Object.id = Attribute.object_id']],
+            ],
+            'recursive' => -1,
+            'callbacks' => false,
+            'order' => false,
+        ];
+    }
+
+    /**
      * The events other than $eventId that carry these tags, on the event
      * itself or on one of its live attributes, as correlatedEventCards()
      * draws them, newest first.

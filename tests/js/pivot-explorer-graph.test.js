@@ -1176,7 +1176,8 @@ test('the correlation pivot is declared, capped at the canvas budget, and savabl
     const g = await withPivots();
     eq('after the element pivot, correlations, feed events, tags and clusters, then what a tag leads to',
        g.opts.pivots.map(p => p.id),
-       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters', 'object-surroundings']);
+       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters', 'object-surroundings',
+        'card-attributes', 'card-ids', 'card-network', 'card-correlations']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
@@ -1926,8 +1927,9 @@ test('its summaries are dropped whenever a node comes or goes', async () => {
         ok(evt + ' is watched', (g.graph.listeners[evt] || []).length >= 1);
         g.graph.listeners[evt].forEach(f => f(pnode({})));
     });
-    eq('each drops this pivot\'s cache, and the surroundings one', g.graph.pivots.invalidated,
-       ['event-elements', 'object-surroundings', 'event-elements', 'object-surroundings']);
+    const once = ['event-elements', 'object-surroundings', 'card-attributes', 'card-ids', 'card-network', 'card-correlations'];
+    eq('each drops this pivot\'s cache, and those of the pivots that leave out what is drawn',
+       g.graph.pivots.invalidated, once.concat(once));
 });
 
 /* ─────────────── task 6: analyst-data badges and panel ─────────────── */
@@ -3002,6 +3004,172 @@ test('related clusters: a failed request is not kept', async () => {
     ok('the failure reaches the library', threw);
     fail = false;
     eq('asked again', (await p.summarize([APT_NODE()], {}, {})).total, 3);
+});
+
+/* ─────────────────── part of another event, by kind ─────────────────── */
+
+// As /events/cardElements shapes it, for event 7: counted, then fetched.
+const CARD_COUNT = { total: 3, by_type: { 'ip-dst': 2, domain: 1 }, by_category: { 'Network activity': 3 } };
+const CARD_ELEMENTS = {
+    attributes: [attr({ uuid: 'f1', value: '10.9.9.9', to_ids: true, event_id: '7' })],
+    objects: {
+        OB: { id: '70', uuid: 'OB', name: 'domain-ip', 'meta-category': 'network', event_id: '7',
+              template_uuid: 'T-DIP', template_version: '9', Attribute: [
+                  attr({ uuid: 'x1', value: 'evil.example', type: 'domain', object_relation: 'domain', to_ids: true }),
+                  attr({ uuid: 'x2', value: '10.0.0.2', object_relation: 'ip' })] },
+    },
+    matched: ['x1', 'f1'],
+    event: { id: '7', uuid: 'R7', info: 'Event 7' },
+    ui_priorities: { 'T-DIP.9': { domain: 4 } },
+};
+
+const CARD = (id, uuid) => tagNode('event:' + (uuid || 'R' + (id || '7')),
+    { type: 'event', uuid: uuid || 'R' + (id || '7'), event_id: id || '7', scope: 'foreign' });
+
+function withCard(route) {
+    const asked = [];
+    return withPivots([[/events\/cardElements\/(\d+)\.json$/, init => {
+        const body = JSON.parse(init.body);
+        asked.push(body);
+        if (route) return route(body, asked.length);
+        return body.count ? CARD_COUNT : CARD_ELEMENTS;
+    }]]).then(g => Object.assign(g, { asked }));
+}
+
+const CARD_PIVOTS = ['card-attributes', 'card-ids', 'card-network'];
+
+test('another event\'s card: offered on a MISP event\'s card only', async () => {
+    const g = await withCard();
+    const nodes = [CARD(), CARD('1', 'U1'),
+                   tagNode('event:F', { type: 'event', uuid: 'F', event_id: '7', _provenance: 'feed' }),
+                   tagNode('attr:x1', { type: 'attribute', uuid: 'x1', event_id: '7' }),
+                   tagNode('obj:OB', { type: 'object', uuid: 'OB', event_id: '7' })];
+    CARD_PIVOTS.concat('card-correlations').forEach(id => {
+        eq(id + ': not this event, not a feed\'s card, not an element', pivot(g, id).appliesTo(nodes).map(n => n.id), ['event:R7']);
+        eq(id + ': capped, never saved', [pivot(g, id).maxCandidates, pivot(g, id).save], [1500, undefined]);
+    });
+    eq('labels', CARD_PIVOTS.concat('card-correlations').map(id => pivot(g, id).label),
+       ['Its attributes', 'Its IDS indicators', 'Its network indicators', 'More correlations with this event']);
+    eq('more correlations: only where the counts say that event correlates',
+       pivot(g, 'card-correlations').appliesTo([CARD(), CARD('9')]).map(n => n.id), ['event:R7']);
+});
+
+test('another event\'s card: the count names its slice and narrowing, and leaves out what is drawn', async () => {
+    const g = await withCard();
+    g.graph.liveNode({ id: 'obj:OB', data: { type: 'object', uuid: 'OB', event_id: '7' } });
+    g.graph.liveNode({ id: 'attr:x1', data: { type: 'attribute', uuid: 'x1', event_id: '7' } });
+    g.graph.liveNode({ id: 'attr:y', data: { type: 'attribute', uuid: 'y', event_id: '8' } });
+    await pivot(g, 'card-network').summarize([CARD()], { q: 'evil', type: ['domain'], category: 'Network activity', ids: false }, {});
+    eq('network', g.asked[0], { slice: 'network', q: 'evil', types: ['domain'], category: 'Network activity',
+                                exclude: ['OB', 'x1'], count: true, ids: false });
+    ok('asked of that event', g.fetchLog.some(f => /\/misp\/events\/cardElements\/7\.json$/.test(f.url)));
+    await pivot(g, 'card-ids').summarize([CARD()], { ids: false }, {});
+    eq('the IDS slice is always IDS', [g.asked[1].slice, 'ids' in g.asked[1]], ['ids', false]);
+    await pivot(g, 'card-attributes').summarize([CARD()], {}, {});
+    eq('unnarrowed', g.asked[2], { slice: 'all', q: '', types: [], category: '', exclude: ['OB', 'x1'], count: true });
+});
+
+test('another event\'s card: the form, with its options counting matching attributes', async () => {
+    const g = await withCard();
+    const s = await pivot(g, 'card-attributes').summarize([CARD()], {}, {});
+    eq('the total is landing units', s.total, 3);
+    eq('fields', s.facets.map(f => [f.key, f.type]),
+       [['q', 'text'], ['ids', 'boolean'], ['type', 'multiselect'], ['category', 'select']]);
+    eq('types, each with its count', s.facets[2].options,
+       [{ label: 'domain', value: 'domain', count: 1 }, { label: 'ip-dst', value: 'ip-dst', count: 2 }]);
+    eq('the IDS shortcut has no IDS field',
+       (await pivot(g, 'card-ids').summarize([CARD()], {}, {})).facets.map(f => f.key), ['q', 'type', 'category']);
+});
+
+test('another event\'s card: several cards each answer for themselves, and the counts add up', async () => {
+    const g = await withCard(body => (body.count
+        ? { total: 2, by_type: { 'ip-dst': 2 }, by_category: { 'Network activity': 2 } } : CARD_ELEMENTS));
+    const s = await pivot(g, 'card-ids').summarize([CARD(), CARD('9')], {}, {});
+    eq('summed', [s.total, s.facets[1].options.map(o => o.count)], [4, [4]]);
+    eq('one request per card', g.fetchLog.filter(f => /cardElements/.test(f.url)).map(f => f.url.split('/').pop()),
+       ['7.json', '9.json']);
+});
+
+test('another event\'s card: a count is read once until the canvas changes', async () => {
+    const g = await withCard();
+    const p = pivot(g, 'card-ids');
+    await p.summarize([CARD()], {}, {});
+    await p.summarize([CARD()], {}, {});
+    eq('once', g.asked.length, 1);
+    await p.summarize([CARD()], { q: 'x' }, {});
+    eq('another narrowing is another question', g.asked.length, 2);
+    g.graph.listeners.nodeAdd.forEach(f => f(pnode({})));
+    await p.summarize([CARD()], {}, {});
+    eq('asked again once something landed', g.asked.length, 3);
+});
+
+test('another event\'s card: a failed request is not kept', async () => {
+    let fail = true;
+    const g = await withCard(() => (fail ? { __status: 500 } : CARD_COUNT));
+    const p = pivot(g, 'card-ids');
+    let threw = false;
+    await p.summarize([CARD()], {}, {}).catch(() => { threw = true; });
+    ok('the failure reaches the library', threw);
+    fail = false;
+    eq('asked again', (await p.summarize([CARD()], {}, {})).total, 3);
+});
+
+test('another event\'s card: an object lands closed with all its attributes, the matching ones marked', async () => {
+    const g = await withCard();
+    const r = await pivot(g, 'card-ids').fetch([CARD()], {}, {});
+    eq('asked for records', [g.asked[0].count, g.asked[0].slice], [false, 'ids']);
+    eq('the card, the object, the free attribute', r.nodes.map(n => n.id), ['event:R7', 'obj:OB', 'attr:f1']);
+    const box = byId(r.nodes, 'obj:OB');
+    eq('every child, only the matching one marked, ranked by its template',
+       box.children.map(c => [c.id, c.data.matched, c.data.ui_priority]),
+       [['attr:x1', ['ids'], 4], ['attr:x2', undefined, undefined]]);
+    eq('in that event', [box.data.scope, box.data.event_id, byId(r.nodes, 'attr:f1').data.event_id], ['foreign', '7', '7']);
+    eq('the free attribute is marked too', byId(r.nodes, 'attr:f1').data.matched, ['ids']);
+    eq('each joined to its card',
+       r.edges.map(e => [e.id, e.from, e.to, e.data.kind]),
+       [['in-event:obj:OB', 'obj:OB', 'event:R7', 'in-event'], ['in-event:attr:f1', 'attr:f1', 'event:R7', 'in-event']]);
+    eq('the sidebar names the pivot', props(g, box.children[0].data).filter(p => /^Matched/.test(p)),
+       ['Matched: IDS indicators']);
+});
+
+test('another event\'s card: several cards land each its own, joined to its own card', async () => {
+    const other = { attributes: [attr({ uuid: 'g1', event_id: '9' })], objects: {}, matched: ['g1'],
+                    event: { id: '9', uuid: 'R9', info: 'Event 9' } };
+    const g = await withPivots([[/cardElements\/7\.json$/, CARD_ELEMENTS], [/cardElements\/9\.json$/, other]]);
+    const r = await pivot(g, 'card-network').fetch([CARD(), CARD('9')], {}, {});
+    eq('each card and its own', r.nodes.map(n => n.id), ['event:R7', 'obj:OB', 'attr:f1', 'event:R9', 'attr:g1']);
+    eq('marked by the pivot that brought it', byId(r.nodes, 'attr:g1').data.matched, ['network']);
+    eq('joined to its own card', r.edges.filter(e => e.from === 'attr:g1').map(e => e.to), ['event:R9']);
+});
+
+test('more correlations: counts what of that event it would draw, and lands it without asking again', async () => {
+    let body = null, asked = 0;
+    const g = await withPivots([[/correlatedAttributes/, init => {
+        asked++;
+        body = JSON.parse(init.body);
+        return Object.assign({}, PAIRS, { pairs: PAIRS.pairs.filter(p => body.event_ids.indexOf(p.Event.id) !== -1) });
+    }]]);
+    const p = pivot(g, 'card-correlations');
+    eq('two correlated attributes in 7',(await p.summarize([CARD()], {}, {})).total, 2);
+    eq('every pair with that event', body, { event_ids: ['7'] });
+    g.graph.liveNode({ id: 'attr:x1', data: { type: 'attribute', uuid: 'x1', event_id: '7' } });
+    eq('less what is drawn', (await p.summarize([CARD()], {}, {})).total, 1);
+    const r = await p.fetch([CARD()], {}, {});
+    eq('asked once', asked, 1);
+    eq('lands that event\'s side, joined to this event\'s',
+       [r.nodes.map(n => n.id).filter(id => /R7|x1|x2/.test(id)), r.edges.filter(e => e.data.kind === 'correlation').map(e => e.id)],
+       [['event:R7', 'attr:x1', 'attr:x2'], ['corr:c1:x1', 'corr:c1:x2']]);
+});
+
+test('more correlations: a failed request is not kept', async () => {
+    let fail = true;
+    const g = await withPivots([[/correlatedAttributes/, () => (fail ? { __status: 500 } : PAIRS)]]);
+    const p = pivot(g, 'card-correlations');
+    let threw = false;
+    await p.summarize([CARD()], {}, {}).catch(() => { threw = true; });
+    ok('the failure reaches the library', threw);
+    fail = false;
+    eq('asked again', (await p.summarize([CARD()], {}, {})).total, 2);
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

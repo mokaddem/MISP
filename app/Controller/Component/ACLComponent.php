@@ -352,6 +352,7 @@ class ACLComponent extends Component
             'add_misp_export' => array('perm_modify'),
             'alert' => array('perm_publish'),
             'automation' => array('perm_auth'),
+            'cardElements' => array('*'),
             'checkLocks' => array('perm_add'),
             'checkPublishedStatus' => array('*'),
             'checkuuid' => array('perm_sync'),

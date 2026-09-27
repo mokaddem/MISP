@@ -6992,6 +6992,59 @@ class EventsController extends AppController
         ], 'json');
     }
 
+    /**
+     * One slice of an event's attributes, landed by object: counted with
+     * `count`, fetched without it.
+     */
+    public function cardElements($id)
+    {
+        $this->request->allowMethod(['post']);
+        $user = $this->Auth->user();
+        $event = $this->Event->fetchSimpleEvent($user, $id, ['fields' => ['Event.id']]);
+        if (empty($event)) {
+            throw new NotFoundException(__('Invalid event'));
+        }
+        $eventId = (int)$event['Event']['id'];
+        $data = $this->request->data;
+        $strings = function ($key) use ($data) {
+            $values = isset($data[$key]) && is_array($data[$key]) ? $data[$key] : [];
+            return array_values(array_filter($values, function ($v) {
+                return is_string($v) && $v !== '';
+            }));
+        };
+        $options = [
+            'slice' => in_array($data['slice'] ?? null, ['ids', 'network'], true) ? $data['slice'] : 'all',
+            'q' => isset($data['q']) && is_string($data['q']) ? trim($data['q']) : '',
+            'types' => $strings('types'),
+            'category' => isset($data['category']) && is_string($data['category']) ? $data['category'] : '',
+            'ids' => isset($data['ids']) && is_bool($data['ids']) ? $data['ids'] : null,
+            'exclude' => $strings('exclude'),
+        ];
+        $counts = $this->Event->cardElementCounts($user, $eventId, $options);
+        if (!empty($data['count'])) {
+            return $this->RestResponse->viewData([
+                'total' => $counts['total'],
+                'by_type' => $counts['by_type'] ?: new stdClass(),
+                'by_category' => $counts['by_category'] ?: new stdClass(),
+            ], 'json');
+        }
+        // The canvas budget: a run the explorer refuses is refused here too.
+        $budget = 1500;
+        if ($counts['total'] > $budget) {
+            throw new BadRequestException(__('%s elements to land, above the limit of %s. Narrow the search.', $counts['total'], $budget));
+        }
+        $elements = $this->Event->cardElements($user, $eventId, $options);
+        $cards = $this->Event->correlatedEventCards($user, [$eventId]);
+        $priorities = $this->Event->Object->ObjectTemplate->uiPrioritiesFor(array_values($elements['objects']));
+        return $this->RestResponse->viewData([
+            'attributes' => $elements['attributes'],
+            'objects' => $elements['objects'] ?: new stdClass(),
+            'matched' => $elements['matched'],
+            'event' => $cards[$eventId] ?? null,
+            'ui_priorities' => $priorities ?: new stdClass(),
+        ], 'json');
+    }
+
     public function taggedEvents($id)
     {
         $this->request->allowMethod(['post']);

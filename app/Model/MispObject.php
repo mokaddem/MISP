@@ -799,33 +799,45 @@ class MispObject extends AppModel
     {
         $conditions['Object.deleted'] = 0;
         $rows = $this->fetchObjects($user, ['conditions' => $conditions]);
-        $isAdmin = !empty($user['Role']['perm_site_admin']);
-        $warninglist = ClassRegistry::init('Warninglist');
         $objects = [];
         foreach ($rows as $row) {
-            $seesLocal = $isAdmin || (string)($row['Event']['org_id'] ?? '') === (string)$user['org_id'];
-            $attributes = [];
-            foreach ($row['Attribute'] ?? [] as $attribute) {
-                $tags = [];
-                foreach ($attribute['AttributeTag'] ?? [] as $attributeTag) {
-                    if (empty($attributeTag['Tag']) || (!empty($attributeTag['local']) && !$seesLocal)) {
-                        continue;
-                    }
-                    $tags[] = $attributeTag['Tag'] + [
-                        'local' => !empty($attributeTag['local']),
-                        'relationship_type' => $attributeTag['relationship_type'] ?? null,
-                    ];
-                }
-                unset($attribute['AttributeTag']);
-                $attribute['Tag'] = $tags;
-                $attributes[] = $attribute;
-            }
-            $warninglist->attachWarninglistToAttributes($attributes);
             $object = $row['Object'];
-            $object['Attribute'] = $attributes;
+            $object['Attribute'] = $this->graphAttributes($user, $row['Attribute'] ?? [], $row['Event']['org_id'] ?? null);
             $objects[$object['uuid']] = $object;
         }
         return $objects;
+    }
+
+    /**
+     * Attributes of one event, each with its AttributeTag, as
+     * fetchGraphObjects() shapes them.
+     *
+     * @param array $user
+     * @param array $attributes
+     * @param int|string|null $eventOrgId the owner of the event they are in
+     * @return array
+     */
+    public function graphAttributes(array $user, array $attributes, $eventOrgId)
+    {
+        $seesLocal = !empty($user['Role']['perm_site_admin']) || (string)$eventOrgId === (string)$user['org_id'];
+        $out = [];
+        foreach ($attributes as $attribute) {
+            $tags = [];
+            foreach ($attribute['AttributeTag'] ?? [] as $attributeTag) {
+                if (empty($attributeTag['Tag']) || (!empty($attributeTag['local']) && !$seesLocal)) {
+                    continue;
+                }
+                $tags[] = $attributeTag['Tag'] + [
+                    'local' => !empty($attributeTag['local']),
+                    'relationship_type' => $attributeTag['relationship_type'] ?? null,
+                ];
+            }
+            unset($attribute['AttributeTag']);
+            $attribute['Tag'] = $tags;
+            $out[] = $attribute;
+        }
+        ClassRegistry::init('Warninglist')->attachWarninglistToAttributes($out);
+        return $out;
     }
 
     /**

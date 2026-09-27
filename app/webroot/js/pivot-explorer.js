@@ -1029,8 +1029,8 @@
         return land.result();
     }
 
-    function fetchCorrelated(body, signal) {
-        return fetch(baseurl + '/events/correlatedAttributes/' + encodeURIComponent(eventId) + '.json', {
+    function postJson(path, body, signal) {
+        return fetch(baseurl + path, {
             method: 'POST',
             credentials: 'same-origin',
             signal: signal,
@@ -1044,8 +1044,12 @@
         .then(function (r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
-        })
-        .then(correlationResult);
+        });
+    }
+
+    function fetchCorrelated(body, signal) {
+        return postJson('/events/correlatedAttributes/' + encodeURIComponent(eventId) + '.json', body, signal)
+            .then(correlationResult);
     }
 
     var CORRELATION_PIVOT = 'correlations';
@@ -1811,6 +1815,178 @@
         };
     }
 
+    /* ── pivots: part of another event, by kind ────────────── */
+    // A slice of another MISP event's attributes, landed the way a
+    // correlation lands: in its object when it has one. Counted and fetched
+    // by MISP, which leaves out what the canvas already holds. A feed's card
+    // has no local copy to read.
+    var CARD_SLICES = {
+        all:     { id: 'card-attributes', label: 'Its attributes',         matched: 'Attributes' },
+        ids:     { id: 'card-ids',        label: 'Its IDS indicators',     matched: 'IDS indicators' },
+        network: { id: 'card-network',    label: 'Its network indicators', matched: 'Network indicators' }
+    };
+    var MORE_CORRELATIONS_PIVOT = 'card-correlations';
+
+    function otherEventCard(node) {
+        var d = node.getData() || {};
+        if (d.type !== 'event' || d._provenance === 'feed' || d.event_id == null) return null;
+        return String(d.event_id) === String(eventId) ? null : String(d.event_id);
+    }
+
+    // What the canvas holds of that event, so MISP neither counts nor sends it.
+    function drawnOf(id) {
+        var out = [];
+        (_graph ? _graph.getMutableNodes() : []).forEach(function (n) {
+            var d = n.getData() || {};
+            if ((d.type === 'object' || d.type === 'attribute') && d.uuid && String(d.event_id) === id) out.push(d.uuid);
+        });
+        return out.sort();
+    }
+
+    function cardElementsBody(slice, id, narrowing, count) {
+        narrowing = narrowing || {};
+        var body = { slice: slice, q: narrowing.q || '', types: narrowing.type || [],
+                     category: narrowing.category || '', exclude: drawnOf(id), count: count };
+        if (slice !== 'ids' && typeof narrowing.ids === 'boolean') body.ids = narrowing.ids;
+        return body;
+    }
+
+    // Dropped whenever the canvas changes, which changes every `exclude`.
+    var _cardElements = {};
+    function cardElements(id, body, signal) {
+        var key = id + ' ' + JSON.stringify(body);
+        if (!_cardElements[key]) {
+            _cardElements[key] = postJson('/events/cardElements/' + encodeURIComponent(id) + '.json', body, signal)
+                .catch(function (err) {
+                    delete _cardElements[key];
+                    throw err;
+                });
+        }
+        return _cardElements[key];
+    }
+
+    function eachCard(nodes, fn) {
+        return Promise.all(nodes.map(otherEventCard).filter(Boolean).map(fn));
+    }
+
+    function sumInto(into, counts) {
+        Object.keys(counts || {}).forEach(function (k) { into[k] = (into[k] || 0) + counts[k]; });
+        return into;
+    }
+
+    function countFacet(key, label, type, counts) {
+        return { key: key, label: label, type: type, options: Object.keys(counts).sort().map(function (k) {
+            return { label: k, value: k, count: counts[k] };
+        }) };
+    }
+
+    function cardElementsResult(slice, payloads) {
+        var land = landing();
+        payloads.forEach(function (p) {
+            mergePriorities(p.ui_priorities);
+            var cid = p.event ? land.node(eventCardNode(p.event)) : null;
+            var owner = provenance(p.event ? p.event.id : undefined, p.event ? p.event.uuid : undefined);
+            var matched = {};
+            (p.matched || []).forEach(function (uuid) { matched[uuid] = true; });
+            var mark = function (d) { if (matched[d.uuid]) d.matched = [slice]; return d; };
+            Object.keys(p.objects || {}).forEach(function (k) {
+                var n = foreignObjectNode(p.objects[k], owner);
+                n.children.forEach(function (c) { mark(c.data); });
+                land.node(n);
+                if (cid) land.edge(inEventEdge(n.id, cid));
+            });
+            (p.attributes || []).forEach(function (a) {
+                var id = land.node({ id: 'attr:' + a.uuid, data: mark(attributeNodeData(a, owner)) });
+                if (cid) land.edge(inEventEdge(id, cid));
+            });
+        });
+        return land.result();
+    }
+
+    function cardElementsPivot(slice) {
+        return {
+            id:            CARD_SLICES[slice].id,
+            label:         CARD_SLICES[slice].label,
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) { return nodes.filter(otherEventCard); },
+            summarize: function (nodes, narrowing, ctx) {
+                return eachCard(nodes, function (id) {
+                    return cardElements(id, cardElementsBody(slice, id, narrowing, true), ctx && ctx.signal);
+                }).then(function (counts) {
+                    var byType = {}, byCategory = {}, total = 0;
+                    counts.forEach(function (c) {
+                        total += c.total || 0;
+                        sumInto(byType, c.by_type);
+                        sumInto(byCategory, c.by_category);
+                    });
+                    var facets = [{ key: 'q', label: 'Search', type: 'text' }];
+                    if (slice !== 'ids') facets.push({ key: 'ids', label: 'IDS only', type: 'boolean' });
+                    facets.push(countFacet('type', 'Type', 'multiselect', byType),
+                                countFacet('category', 'Category', 'select', byCategory));
+                    return { total: total, facets: facets };
+                });
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                return eachCard(nodes, function (id) {
+                    return cardElements(id, cardElementsBody(slice, id, narrowing, false), ctx && ctx.signal);
+                }).then(function (payloads) { return cardElementsResult(slice, payloads); });
+            }
+        };
+    }
+
+    // Every pair between this event and that one, landed by
+    // correlationResult. Counted by what of that event it would draw, so the
+    // landing is built once and kept for the run.
+    var _moreCorrelations = {};
+    function moreCorrelations(id, signal) {
+        if (!_moreCorrelations[id]) {
+            _moreCorrelations[id] = fetchCorrelated({ event_ids: [id] }, signal).catch(function (err) {
+                delete _moreCorrelations[id];
+                throw err;
+            });
+        }
+        return _moreCorrelations[id];
+    }
+
+    function correlatesWithCard(node) {
+        var id = otherEventCard(node);
+        return !!id && !!_counts && (_counts.events[id] || 0) > 0;
+    }
+
+    function moreCorrelationsPivot() {
+        return {
+            id:            MORE_CORRELATIONS_PIVOT,
+            label:         'More correlations with this event',
+            maxCandidates: NODE_BUDGET,
+            appliesTo: function (nodes) { return nodes.filter(correlatesWithCard); },
+            summarize: function (nodes, narrowing, ctx) {
+                var cards = nodes.filter(correlatesWithCard);
+                return eachCard(cards, function (id) {
+                    return moreCorrelations(id, ctx && ctx.signal).then(function (r) {
+                        return r.nodes.filter(function (n) {
+                            return String(n.data.event_id) === id && n.data.type !== 'event'
+                                && !(_graph && _graph.getMutableNode(n.id));
+                        }).length;
+                    });
+                }).then(function (counts) {
+                    return { total: counts.reduce(function (s, n) { return s + n; }, 0) };
+                });
+            },
+            fetch: function (nodes, narrowing, ctx) {
+                return eachCard(nodes.filter(correlatesWithCard), function (id) {
+                    return moreCorrelations(id, ctx && ctx.signal);
+                }).then(function (results) {
+                    var land = landing();
+                    results.forEach(function (r) {
+                        r.nodes.forEach(land.node);
+                        r.edges.forEach(land.edge);
+                    });
+                    return land.result();
+                });
+            }
+        };
+    }
+
     // The library caches summaries until told otherwise, and what this pivot
     // offers is exactly what the canvas lacks.
     function watchElementPivot(graph) {
@@ -1818,6 +1994,9 @@
         var drop = function () {
             graph.pivots.invalidate(ELEMENT_PIVOT);
             graph.pivots.invalidate(SURROUNDINGS_PIVOT);
+            Object.keys(CARD_SLICES).forEach(function (k) { graph.pivots.invalidate(CARD_SLICES[k].id); });
+            graph.pivots.invalidate(MORE_CORRELATIONS_PIVOT);
+            _cardElements = {};
         };
         graph.on('nodeAdd', drop);
         graph.on('nodeRemove', drop);
@@ -1935,6 +2114,9 @@
                 field('Object relation', d.object_relation),
                 field('IDS flag', d.to_ids == null ? null : (d.to_ids ? 'Yes' : 'No')),
                 field('Comment', d.comment), field('Event', belongsTo(d)),
+                field('Matched', (d.matched || []).map(function (k) {
+                    return CARD_SLICES[k] ? CARD_SLICES[k].matched : k;
+                }).join(', ')),
                 field('Seen in a feed', d.feed_hit ? 'Yes — too many hits in this event to name which' : null),
                 field('Warninglists', (d.warnings || []).map(function (w) {
                     return w.warninglist_name + (w.warninglist_category === 'false_positive' ? ' (false positive)' : '');
@@ -2167,7 +2349,9 @@
             pivotQuickIngestLimit: 25,
             // No `save`: correlations are derived, never counted unsaved.
             pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
-                     taggedEventsPivot(), relatedClustersPivot(), surroundingsPivot()].map(joiningDrawnTags),
+                     taggedEventsPivot(), relatedClustersPivot(), surroundingsPivot(),
+                     cardElementsPivot('all'), cardElementsPivot('ids'), cardElementsPivot('network'),
+                     moreCorrelationsPivot()].map(joiningDrawnTags),
             callbacks: {
                 // Another event is a leaf here (PRD §4) — it cannot expand in
                 // place, so double-click hands the analyst over to its own
