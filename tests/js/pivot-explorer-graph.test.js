@@ -2342,13 +2342,43 @@ test('the filter panel declares its facets, provenance first', async () => {
 test('the legend keys elements and relationships, the latter on the layer facet', async () => {
     const g = await buildGraph(ev({}));
     const sections = g.opts.UI.legend.sections;
-    eq('two sections', sections.map(s => s.title), ['Element', 'Relationship']);
+    eq('three sections', sections.map(s => s.title), ['Element', 'Provenance', 'Relationship']);
     ok('Element is the nodeTypeAccessor dimension, its hues declared (drawn nodes have none)',
        sections[0].key === undefined && typeof sections[0].entries === 'function' && sections[0].scope === undefined);
-    eq('Relationship keys on edges by kind', [sections[1].scope, sections[1].key], ['edge', 'kind']);
+    ok('Provenance declares its entries, and so its own swatches',
+       sections[1].key === undefined && typeof sections[1].entries === 'function' && sections[1].scope === undefined);
+    eq('Relationship keys on edges by kind', [sections[2].scope, sections[2].key], ['edge', 'kind']);
     ok('the same key the layer facet declares',
-       g.opts.UI.filter.edgeFacets.some(f => f.key === sections[1].key));
-    ok('no provenance section: it has no colour to sample', !sections.some(s => s.key === 'scope'));
+       g.opts.UI.filter.edgeFacets.some(f => f.key === sections[2].key));
+});
+
+test('the legend\'s This event entry holds what the event is made of, the tags it carries included', async () => {
+    const payload = taggedEvent();
+    payload.Event.Tag = [{ name: 'tlp:clear', colour: '#fff' }];
+    const g = await buildGraph(payload);
+    const node = (id, data) => Object.assign(pnode(data), { id });
+    const nodes = [
+        node('event:U1', { type: 'event', scope: 'self', event_id: '1' }),
+        node('attr:e1', { type: 'attribute', uuid: 'e1', scope: 'self' }),
+        node('obj:A', { type: 'object', uuid: 'A', scope: 'self' }),
+        node('attr:c1', { type: 'attribute', uuid: 'c1', scope: 'self' }),
+        node('tag:tlp:clear', { type: 'tag', name: 'tlp:clear' }),
+        node('tag:' + TAG_TLP.name, { type: 'tag', name: TAG_TLP.name }),
+        node('cluster:' + TAG_APT.name, { type: 'cluster', tag_name: TAG_APT.name }),
+        node('event:R7', { type: 'event', scope: 'foreign', event_id: '7' }),
+        node('attr:x1', { type: 'attribute', uuid: 'x1', scope: 'foreign', event_id: '7' }),
+        node('tag:elsewhere', { type: 'tag', name: 'elsewhere' }),
+        node('feed:1', { type: 'feed', source_id: '1' }),
+    ];
+    const entries = g.opts.UI.legend.sections[1].entries({ getMutableNodes: () => nodes });
+    eq('both entries, labelled', entries.map(e => [e.id, e.label]), [['self', 'This event'], ['elsewhere', 'Elsewhere']]);
+    eq('this event: its card, its elements, and the tags and clusters it carries on itself or an attribute',
+       nodes.filter(entries[0].predicate).map(n => n.id),
+       ['event:U1', 'attr:e1', 'obj:A', 'attr:c1', 'tag:tlp:clear', 'tag:' + TAG_TLP.name, 'cluster:' + TAG_APT.name]);
+    eq('elsewhere: the rest', nodes.filter(entries[1].predicate).map(n => n.id),
+       ['event:R7', 'attr:x1', 'tag:elsewhere', 'feed:1']);
+    eq('an entry nothing matches is not listed',
+       g.opts.UI.legend.sections[1].entries({ getMutableNodes: () => nodes.slice(0, 2) }).map(e => e.id), ['self']);
 });
 
 test('a facet\'s options are what the live graph holds, children included', async () => {

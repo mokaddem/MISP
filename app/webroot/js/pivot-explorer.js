@@ -514,6 +514,42 @@
         });
     }
 
+    // The tag and cluster nodes this event carries, on itself or on one of
+    // its live attributes, by node id.
+    var _ownLabels = null, _ownLabelsFor = null;
+    function ownLabelIds() {
+        if (_ownLabels && _ownLabelsFor === _event) return _ownLabels;
+        var ids = {};
+        var add = function (rec) {
+            var f = tagFields(rec);
+            (f.tags || []).forEach(function (t) { ids[tagNodeId(t)] = true; });
+            (f.clusters || []).forEach(function (c) { ids[clusterNodeId(c)] = true; });
+        };
+        add((_event && _event.Event) || {});
+        var byUuid = ownAttributeIndex().byUuid;
+        Object.keys(byUuid).forEach(function (uuid) { add(byUuid[uuid]); });
+        _ownLabelsFor = _event;
+        _ownLabels = ids;
+        return ids;
+    }
+
+    function inThisEvent(node) {
+        var d = node.getData() || {};
+        if (d.scope === 'self') return true;
+        return (d.type === 'tag' || d.type === 'cluster') && !!ownLabelIds()[node.id];
+    }
+
+    function provenanceLegendEntries(graph) {
+        var seen = {};
+        graph.getMutableNodes().forEach(function (n) { seen[inThisEvent(n) ? 'self' : 'elsewhere'] = true; });
+        return [
+            { id: 'self', label: 'This event', color: window.MispPivotNodes.palette().event.core,
+              predicate: inThisEvent },
+            { id: 'elsewhere', label: 'Elsewhere', color: '#888',
+              predicate: function (node) { return !inThisEvent(node); } }
+        ].filter(function (e) { return seen[e.id]; });
+    }
+
     function mispNodeStyles() {
         var N = window.MispPivotNodes;
         var rest = N.options({
@@ -2393,6 +2429,7 @@
                 legend: {
                     sections: [
                         { title: 'Element', entries: elementLegendEntries },
+                        { id: 'provenance', title: 'Provenance', entries: provenanceLegendEntries },
                         { title: 'Relationship', scope: 'edge', key: 'kind' }
                     ]
                 },
