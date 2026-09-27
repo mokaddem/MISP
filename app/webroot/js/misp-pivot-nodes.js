@@ -2647,36 +2647,31 @@ window.MispPivotNodes = (function () {
        literals — so the whole decision is one contiguous block and the specs
        above stay exactly as they were reviewed.
 
-       TWO DIALS: S_LABELS turns the whole thing off; S_LABEL_TRUNCATE trades
-       full values for pivotick's ~9-character cut. Try the second before
-       abandoning the first — width, not the label itself, is what a dense
-       graph is likely to object to.
+       TWO DIALS: S_LABELS turns the whole thing off; S_LABEL_MAX_WIDTH sets
+       how wide a label may run before pivotick middle-elides it. Try the
+       second before abandoning the first — width, not the label itself, is
+       what a dense graph is likely to object to.
 
        TO REVERT: set S_LABELS to false. Nothing below runs, and every S spec
        is then byte-identical to the unlabelled module. To remove it
        outright, delete from this banner to the end of the block — nothing
        else in this file refers to it. The one edit that lives elsewhere is
-       `textTruncate` joining the fields 20-pivotick.js forwards (also marked
-       [S-LABEL]); it is inert without this block and worth keeping either
-       way, since it is a native pivotick field the binding simply had not
-       passed through yet.
+       `textTruncate` and `textMaxWidth` joining the fields 20-pivotick.js
+       forwards (also marked [S-LABEL]); they are inert without this block
+       and worth keeping either way, since they are native pivotick fields
+       the binding simply had not passed through yet.
        ================================================================== */
 
     var S_LABELS = true;
 
-    /* The second dial, and the one to reach for before giving up on labels
-       altogether. false draws the whole string; true hands the cut back to
-       pivotick, which is brutal at this size — a floated label gets
-       size * 0.9 * 5 px, ~9 characters on the 16px attribute disc, so
-       185.130.44.131 arrives as 185.13…131.
-
-       false is the default because it is what the explorer shows today
-       (label: truncate(val, 42), against a cut that never fires below 42
-       characters) and because a half-shown indicator is worse than none.
-       What it costs is width: a 32-character md5 draws a ~123px pill under a
-       32px node, and at density those pills overlap each other long before
-       the nodes do. That is the trade this trial exists to settle. */
-    var S_LABEL_TRUNCATE = false;
+    /* The second dial, in graph units. The explorer hands over the whole
+       value, so this is the only cut a label gets. Pivotick's own budget,
+       size * 0.9 * 5 px, is ~9 characters on the 16px attribute disc
+       (185.130.44.131 arrives as 185.13…131); drawing the value uncut lets a
+       text attribute run a pill across the canvas. At the 12px label font a
+       character is ~6.6 units, so 220 is ~33 characters: an IP, a domain and
+       an md5 stay whole, a sha256 or a long URL keeps its head and tail. */
+    var S_LABEL_MAX_WIDTH = 220;
 
     /* The label fields for one S renderer.
 
@@ -2702,7 +2697,8 @@ window.MispPivotNodes = (function () {
                 return v == null ? '' : String(v);
             },
             textVerticalShift: -1,
-            textTruncate: S_LABEL_TRUNCATE
+            textTruncate: true,
+            textMaxWidth: S_LABEL_MAX_WIDTH
         };
     }
 
@@ -3161,10 +3157,13 @@ window.MispPivotNodes = (function () {
                 };
                 style.textVerticalShift = spec.textVerticalShift != null
                     ? spec.textVerticalShift : 1;
-                // [S-LABEL] A native field the binding had no reason to
-                // forward until an S renderer wanted its label uncut.
+                // [S-LABEL] Native fields the binding had no reason to
+                // forward until an S renderer wanted its own label budget.
                 if (spec.textTruncate !== undefined) {
                     style.textTruncate = spec.textTruncate;
+                }
+                if (spec.textMaxWidth !== undefined) {
+                    style.textMaxWidth = spec.textMaxWidth;
                 }
             }
             if (spec.badges) {
@@ -3182,9 +3181,11 @@ window.MispPivotNodes = (function () {
                 return spec.draw(d, H, P());
             }
         };
-        // 'textTruncate' is [S-LABEL]'s addition — see the composed branch.
+        // 'textTruncate' and 'textMaxWidth' are [S-LABEL]'s additions — see
+        // the composed branch.
         ['shape', 'size', 'color', 'strokeColor', 'strokeWidth', 'text',
-         'textVerticalShift', 'textColor', 'textTruncate'].forEach(function (k) {
+         'textVerticalShift', 'textColor', 'textTruncate',
+         'textMaxWidth'].forEach(function (k) {
             if (spec[k] === undefined) return;
             base[k] = typeof spec[k] === 'function'
                 ? function (node) {
