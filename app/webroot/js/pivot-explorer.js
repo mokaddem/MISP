@@ -2146,6 +2146,9 @@
                 physics:        'auto',
                 d3LinkDistance: 200
             },
+            // A one-click pivot (a context-menu row, a single-pivot rim badge)
+            // lands this many new candidates without Review; more go to Review.
+            pivotQuickIngestLimit: 25,
             // No `save`: correlations are derived, never counted unsaved.
             pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
                      taggedEventsPivot(), relatedClustersPivot(), eventContentsPivot()].map(joiningDrawnTags),

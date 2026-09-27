@@ -1183,6 +1183,11 @@ test('the correlation pivot is declared, capped at the canvas budget, and savabl
        g.fetchLog.some(f => /\/misp\/events\/correlationCounts\/1\.json$/.test(f.url)));
 });
 
+test('a one-click pivot lands up to 25 new candidates without Review', async () => {
+    const g = await withPivots();
+    eq('the limit', g.opts.pivotQuickIngestLimit, 25);
+});
+
 test('the correlation pivot applies only where the counts say something correlates', async () => {
     const g = await withPivots();
     const p = pivot(g, 'correlations');

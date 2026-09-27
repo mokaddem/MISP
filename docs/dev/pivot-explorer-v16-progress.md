@@ -7,8 +7,8 @@ same pass as the code, not in a catch-up sweep.
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
 - **Library:** Pivotick v2 — `develop` at `8db49e9` with `05fe810` (`worktree-collapsed-cue`) applied on top, which `develop` still lacks. PRD §3.7
 - **Last updated:** 2026-09-25
-- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33 and bundle bumps 0–0j · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 568 assertions, no dependencies
+- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33, 35 and bundle bumps 0–0j · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 569 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -78,6 +78,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 32 | **Correlations** on a selection holding more than one correlating attribute offers an *Attribute* multiselect, each option its own count, so one attribute of a closed object can be asked for alone. The total follows the picks; with none ticked every attribute is asked for, counted or not | ✅ | 5 | 2026-09-25 — live on 1562: the passive-dns object's two `rdata` attributes are listed with 1 each, and ticking one takes the total from 2 to 1 |
 | 33 | Warninglist hits: an attribute carries its `warnings` (the payload already asks for them), in MISP's field names; the M card draws MISP's triangle in its free top-right corner (red for a false positive, orange for a known identifier); the sidebar lists them; the filter has *On a warninglist* | ✅ | 30 | 2026-09-25 — live on 4074: `8.8.8.8` wears the red triangle, titled `Likely false positive — List of known IPv4 public DNS resolvers`. The look is the one CHANNELS.md already set, moved from the rim into the card |
 | 34 | Another event's contents: **Event contents**, on another MISP event's card (not this event, not a feed's), reads `/events/view/{id}.json` once and lands what the canvas lacks inside the card, an object with its attributes, narrowed like Event elements (search, element, category). That card opens once R8 is amended (event cards expand, objects stay shut) | ⏸ | 33 | Pivot built 2026-09-25 — live on 1562: the card of 4120 (18,036 records) refuses at the cap; searched `104.21`, 939 land inside it (1 → 940 children), nothing is left to offer, and undo takes it back to 1. The card opening needs `enableNodeExpansion` as a per-node predicate, `~/git/pivotick/prd/node-expansion-per-node.md`. Through the panel it also needs the library to offer a drawn card's new children: on 2014, 1567's card fetches 21 but Review says *All 1 are already on the canvas*, and Fetch & ingest merges the 21 (2 → 23 children) yet toasts *Nothing was ingested*, `~/git/pivotick/prd/pivot-children-into-drawn-container.md` |
+| 35 | One-click pivots (a context-menu row, a single-pivot rim badge) land up to 25 new candidates without Review (`pivotQuickIngestLimit`); more go to Review. The Pivot panel keeps Fetch and Fetch & ingest | ✅ | 5 | 2026-09-27 — live on 1562: one-click Correlations on the passive-dns object lands directly (36 → 38 nodes), nothing staged |
 
 ### Critical path
 
@@ -428,15 +429,11 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   is the established route for a translated string — though a sentence with counts and plurals
   wants more than one attribute.
 
-- **From a tag or cluster outward** — *Events with this tag* and *Related clusters*, specified in
-  [`pivot-explorer-tag-pivots-prd.md`](pivot-explorer-tag-pivots-prd.md) (decided 2026-09-25,
-  not built).
+- **Group a large landing by type** — a run that lands many nodes arrives as one group per type with its count ("12 IPs from event B"), which opens onto them, in place of a closed event card. Parked 2026-09-27: it is property grouping applied to one run, so it waits on pivotick grouping and collapsing nodes by a property to coarsen the graph, still to be specified upstream. Nothing is built in MISP meanwhile.
 - **Dedicated graph endpoint (D13)** — deferred to
   [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
   slow to open (~100 MB for event 4116 to draw 86 nodes).
-- **Node drawings: `warnings[]`** for the module's warninglist badge is not supplied; the
-  explorer's own badges replace the module's anyway.
 - **Pivotick: `getEdges()` reports stale provenance** — a hand-drawn edge's read-only view
   says `getSources()` = `["seed"]` while `getMutableEdge()` says `["manual"]`. No MISP code
   reads it; upstream, not a workaround here.
