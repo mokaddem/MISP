@@ -543,8 +543,10 @@ test('the edge-kind dimension is declared for pivotick', async () => {
        r.edgeStyleMap['object-reference'], { strokeColor: '#428bca' });
     eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
-       ['object-reference', 'analyst-relationship', 'correlation',
+       ['object-reference', 'in-event', 'analyst-relationship', 'correlation',
         'feed-correlation', 'feed-event', 'server-correlation', 'tag', 'cluster-relation']);
+    eq('in-event is thin grey, with no arrowhead',
+       r.edgeStyleMap['in-event'], { strokeColor: '#6c737d', strokeWidth: 1, markerEnd: 'none' });
     eq('correlations are dashed grey (D1 palette)',
        r.edgeStyleMap['correlation'], { strokeColor: '#888', dashed: true });
     eq('analyst relationships are dashed orange (D1 palette)',
@@ -1137,7 +1139,7 @@ const pair = (src, uuid, evId, evUuid) => ({
     Object: null,
 });
 const PAIRS = {
-    pairs: [pair('c1', 'x1', '7', 'R7'), pair('c1', 'x2', '7', 'R7'), pair('e1', 'x1', '8', 'R8')],
+    pairs: [pair('c1', 'x1', '7', 'R7'), pair('c1', 'x2', '7', 'R7'), pair('e1', 'x3', '8', 'R8')],
     events: {
         '7': {
             id: '7', uuid: 'R7', info: 'Event 7', date: '2024-01-02',
@@ -1174,7 +1176,7 @@ test('the correlation pivot is declared, capped at the canvas budget, and savabl
     const g = await withPivots();
     eq('after the element pivot, correlations, feed events, tags and clusters, then what a tag leads to',
        g.opts.pivots.map(p => p.id),
-       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters', 'event-contents']);
+       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters', 'object-surroundings']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
         ok(p.id + ' has no save — correlations are derived', p.save === undefined);
@@ -1258,21 +1260,70 @@ test('an object origin fetches by its live attributes', async () => {
        body, { attribute_uuids: ['c1', 'e1'] });
 });
 
-test('correlated attributes land inside their event, joined to this event by correlation edges', async () => {
+test('a correlated attribute outside any object lands free, beside its event\'s empty card', async () => {
     const g = await withPivots();
     const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
-    const containers = r.nodes.filter(n => n.id.indexOf('event:') === 0);
-    eq('one container per correlated event, keyed like a drawn event so ingest merges into it',
-       containers.map(n => n.id), ['event:R7', 'event:R8']);
-    eq('R7 holds both of its attributes once', containers[0].children.map(c => c.id), ['attr:x1', 'attr:x2']);
+    eq('each card once, each attribute free, this event\'s missing side last',
+       r.nodes.map(n => n.id), ['event:R7', 'attr:x1', 'attr:x2', 'event:R8', 'attr:x3', 'attr:e1']);
+    eq('a card holds nothing', r.nodes.filter(n => n.data.type === 'event').map(n => n.children), [undefined, undefined]);
     eq('a correlated attribute is drawn like any attribute, and says which event it is in',
-       [containers[0].children[0].data.type, containers[0].children[0].data.event_id], ['attribute', '7']);
-    eq('the container is an event node', containers[0].data.type, 'event');
-    eq('one correlation edge per pair, with a stable id',
+       [byId(r.nodes, 'attr:x1').data.type, byId(r.nodes, 'attr:x1').data.event_id], ['attribute', '7']);
+    eq('each joined to its card, and to this event by its correlation, with stable ids',
        r.edges.map(e => [e.id, e.from, e.to, e.data.kind]),
-       [['corr:c1:x1', 'attr:c1', 'attr:x1', 'correlation'],
+       [['in-event:attr:x1', 'attr:x1', 'event:R7', 'in-event'],
+        ['corr:c1:x1', 'attr:c1', 'attr:x1', 'correlation'],
+        ['in-event:attr:x2', 'attr:x2', 'event:R7', 'in-event'],
         ['corr:c1:x2', 'attr:c1', 'attr:x2', 'correlation'],
-        ['corr:e1:x1', 'attr:e1', 'attr:x1', 'correlation']]);
+        ['in-event:attr:x3', 'attr:x3', 'event:R8', 'in-event'],
+        ['corr:e1:x3', 'attr:e1', 'attr:x3', 'correlation']]);
+});
+
+// Two correlations into one domain-ip object of event 7, as
+// /events/correlatedAttributes returns them once the object is readable.
+const inObject = (src, uuid) => Object.assign(pair(src, uuid, '7', 'R7'), { Object: { id: '70', uuid: 'OB', name: 'domain-ip' } });
+const OBJECT_PAIRS = {
+    pairs: [inObject('c1', 'x1'), inObject('c1', 'x2')],
+    events: PAIRS.events,
+    objects: {
+        OB: { id: '70', uuid: 'OB', name: 'domain-ip', 'meta-category': 'network', event_id: '7',
+              template_uuid: 'T-DIP', template_version: '9', Attribute: [
+                  attr({ uuid: 'x1', value: 'evil.example', type: 'domain', object_relation: 'domain' }),
+                  attr({ uuid: 'x2', value: '10.0.0.x2', object_relation: 'ip' }),
+                  attr({ uuid: 'x9', value: 'gone', deleted: true })] },
+    },
+    ui_priorities: { 'T-DIP.9': { ip: 5 } },
+};
+
+test('a correlated attribute inside an object lands in it, the object closed beside the card', async () => {
+    const g = await withPivots([[/correlatedAttributes/, OBJECT_PAIRS]]);
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'object', uuid: 'A' })], {}, {});
+    eq('the card and the object, once for both correlations', r.nodes.map(n => n.id), ['event:R7', 'obj:OB']);
+    const o = byId(r.nodes, 'obj:OB');
+    eq('the object is another event\'s', [o.data.type, o.data.label, o.data.scope, o.data.event_id],
+       ['object', 'domain-ip', 'foreign', '7']);
+    eq('with its live attributes, the correlated ones among them',
+       o.children.map(c => [c.id, c.data.scope]), [['attr:x1', 'foreign'], ['attr:x2', 'foreign']]);
+    eq('ranked by its own template', o.children.map(c => c.data.ui_priority), [undefined, 5]);
+    eq('one in-event edge from the object, the correlations ending inside it',
+       r.edges.map(e => [e.id, e.from, e.to]),
+       [['in-event:obj:OB', 'obj:OB', 'event:R7'],
+        ['corr:c1:x1', 'attr:c1', 'attr:x1'],
+        ['corr:c1:x2', 'attr:c1', 'attr:x2']]);
+});
+
+test('an object the user cannot read leaves its correlated attribute free', async () => {
+    const hidden = Object.assign({}, OBJECT_PAIRS, { objects: {} });
+    const g = await withPivots([[/correlatedAttributes/, hidden]]);
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'object', uuid: 'A' })], {}, {});
+    eq('no object, free attributes', r.nodes.map(n => n.id), ['event:R7', 'attr:x1', 'attr:x2']);
+});
+
+test('a correlated attribute is put inside its object even when the object\'s payload lacks it', async () => {
+    const partial = JSON.parse(JSON.stringify(OBJECT_PAIRS));
+    partial.objects.OB.Attribute = partial.objects.OB.Attribute.filter(a => a.uuid !== 'x2');
+    const g = await withPivots([[/correlatedAttributes/, partial]]);
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'object', uuid: 'A' })], {}, {});
+    eq('both inside', byId(r.nodes, 'obj:OB').children.map(c => c.id), ['attr:x1', 'attr:x2']);
 });
 
 test('a correlated event\'s container is drawn from its card, not from the pair', async () => {
@@ -1291,7 +1342,7 @@ test('a correlated event\'s container is drawn from its card, not from the pair'
 test('this event\'s side of a pair comes along when it is not on the canvas', async () => {
     const g = await withPivots();
     const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'e1' })], {}, {});
-    const own = r.nodes.filter(n => n.id.indexOf('attr:') === 0).map(n => n.id).sort();
+    const own = r.nodes.filter(n => n.data.scope === 'self').map(n => n.id).sort();
     eq('only the one not drawn: c1 is already on the canvas, inside object A', own, ['attr:e1']);
     eq('and drawn from the event payload', r.nodes.find(n => n.id === 'attr:e1').data.uuid, 'e1');
 });
@@ -1558,6 +1609,11 @@ test('derived and analyst edges are spared, not deleted, and the rest goes ahead
     ok('without a confirm', ctx.asked === null);
     eq('a reference with no uuid is spared too',
        (await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [refEdge(undefined)] }, true))).edges, []);
+    const foreignRef = pedge('ref:RF', pnode({ type: 'object', uuid: 'OB', scope: 'foreign', label: 'domain-ip' }),
+        pnode({ type: 'object', uuid: 'OB2', scope: 'foreign', label: 'file' }),
+        { kind: 'object-reference', label: 'resolves-to', uuid: 'RF' });
+    eq('another event\'s reference is spared',
+       (await g.opts.callbacks.onBeforeDelete(delCtx({ edges: [foreignRef] }, true))).edges, []);
 });
 
 test('notes alone are canvas-only and go straight through', async () => {
@@ -1870,8 +1926,8 @@ test('its summaries are dropped whenever a node comes or goes', async () => {
         ok(evt + ' is watched', (g.graph.listeners[evt] || []).length >= 1);
         g.graph.listeners[evt].forEach(f => f(pnode({})));
     });
-    eq('each drops this pivot\'s cache, and the event contents one', g.graph.pivots.invalidated,
-       ['event-elements', 'event-contents', 'event-elements', 'event-contents']);
+    eq('each drops this pivot\'s cache, and the surroundings one', g.graph.pivots.invalidated,
+       ['event-elements', 'object-surroundings', 'event-elements', 'object-surroundings']);
 });
 
 /* ─────────────── task 6: analyst-data badges and panel ─────────────── */
@@ -2806,64 +2862,74 @@ test('tagged events: a failed request is not kept', async () => {
     eq('asked again', (await p.summarize([TLP_NODE()], {}, {})).total, 200);
 });
 
-/* ─────────────────────── another event's contents ─────────────────── */
+/* ─────────────────────── around another event's object ─────────────────── */
 
-const OTHER = { Event: { id: '7', uuid: 'R7', info: 'Event 7',
-    Attribute: [attr({ uuid: 'o1', value: 'evil.example', type: 'domain', category: 'Network activity' }),
-                attr({ uuid: 'o2', value: 'gone', deleted: true }),
-                attr({ uuid: 'e1', value: 'already drawn' })],
-    Object: [obj({ uuid: 'OB', name: 'file', 'meta-category': 'file', Attribute: [
-        attr({ uuid: 'oc1', value: 'deadbeef', type: 'md5', object_relation: 'md5' })] })] } };
+const SURROUNDINGS = {
+    objects: [
+        obj({ uuid: 'OB2', name: 'file', event_id: '7', template_uuid: 'T-FILE', template_version: '3', Attribute: [
+            attr({ uuid: 'oc1', value: 'deadbeef', type: 'md5', object_relation: 'md5' })] }),
+        obj({ uuid: 'OB3', name: 'url', 'meta-category': 'network', event_id: '7' }),
+    ],
+    references: [
+        { uuid: 'REF1', object_uuid: 'OB', referenced_uuid: 'OB2', relationship_type: 'resolves-to' },
+        { uuid: 'REF2', object_uuid: 'OB3', referenced_uuid: 'OB', relationship_type: null },
+    ],
+    event: { id: '7', uuid: 'R7', info: 'Event 7' },
+    ui_priorities: { 'T-FILE.3': { md5: 8 } },
+};
 
-function withContents(route) {
+function withSurroundings(route) {
     let asked = 0;
-    return buildGraph(taggedEvent(), { routes: [[/events\/view\/7\.json$/, init => {
+    return buildGraph(taggedEvent(), { routes: [[/objects\/surroundings\/OB\.json$/, init => {
         asked++;
-        return route ? route(init) : OTHER;
+        return route ? route(init) : SURROUNDINGS;
     }]] }).then(g => Object.assign(g, { asked: () => asked }));
 }
 
-const CARD = () => tagNode('event:R7', { type: 'event', event_id: '7', uuid: 'R7', label: 'Event 7' });
+const FOREIGN_OBJ = () => tagNode('obj:OB', { type: 'object', uuid: 'OB', scope: 'foreign', event_id: '7' });
 
-test('event contents: offered on another MISP event\'s card only', async () => {
-    const g = await withContents();
-    const p = pivot(g, 'event-contents');
-    const nodes = [CARD(), tagNode('event:SELF', { type: 'event', event_id: '1', uuid: 'EV-SELF' }),
-                   tagNode('event:F1', { type: 'event', event_id: '9', _provenance: 'feed' }),
-                   g.graph.getMutableNode('attr:e1')];
-    eq('not this event, not a feed\'s card, not an element', p.appliesTo(nodes).map(n => n.id), ['event:R7']);
+test('around this object: offered on another event\'s object only', async () => {
+    const g = await withSurroundings();
+    const p = pivot(g, 'object-surroundings');
+    const nodes = [FOREIGN_OBJ(), g.graph.getMutableNode('obj:A'),
+                   tagNode('attr:x1', { type: 'attribute', uuid: 'x1', scope: 'foreign' }),
+                   tagNode('event:R7', { type: 'event', uuid: 'R7', scope: 'foreign' })];
+    eq('not this event\'s object, not an attribute, not a card', p.appliesTo(nodes).map(n => n.id), ['obj:OB']);
     eq('capped, never saved', [p.maxCandidates, p.save], [1500, undefined]);
 });
 
-test('event contents: counts what the canvas lacks, with the element pivot\'s narrowing', async () => {
-    const g = await withContents();
-    const p = pivot(g, 'event-contents');
-    const s = await p.summarize([CARD()], {}, {});
-    eq('the live attribute and the object; not the deleted one, nor one already drawn', s.total, 2);
-    eq('search, element, category', s.facets.map(f => f.key), ['q', 'element', 'category']);
-    eq('narrowed to objects', (await p.summarize([CARD()], { element: 'object' }, {})).total, 1);
+test('around this object: counts the objects it brings, read once', async () => {
+    const g = await withSurroundings();
+    const p = pivot(g, 'object-surroundings');
+    eq('two objects', (await p.summarize([FOREIGN_OBJ()], {}, {})).total, 2);
+    await p.fetch([FOREIGN_OBJ()], {}, {});
     eq('read once', g.asked(), 1);
 });
 
-test('event contents: land inside the card, an object with its attributes', async () => {
-    const g = await withContents();
-    const r = await pivot(g, 'event-contents').fetch([CARD()], {}, {});
-    eq('one container, the card itself', r.nodes.map(n => [n.id, n.data.label]), [['event:R7', 'Event 7']]);
-    eq('its new children', r.nodes[0].children.map(c => [c.id, c.data.type, c.data.scope]),
-       [['attr:o1', 'attribute', 'foreign'], ['obj:OB', 'object', 'foreign']]);
-    eq('the object brings its own', r.nodes[0].children[1].children.map(c => [c.id, c.data.event_id]),
-       [['attr:oc1', '7']]);
+test('around this object: its neighbours land with their references and their card', async () => {
+    const g = await withSurroundings();
+    const r = await pivot(g, 'object-surroundings').fetch([FOREIGN_OBJ()], {}, {});
+    eq('the card, then each object', r.nodes.map(n => n.id), ['event:R7', 'obj:OB2', 'obj:OB3']);
+    eq('an object brings its own, ranked by its template',
+       byId(r.nodes, 'obj:OB2').children.map(c => [c.id, c.data.scope, c.data.event_id, c.data.ui_priority]),
+       [['attr:oc1', 'foreign', '7', 8]]);
+    eq('each object in its event, each reference as drawn in its own event',
+       r.edges.map(e => [e.id, e.from, e.to, e.data.kind, e.data.label]),
+       [['in-event:obj:OB2', 'obj:OB2', 'event:R7', 'in-event', ''],
+        ['in-event:obj:OB3', 'obj:OB3', 'event:R7', 'in-event', ''],
+        ['ref:REF1', 'obj:OB', 'obj:OB2', 'object-reference', 'resolves-to'],
+        ['ref:REF2', 'obj:OB3', 'obj:OB', 'object-reference', 'related-to']]);
 });
 
-test('event contents: a failed request is not kept', async () => {
+test('around this object: a failed request is not kept', async () => {
     let fail = true;
-    const g = await withContents(() => (fail ? { __status: 403 } : OTHER));
-    const p = pivot(g, 'event-contents');
+    const g = await withSurroundings(() => (fail ? { __status: 403 } : SURROUNDINGS));
+    const p = pivot(g, 'object-surroundings');
     let threw = false;
-    await p.summarize([CARD()], {}, {}).catch(() => { threw = true; });
+    await p.summarize([FOREIGN_OBJ()], {}, {}).catch(() => { threw = true; });
     ok('the failure reaches the library', threw);
     fail = false;
-    eq('asked again', (await p.summarize([CARD()], {}, {})).total, 2);
+    eq('asked again', (await p.summarize([FOREIGN_OBJ()], {}, {})).total, 2);
 });
 
 /* ─────────────────── a cluster's galaxy relations ───────────────── */

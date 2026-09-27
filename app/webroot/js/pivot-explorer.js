@@ -948,29 +948,71 @@
         return out;
     }
 
-    // Correlated attributes land inside their event's node — the one already
-    // drawn, if any, since ingest merges children into a container by id.
-    // This event's side of each pair is brought along when it is not drawn yet
-    // (an event-level attribute, or one inside an object L2 skipped).
+    // Nodes and edges a pivot lands, each id once.
+    function landing() {
+        var nodes = [], edges = [], seen = {};
+        return {
+            node: function (n) {
+                if (!seen[n.id]) { seen[n.id] = n; nodes.push(n); }
+                return n.id;
+            },
+            get: function (id) { return seen[id] || null; },
+            edge: function (e) {
+                if (!seen[e.id]) { seen[e.id] = true; edges.push(e); }
+            },
+            result: function () { return { nodes: nodes, edges: edges }; }
+        };
+    }
+
+    function mergePriorities(ranks) {
+        Object.keys(ranks || {}).forEach(function (k) {
+            if (!uiPriorities[k]) uiPriorities[k] = ranks[k];
+        });
+    }
+
+    // Another event's card, drawn for context: it holds nothing.
+    function eventCardNode(card) {
+        return { id: 'event:' + card.uuid, data: eventNodeData(card) };
+    }
+
+    // Another event's object, closed, with its live attributes.
+    function foreignObjectNode(obj, owner) {
+        return {
+            id:       'obj:' + obj.uuid,
+            data:     objectNodeData(obj, owner),
+            children: (obj.Attribute || []).filter(function (a) { return !isDeleted(a); })
+                .map(function (a) { return { id: 'attr:' + a.uuid, data: objectChildData(obj, a, owner) }; })
+        };
+    }
+
+    function inEventEdge(fromId, cardId) {
+        return { id: 'in-event:' + fromId, from: fromId, to: cardId, data: { kind: 'in-event', label: '' } };
+    }
+
+    // A correlated attribute lands inside its object, when the user may read
+    // it, or free; its event's card sits beside it, joined by an in-event
+    // edge. This event's side of each pair is brought along when it is not
+    // drawn yet (an event-level attribute, or one inside an object L2 skipped).
     function correlationResult(payload) {
         var index = ownAttributeIndex();
-        var cards = payload.events || {};
-        var containers = {}, order = [], edges = [], seen = {}, sourceNodes = [];
+        var cards = payload.events || {}, objects = payload.objects || {};
+        var land = landing(), sourceNodes = [], seen = {};
+        mergePriorities(payload.ui_priorities);
         (payload.pairs || []).forEach(function (p) {
-            var ev  = p.Event || {};
-            var cid = 'event:' + ev.uuid;
-            if (!containers[cid]) {
-                containers[cid] = { id: cid, data: eventNodeData(cards[ev.id] || ev), children: [] };
-                order.push(cid);
+            var ev    = p.Event || {};
+            var owner = provenance(ev.id, ev.uuid);
+            var cid   = land.node(eventCardNode(cards[ev.id] || ev));
+            var obj   = p.Object && objects[p.Object.uuid];
+            var tid   = 'attr:' + p.Attribute.uuid;
+            var holder = obj
+                ? land.node(foreignObjectNode(obj, owner))
+                : land.node({ id: tid, data: attributeNodeData(p.Attribute, owner) });
+            // Inside its object whatever the object's payload says.
+            var box = obj && land.get(holder);
+            if (box && !box.children.some(function (c) { return c.id === tid; })) {
+                box.children.push({ id: tid, data: objectChildData(obj, p.Attribute, owner) });
             }
-            var tid = 'attr:' + p.Attribute.uuid;
-            if (!seen[cid + tid]) {
-                seen[cid + tid] = true;
-                containers[cid].children.push({
-                    id:   tid,
-                    data: attributeNodeData(p.Attribute, provenance(ev.id, ev.uuid))
-                });
-            }
+            land.edge(inEventEdge(holder, cid));
             var sid = 'attr:' + p.source_uuid;
             if (!seen[sid]) {
                 seen[sid] = true;
@@ -980,16 +1022,11 @@
                     sourceNodes.push({ id: sid, data: attributeNodeData(own, ownerIn(_event.Event, own)) });
                 }
             }
-            var eid = 'corr:' + p.source_uuid + ':' + p.Attribute.uuid;
-            if (!seen[eid]) {
-                seen[eid] = true;
-                edges.push({ id: eid, from: sid, to: tid, data: { kind: 'correlation', label: '' } });
-            }
+            land.edge({ id: 'corr:' + p.source_uuid + ':' + p.Attribute.uuid, from: sid, to: tid,
+                        data: { kind: 'correlation', label: '' } });
         });
-        return {
-            nodes: order.map(function (cid) { return containers[cid]; }).concat(sourceNodes),
-            edges: edges
-        };
+        sourceNodes.forEach(land.node);
+        return land.result();
     }
 
     function fetchCorrelated(body, signal) {
@@ -1696,22 +1733,20 @@
         };
     }
 
-    /* ── pivot: another event's contents ───────────────────── */
-    // What an event card holds, landed inside it: ingest merges children into
-    // a container already on the canvas by id. Offered on MISP events only, a
-    // feed's card having no event to read.
-    var EVENT_CONTENTS_PIVOT = 'event-contents';
+    /* ── pivot: around another event's object ──────────────── */
+    // The objects one reference away from it in its own event, either
+    // direction, with the references between them.
+    var SURROUNDINGS_PIVOT = 'object-surroundings';
 
-    function otherEventId(node) {
+    function foreignObjectUuid(node) {
         var d = node.getData() || {};
-        if (d.type !== 'event' || d._provenance === 'feed' || d.event_id == null) return null;
-        return String(d.event_id) === String(eventId) ? null : String(d.event_id);
+        return (d.type === 'object' && d.scope === 'foreign' && d.uuid) ? d.uuid : null;
     }
 
-    var _contents = {};
-    function eventContents(id, signal) {
-        if (!_contents[id]) {
-            _contents[id] = fetch(baseurl + '/events/view/' + encodeURIComponent(id) + '.json', {
+    var _surroundings = {};
+    function surroundings(uuid, signal) {
+        if (!_surroundings[uuid]) {
+            _surroundings[uuid] = fetch(baseurl + '/objects/surroundings/' + encodeURIComponent(uuid) + '.json', {
                 credentials: 'same-origin',
                 signal: signal,
                 headers: { 'Accept': 'application/json' }
@@ -1720,79 +1755,58 @@
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 return r.json();
             })
-            .then(function (payload) { return (payload && payload.Event) || {}; })
             .catch(function (err) {
-                delete _contents[id];
+                delete _surroundings[uuid];
                 throw err;
             });
         }
-        return _contents[id];
+        return _surroundings[uuid];
     }
 
-    // Each card's records not on the canvas yet: [{ node, ev, kind, rec }].
-    function contentsCandidates(nodes, signal) {
-        var cards = nodes.filter(otherEventId);
-        return Promise.all(cards.map(function (n) { return eventContents(otherEventId(n), signal); }))
-            .then(function (events) {
-                var drawn = function (id) { return !!(_graph && _graph.getMutableNode(id)); };
-                var out = [];
-                events.forEach(function (ev, i) {
-                    (ev.Attribute || []).forEach(function (a) {
-                        if (!isDeleted(a) && !drawn('attr:' + a.uuid)) out.push({ node: cards[i], ev: ev, kind: 'attribute', rec: a });
-                    });
-                    (ev.Object || []).forEach(function (o) {
-                        if (!isDeleted(o) && !drawn('obj:' + o.uuid)) out.push({ node: cards[i], ev: ev, kind: 'object', rec: o });
-                    });
-                });
-                return out;
+    function surroundingsOf(nodes, signal) {
+        return Promise.all(nodes.filter(foreignObjectUuid).map(function (n) {
+            return surroundings(foreignObjectUuid(n), signal);
+        }));
+    }
+
+    function surroundingsResult(payloads) {
+        var land = landing();
+        payloads.forEach(function (s) {
+            mergePriorities(s.ui_priorities);
+            var cid = s.event ? land.node(eventCardNode(s.event)) : null;
+            (s.objects || []).forEach(function (o) {
+                var owner = provenance(o.event_id, s.event ? s.event.uuid : undefined);
+                var id = land.node(foreignObjectNode(o, owner));
+                if (cid) land.edge(inEventEdge(id, cid));
             });
+            (s.references || []).forEach(function (r) {
+                var rel = r.relationship_type || 'related-to';
+                land.edge({ id: 'ref:' + r.uuid, from: 'obj:' + r.object_uuid, to: 'obj:' + r.referenced_uuid,
+                            data: { kind: 'object-reference', label: rel, uuid: r.uuid, relationship_type: rel } });
+            });
+        });
+        return land.result();
     }
 
-    function contentsNode(c) {
-        var owner = provenance(c.ev.id, c.ev.uuid);
-        if (c.kind === 'attribute') return { id: 'attr:' + c.rec.uuid, data: attributeNodeData(c.rec, owner) };
+    function surroundingsPivot() {
         return {
-            id:       'obj:' + c.rec.uuid,
-            data:     objectNodeData(c.rec, owner),
-            children: (c.rec.Attribute || []).filter(function (a) { return !isDeleted(a); })
-                .map(function (a) { return { id: 'attr:' + a.uuid, data: objectChildData(c.rec, a, owner) }; })
-        };
-    }
-
-    function eventContentsPivot() {
-        return {
-            id:            EVENT_CONTENTS_PIVOT,
-            label:         'Event contents',
+            id:            SURROUNDINGS_PIVOT,
+            label:         'Around this object',
             maxCandidates: NODE_BUDGET,
-            appliesTo: function (nodes) { return nodes.filter(otherEventId); },
+            appliesTo: function (nodes) { return nodes.filter(foreignObjectUuid); },
             summarize: function (nodes, narrowing, ctx) {
-                narrowing = narrowing || {};
-                return contentsCandidates(nodes, ctx && ctx.signal).then(function (all) {
-                    return {
-                        total: all.filter(function (c) { return matchesNarrowing(c, narrowing); }).length,
-                        facets: [
-                            { key: 'q', label: 'Search', type: 'text' },
-                            { key: 'element', label: 'Element', type: 'select',
-                              options: countOptions(all, function (c) { return c.kind; }) },
-                            { key: 'category', label: 'Category', type: 'select',
-                              options: countOptions(all, function (c) { return elementCategory(c.kind, c.rec); }) }
-                        ]
-                    };
+                return surroundingsOf(nodes, ctx && ctx.signal).then(function (payloads) {
+                    var fresh = {};
+                    payloads.forEach(function (s) {
+                        (s.objects || []).forEach(function (o) {
+                            if (!(_graph && _graph.getMutableNode('obj:' + o.uuid))) fresh[o.uuid] = true;
+                        });
+                    });
+                    return { total: Object.keys(fresh).length };
                 });
             },
             fetch: function (nodes, narrowing, ctx) {
-                narrowing = narrowing || {};
-                return contentsCandidates(nodes, ctx && ctx.signal).then(function (all) {
-                    var byCard = {}, order = [];
-                    all.filter(function (c) { return matchesNarrowing(c, narrowing); }).forEach(function (c) {
-                        if (!byCard[c.node.id]) {
-                            byCard[c.node.id] = { id: c.node.id, data: c.node.getData(), children: [] };
-                            order.push(c.node.id);
-                        }
-                        byCard[c.node.id].children.push(contentsNode(c));
-                    });
-                    return { nodes: order.map(function (id) { return byCard[id]; }), edges: [] };
-                });
+                return surroundingsOf(nodes, ctx && ctx.signal).then(surroundingsResult);
             }
         };
     }
@@ -1803,7 +1817,7 @@
         if (!graph || typeof graph.on !== 'function' || !graph.pivots) return;
         var drop = function () {
             graph.pivots.invalidate(ELEMENT_PIVOT);
-            graph.pivots.invalidate(EVENT_CONTENTS_PIVOT);
+            graph.pivots.invalidate(SURROUNDINGS_PIVOT);
         };
         graph.on('nodeAdd', drop);
         graph.on('nodeRemove', drop);
@@ -1881,6 +1895,7 @@
     // than every data key under its own. Blank fields are left out.
     var KIND_LABELS = {
         'object-reference':     'Object reference',
+        'in-event':             'In event',
         'analyst-relationship': 'Analyst relationship',
         'correlation':          'Correlation',
         'feed-correlation':     'Seen in a feed',
@@ -2124,6 +2139,7 @@
                 defaultEdgeStyle: { animateDash: false },
                 edgeStyleMap: {
                     'object-reference':     { strokeColor: '#428bca' },
+                    'in-event':             { strokeColor: '#6c737d', strokeWidth: 1, markerEnd: 'none' },
                     'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
                     'correlation':          { strokeColor: '#888', dashed: true },
                     'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
@@ -2151,7 +2167,7 @@
             pivotQuickIngestLimit: 25,
             // No `save`: correlations are derived, never counted unsaved.
             pivots: [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
-                     taggedEventsPivot(), relatedClustersPivot(), eventContentsPivot()].map(joiningDrawnTags),
+                     taggedEventsPivot(), relatedClustersPivot(), surroundingsPivot()].map(joiningDrawnTags),
             callbacks: {
                 // Another event is a leaf here (PRD §4) — it cannot expand in
                 // place, so double-click hands the analyst over to its own
@@ -2545,7 +2561,7 @@
         function isDeletable(edge) {
             var d = edge.getData ? edge.getData() : null;
             if (!d || !d.uuid) return false;
-            if (d.kind === 'object-reference') return canEdit;
+            if (d.kind === 'object-reference') return canEdit && isOwnElement(nodeData(edge.from));
             if (d.kind === 'analyst-relationship') {
                 return canAnalyst && (siteAdmin || (!!orgUuid && d.orgc === orgUuid));
             }

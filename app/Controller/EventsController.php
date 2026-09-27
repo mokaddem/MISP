@@ -6979,12 +6979,16 @@ class EventsController extends AppController
         $data = $this->request->data;
         $uuids = isset($data['attribute_uuids']) && is_array($data['attribute_uuids']) ? $data['attribute_uuids'] : [];
         $eventIds = isset($data['event_ids']) && is_array($data['event_ids']) ? $data['event_ids'] : [];
-        $pairs = $this->Event->getCorrelatedAttributes($user, (int)$event['Event']['id'], $uuids, $eventIds);
+        $correlated = $this->Event->getCorrelatedAttributes($user, (int)$event['Event']['id'], $uuids, $eventIds);
+        $pairs = $correlated['pairs'];
         $related = array_unique(array_column(array_column($pairs, 'Event'), 'id'));
         $events = $this->Event->correlatedEventCards($user, $related);
+        $priorities = $this->Event->Object->ObjectTemplate->uiPrioritiesFor(array_values($correlated['objects']));
         return $this->RestResponse->viewData([
             'pairs' => $pairs,
             'events' => $events ?: new stdClass(),
+            'objects' => $correlated['objects'] ?: new stdClass(),
+            'ui_priorities' => $priorities ?: new stdClass(),
         ], 'json');
     }
 

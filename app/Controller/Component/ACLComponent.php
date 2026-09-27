@@ -619,6 +619,7 @@ class ACLComponent extends Component
             'quickAddAttributeForm' => array('perm_add'),
             'quickFetchTemplateWithValidObjectAttributes' => array('perm_add'),
             'restSearch' => array('*'),
+            'surroundings' => ['*'],
             'proposeObjectsFromAttributes' => array('*'),
             'groupAttributesIntoObject' => array('perm_add'),
             'revise_object' => array('perm_add'),

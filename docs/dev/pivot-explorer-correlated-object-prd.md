@@ -1,6 +1,6 @@
 # PRD: A correlation lands in its object, and the object's surroundings are one pivot away
 
-**Status:** Proposed 2026-09-27, not started.
+**Status:** Built 2026-09-27. See §8.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md). Changes the landing of
 task 5's *Correlations* pivot; supersedes task 34's *Event contents* as the way into another
@@ -96,3 +96,39 @@ withdrawing *Event contents* (C5).
    they may not see, and *Around this object* returns nothing they may not read.
 6. The unit tests cover the landing shapes and the new pivot; the PHP endpoint is checked live
    for access as the tag pivots were.
+
+## 8. State
+
+| # | Piece | Status | Note |
+|---|---|---|---|
+| 1 | `MispObject::fetchGraphObjects`: readable live objects with their readable attributes, tags (local ones only for the owning org) and warninglist hits | ✅ | |
+| 2 | `ObjectTemplate::uiPrioritiesFor`: template ranks for any objects, split out of `uiPrioritiesForEvent` | ✅ | Needed for C4: a foreign object leads with its template's attribute like this event's do |
+| 3 | `correlatedAttributes` returns `objects` (keyed by uuid) and `ui_priorities`; a pair's `Object` is null when the user cannot read it | ✅ | The object's name no longer leaks through the pair |
+| 4 | `GET /objects/surroundings/{uuid}.json` + ACL entry | ✅ | Returns `{objects, references, event, ui_priorities}`: `event` is the card, so the neighbours can be joined to it even when it left the canvas. References are object-to-object only, and only between objects the user may read. A malformed uuid is a 404 |
+| 5 | Client landing (C1, C2), `in-event` edge kind | ✅ | `in-event`: `#6c737d`, 1 px, no arrowhead (`markerEnd: 'none'`), in the Relationship filter. A pair's attribute is put inside its object even when the object's payload lacks it |
+| 6 | *Around this object* pivot | ✅ | Pivot id `object-surroundings`, read once per object. A reference it lands is another event's, so Delete spares it: a reference is deletable only from this event's own object |
+| 7 | *Event contents* withdrawn (C5) | ✅ | |
+| 8 | Unit tests | ✅ | 575 assertions (569 before) |
+| 9 | Live check on the dev instance (acceptance 1–5) | ✅ | See §9 |
+
+`✅` done · `🔜` next · `⏸` blocked
+
+## 9. Live check, 2026-09-27
+
+Event **752** correlates 14 times into **1052**: 6 attributes outside any object, and 8 inside
+four `file` objects (2473 and 2485 three times each).
+
+- **1–3.** *Correlations* on everything correlating (12 elements) lands the four objects once
+  each, closed, with their 3 attributes ranked by their own template; one card for 1052 with
+  no children; the 6 free attributes; 10 `in-event` edges (4 objects + 6 attributes). 8 of the
+  14 correlation edges end inside an object.
+- **4.** *Around this object* on 2473 (`2c61724f…`) offers 2, and a one-click run lands the two
+  `virustotal-report` objects with their two `analysed-with` references (39 → 47 nodes,
+  24 → 28 edges); undo returns to 39 and 24.
+- **5.** As `orgadmin@circl.lu` (org 9; 1052 is org 1's), with 2485 and 2508 set to
+  distribution 0 for the run and restored after: 2485 does not land, and neither do its three
+  correlated attributes (11 correlations instead of 14). MISP's attribute read already
+  withholds an unreadable object's attributes, so they don't land free, as this PRD assumed;
+  they don't land at all. The client's free fallback stays, for a pair whose object is missing
+  from `objects`. *Around this object* on 2473 returns only 2474 and its one reference.
+- `GET /objects/queryACL/findMissingFunctionNames` is `[]` as admin.

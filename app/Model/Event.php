@@ -905,13 +905,16 @@ class Event extends AppModel
      * @param int $eventId
      * @param array $attributeUuids only these of the event's attributes; all when empty
      * @param array $relatedEventIds only correlations into these events; all when empty
-     * @return array list of ['source_uuid', 'Attribute', 'Event', 'Object']
+     * @return array 'pairs': list of ['source_uuid', 'Attribute', 'Event', 'Object'],
+     *               Object null unless the user may read it; 'objects': those
+     *               objects as MispObject::fetchGraphObjects() shapes them
      */
     public function getCorrelatedAttributes(array $user, $eventId, array $attributeUuids = [], array $relatedEventIds = [])
     {
+        $none = ['pairs' => [], 'objects' => []];
         $related = $this->getRelatedAttributes($user, $eventId);
         if (empty($related)) {
-            return [];
+            return $none;
         }
         $conditions = [
             'Attribute.id' => array_keys($related),
@@ -938,7 +941,7 @@ class Event extends AppModel
             }
         }
         if (empty($pairs)) {
-            return [];
+            return $none;
         }
 
         $targets = $this->Attribute->fetchAttributesSimple($user, [
@@ -949,13 +952,20 @@ class Event extends AppModel
             'fields' => ['Attribute.id', 'Attribute.uuid', 'Attribute.type', 'Attribute.category', 'Attribute.value'],
             'contain' => [
                 'Event' => ['fields' => ['Event.id', 'Event.uuid', 'Event.info']],
-                'Object' => ['fields' => ['Object.uuid', 'Object.name']],
+                'Object' => ['fields' => ['Object.id', 'Object.uuid', 'Object.name']],
             ],
         ]);
         $byId = [];
+        $objectIds = [];
         foreach ($targets as $target) {
             $byId[$target['Attribute']['id']] = $target;
+            if (!empty($target['Object']['id'])) {
+                $objectIds[$target['Object']['id']] = true;
+            }
         }
+        $objects = empty($objectIds) ? [] : $this->Object->fetchGraphObjects($user, [
+            'Object.id' => array_map('strval', array_keys($objectIds)),
+        ]);
 
         $result = [];
         foreach ($pairs as [$sourceUuid, $targetId]) {
@@ -967,10 +977,10 @@ class Event extends AppModel
                 'source_uuid' => $sourceUuid,
                 'Attribute' => $target['Attribute'],
                 'Event' => $target['Event'],
-                'Object' => !empty($target['Object']['uuid']) ? $target['Object'] : null,
+                'Object' => isset($objects[$target['Object']['uuid'] ?? '']) ? $target['Object'] : null,
             ];
         }
-        return $result;
+        return ['pairs' => $result, 'objects' => $objects];
     }
 
     /**

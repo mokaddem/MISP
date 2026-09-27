@@ -61,7 +61,18 @@ class ObjectTemplate extends AppModel
             'conditions' => ['Object.event_id' => $eventId, 'Object.deleted' => 0],
             'fields' => ['DISTINCT Object.template_uuid', 'Object.template_version'],
         ]);
-        $uuids = array_values(array_unique(Hash::extract($pairs, '{n}.Object.template_uuid')));
+        return $this->uiPrioritiesFor(Hash::extract($pairs, '{n}.Object'));
+    }
+
+    /**
+     * The same map as uiPrioritiesForEvent(), for these objects.
+     *
+     * @param array $objects each with template_uuid and template_version
+     * @return array
+     */
+    public function uiPrioritiesFor(array $objects)
+    {
+        $uuids = array_values(array_unique(array_filter(array_column($objects, 'template_uuid'))));
         if (empty($uuids)) {
             return [];
         }
@@ -82,9 +93,9 @@ class ObjectTemplate extends AppModel
             $byUuid[$template['ObjectTemplate']['uuid']][(int)$template['ObjectTemplate']['version']] = $priorities;
         }
         $result = [];
-        foreach ($pairs as $pair) {
-            $uuid = $pair['Object']['template_uuid'];
-            $version = (int)$pair['Object']['template_version'];
+        foreach ($objects as $object) {
+            $uuid = $object['template_uuid'] ?? null;
+            $version = (int)($object['template_version'] ?? 0);
             if (empty($byUuid[$uuid])) {
                 continue;
             }

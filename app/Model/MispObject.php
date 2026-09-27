@@ -787,6 +787,48 @@ class MispObject extends AppModel
     }
 
     /**
+     * Live objects the user may read, as an event payload shapes them: each
+     * with its readable attributes, their tags and warninglist hits.
+     * Local tags are only the owning organisation's to see.
+     *
+     * @param array $user
+     * @param array $conditions
+     * @return array keyed by object uuid
+     */
+    public function fetchGraphObjects(array $user, array $conditions)
+    {
+        $conditions['Object.deleted'] = 0;
+        $rows = $this->fetchObjects($user, ['conditions' => $conditions]);
+        $isAdmin = !empty($user['Role']['perm_site_admin']);
+        $warninglist = ClassRegistry::init('Warninglist');
+        $objects = [];
+        foreach ($rows as $row) {
+            $seesLocal = $isAdmin || (string)($row['Event']['org_id'] ?? '') === (string)$user['org_id'];
+            $attributes = [];
+            foreach ($row['Attribute'] ?? [] as $attribute) {
+                $tags = [];
+                foreach ($attribute['AttributeTag'] ?? [] as $attributeTag) {
+                    if (empty($attributeTag['Tag']) || (!empty($attributeTag['local']) && !$seesLocal)) {
+                        continue;
+                    }
+                    $tags[] = $attributeTag['Tag'] + [
+                        'local' => !empty($attributeTag['local']),
+                        'relationship_type' => $attributeTag['relationship_type'] ?? null,
+                    ];
+                }
+                unset($attribute['AttributeTag']);
+                $attribute['Tag'] = $tags;
+                $attributes[] = $attribute;
+            }
+            $warninglist->attachWarninglistToAttributes($attributes);
+            $object = $row['Object'];
+            $object['Attribute'] = $attributes;
+            $objects[$object['uuid']] = $object;
+        }
+        return $objects;
+    }
+
+    /**
      * Prepare the template form view's data, setting defaults, sorting elements
      * @param array $template
      * @param array $request
