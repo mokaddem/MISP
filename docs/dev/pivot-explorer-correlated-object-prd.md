@@ -45,7 +45,7 @@ structured, and drawn the same way as this event's own objects.
 | C2 | What joins it to its event | An **`in-event`** edge kind, from the object (or free attribute) to the card: thin, grey, undirected-looking, on its own layer so the filter can hide it. |
 | C3 | How far *Around this object* reaches | **One step of object references, both directions, within B.** Further is another run from what landed. |
 | C4 | What the object brings | **All of its live attributes the user can see**, as today's own objects do. |
-| C5 | *Event contents* | **Withdrawn** once this lands. The typed expansions of the event card replace it. |
+| C5 | *Event contents* | **Withdrawn** once this lands. The typed expansions of the event card replace it ([`pivot-explorer-event-expansions-prd.md`](pivot-explorer-event-expansions-prd.md), built 2026-09-27). |
 | C6 | This event's side of a pair | Unchanged: it lands where this event's elements land. |
 
 ## 4. Endpoint
@@ -78,7 +78,7 @@ withdrawing *Event contents* (C5).
 
 **Out:**
 - The event card's typed expansions (*its IPs*, *its IDS indicators*, *what else correlates with
-  my canvas*): their own PRD.
+  my canvas*): their own PRD, [`pivot-explorer-event-expansions-prd.md`](pivot-explorer-event-expansions-prd.md).
 - Grouping a large landing by type: parked until pivotick groups nodes by property.
 - More than one step of references per run.
 
