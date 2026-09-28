@@ -514,29 +514,24 @@
         });
     }
 
-    // The tag and cluster nodes this event carries, on itself or on one of
-    // its live attributes, by node id.
+    // The tags and clusters this event carries, on itself or on one of its
+    // live attributes, by node id: { tag } or { cluster }.
     var _ownLabels = null, _ownLabelsFor = null;
-    function ownLabelIds() {
+    function ownLabels() {
         if (_ownLabels && _ownLabelsFor === _event) return _ownLabels;
-        var ids = {};
-        var add = function (rec) {
-            var f = tagFields(rec);
-            (f.tags || []).forEach(function (t) { ids[tagNodeId(t)] = true; });
-            (f.clusters || []).forEach(function (c) { ids[clusterNodeId(c)] = true; });
-        };
-        add((_event && _event.Event) || {});
         var byUuid = ownAttributeIndex().byUuid;
-        Object.keys(byUuid).forEach(function (uuid) { add(byUuid[uuid]); });
+        var recs = [(_event && _event.Event) || {}].concat(Object.keys(byUuid).map(function (uuid) {
+            return byUuid[uuid];
+        }));
+        _ownLabels = labelsOf(recs.map(tagFields));
         _ownLabelsFor = _event;
-        _ownLabels = ids;
-        return ids;
+        return _ownLabels;
     }
 
     function inThisEvent(node) {
         var d = node.getData() || {};
         if (d.scope === 'self') return true;
-        return (d.type === 'tag' || d.type === 'cluster') && !!ownLabelIds()[node.id];
+        return (d.type === 'tag' || d.type === 'cluster') && !!ownLabels()[node.id];
     }
 
     function provenanceLegendEntries(graph) {
@@ -1666,32 +1661,50 @@
     }
 
     /* ── the event's elements, as an origin-less pivot (D4, P0) ── */
-    // Everything the canvas does not hold yet: event-level attributes, and
-    // objects whole. Its Review tab is the searchable, paged list; ingesting
-    // is putting elements on the canvas, and undo takes them back off. A view
-    // write, so every viewer gets it.
+    // Everything the canvas does not hold yet: event-level attributes,
+    // objects whole, and the tags and clusters the event carries. Its Review
+    // tab is the searchable, paged list; ingesting is putting elements on the
+    // canvas, and undo takes them back off. A view write, so every viewer
+    // gets it.
     var ELEMENT_PIVOT = 'event-elements';
+
+    // Offered in this order; tags and clusters only when asked for, since a
+    // plain browse is for the event's contents.
+    var ELEMENT_KINDS = [
+        { value: 'attribute', label: 'Attributes' },
+        { value: 'object',    label: 'Objects' },
+        { value: 'tag',       label: 'Tags' },
+        { value: 'cluster',   label: 'Galaxy clusters' }
+    ];
+    var DEFAULT_ELEMENT_KINDS = ['attribute', 'object'];
 
     // Lower-cased text a search matches against, built once per element. An
     // object answers for its attributes, since it is what gets ingested.
     var _haystacks = {};
-    function haystack(kind, rec) {
-        var key = kind + ':' + rec.uuid;
-        if (_haystacks[key] !== undefined) return _haystacks[key];
-        var parts = kind === 'object'
-            ? [rec.name, rec['meta-category'], rec.comment]
-            : [rec.value, rec.type, rec.category, rec.comment];
-        if (kind === 'object') {
+    function haystack(c) {
+        if (_haystacks[c.id] !== undefined) return _haystacks[c.id];
+        var rec = c.rec, parts;
+        if (c.kind === 'object') {
+            parts = [rec.name, rec['meta-category'], rec.comment];
             (rec.Attribute || []).forEach(function (a) {
                 if (!isDeleted(a)) parts.push(a.value, a.type, a.object_relation);
             });
+        } else if (c.kind === 'tag') {
+            parts = [rec.name];
+        } else if (c.kind === 'cluster') {
+            parts = [rec.value, rec.galaxy_name, rec.tag_name];
+        } else {
+            parts = [rec.value, rec.type, rec.category, rec.comment];
         }
-        _haystacks[key] = parts.filter(function (p) { return p != null; }).join('\n').toLowerCase();
-        return _haystacks[key];
+        _haystacks[c.id] = parts.filter(function (p) { return p != null; }).join('\n').toLowerCase();
+        return _haystacks[c.id];
     }
 
-    function elementCategory(kind, rec) {
-        return kind === 'object' ? (rec['meta-category'] || 'object') : (rec.category || 'Other');
+    // A tag or cluster has no category, so a category pick leaves it out.
+    function elementCategory(c) {
+        if (c.kind === 'object') return c.rec['meta-category'] || 'object';
+        if (c.kind === 'attribute') return c.rec.category || 'Other';
+        return null;
     }
 
     function elementCandidates() {
@@ -1701,20 +1714,45 @@
         };
         var out = [];
         (ev.Attribute || []).forEach(function (a) {
-            if (!isDeleted(a) && !drawn('attr:' + a.uuid)) out.push({ kind: 'attribute', rec: a });
+            var id = 'attr:' + a.uuid;
+            if (!isDeleted(a) && !drawn(id)) out.push({ kind: 'attribute', id: id, rec: a });
         });
         (ev.Object || []).forEach(function (o) {
-            if (!isDeleted(o) && !drawn('obj:' + o.uuid)) out.push({ kind: 'object', rec: o });
+            var id = 'obj:' + o.uuid;
+            if (!isDeleted(o) && !drawn(id)) out.push({ kind: 'object', id: id, rec: o });
+        });
+        var labels = ownLabels();
+        Object.keys(labels).forEach(function (id) {
+            if (drawn(id)) return;
+            var l = labels[id];
+            out.push(l.tag ? { kind: 'tag', id: id, rec: l.tag, label: l }
+                           : { kind: 'cluster', id: id, rec: l.cluster, label: l });
         });
         return out;
     }
 
+    // `element` is a pick of kinds, the facet's default when absent; an empty
+    // pick is nothing. The one-kind string form still reads.
+    function elementKinds(narrowing) {
+        var e = narrowing.element;
+        if (e == null || e === '') return DEFAULT_ELEMENT_KINDS;
+        return [].concat(e);
+    }
+
     function matchesNarrowing(c, narrowing) {
         var q = String(narrowing.q || '').trim().toLowerCase();
-        if (q && haystack(c.kind, c.rec).indexOf(q) === -1) return false;
-        if (narrowing.element && narrowing.element !== c.kind) return false;
-        if (narrowing.category && narrowing.category !== elementCategory(c.kind, c.rec)) return false;
+        if (q && haystack(c).indexOf(q) === -1) return false;
+        if (elementKinds(narrowing).indexOf(c.kind) === -1) return false;
+        if (narrowing.category && narrowing.category !== elementCategory(c)) return false;
         return true;
+    }
+
+    function elementKindOptions(candidates) {
+        var counts = {};
+        candidates.forEach(function (c) { counts[c.kind] = (counts[c.kind] || 0) + 1; });
+        return ELEMENT_KINDS.filter(function (k) { return counts[k.value]; }).map(function (k) {
+            return { label: k.label, value: k.value, count: counts[k.value] };
+        });
     }
 
     function countOptions(candidates, keyOf) {
@@ -1730,6 +1768,7 @@
 
     function elementNode(c) {
         var ev = _event.Event;
+        if (c.label) return labelNode(c.id, c.label);
         if (c.kind === 'attribute') {
             return { id: 'attr:' + c.rec.uuid, data: attributeNodeData(c.rec, ownerIn(ev, c.rec)) };
         }
@@ -1754,10 +1793,10 @@
                     total: all.filter(function (c) { return matchesNarrowing(c, narrowing); }).length,
                     facets: [
                         { key: 'q', label: 'Search', type: 'text' },
-                        { key: 'element', label: 'Element', type: 'select',
-                          options: countOptions(all, function (c) { return c.kind; }) },
+                        { key: 'element', label: 'Element', type: 'multiselect',
+                          options: elementKindOptions(all), default: DEFAULT_ELEMENT_KINDS },
                         { key: 'category', label: 'Category', type: 'select',
-                          options: countOptions(all, function (c) { return elementCategory(c.kind, c.rec); }) }
+                          options: countOptions(all.filter(elementCategory), elementCategory) }
                     ]
                 };
             },

@@ -1911,14 +1911,76 @@ test('element and category narrow, and the summary counts what the fetch would b
 test('the form: a search box, then element and category with their counts', async () => {
     const g = await buildGraph(elementFixture());
     const f = elementsOf(g).summarize([], {}).facets;
-    eq('fields', f.map(x => [x.key, x.type]), [['q', 'text'], ['element', 'select'], ['category', 'select']]);
+    eq('fields', f.map(x => [x.key, x.type]), [['q', 'text'], ['element', 'multiselect'], ['category', 'select']]);
     eq('element counts', f[1].options, [
-        { label: 'attribute', value: 'attribute', count: 3 },
-        { label: 'object', value: 'object', count: 1501 },
+        { label: 'Attributes', value: 'attribute', count: 3 },
+        { label: 'Objects', value: 'object', count: 1501 },
     ]);
+    eq('attributes and objects picked by default', f[1].default, ['attribute', 'object']);
     eq('category counts, objects by meta-category',
        f[2].options.map(o => [o.value, o.count]),
        [['Network activity', 2], ['Payload delivery', 1], ['file', 1500], ['network', 1]]);
+});
+
+// A tag on the event itself, a tag and a cluster on an event-level attribute,
+// a tag on an object's attribute, and one on a deleted attribute.
+function labelledElementFixture() {
+    return ev({
+        Tag: [{ name: 'tlp:white', colour: '#ffffff', is_galaxy: false }],
+        Attribute: [
+            attr({ uuid: 'a1', value: 'evil.com', type: 'domain', category: 'Network activity',
+                   Tag: [{ name: 'osint:source-type="blog-post"', colour: '#00a' }, TAG_APT], Galaxy: [GAL_APT] }),
+            attr({ uuid: 'a2', value: 'gone', deleted: true, Tag: [{ name: 'stale', colour: '#000' }] }),
+        ],
+        Object: [obj({ uuid: 'O', name: 'file', 'meta-category': 'file', Attribute: [
+            attr({ uuid: 'oc1', value: 'x.exe', Tag: [{ name: 'admiralty-scale:source-reliability="f"' }] }),
+        ] })],
+    });
+}
+
+const TAG_KINDS = { element: ['tag', 'cluster'] };
+
+test('elements: the event\'s tags and clusters are offered, but a plain browse leaves them out', async () => {
+    const g = await buildGraph(labelledElementFixture());
+    const p = elementsOf(g);
+    eq('by default, the event\'s contents', offered(g).filter(i => !/^(attr|obj):/.test(i)), []);
+    eq('asked for, every tag and cluster the event carries, on itself or a live attribute', offered(g, TAG_KINDS), [
+        'cluster:misp-galaxy:threat-actor="APT28"',
+        'tag:admiralty-scale:source-reliability="f"',
+        'tag:osint:source-type="blog-post"',
+        'tag:tlp:white',
+    ]);
+    eq('the picker offers them, unpicked', p.summarize([], {}).facets[1].options.map(o => [o.value, o.label, o.count]),
+       [['attribute', 'Attributes', 1], ['tag', 'Tags', 3], ['cluster', 'Galaxy clusters', 1]]);
+    eq('category counts leave them out', p.summarize([], {}).facets[2].options.map(o => o.value),
+       ['Network activity']);
+    eq('a category pick leaves them out', offered(g, { element: ['attribute', 'tag'], category: 'Network activity' }),
+       ['attr:a1']);
+    eq('the one-kind string form still reads', offered(g, { element: 'tag' }).length, 3);
+    eq('an empty pick is nothing', offered(g, { element: [] }), []);
+    [{}, TAG_KINDS, { element: ['tag'], q: 'TLP' }].forEach(n => {
+        eq('summary = fetch for ' + JSON.stringify(n), p.summarize([], n).total, p.fetch([], n, {}).nodes.length);
+    });
+});
+
+test('elements: a tag lands as the tag pivot draws it, and by itself when nothing drawn carries it', async () => {
+    const g = await buildGraph(labelledElementFixture());
+    const r = elementsOf(g).fetch([], { element: ['tag', 'cluster'], q: 'tlp' }, {});
+    eq('the event\'s own tag', r.nodes.map(n => [n.id, n.data.type, n.data.name]), [['tag:tlp:white', 'tag', 'tlp:white']]);
+    eq('with no edge', r.edges, []);
+    eq('search reaches a cluster by its value', offered(g, { element: ['cluster'], q: 'apt28' }),
+       ['cluster:misp-galaxy:threat-actor="APT28"']);
+});
+
+test('elements: a tag already drawn is not offered, and one on a drawn attribute is joined to it', async () => {
+    const g = await buildGraph(labelledElementFixture());
+    g.graph.liveNode({ id: 'attr:a1', data: { type: 'attribute', uuid: 'a1',
+                                              tags: [{ name: 'osint:source-type="blog-post"' }] } });
+    g.graph.liveNode({ id: 'tag:tlp:white', data: { type: 'tag', name: 'tlp:white' } });
+    g.graph.getNode = id => g.graph.live[id];
+    ok('the drawn tag is left out', offered(g, TAG_KINDS).indexOf('tag:tlp:white') === -1);
+    const r = elementsOf(g).fetch([], { element: ['tag'], q: 'blog-post' }, {});
+    eq('the drawn carrier is joined', r.edges.map(e => [e.from, e.to]), [['attr:a1', 'tag:osint:source-type="blog-post"']]);
 });
 
 test('its summaries are dropped whenever a node comes or goes', async () => {
