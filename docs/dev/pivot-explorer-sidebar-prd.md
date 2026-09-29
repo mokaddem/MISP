@@ -1,6 +1,6 @@
 # PRD: A sidebar that completes the node
 
-**Status:** Contract built 2026-09-29 (§5.1); exploration next.
+**Status:** Contract built 2026-09-29 (§5.1); exploration done (§5.2); pick next.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 **Depends on:** the persona branch's context priority (§4), merged into `personas-pivotick` on 2026-09-29.
@@ -216,6 +216,42 @@ build and capture commands, and one assigned direction:
 
 Each covers every fixture. Deliverables are local files under `prd/pivot-sidebar/`, with
 screenshots per fixture and theme.
+
+#### What came back (2026-09-29)
+
+The brief is `prd/pivot-sidebar/brief.md`. All three candidates cover all 14 fixtures and pass
+`capture.mjs` in the ready, pending and failed states (28 of 28 each). Each has a `NOTES.md`
+next to its `render.js`; `compare.html?only=<fixture>&theme=&lazy=` draws the three side by side.
+
+| | A. `a-card` | B. `b-priority` | C. `c-questions` |
+|---|---|---|---|
+| First screen | the node's card, complete, at full width | identity, then a ranked *Notice* list | the card, then four question headings each with its answer |
+| Rest | Context, Links, Activity, Record, each collapsible, same four for every entity | one fold, *Everything else*, opened at a section by chips | the evidence under each question; Record folded last |
+| Best on | event-galaxies, object-many: the card grows into the record | the warninglisted and sighted attributes; event-galaxies | the warninglisted and sighted attributes; multi-events ("1 label on all 3 · 4 on some") |
+| Weak on | tag, cluster-bare, edges: all card, empty rows | object-many, tag, cluster, feed, edges: the list turns into a fact list or "nothing stands out" | tag, feed, edges: one or two questions, sparse; events have no noise question |
+| Missing pins | drawn, as a quiet closing line | events only: attributes inherit their event's handling | drawn, under *What do we know?* |
+| Single view mounts in | header + one extra panel; properties hidden | header + properties | header + properties |
+
+The ranking rule B defines is fixed across entities: noise (false-positive warninglist,
+disputed), caution (other warninglists, FP/expiration sightings, unpublished), handling
+(pinned tlp/PAP, most restrictive first), other pinned then preferred context, reach
+(sightings, correlations, feeds), state (edge kind, analyst data, reports).
+
+**Found on the way, beyond the candidates:**
+
+- **Icons draw as solid squares on the event page.** The Overmind layout loads both
+  `misp-iconify.css` (the mask build, 64 icons) and `misp-iconify-font.css`, and both define
+  `.misp-icon`; the mask sheet paints the box in `currentColor`, so every icon it has no mask
+  for (galaxy, object, attribute-type glyphs) is a filled square. A and B hit it independently.
+- **pivotick's header lays its child out as a flex row.** A and C both override it; a header
+  that takes a plain block would make that unnecessary.
+- **The frame keeps a lazy read's data when it flips it to pending**, so a foreign node's
+  card still shows fields that came from the read. The view-model does not say which fields a
+  read supplied; wiring needs that to draw a real pending state.
+- **View-model gaps all three name:** correlations, related events and cluster relations are
+  bare counts with nothing to open; analyst items carry an org uuid but no name; sightings have
+  no per-org split by type. A also wants the org uuid on the card (monogram colour), C an
+  event-level count of noisy attributes, B the profile's name.
 
 ### 5.3 Pick
 
