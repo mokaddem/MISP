@@ -156,6 +156,14 @@ class AnalystDataParentBehavior extends ModelBehavior
                     }
                 }
             }
+            if (in_array('Relationship', $types, true) && !empty($this->__currentUser)) {
+                $inbound = $this->Relationship->getInboundRelationshipsForUuids($this->__currentUser, $model->alias, $uuids);
+                foreach ($chunked_objects as $k => $object) {
+                    if (!empty($object['uuid']) && !empty($inbound[$object['uuid']])) {
+                        $objects[$chunk][$k]['RelationshipInbound'] = $inbound[$object['uuid']];
+                    }
+                }
+            }
         }
         $objects = call_user_func_array('array_merge', $objects);
         return $objects;

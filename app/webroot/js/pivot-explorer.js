@@ -4,7 +4,7 @@
 // The element owns the markup and the server-side values; this file owns all
 // behaviour. Config is read off #pe-card's data-* attributes:
 //
-//   [data-pe-event-id]     event fetched as /events/view/{id}.json
+//   [data-pe-event-id]     event fetched as /events/view/{id}/includeServerCorrelations:1.json
 //   [data-pe-baseurl]      MISP $baseurl, prefixed onto every request
 //   [data-pe-can-edit]     "1" when the viewer may add object references
 //   [data-pe-lib-missing]  translated error: pivotick failed to load
@@ -151,35 +151,57 @@
     // node on this canvas. AnalystData::valid_targets is far wider than the
     // canvas — EventReport, GalaxyCluster, Organisation, SharingGroup and the
     // analyst-data types are all legal targets. An 'Event' target is drawn as
-    // an event node, from the record the payload attaches (relationshipEvent).
-    function analystTargetId(rel) {
-        var t = String(rel.related_object_type || '');
-        if (t === 'Attribute') return 'attr:'  + rel.related_object_uuid;
-        if (t === 'Object')    return 'obj:'   + rel.related_object_uuid;
-        if (t === 'Event')     return 'event:' + rel.related_object_uuid;
+    // an event node, from the record the payload attaches (relationshipFarEnd).
+    function analystNodeId(type, uuid) {
+        var t = String(type || '');
+        if (t === 'Attribute') return 'attr:'  + uuid;
+        if (t === 'Object')    return 'obj:'   + uuid;
+        if (t === 'Event')     return 'event:' + uuid;
         return null;
     }
 
-    // The event an 'Event'-typed relationship points at, as Relationship's
-    // afterFind attaches it (fetchSimpleEvent), or null. Empty when the viewer
-    // cannot see that event, which leaves the relationship undrawable.
-    function relationshipEvent(rel) {
-        var e = rel.related_object && rel.related_object.Event;
-        return (e && e.uuid && String(e.uuid) === String(rel.related_object_uuid)) ? e : null;
+    function analystTargetId(rel) {
+        return analystNodeId(rel.related_object_type, rel.related_object_uuid);
     }
 
-    // Walk every outbound analyst relationship in the event, calling
-    // cb(relationship, sourceNodeId). Sources are the event itself, event-level
-    // attributes, objects, and objects' child attributes; a tombstoned owner is
-    // skipped whole, exactly as it is on the canvas.
-    //
-    // RelationshipInbound is deliberately absent: the bulk path attaches it only
-    // at event level (PRD §3.4).
+    // The far end of a relationship — its target when outbound, its source
+    // when inbound — as MISP attaches it in `related_object`, read with the
+    // viewer's access. Null when the viewer cannot read it, which leaves the
+    // relationship undrawable. An attribute or object carries its event and
+    // that event's creator org (Relationship::rearrangeData).
+    function relationshipFarEnd(rel, farId) {
+        var ro = rel.related_object || {};
+        var uuid = farId.slice(farId.indexOf(':') + 1);
+        var key = { event: 'Event', attr: 'Attribute', obj: 'Object' }[farId.slice(0, farId.indexOf(':'))];
+        var rec = ro[key];
+        if (!rec || String(rec.uuid) !== uuid || isDeleted(rec)) return null;
+        if (key === 'Event') return { type: 'event', record: rec };
+        if (!rec.Event || !rec.Event.uuid) return null;
+        return {
+            type:   key === 'Attribute' ? 'attribute' : 'object',
+            record: rec,
+            event:  Object.assign({}, rec.Event, { Orgc: rec.Organisation })
+        };
+    }
+
+    // Walk every analyst relationship touching the event, calling
+    // cb(relationship, fromId, toId, farId): outbound ones from the event
+    // itself, event-level attributes, objects, and objects' child attributes,
+    // and inbound ones pointing at any of those. farId names the end that is
+    // not the element walked. A tombstoned owner is skipped whole, exactly as
+    // it is on the canvas.
     function eachAnalystRelationship(ev, cb) {
-        function walk(rec, sourceId) {
+        function walk(rec, selfId) {
             if (isDeleted(rec)) return;
             (rec.Relationship || []).forEach(function (rel) {
-                if (!isDeleted(rel)) cb(rel, sourceId);
+                if (isDeleted(rel)) return;
+                var to = analystTargetId(rel);
+                cb(rel, selfId, to, to);
+            });
+            (rec.RelationshipInbound || []).forEach(function (rel) {
+                if (isDeleted(rel)) return;
+                var from = analystNodeId(rel.object_type, rel.object_uuid);
+                cb(rel, from, selfId, from);
             });
         }
         if (ev.uuid) walk(ev, 'event:' + ev.uuid);
@@ -204,6 +226,8 @@
         var liveObj           = {};   // uuid -> true, for endpoint resolution
         var liveAttr          = {};
         var liveEvent         = {};   // event node id -> record; others join per relationship
+        var liveForeign       = {};   // another event's attr/obj node id -> relationshipFarEnd
+        var foreignTouched    = {};
 
         if (ev.uuid) liveEvent['event:' + ev.uuid] = ev;
 
@@ -219,14 +243,16 @@
             });
         });
 
-        // Does this node id name a live element of *this* event? A relationship
-        // whose other end is a tombstone, lives in another event, or is an
-        // element type the canvas does not draw is not drawable — and an
-        // undrawable relationship must seed neither end, or its source arrives
-        // as an isolated node with no edge.
+        // Does this node id name a live element of this event, or one of
+        // another event's the payload let the viewer read? A relationship
+        // whose other end is a tombstone, unreadable, or an element type the
+        // canvas does not draw is not drawable — and an undrawable
+        // relationship must seed neither end, or its source arrives as an
+        // isolated node with no edge.
         function exists(id) {
             if (!id) return false;
             if (id.indexOf('event:') === 0) return !!liveEvent[id];
+            if (liveForeign[id]) return true;
             return id.indexOf('obj:') === 0
                 ? !!liveObj[id.slice(4)]
                 : !!liveAttr[id.slice(5)];
@@ -238,6 +264,10 @@
             if (!id) return;
             if (id.indexOf('event:') === 0) {
                 eventTouched[id] = liveEvent[id];
+                return;
+            }
+            if (liveForeign[id]) {
+                foreignTouched[id] = liveForeign[id];
                 return;
             }
             if (id.indexOf('obj:') === 0) {
@@ -261,24 +291,25 @@
             });
         });
 
-        eachAnalystRelationship(ev, function (rel, sourceId) {
-            if (rel.related_object_uuid && rel.object_uuid === rel.related_object_uuid) {
+        eachAnalystRelationship(ev, function (rel, fromId, toId, farId) {
+            if (!fromId || !toId || fromId === toId) {
                 return;   // self-reference; the model rejects these, guard anyway
             }
-            var targetId = analystTargetId(rel);
-            if (targetId && targetId.indexOf('event:') === 0 && !liveEvent[targetId]) {
-                var other = relationshipEvent(rel);
-                if (other) liveEvent[targetId] = other;
+            if (!exists(farId)) {
+                var far = relationshipFarEnd(rel, farId);
+                if (far && far.type === 'event') liveEvent[farId] = far.record;
+                else if (far && String(far.event.uuid) !== String(ev.uuid)) liveForeign[farId] = far;
             }
-            if (!exists(targetId)) return;
-            markEndpoint(sourceId);
-            markEndpoint(targetId);
+            if (!exists(fromId) || !exists(toId)) return;
+            markEndpoint(fromId);
+            markEndpoint(toId);
         });
 
         return {
             linkedAttrUuids:   linkedAttrUuids,
             connectedObjUuids: connectedObjUuids,
-            eventTouched:      eventTouched
+            eventTouched:      eventTouched,
+            foreignTouched:    foreignTouched
         };
     }
 
@@ -316,7 +347,17 @@
             return { id: id, record: conn.eventTouched[id] };
         });
 
-        var l1 = eventNodes.length;
+        // Another event's attribute or object, with its event's card beside it.
+        var foreignNodes = Object.keys(conn.foreignTouched).map(function (id) {
+            return Object.assign({ id: id }, conn.foreignTouched[id]);
+        });
+        var cards = {};
+        foreignNodes.forEach(function (f) {
+            var cardId = 'event:' + f.event.uuid;
+            if (!conn.eventTouched[cardId]) cards[cardId] = true;
+        });
+
+        var l1 = eventNodes.length + foreignNodes.length + Object.keys(cards).length;
         (ev.Attribute || []).forEach(function (a) {
             if (!isDeleted(a) && conn.linkedAttrUuids[a.uuid]) l1++;
         });
@@ -337,6 +378,7 @@
             linkedAttrUuids:   conn.linkedAttrUuids,
             connectedObjUuids: conn.connectedObjUuids,
             eventNodes:        eventNodes,
+            foreignNodes:      foreignNodes,
             // Objects L2 actually draws — empty when the level did not fit, so
             // "is this object on the canvas?" is one lookup for every caller.
             l2Uuids:           l2Fits ? l2Uuids : {}
@@ -811,6 +853,18 @@
             addNode(e.id, { id: e.id, data: eventNodeData(e.record) });
         });
 
+        /* L1 — another event's attribute or object at the far end of an
+           analyst relationship, beside its event's card. It lands free and
+           closed: the payload names the element, not the rest of its object. */
+        seed.foreignNodes.forEach(function (f) {
+            var owner  = provenance(f.event.id, f.event.uuid);
+            var cardId = 'event:' + f.event.uuid;
+            addNode(f.id, { id: f.id, data: f.type === 'attribute'
+                ? attributeNodeData(f.record, owner) : objectNodeData(f.record, owner) });
+            addNode(cardId, { id: cardId, data: eventNodeData(f.event) });
+            addEdge(f.id, cardId, '', 'in-event');
+        });
+
         /* L1 — event-level attributes, surfaced only when an authored
            relationship touches them, so every node stays connected to the
            graph. This also covers referenced screenshots. */
@@ -865,12 +919,10 @@
            means the target has no node on this canvas at all — a relationship
            pointing at another event's attribute, or at an element type the
            canvas does not draw. */
-        eachAnalystRelationship(ev, function (rel, sourceId) {
-            if (rel.related_object_uuid && rel.object_uuid === rel.related_object_uuid) return;
-            var targetId = analystTargetId(rel);
-            if (!targetId || !nodeSet[targetId] || !nodeSet[sourceId]) return;
+        eachAnalystRelationship(ev, function (rel, fromId, toId) {
+            if (!fromId || !toId || fromId === toId) return;
             var type = rel.relationship_type || 'related-to';
-            addEdge(sourceId, targetId, type, 'analyst-relationship',
+            addEdge(fromId, toId, type, 'analyst-relationship',
                     { authors: rel.authors, orgc: rel.orgc_uuid, uuid: rel.uuid,
                       relationship_type: type });
         });
@@ -2921,7 +2973,7 @@
             return;
         }
 
-        fetch(baseurl + '/events/view/' + eventId + '.json', { credentials: 'same-origin' })
+        fetch(baseurl + '/events/view/' + eventId + '/includeServerCorrelations:1.json', { credentials: 'same-origin' })
             .then(function (r) {
                 if (!r.ok) throw new Error(r.status);
                 return r.json();

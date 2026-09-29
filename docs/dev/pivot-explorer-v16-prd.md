@@ -165,15 +165,18 @@ still described "pivotick's Edit ▸ Add edge tool" has been refreshed according
 - **Analyst data is already on the wire.** `/events/view/{id}.json` takes the REST path, which
   sets `includeAnalystData = true` unconditionally (`EventsController.php:1787`). Attributes,
   objects and event reports carry flat `Note` / `Opinion` / `Relationship` arrays plus flattened
-  child notes/opinions; the event itself also carries `RelationshipInbound`.
+  child notes/opinions, and `RelationshipInbound` wherever something points at the element
+  (task 41).
 - **`RelatedEvent` is already on the wire** — `includeEventCorrelations` defaults true
   (`Event.php:2953-2954`), with `id, uuid, info, date, threat_level_id, analysis, published,
   distribution, org_id, orgc_id` + `Org`/`Orgc`.
 - **`RelatedAttribute` is not**, for REST: `includeGranularCorrelations` is set only when
   `!_isRest()` or the named param is present (`EventsController.php:1858-1862`). Under D9 this
   is a **feature**, not a gap — see §6.7.
-- **Inbound analyst relationships are missing on attributes/objects** — the bulk path
-  (`attachAnalystDataBulk`) does not add `RelationshipInbound`; only the event level gets it.
+- ✅ **Inbound analyst relationships on attributes/objects** (task 41). The bulk path
+  (`attachAnalystDataBulk`) did not add `RelationshipInbound`, and the event level's, computed
+  by `afterFind`, was dropped by `JSONConverterTool::convert`. Both now arrive, each carrying its
+  source element in `related_object`, read with the viewer's access.
 - **Saved graph layouts already exist** — `EventGraphController` + `EventGraph` model, ACL
   `view: *`, `add: perm_add`, `delete: perm_modify` (`ACLComponent.php:1105-1110`). The legacy
   event graph used this via `quickSaveNetworkHistory`.
@@ -330,8 +333,6 @@ into P0 and are decided where their tasks land.
   correlation aggregate already exists (`RelatedEvent`), and feed correlations already degrade to a
   count past 10,000 hits (D1); the object one does not exist, and building it is new endpoint work.
   See §11.
-- **`server-correlation` as a shipped layer.** The kind is defined (D1) but the data is absent from
-  the REST payload by default; whether to request it is deferred (§11).
 - **Analyst-data threads.** Flat list in the sidebar panel; no nested renderer.
 - Relationship targets outside the graph's node universe (Galaxy, Organisation, SharingGroup).
 - Retiring the legacy `/events/view_graph`, or touching `EventGraphTool` / `getEventGraph*`.
@@ -659,7 +660,7 @@ filter hides them — asking "what asserts `-by`" is asking about authored edges
 | ~~`event-correlation`~~ | ~~`RelatedEvent`~~ — **removed by R7**: correlations are attribute to attribute only | — |
 | `correlation` | `RelatedAttribute` | **no** — on demand (D9) |
 | `feed-correlation` | `attribute.Feed[]` | **yes, free** (`includeFeedCorrelations = 1` unconditionally, `EventsController.php:1857`) |
-| `server-correlation` | `attribute.Server[]` | no — needs `includeServerCorrelations:1` (forced to 0 for REST, `:1864-1866`) |
+| `server-correlation` | `attribute.Server[]` | yes — the fetch asks for `includeServerCorrelations:1` (REST defaults it to 0); the model still withholds it from whoever may not see it (task 41) |
 
 **`event-correlation` is not folded into `correlation`** (settled 2026-08-31, task 3b; the kind
 itself is gone since R7), and the split is load-bearing.
@@ -675,6 +676,14 @@ dashed, the green of the event nodes it joins.
 `isDirected: true`, so the arrowhead already carries which way the assertion points; a separate
 layer would double the vocabulary to say what the arrow says. The "another org asserted this about
 my data" signal is carried in the sidebar panel instead.
+
+**A relationship's far end in another event is drawn** (task 41), in either direction. The far end
+is the target of an outbound relationship and the source of an inbound one, and MISP attaches it
+in `related_object`, read with the viewer's access. Another event is its card, as before. Another
+event's attribute or object lands free and closed beside its event's card, joined by `in-event`:
+the payload names the element, not the rest of its object. It is charged to L1 with its card. A
+far end the viewer cannot read, or a tombstone, is not drawable, and nothing says it was there.
+A relationship inside this event arrives from both ends and draws once.
 
 **Two new node types: `feed` and `server`.** Reversing an earlier recommendation to exclude them —
 the exclusion rested on a misreading. The `$isSiteAdmin` guard at `Event.php:3374` is on the
@@ -1138,8 +1147,11 @@ attributes it holds, one not drawn yet coming along. A remote feed without a cac
 uuid-only cards. *Preview in feed* opens `feeds/previewEvent`. The manifest carries no counts or
 distribution, so the card's footer names the feed instead.
 
-**Server correlations are built but not requested.** The code is the feed code on `ev.Server`; the
-REST fetch leaves `includeServerCorrelations` at 0, so the layer stays empty (§4).
+**Server correlations are requested** (task 41). The code is the feed code on `ev.Server`. The
+event is fetched as `/events/view/{id}/includeServerCorrelations:1.json`, which the event view
+itself asks for by default; REST alone defaults it to 0. `Event::fetchEvent` still drops it for a
+user who is neither site admin nor in the host org, unless
+`MISP.show_server_correlations_for_all_users` is set. For them the layer is simply absent.
 
 Options:
 
@@ -1392,9 +1404,9 @@ Two smaller items:
 
 - **Annotation counts** are derived client-side in `attributeNodeData()` / `objectNodeData()`
   from the inline `Note`/`Opinion` arrays. No endpoint work.
-- **Inbound analyst relationships** are absent from the bulk path. Phase 1 derives them
-  client-side by inverting the outbound set (both endpoints are usually in the same event); a
-  fix to `attachAnalystDataBulk` is Phase 2.
+- ✅ **Inbound analyst relationships** are attached by `attachAnalystDataBulk` (task 41): one
+  query per chunk of 1,000 uuids on the indexed `related_object_uuid`, and the key only where
+  something points at the element.
 
 ## 7. Edge Cases
 
@@ -1447,9 +1459,9 @@ Two smaller items:
 - **Server fields are restricted.** Non-site-admin users outside the host org get only `id` and
   `name` on a `Server` source (`Feed.php:613-620`), so a server node's label is all there is —
   no tooltip detail, no URL. Server event-UUID hits are withheld entirely (`:648-652`).
-- **Server correlations are absent by default.** `includeServerCorrelations` is forced to 0 for
-  REST, so the `server-correlation` layer is empty unless the fetch asks for it. Decide whether it
-  joins the D9 on-demand request or is simply never shown on this page (§11).
+- ✅ **Server correlations are requested with the event** (task 41), not on demand: they cost
+  what feed correlations cost, which the payload already pays. Past 10,000 hits MISP degrades
+  them the feed way, flagging `FeedHit`, so on such an event a server hit wears the feed badge.
 - **Self-referencing analyst relationship** — `Relationship::beforeValidate` rejects
   `object_uuid == related_object_uuid`; guard anyway.
 
@@ -1569,7 +1581,8 @@ for CSS.
 | `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ edit rights from `$this->Acl->canModifyEvent($data)` — view2 sets no `mayModify` |
 | `app/Model/Event.php` | ✅ `getCorrelationCounts()` (task 5e), `getCorrelatedAttributes()` (task 5f) |
 | `app/Lib/Tools/CorrelationCountTool.php`, `app/Test/CorrelationCountToolTest.php` | ✅ new — the aggregation, and its unit test (task 5e) |
-| `app/Model/Behavior/AnalystDataParentBehavior.php` | Phase 2 only — `RelationshipInbound` in the bulk path |
+| `app/Model/Behavior/AnalystDataParentBehavior.php`, `app/Model/Relationship.php` | ✅ `RelationshipInbound` in the bulk path (task 41) |
+| `app/Lib/Tools/JSONConverterTool.php` | ✅ keeps an event's and an object's `RelationshipInbound` (task 41) |
 | `docs/dev/pivot-explorer-v16-prd.md` | this document |
 
 No schema change in Phase 1. One new endpoint, `correlationCounts` (task 5e), as the first slice

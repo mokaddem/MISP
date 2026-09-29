@@ -218,6 +218,21 @@ class Relationship extends AnalystData
         return $inboundRelations;
     }
 
+    /**
+     * @param array $user
+     * @param string $object_type
+     * @param array $object_uuids
+     * @return array Inbound relationships keyed by the uuid they point at
+     */
+    public function getInboundRelationshipsForUuids(array $user, $object_type, array $object_uuids): array
+    {
+        $byUuid = [];
+        foreach ($this->getInboundRelationships($user, $object_type, $object_uuids) as $relationship) {
+            $byUuid[$relationship['Relationship']['related_object_uuid']][] = $relationship['Relationship'];
+        }
+        return $byUuid;
+    }
+
     public function countRelationships(): array
     {
         $this->virtualFields['type_count'] = 'COUNT(Relationship.id)';

@@ -1000,6 +1000,95 @@ test('with no event uuid in the payload the event is no endpoint', async () => {
     eq('no edges', g.edges, []);
 });
 
+// Another event's attribute or object, as Relationship::getRelatedElement()
+// attaches it: the record, its event, and that event's creator org.
+const farRecord = (key, o, event) => ({ [key]: Object.assign({
+    Event: Object.assign({ id: '77', uuid: 'EV-77', info: 'elsewhere' }, event),
+    Organisation: { name: 'CIRCL', uuid: 'org-c' },
+}, o) });
+
+// An inbound analyst relationship, as it arrives in RelationshipInbound:
+// related_object is its source.
+const inrel = o => Object.assign({
+    relationship_type: 'connects-to', authors: 'bob', orgc_uuid: 'org-2', uuid: 'IN1',
+}, o);
+
+test('an inbound relationship from another event draws its source beside its event', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', RelationshipInbound: [inrel({
+        object_type: 'Attribute', object_uuid: 'x1',
+        related_object_type: 'Attribute', related_object_uuid: 'e1',
+        related_object: farRecord('Attribute', attr({ uuid: 'x1', value: '8.8.8.8', event_id: '77' })),
+    })] })] }));
+    eq('this attribute, the source, and its event', ids(g.nodes), ['attr:e1', 'attr:x1', 'event:EV-77']);
+    eq('the relationship points at this event, the source sits in its own', edgeKeys(g.edges),
+       ['attr:x1->attr:e1:connects-to', 'attr:x1->event:EV-77:']);
+    const x1 = byId(g.nodes, 'attr:x1').data;
+    eq('the source is foreign', [x1.scope, x1.event_id, x1.label], ['foreign', '77', '8.8.8.8']);
+    eq('its card names the org', byId(g.nodes, 'event:EV-77').data.org, 'CIRCL');
+    const rel = g.edges.filter(e => e.data.kind === 'analyst-relationship')[0].data;
+    eq('deletable like any analyst relationship', [rel.uuid, rel.orgc], ['IN1', 'org-2']);
+});
+
+test('an outbound relationship to another event\'s object draws it closed', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Relationship: [arel({
+        object_uuid: 'e1', related_object_uuid: 'o9', relationship_type: 'derived-from',
+        related_object: farRecord('Object', { uuid: 'o9', name: 'domain-ip', 'meta-category': 'network' }),
+    })] })] }));
+    eq('drawn', ids(g.nodes), ['attr:e1', 'event:EV-77', 'obj:o9']);
+    eq('no children', byId(g.nodes, 'obj:o9').children, undefined);
+    eq('edges', edgeKeys(g.edges), ['attr:e1->obj:o9:derived-from', 'obj:o9->event:EV-77:']);
+});
+
+test('the event itself can be an inbound relationship\'s target', async () => {
+    const g = await buildGraph(ev({ RelationshipInbound: [inrel({
+        object_type: 'Attribute', object_uuid: 'x1', related_object_type: 'Event',
+        related_object_uuid: 'EV-SELF', relationship_type: 'similar-to',
+        related_object: farRecord('Attribute', attr({ uuid: 'x1' })),
+    })] }));
+    eq('the event, the source and its event', ids(g.nodes), ['attr:x1', 'event:EV-77', 'event:EV-SELF']);
+    ok('the edge', edgeKeys(g.edges).includes('attr:x1->event:EV-SELF:similar-to'));
+});
+
+test('a relationship inside this event, seen from both ends, draws one edge', async () => {
+    const both = { uuid: 'R', relationship_type: 'blocks', object_type: 'Attribute',
+                   object_uuid: 'e1', related_object_type: 'Attribute', related_object_uuid: 'e2' };
+    const g = await buildGraph(ev({ Attribute: [
+        attr({ uuid: 'e1', Relationship: [arel(Object.assign({}, both))] }),
+        attr({ uuid: 'e2', RelationshipInbound: [inrel(Object.assign({}, both, {
+            related_object: { Attribute: attr({ uuid: 'e1', Event: { id: '1', uuid: 'EV-SELF' } }) } }))] }),
+    ] }));
+    eq('both attributes, no card', ids(g.nodes), ['attr:e1', 'attr:e2']);
+    eq('one edge', edgeKeys(g.edges), ['attr:e1->attr:e2:blocks']);
+});
+
+test('a far end the viewer cannot read, or a tombstone, is not drawable', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', RelationshipInbound: [
+        inrel({ object_type: 'Attribute', object_uuid: 'x1', related_object: [] }),
+        inrel({ object_type: 'Attribute', object_uuid: 'x2',
+                related_object: farRecord('Attribute', attr({ uuid: 'NOT-x2' })) }),
+        inrel({ object_type: 'Attribute', object_uuid: 'x3',
+                related_object: farRecord('Attribute', attr({ uuid: 'x3', deleted: true })) }),
+        inrel({ object_type: 'Attribute', object_uuid: 'x4',
+                related_object: { Attribute: attr({ uuid: 'x4' }) } }),
+    ] })] }));
+    eq('neither end is seeded', g.nodes, []);
+});
+
+test('two foreign elements of one event share its card, also drawn as an endpoint', async () => {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Relationship: [
+        arel({ object_uuid: 'e1', related_object_uuid: 'o9',
+               related_object: farRecord('Object', { uuid: 'o9' }) }),
+        toEvent(otherEvent({ id: '77', uuid: 'EV-77' }), { object_uuid: 'e1' }),
+    ], RelationshipInbound: [inrel({ object_type: 'Attribute', object_uuid: 'x1',
+        related_object: farRecord('Attribute', attr({ uuid: 'x1' })) })] })] }));
+    eq('one card', ids(g.nodes), ['attr:e1', 'attr:x1', 'event:EV-77', 'obj:o9']);
+});
+
+test('the event is fetched with its server correlations', async () => {
+    const g = await buildGraph(ev({}));
+    ok('asked for', g.fetchLog.some(f => /\/misp\/events\/view\/1\/includeServerCorrelations:1\.json$/.test(f.url)));
+});
+
 test('double-click on another event opens it, and does nothing anywhere else', async () => {
     const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'e1', Relationship: [
         toEvent(otherEvent({ id: '22', uuid: 'R1' }), { object_uuid: 'e1' }),
