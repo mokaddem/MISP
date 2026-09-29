@@ -2557,7 +2557,7 @@
             } });
         }
         var session = sidebarSession(selection);
-        if (!session) return null;
+        if (!session) return undefined;
         return mountSidebar(session, 'header', function () {
             return window.MispPivotSidebarView.header(session.vm, function (section) {
                 if (session.fold) session.fold.reveal(section);
@@ -2585,9 +2585,9 @@
         return {
             id: 'pe-shared',
             render: function (selection) {
-                if (!Array.isArray(selection) || isEdge(selection[0])) return null;
+                if (!Array.isArray(selection) || isEdge(selection[0])) return undefined;
                 var session = sidebarSession(selection);
-                if (!session) return null;
+                if (!session) return undefined;
                 return mountSidebar(session, 'shared', function () {
                     return window.MispPivotSidebarView.shared(session.vm);
                 });

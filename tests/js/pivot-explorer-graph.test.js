@@ -2323,9 +2323,11 @@ test('sidebar: several elements go back to pivotick\'s own table, one gets the d
     ok('a multi-selection is handed back', render([pnode({ type: 'event' }), pnode({ type: 'event' })]) === undefined);
     ok('so is nothing selected', render(null) === undefined);
     ok('the header hook is set', typeof g.opts.UI.mainHeader.render === 'function');
+    // undefined hands the header back to pivotick; null would paint the text "null".
+    ok('nothing selected hands the header back', g.opts.UI.mainHeader.render(null) === undefined);
     const shared = g.opts.UI.extraPanels.find(p => p.id === 'pe-shared');
-    ok('the shared-labels panel has nothing for one element', shared.render(pnode({ type: 'event' })) === null);
-    ok('nor for several links', shared.render([{ from: {}, to: {}, getData: () => ({}) }]) === null);
+    ok('the shared-labels panel has nothing for one element', shared.render(pnode({ type: 'event' })) === undefined);
+    ok('nor for several links', shared.render([{ from: {}, to: {}, getData: () => ({}) }]) === undefined);
 });
 
 test('17: an edge reads by the kind of link and what it asserts', async () => {
