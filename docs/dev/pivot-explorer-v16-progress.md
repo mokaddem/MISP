@@ -5,9 +5,9 @@ Delivery tracker for [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 same pass as the code, not in a catch-up sweep.
 
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
-- **Library:** Pivotick v2 — `develop` at `89a92dc`, which now carries `05fe810` (merged as `28295c8`). PRD §3.7
-- **Last updated:** 2026-09-28
-- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33, 35–39 and bundle bumps 0–0l · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
+- **Library:** Pivotick v2 — `develop` at `625fe52` (graph simplification). PRD §3.7
+- **Last updated:** 2026-09-29
+- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33, 35–39 and bundle bumps 0–0m · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 645 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
@@ -33,6 +33,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 0j | Bundle to `develop` `8db49e9` + `05fe810`: a badge is sized by its node's short side, so a wide card no longer dwarfs it | ✅ | 0i | 2026-09-25, built from a clean export of `8db49e9` with `05fe810` applied, which `develop` still lacks; the CSS came out byte-identical. Live on 780, rim badges forced on: on the 140×44 event and attribute cards a badge is 19.8 px tall, 45% of the card, down from 28 px (64%) |
 | 0k | Bundle to `develop` `21c2aa9` + `05fe810`: `textMaxWidth` caps a node label at a width; S labels cut at 220 units (`S_LABEL_MAX_WIDTH`) instead of drawn in full | ✅ | 0j | 2026-09-27, built from a clean export of `21c2aa9` with `05fe810` applied; the CSS came out byte-identical. Live on 1340: widest S label 218.6 units, an md5 whole, a sha256 middle-elided; on 1810 a 22,184-character YARA rule draws 196 units wide |
 | 0l | Bundle to `develop` `89a92dc`, plain `develop` at last (`05fe810` merged as `28295c8`): a narrowing facet honours `default` (`0cae434`); `Edge.clone()` keeps the provenance ledger, so `getEdges()` reports an edge's real sources | ✅ | 0k | 2026-09-28, built from a clean export of `89a92dc`; the CSS came out byte-identical. Suite 645/645. Live, admin, served bundle md5 `d0ce8038…`: on 752 *Event elements* opens with *Attribute* ticked and *Tag* not, breakdown `16 Attributes` (was `16 Attributes · 3 Tags`), a plain browse lands the 16 attributes; on 2014 after a correlations run all 79 edges read the same sources through `getEdges()` as through `getMutableEdges()`, correlation edges as `correlations`; no node carries `pvt-node-expandable`. No console error |
+| 0m | Bundle to `develop` `625fe52`: graph simplification (`prd/graph-simplification.md`) — view-only groups from the neighbour, chain, few-links and k-core rules, a Simplify rail mode, groups opened in place, landing groups, groups made by hand. MISP declares no `UI.simplify`, so `full` mode offers the built-in rules switched off | ✅ | 0l | 2026-09-29, built from a clean export of `625fe52`; the CSS changed this time (238 → 249 KB), the IIFE 937 → 1,006 KB, the worker still inlined. Suite 645/645. Live, admin, bundle swapped in over HTTP (the server serves another tree): on 2014 the rail shows *Simplify* with the four rules off; the neighbour rule at size 2 folds 2 nodes into 1 group and `getNodes()` still returns all 8; on 1340 all 18 nodes draw and the rule finds nothing to fold. Only console errors are 404s on `/events/correlationCounts`, absent from the served tree |
 | E | Extract inline JS out of the `.ctp` into `webroot/js/pivot-explorer.js` | ✅ | 0 | `edc6a0caa` (2026-08-31) |
 | T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
 | 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
