@@ -1191,6 +1191,51 @@ test('a one-click pivot lands up to 25 new candidates without Review', async () 
     eq('the limit', g.opts.pivotQuickIngestLimit, 25);
 });
 
+test('groups: MISP declares its rules, a smallest group of 5, only pivot landings on', async () => {
+    const g = await withPivots();
+    const s = g.opts.UI.simplify;
+    eq('in order', s.rules.map(r => r.kind),
+       ['landings', 'neighbours', 'chains', 'degree', 'kcore', 'communities']);
+    eq('only landings starts on', s.rules.filter(r => r.enabled).map(r => r.kind), ['landings']);
+    eq('5 wherever a rule has a smallest group',
+       s.rules.filter(r => 'minSize' in r).map(r => r.minSize), [5, 5, 5]);
+    ok('the rules that type take MISP\'s kinds',
+       s.rules.filter(r => r.typeOf).map(r => r.kind).join() === 'landings,neighbours,chains'
+       && new Set(s.rules.filter(r => r.typeOf).map(r => r.typeOf)).size === 1);
+});
+
+test('groups: a kind is the element and MISP\'s own type', async () => {
+    const g = await withPivots();
+    const typeOf = g.opts.UI.simplify.rules[0].typeOf;
+    eq('an attribute by its type', typeOf(pnode({ type: 'attribute', 'attr-type': 'ip-dst' })), 'attribute:ip-dst');
+    ok('ip-src and ip-dst apart',
+       typeOf(pnode({ type: 'attribute', 'attr-type': 'ip-src' })) !== typeOf(pnode({ type: 'attribute', 'attr-type': 'ip-dst' })));
+    eq('an object by its template', typeOf(pnode({ type: 'object', name: 'url' })), 'object:url');
+    ok('never with an attribute of that name',
+       typeOf(pnode({ type: 'object', name: 'url' })) !== typeOf(pnode({ type: 'attribute', 'attr-type': 'url' })));
+    eq('a cluster by its galaxy type',
+       typeOf(pnode({ type: 'cluster', galaxy_type: 'mitre-attack-pattern', galaxy_name: 'Attack Pattern' })),
+       'cluster:mitre-attack-pattern');
+    eq('a tag by its namespace', typeOf(pnode({ type: 'tag', name: 'tlp:amber' })), 'tag:tlp');
+    eq('a tag with none by its name', typeOf(pnode({ type: 'tag', name: 'suspicious' })), 'tag:suspicious');
+    eq('an event by its element', typeOf(pnode({ type: 'event' })), 'event');
+    eq('a screenshot by its element', typeOf(pnode({ type: 'attribute', 'attr-type': 'attachment', image: true })), 'image');
+});
+
+test('groups: a card reads N × name', async () => {
+    const g = await withPivots();
+    const s = g.opts.UI.simplify;
+    s.rules[0].typeOf(pnode({ type: 'cluster', galaxy_type: 'mitre-attack-pattern', galaxy_name: 'Attack Pattern' }));
+    eq('an attribute', s.typeLabel('attribute:ip-dst', 9), '9 × ip-dst');
+    eq('an object', s.typeLabel('object:file', 12), '12 × file');
+    eq('a cluster by its galaxy\'s name', s.typeLabel('cluster:mitre-attack-pattern', 3), '3 × Attack Pattern');
+    eq('a galaxy never seen by its type', s.typeLabel('cluster:tool', 2), '2 × tool');
+    eq('a tag', s.typeLabel('tag:tlp', 4), '4 × tlp');
+    eq('an element', s.typeLabel('event', 6), '6 × event');
+    eq('a rule typing by element', s.typeLabel('taxonomy', 2), '2 × tag');
+    eq('no type', s.typeLabel(undefined, 2), '2 × node');
+});
+
 test('the correlation pivot applies only where the counts say something correlates', async () => {
     const g = await withPivots();
     const p = pivot(g, 'correlations');

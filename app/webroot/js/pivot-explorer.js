@@ -492,6 +492,59 @@
 
     var ELEMENT_LABELS = { taxonomy: 'tag', cluster: 'galaxy cluster' };
 
+    /* ── groups (pivotick UI.simplify) ─────────────────────── */
+    // A group holds one kind: the element and MISP's own type, so an ip-src
+    // never shares with an ip-dst, nor an attribute with an object of that name.
+    // The element stays the renderer's type (nodeStyleMap, legend, facets).
+    var GROUP_MIN_SIZE = 5;
+
+    // typeLabel is handed the key alone, so the galaxy's name is kept as the
+    // key is made.
+    var _galaxyNames = {};
+
+    function mispTypeOf(node) {
+        var e = elementOf(node);
+        if (!e) return undefined;
+        var d = node.getData();
+        if (e === 'attribute' && d['attr-type']) return 'attribute:' + d['attr-type'];
+        if (e === 'object' && d.name) return 'object:' + d.name;
+        if (e === 'cluster' && d.galaxy_type) {
+            if (d.galaxy_name) _galaxyNames[d.galaxy_type] = d.galaxy_name;
+            return 'cluster:' + d.galaxy_type;
+        }
+        if (e === 'taxonomy' && d.name) return 'tag:' + String(d.name).split(':')[0];
+        return e;
+    }
+
+    function groupTypeName(key) {
+        if (!key) return 'node';
+        var i = key.indexOf(':');
+        if (i < 0) return ELEMENT_LABELS[key] || key;
+        var sub = key.slice(i + 1);
+        return key.slice(0, i) === 'cluster' ? (_galaxyNames[sub] || sub) : sub;
+    }
+
+    function groupTypeLabel(key, count) {
+        return count + ' × ' + groupTypeName(key);
+    }
+
+    function simplifyOption() {
+        function rule(kind, extra) {
+            return Object.assign({ kind: kind, enabled: false, typeOf: mispTypeOf }, extra);
+        }
+        return {
+            rules: [
+                rule('landings',  { enabled: true, minSize: GROUP_MIN_SIZE }),
+                rule('neighbours', { minSize: GROUP_MIN_SIZE }),
+                rule('chains',     { minSize: GROUP_MIN_SIZE }),
+                { kind: 'degree', enabled: false },
+                { kind: 'kcore', enabled: false },
+                { kind: 'communities', enabled: false }
+            ],
+            typeLabel: groupTypeLabel
+        };
+    }
+
     // The legend samples a node's resolved `color`, which a drawn node leaves
     // transparent, so the Element rows carry the entity hues themselves.
     function elementLegendEntries(graph) {
@@ -2443,6 +2496,7 @@
                 theme: 'dark',
                 sidebar: { collapsed: true },
                 tooltip: { enabled: false },
+                simplify: simplifyOption(),
                 propertiesPanel: {
                     nodePropertiesMap: nodeProperties,
                     edgePropertiesMap: edgeProperties
