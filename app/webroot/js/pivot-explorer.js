@@ -2416,8 +2416,9 @@
     }
 
     /* ── node context menu ─────────────────────────────────── */
-    // Appended after the library's own entries, *Pivot ▸* among them. MISP's
-    // pages open in a new tab, so the canvas the analyst built survives.
+    // Placed by the library after its own entries, *Pivot ▸* first among them,
+    // and above its delete. MISP's pages open in a new tab, so the canvas the
+    // analyst built survives.
     function menuData(element) {
         var n = Array.isArray(element) ? (element.length === 1 ? element[0] : null) : element;
         return (n && typeof n.getData === 'function') ? (n.getData() || {}) : null;
