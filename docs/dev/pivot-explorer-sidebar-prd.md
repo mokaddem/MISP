@@ -329,12 +329,12 @@ the failed state draws its Retry buttons, and Retry recovers.
 
 **Open:**
 
-- **The neighbour graph is crowded.** pivotick's ego graph copies the canvas's render options,
-  so MISP's zoom tiers turn neighbours into M cards and the selected root into its XL card; and
-  its fit caps the scale at a literal 3, so a sparse graph renders at 3×. Neither is reachable
-  from `neighborsPanel`. pivotick's `prd/misp/neighbors-graph-render-options.md` asks for
-  `neighborsPanel.graph.{render, layout}` overrides and a fit that honours `maxZoom`; MISP will
-  then pass plain S drawings (no tiers, no focus tier) and `maxZoom: 1`.
+- *Resolved 2026-09-29:* the neighbour graph was crowded: pivotick's ego graph copied the
+  canvas's zoom tiers, so neighbours became M cards and the root its XL card, and its fit zoomed
+  to 3×. pivotick `1444032` (vendored) adds `neighborsPanel.graph.{render, layout}` and a fit that
+  stops at `maxZoom`; the explorer passes the plain S drawings (no tiers, no focus card, no pivot
+  badges, labels kept) and `maxZoom: 1`. Checked live on the foreign event (1 neighbour) and a
+  cluster (73), both themes.
 - *Resolved 2026-09-29:* with nothing selected the header was empty, then read `null`; pivotick
   `b43dcd3` (vendored) lets a header `render` return `undefined` for the default count, and
   renders `null` as nothing.
