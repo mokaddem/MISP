@@ -690,6 +690,49 @@
         ].filter(function (e) { return seen[e.id]; });
     }
 
+    // Labels are not drawn by default — render data.label above each node.
+    function labelStyle() {
+        return {
+            text: function (node) {
+                var d = node.getData();
+                return d ? d.label : '';
+            },
+            textVerticalShift: -1
+        };
+    }
+
+    // What misp-pivot-nodes does not draw.
+    function otherNodeStyles() {
+        return {
+            // misp-iconify has no server mark; pivotick resolves any icon font's class.
+            server:    { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' },
+            // Image attachments (screenshots) draw an embedded thumbnail.
+            image:     {
+                imageFit:    'frame',
+                size:        80,
+                strokeColor: 'rgba(255,255,255,0.55)',
+                strokeWidth: 2,
+                imagePath:   function (node) {
+                    var d = node.getData();
+                    return d ? d.imageUrl : undefined;
+                }
+            }
+        };
+    }
+
+    // The neighbours panel's graph: each element as its small node, with no
+    // card tiers, no focus card and no pivot badges, and never zoomed past 1×.
+    function neighborsGraph() {
+        var small = window.MispPivotNodes.options({ size: 'S', theme: mispTheme() }).nodeStyleMap;
+        return {
+            render: {
+                nodeStyleMap: Object.assign(small, otherNodeStyles()),
+                defaultNodeStyle: labelStyle(),
+                maxZoom: 1
+            }
+        };
+    }
+
     function mispNodeStyles() {
         var N = window.MispPivotNodes;
         var rest = N.options({
@@ -2735,30 +2778,8 @@
                 groupStyle: groupStyle,
                 groupOutline: groupOutline,
                 // A feed is drawn by misp-pivot-nodes, like the elements.
-                nodeStyleMap: Object.assign(mispNodeStyles(), {
-                    // misp-iconify has no server mark; pivotick resolves any icon font's class.
-                    server:    { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' },
-                    // Image attachments (screenshots) draw an embedded thumbnail.
-                    image:     {
-                        imageFit:    'frame',
-                        size:        80,
-                        strokeColor: 'rgba(255,255,255,0.55)',
-                        strokeWidth: 2,
-                        imagePath:   function (node) {
-                            var d = node.getData();
-                            return d ? d.imageUrl : undefined;
-                        }
-                    }
-                }),
-                defaultNodeStyle: {
-                    // Labels are not drawn by default — render data.label above each node.
-                    text: function (node) {
-                        var d = node.getData();
-                        return d ? d.label : '';
-                    },
-                    textVerticalShift: -1,
-                    badges: nodeBadges
-                },
+                nodeStyleMap: Object.assign(mispNodeStyles(), otherNodeStyles()),
+                defaultNodeStyle: Object.assign(labelStyle(), { badges: nodeBadges }),
                 // D1's first edge dimension.
                 edgeTypeAccessor: function (edge) {
                     var d = edge.getData ? edge.getData() : null;
@@ -2826,6 +2847,7 @@
                 },
                 simplify: simplifyOption(),
                 mainHeader: { render: sidebarHeader },
+                neighborsPanel: { graph: neighborsGraph() },
                 propertiesPanel: {
                     render: sidebarDetail,
                     nodePropertiesMap: sidebarRows,

@@ -2330,6 +2330,20 @@ test('sidebar: several elements go back to pivotick\'s own table, one gets the d
     ok('nor for several links', shared.render([{ from: {}, to: {}, getData: () => ({}) }]) === undefined);
 });
 
+test('sidebar: the neighbour graph draws small nodes and does not zoom in', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    const r = g.opts.UI.neighborsPanel.graph.render;
+    eq('never past 1×', r.maxZoom, 1);
+    const styles = Object.keys(r.nodeStyleMap).map(k => r.nodeStyleMap[k]);
+    ok('no card tiers, no focus card', styles.every(s => !s.tiers && !s.focusTier));
+    ok('the canvas has both, so this is its own map', !!g.opts.render.nodeStyleMap.attribute.tiers);
+    // An event's own provenance mark is a badge of its drawing; the pivot badges are not.
+    const pivotBadges = g.opts.render.defaultNodeStyle.badges;
+    ok('no pivot badges', !r.defaultNodeStyle.badges && styles.every(s => s.badges !== pivotBadges));
+    ok('labels kept', typeof r.defaultNodeStyle.text === 'function');
+    ok('servers and images still drawn', !!r.nodeStyleMap.server && !!r.nodeStyleMap.image);
+});
+
 test('17: an edge reads by the kind of link and what it asserts', async () => {
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     eq('an analyst relationship', edgeProps(g, { kind: 'analyst-relationship', relationship_type: 'seen-with',
