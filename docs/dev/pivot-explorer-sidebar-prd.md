@@ -1,6 +1,6 @@
 # PRD: A sidebar that completes the node
 
-**Status:** Contract built 2026-09-29 (§5.1); picked 2026-09-29 (§5.3); wiring next.
+**Status:** Contract built 2026-09-29 (§5.1); wired 2026-09-29 (§5.4) and checked live.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 **Depends on:** the persona branch's context priority (§4), merged into `personas-pivotick` on 2026-09-29.
@@ -126,9 +126,11 @@ exploration, since D54 keeps them on the value page for now.
 sightings, analyst data, the entity's own fields) is not in the profile. The exploration
 proposes a fixed order for it, one per entity.
 
-**The dependency is met.** `personas-pivotick` carries both branches, so `EventsController`'s
-`__eventViewCommon` already sets `labelPlan` for `view2`, and the explorer element can hand it
-over with its other `data-pe-*` attributes; that plumbing is part of the wiring (§5.4). The
+**The dependency is met.** `personas-pivotick` carries both branches. `EventsController`'s
+`__eventViewCommon` sets `labelPlan`, but **`view2` does not run it** (found while wiring: the
+explorer received an empty plan for a viewer whose profile pins three taxonomies), so the
+explorer element resolves the plan itself when none was handed down, and passes it with its
+other `data-pe-*` attributes. The
 contract's view-models take the plan as input and are tested and dumped with the shipped
 `incident-response-v1` (pins `tlp, PAP, admiralty-scale`, prefers `threat-actor,
 mitre-intrusion-set, …`). The ordering is a JS port of `ValueLabelPriority`, checked against
@@ -288,6 +290,49 @@ detail partly offsets; the event page's clashing `.misp-icon` stylesheets (§5.2
 
 The picked design is built into `pivot-explorer.js` on the contract's view-models, through the
 §3 hooks, and checked live on the fixture events.
+
+#### What was built (2026-09-29)
+
+- **pivotick** updated to `025b6b8` (the two fixes of §3), built from a clean export of that
+  commit.
+- **The view:** `app/webroot/js/pivot-sidebar-view.js` and `app/webroot/css/pivot-sidebar.css`,
+  ported from `candidates/picked` with the frame-only parts removed; the port matches the
+  candidate pixel for pixel on every fixture and lazy state. From here the MISP files are the
+  source. `MispPivotSidebarView.header(vm, jump)`, `.detail(vm)` → `{el, reveal}`,
+  `.shared(vm)`.
+- **The hooks** (`pivot-explorer.js`, *sidebar*): `mainHeader.render` draws the header,
+  `propertiesPanel.render` the detail for one element and `undefined` for several, so
+  pivotick's aggregate draws from `nodePropertiesMap` = the model's `propertyRows`; an extra
+  panel `pe-shared` carries C's shared labels and orgs, hidden by CSS for anything else. The
+  analyst panel stays, after it.
+- **One session per selection:** the three hooks share one view-model; its lazy reads run
+  once, are cached by request for later selections, and redraw the drawn elements in place
+  when they land. Retry drops the failed answers and reads again. The session is aborted when
+  the selection moves on. Correlation counts arriving later redraw it too; a foreign uuid that
+  was asked and left out of the answer now reads 0, not *unknown*.
+- **The element** passes `data-pe-label-plan` and `data-pe-permitted` (the plan's pinned keys
+  the instance enables, asked as the value page asks them).
+- **View-model additions:** a tag or cluster node gives its own row to the aggregate (they gave
+  only `Element`); an attribute a card slice brought carries a `Matched` fact, the one field of
+  the old flat list the model did not have.
+- **The header does not shrink:** pivotick's sidebar is a fixed-height column whose header may
+  shrink, which clipped the notice list over the fold; `flex-shrink: 0` lets the column scroll.
+- **Tests:** the explorer suite now loads the model and view; the old flat-property tests
+  became tests of the hooks (rows per value, `undefined` for a multi-selection, the shared
+  panel's scope). 694 and 75 pass.
+
+**Checked live** on the dev instance, as `admin` with *Incident Response & Investigation*
+selected, on 11 of the fixture cases in both themes: every lazy read answers 200, nothing
+overflows, no page error. The foreign event leads with `tlp:white` (strictest of 2) and *No PAP
+label*; the multi-selection's aggregate counts `tlp:white` 3/3. With the reads forced to 500
+the failed state draws its Retry buttons, and Retry recovers.
+
+**Open:**
+
+- Extra panels sit below pivotick's neighbours panel, so the shared labels come after the
+  neighbour graph rather than right under the aggregate.
+- The event page's two `.misp-icon` stylesheets (§5.2) are unchanged; the view uses only
+  `misp-simple` icons, which the mask build has.
 
 ## 6. Out of scope
 
