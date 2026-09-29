@@ -3505,11 +3505,14 @@ window.MispPivotNodes = (function () {
         return render;
     }
 
-    /** Re-theme a live graph. Styles are resolved per render, so a redraw is
-     *  all that is needed — the style map itself does not change. */
+    /** Re-theme a live graph. Styles are resolved per render, so repainting
+     *  every node is all that is needed — the style map itself does not
+     *  change. The renderer only repaints nodes marked dirty. */
     function applyTheme(graph, theme) {
         M.setTheme(theme);
-        if (graph && graph.renderer && graph.renderer.redraw) graph.renderer.redraw();
+        if (!graph || !graph.renderer) return;
+        graph.getMutableNodes().forEach(function (n) { n.markDirty(); });
+        graph.renderer.update();
     }
 
     /** The raw SVG a renderer produces, for previewing outside a graph. */

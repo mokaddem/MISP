@@ -39,6 +39,20 @@
     var _event       = null;
 
     /* ── helpers ───────────────────────────────────────────── */
+    // Overmind's dark-mode toggle (mispOvermind.js) sets data-bs-theme on <html>.
+    function mispTheme() {
+        return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+    }
+
+    function followMispTheme(graph, root) {
+        new MutationObserver(function () {
+            var theme = mispTheme();
+            if (root.getAttribute('data-theme') === theme) return;
+            root.setAttribute('data-theme', theme);
+            window.MispPivotNodes.applyTheme(graph, theme);
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+    }
+
     function truncate(str, max) {
         str = String(str == null ? '' : str);
         return str.length > max ? str.substring(0, max - 1) + '…' : str;
@@ -676,7 +690,7 @@
         var N = window.MispPivotNodes;
         var rest = N.options({
             size:    'S',
-            theme:   'dark',
+            theme:   mispTheme(),
             fontUrl: baseurl + '/webfonts/misp-iconify.woff2'
         }).nodeStyleMap;
         var chip = N.styleMap('M'), focus = N.styleMap('XL');
@@ -2637,7 +2651,7 @@
             },
             UI: {
                 mode: 'full',
-                theme: 'dark',
+                theme: mispTheme(),
                 sidebar: { collapsed: true },
                 // Elements grow into their richer drawing on hover; a group
                 // only explains itself in the library's tooltip.
@@ -2749,6 +2763,7 @@
                     try { editor.attach(_graph); }
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
+                followMispTheme(_graph, _graph.UIManager.getRootContainer());
                 watchElementPivot(_graph);
                 declareAllFeedPotential(_graph);
                 declareAllTagPotential(_graph);

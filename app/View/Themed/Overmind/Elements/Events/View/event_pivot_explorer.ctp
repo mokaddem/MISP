@@ -37,7 +37,7 @@
     // config from the data-pe-* attributes on #pe-card below.
     echo $this->element('genericElements/assetLoader', [
         'js'  => ['pivotick.iife', 'misp-pivot-nodes', 'pivot-explorer'],
-        'css' => ['pivotick'],
+        'css' => ['pivotick', 'pivot-explorer'],
     ]);
 ?>
 
