@@ -898,12 +898,83 @@ class Event extends AppModel
     }
 
     /**
-     * The correlations getCorrelationCounts() counts, as pairs: one of the
-     * event's attributes and the attribute it correlates with elsewhere.
+     * getCorrelationCounts() for attributes of other events drawn beside
+     * this one, leaving out what correlates back into it.
      *
      * @param array $user
      * @param int $eventId
-     * @param array $attributeUuids only these of the event's attributes; all when empty
+     * @param array $attributeUuids
+     * @return array
+     */
+    public function getForeignCorrelationCounts(array $user, $eventId, array $attributeUuids)
+    {
+        [$related, $visible] = $this->foreignAttributeCorrelations($user, $eventId, $attributeUuids);
+        App::uses('CorrelationCountTool', 'Tools');
+        return CorrelationCountTool::aggregate($related, $visible);
+    }
+
+    /**
+     * Correlations of attributes outside the event, into any event but it.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @param array $attributeUuids
+     * @return array [rows keyed by attribute id as getRelatedAttributes()
+     *               shapes them, the attributes as ['id', 'uuid', 'object_uuid']]
+     */
+    private function foreignAttributeCorrelations(array $user, $eventId, array $attributeUuids)
+    {
+        $uuids = array_values(array_unique(array_filter($attributeUuids, 'is_string')));
+        if (empty($uuids)) {
+            return [[], []];
+        }
+        $attributes = $this->Attribute->fetchAttributesSimple($user, [
+            'conditions' => [
+                'Attribute.uuid' => $uuids,
+                'Attribute.event_id !=' => $eventId,
+                'Attribute.deleted' => 0,
+            ],
+            'fields' => ['Attribute.id', 'Attribute.uuid', 'Attribute.event_id'],
+            'contain' => [
+                'Event' => ['fields' => ['Event.id']],
+                'Object' => ['fields' => ['Object.uuid']],
+            ],
+        ]);
+        $byEvent = [];
+        $visible = [];
+        foreach ($attributes as $attribute) {
+            $byEvent[$attribute['Attribute']['event_id']][] = $attribute['Attribute']['id'];
+            $visible[] = [
+                'id' => $attribute['Attribute']['id'],
+                'uuid' => $attribute['Attribute']['uuid'],
+                'object_uuid' => $attribute['Object']['uuid'] ?? null,
+            ];
+        }
+        $sgids = $this->SharingGroup->authorizedIds($user);
+        $related = [];
+        foreach ($byEvent as $ownerId => $ids) {
+            $rows = $this->Attribute->Correlation->getAttributeCorrelations($user, $ownerId, $sgids, $ids);
+            foreach ($rows as $attributeId => $list) {
+                $list = array_values(array_filter($list, function ($row) use ($eventId) {
+                    return (string)$row['id'] !== (string)$eventId;
+                }));
+                if (!empty($list)) {
+                    $related[$attributeId] = $list;
+                }
+            }
+        }
+        return [$related, $visible];
+    }
+
+    /**
+     * The correlations getCorrelationCounts() and getForeignCorrelationCounts()
+     * count, as pairs: a source attribute and the attribute it correlates
+     * with elsewhere.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @param array $attributeUuids only these attributes, the event's or drawn
+     *              beside it from other events; all of the event's when empty
      * @param array $relatedEventIds only correlations into these events; all when empty
      * @return array 'pairs': list of ['source_uuid', 'Attribute', 'Event', 'Object'],
      *               Object null unless the user may read it; 'objects': those
@@ -912,33 +983,39 @@ class Event extends AppModel
     public function getCorrelatedAttributes(array $user, $eventId, array $attributeUuids = [], array $relatedEventIds = [])
     {
         $none = ['pairs' => [], 'objects' => []];
-        $related = $this->getRelatedAttributes($user, $eventId);
-        if (empty($related)) {
-            return $none;
-        }
-        $conditions = [
-            'Attribute.id' => array_keys($related),
-            'Attribute.event_id' => $eventId,
-            'Attribute.deleted' => 0,
-        ];
-        if (!empty($attributeUuids)) {
-            $conditions['Attribute.uuid'] = array_values($attributeUuids);
-        }
-        $sources = $this->Attribute->fetchAttributesSimple($user, [
-            'conditions' => $conditions,
-            'fields' => ['Attribute.id', 'Attribute.uuid'],
-            'contain' => ['Event' => ['fields' => ['Event.id']], 'Object' => ['fields' => ['Object.id']]],
-        ]);
-
         $wanted = array_flip(array_map('strval', $relatedEventIds));
         $pairs = [];
-        foreach ($sources as $source) {
-            foreach ($related[$source['Attribute']['id']] as $row) {
-                if (!empty($wanted) && !isset($wanted[(string)$row['id']])) {
-                    continue;
+        $collect = function (array $related, array $sources) use ($wanted, &$pairs) {
+            foreach ($sources as $source) {
+                foreach ($related[$source['id']] ?? [] as $row) {
+                    if (!empty($wanted) && !isset($wanted[(string)$row['id']])) {
+                        continue;
+                    }
+                    $pairs[] = [$source['uuid'], $row['attribute_id']];
                 }
-                $pairs[] = [$source['Attribute']['uuid'], $row['attribute_id']];
             }
+        };
+
+        $related = $this->getRelatedAttributes($user, $eventId);
+        if (!empty($related)) {
+            $conditions = [
+                'Attribute.id' => array_keys($related),
+                'Attribute.event_id' => $eventId,
+                'Attribute.deleted' => 0,
+            ];
+            if (!empty($attributeUuids)) {
+                $conditions['Attribute.uuid'] = array_values($attributeUuids);
+            }
+            $sources = $this->Attribute->fetchAttributesSimple($user, [
+                'conditions' => $conditions,
+                'fields' => ['Attribute.id', 'Attribute.uuid'],
+                'contain' => ['Event' => ['fields' => ['Event.id']], 'Object' => ['fields' => ['Object.id']]],
+            ]);
+            $collect($related, array_column($sources, 'Attribute'));
+        }
+        if (!empty($attributeUuids)) {
+            [$foreign, $foreignSources] = $this->foreignAttributeCorrelations($user, $eventId, $attributeUuids);
+            $collect($foreign, $foreignSources);
         }
         if (empty($pairs)) {
             return $none;

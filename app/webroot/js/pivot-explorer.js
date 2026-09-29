@@ -1050,12 +1050,18 @@
     // Counts come from /events/correlationCounts, which counts exactly the
     // pairs /events/correlatedAttributes returns — so a summary never promises
     // what the fetch cannot bring. Null until loaded: nothing applies until then.
+    // Another event's elements are counted as they land, into _foreignCounts.
     var _counts = null;
+    var _foreignCounts = { attributes: {}, objects: {} };
 
-    function ownElementCount(d) {
+    function attributeCount(uuid) {
+        return (_counts && _counts.attributes[uuid]) || _foreignCounts.attributes[uuid] || 0;
+    }
+
+    function correlationCount(d) {
         if (!_counts || !d || !d.uuid) return 0;
-        if (d.type === 'attribute') return _counts.attributes[d.uuid] || 0;
-        if (d.type === 'object')    return _counts.objects[d.uuid] || 0;
+        if (d.type === 'attribute') return attributeCount(d.uuid);
+        if (d.type === 'object')    return _counts.objects[d.uuid] || _foreignCounts.objects[d.uuid] || 0;
         return 0;
     }
 
@@ -1095,15 +1101,35 @@
         return false;
     }
 
-    function attributeUuidsOf(nodes) {
+    // The attributes a selection stands for, as { uuid, name, value }: this
+    // event's from its payload, another event's object through its children.
+    function attributesOf(nodes) {
         var index = ownAttributeIndex();
         var out = [];
+        function own(uuid) {
+            var a = index.byUuid[uuid] || {};
+            return { uuid: uuid, name: a.object_relation || a.type, value: a.value };
+        }
+        function drawn(d) {
+            return { uuid: d.uuid, name: d.object_relation || d['attr-type'], value: d.value };
+        }
         nodes.forEach(function (n) {
             var d = n.getData() || {};
-            if (d.type === 'attribute') out.push(d.uuid);
-            else if (d.type === 'object') out = out.concat(index.byObject[d.uuid] || []);
+            if (d.type === 'attribute') {
+                out.push(index.byUuid[d.uuid] ? own(d.uuid) : drawn(d));
+            } else if (d.type === 'object') {
+                if (index.byObject[d.uuid]) out = out.concat(index.byObject[d.uuid].map(own));
+                else (n.children || []).forEach(function (c) {
+                    var cd = c.getData ? c.getData() : c.data;
+                    if (cd && cd.type === 'attribute' && cd.uuid) out.push(drawn(cd));
+                });
+            }
         });
         return out;
+    }
+
+    function attributeUuidsOf(nodes) {
+        return attributesOf(nodes).map(function (a) { return a.uuid; });
     }
 
     // Nodes and edges a pivot lands, each id once.
@@ -1174,12 +1200,15 @@
             var sid = 'attr:' + p.source_uuid;
             if (!seen[sid]) {
                 seen[sid] = true;
-                var drawn = _graph && typeof _graph.getNode === 'function' && _graph.getNode(sid);
+                var drawn = _graph && typeof _graph.getMutableNode === 'function' && _graph.getMutableNode(sid);
                 var own = index.byUuid[p.source_uuid];
                 if (!drawn && own) {
                     sourceNodes.push({ id: sid, data: attributeNodeData(own, ownerIn(_event.Event, own)) });
                 }
             }
+            // Between two drawn events a pair can come back the other way.
+            var back = 'corr:' + p.Attribute.uuid + ':' + p.source_uuid;
+            if (land.get(back) || (_graph && typeof _graph.getMutableEdge === 'function' && _graph.getMutableEdge(back))) return;
             land.edge({ id: 'corr:' + p.source_uuid + ':' + p.Attribute.uuid, from: sid, to: tid,
                         data: { kind: 'correlation', label: '' } });
         });
@@ -1215,12 +1244,9 @@
     // The selection's attributes that correlate, each with its own count: an
     // object is closed, so this is where one of its attributes is picked.
     function correlatingAttributes(nodes) {
-        var index = ownAttributeIndex();
-        return attributeUuidsOf(nodes).map(function (uuid) {
-            var a = index.byUuid[uuid] || {};
-            var name = a.object_relation || a.type || 'attribute';
-            return { uuid: uuid, label: name + ': ' + String(a.value == null ? '' : a.value).slice(0, 60),
-                     count: (_counts && _counts.attributes[uuid]) || 0 };
+        return attributesOf(nodes).map(function (a) {
+            return { uuid: a.uuid, label: (a.name || 'attribute') + ': ' + String(a.value == null ? '' : a.value).slice(0, 60),
+                     count: attributeCount(a.uuid) };
         }).filter(function (a) { return a.count > 0; });
     }
 
@@ -1236,7 +1262,7 @@
             label:         'Correlations',
             maxCandidates: NODE_BUDGET,
             appliesTo: function (nodes) {
-                return nodes.filter(function (n) { return ownElementCount(n.getData()) > 0; });
+                return nodes.filter(function (n) { return correlationCount(n.getData()) > 0; });
             },
             summarize: function (nodes, narrowing) {
                 var all = correlatingAttributes(nodes);
@@ -1257,20 +1283,57 @@
         };
     }
 
-    // Declared, never queried (pivotick draws the rim badge from it): this
-    // event's attributes and objects wear the number of correlations the pivot
-    // would bring. Zero declares nothing.
+    // Declared, never queried (pivotick draws the rim badge from it): a counted
+    // attribute or object wears the number of correlations the pivot would
+    // bring. Zero declares nothing.
     function declarePotential(node) {
-        var own = ownElementCount(node.getData());
-        if (own) node.setPotential('correlations', own);
+        var n = correlationCount(node.getData());
+        if (n) node.setPotential('correlations', n);
+    }
+
+    // Another event's attribute or object, counted once: the nodes that land
+    // together are asked for in one request, and declare when it answers.
+    var _foreignAsked = {}, _foreignQueue = [], _foreignTimer = null;
+    function queueForeignCounts(graph, node) {
+        var d = node.getData() || {};
+        if ((d.type !== 'attribute' && d.type !== 'object') || !d.uuid || isOwnElement(d)) return;
+        var uuids = attributeUuidsOf([node]).filter(function (uuid) {
+            if (_foreignAsked[uuid]) return false;
+            return (_foreignAsked[uuid] = true);
+        });
+        if (!uuids.length) return;
+        _foreignQueue.push({ node: node, uuids: uuids });
+        if (!_foreignTimer) _foreignTimer = setTimeout(function () { loadForeignCounts(graph); }, 0);
+    }
+
+    function loadForeignCounts(graph) {
+        var batch = _foreignQueue;
+        _foreignQueue = [];
+        _foreignTimer = null;
+        var uuids = batch.reduce(function (all, b) { return all.concat(b.uuids); }, []);
+        return postJson('/events/correlationCounts/' + encodeURIComponent(eventId) + '.json', { attribute_uuids: uuids })
+            .then(function (c) {
+                Object.assign(_foreignCounts.attributes, (c && c.attributes) || {});
+                Object.assign(_foreignCounts.objects, (c && c.objects) || {});
+                batch.forEach(function (b) { declarePotential(b.node); });
+                graph.renderer.update();
+            })
+            .catch(function (err) {
+                uuids.forEach(function (uuid) { delete _foreignAsked[uuid]; });
+                console.error('[pivot-explorer] correlation counts failed:', err);
+            });
     }
 
     // Once on the counts, then on each node as it lands (an ingest, an undo's
     // redo), before the render that follows it.
     function declareAllPotential(graph) {
-        graph.getMutableNodes().forEach(declarePotential);
+        function declare(node) {
+            declarePotential(node);
+            queueForeignCounts(graph, node);
+        }
+        graph.getMutableNodes().forEach(declare);
         graph.renderer.update();
-        graph.on('nodeAdd', declarePotential);
+        graph.on('nodeAdd', declare);
     }
 
     function loadCorrelationCounts(graph) {
@@ -1350,7 +1413,7 @@
         var index = ownAttributeIndex();
         var nodes = [], edges = [], seen = {};
         function drawn(id) {
-            return !!(_graph && typeof _graph.getNode === 'function' && _graph.getNode(id));
+            return !!(_graph && typeof _graph.getMutableNode === 'function' && _graph.getMutableNode(id));
         }
         feedNodes.forEach(function (fn) {
             var d = fn.getData();
@@ -1837,7 +1900,7 @@
     function elementCandidates() {
         var ev = (_event && _event.Event) || {};
         var drawn = function (id) {
-            return !!(_graph && typeof _graph.getNode === 'function' && _graph.getNode(id));
+            return !!(_graph && typeof _graph.getMutableNode === 'function' && _graph.getMutableNode(id));
         };
         var out = [];
         (ev.Attribute || []).forEach(function (a) {

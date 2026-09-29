@@ -6957,14 +6957,26 @@ class EventsController extends AppController
         return $this->RestResponse->viewData($json, 'json');
     }
 
+    /**
+     * GET: the event's own correlation counts. POST with `attribute_uuids`:
+     * those of other events' attributes drawn beside it.
+     */
     public function correlationCounts($id)
     {
+        $this->request->allowMethod(['get', 'post']);
         $user = $this->Auth->user();
         $event = $this->Event->fetchSimpleEvent($user, $id, ['fields' => ['Event.id']]);
         if (empty($event)) {
             throw new NotFoundException(__('Invalid event'));
         }
-        $counts = $this->Event->getCorrelationCounts($user, (int)$event['Event']['id']);
+        $eventId = (int)$event['Event']['id'];
+        if ($this->request->is('post')) {
+            $data = $this->request->data;
+            $uuids = isset($data['attribute_uuids']) && is_array($data['attribute_uuids']) ? $data['attribute_uuids'] : [];
+            $counts = $this->Event->getForeignCorrelationCounts($user, $eventId, $uuids);
+            return $this->RestResponse->viewData($counts, 'json');
+        }
+        $counts = $this->Event->getCorrelationCounts($user, $eventId);
         return $this->RestResponse->viewData($counts, 'json');
     }
 

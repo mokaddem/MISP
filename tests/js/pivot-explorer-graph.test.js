@@ -1343,8 +1343,93 @@ test('15: an element that lands later declares its own on arrival', async () => 
     };
     eq('this event\'s attribute, put on the canvas by the element pivot',
        land('attr:e1', { type: 'attribute', uuid: 'e1' }), [['correlations', 1]]);
-    eq('a correlated attribute from elsewhere has nothing to declare',
-       land('attr:x1', { type: 'attribute', uuid: 'x1', event_id: '7' }), []);
+});
+
+// Another event's elements, counted by a POST to the same endpoint.
+const FOREIGN_COUNTS = { total: 5, attributes: { x1: 3, x2: 2 }, objects: { OB: 2 }, events: { '9': 5 } };
+
+function withForeignCounts(answer) {
+    const asked = [];
+    return withPivots([[/correlationCounts\/1\.json$/, init => {
+        if (!init || init.method !== 'POST') return COUNTS;
+        asked.push(JSON.parse(init.body));
+        return answer ? answer() : FOREIGN_COUNTS;
+    }]]).then(g => Object.assign(g, { asked }));
+}
+
+const settle = () => new Promise(res => setTimeout(res, 0)).then(() => new Promise(res => setTimeout(res, 0)));
+
+function landForeign(g, id, data, children) {
+    const n = g.graph.liveNode({ id, data });
+    if (children) n.children = children.map(c => ({ getData: () => c }));
+    g.graph.listeners.nodeAdd.forEach(f => f(n));
+    return n;
+}
+
+test('another event\'s elements are counted as they land, together in one request', async () => {
+    const g = await withForeignCounts();
+    const updates = g.graph.renderer.updates;
+    const a = landForeign(g, 'attr:x1', { type: 'attribute', uuid: 'x1', scope: 'foreign', event_id: '7' });
+    const o = landForeign(g, 'obj:OB', { type: 'object', uuid: 'OB', scope: 'foreign', event_id: '7' },
+                          [{ type: 'attribute', uuid: 'x2' }]);
+    landForeign(g, 'attr:e1', { type: 'attribute', uuid: 'e1' });
+    eq('nothing declared before the answer', Array.from(a.getPotentials()), []);
+    await settle();
+    eq('one request, an object by its children, this event\'s own left out', g.asked, [{ attribute_uuids: ['x1', 'x2'] }]);
+    eq('the attribute declares its count', Array.from(a.getPotentials()), [['correlations', 3]]);
+    eq('the object its own', Array.from(o.getPotentials()), [['correlations', 2]]);
+    eq('one render for the batch', g.graph.renderer.updates, updates + 1);
+    landForeign(g, 'attr:x1', { type: 'attribute', uuid: 'x1', scope: 'foreign', event_id: '7' });
+    await settle();
+    eq('never asked twice', g.asked.length, 1);
+    eq('no console errors', g.errors, []);
+});
+
+test('a failed count for another event\'s element is asked again when it lands again', async () => {
+    let fail = true;
+    const g = await withForeignCounts(() => (fail ? { __status: 500 } : FOREIGN_COUNTS));
+    landForeign(g, 'attr:x1', { type: 'attribute', uuid: 'x1', scope: 'foreign' });
+    await settle();
+    fail = false;
+    const n = landForeign(g, 'attr:x1', { type: 'attribute', uuid: 'x1', scope: 'foreign' });
+    await settle();
+    eq('asked twice', g.asked.length, 2);
+    eq('declared the second time', Array.from(n.getPotentials()), [['correlations', 3]]);
+});
+
+test('correlations apply to another event\'s attribute and object once counted', async () => {
+    const g = await withForeignCounts();
+    const a = landForeign(g, 'attr:x1', { type: 'attribute', uuid: 'x1', scope: 'foreign', value: '1.1.1.1', 'attr-type': 'ip-dst' });
+    const o = landForeign(g, 'obj:OB', { type: 'object', uuid: 'OB', scope: 'foreign' },
+                          [{ type: 'attribute', uuid: 'x2', value: 'evil.example', object_relation: 'domain' }]);
+    const p = pivot(g, 'correlations');
+    eq('before the counts, neither', p.appliesTo([a, o]).length, 0);
+    await settle();
+    eq('both, after', p.appliesTo([a, o]).map(n => n.id), ['attr:x1', 'obj:OB']);
+    const s = p.summarize([a, o], {});
+    eq('summed', s.total, 5);
+    eq('each named from its node', s.facets[0].options.map(x => [x.label, x.count]),
+       [['ip-dst: 1.1.1.1', 3], ['domain: evil.example', 2]]);
+});
+
+test('another event\'s object fetches by its drawn children', async () => {
+    let body = null;
+    const g = await withPivots([[/correlatedAttributes/, init => { body = JSON.parse(init.body); return PAIRS; }]]);
+    const o = { id: 'obj:OB', getData: () => ({ type: 'object', uuid: 'OB', scope: 'foreign' }),
+                children: [{ getData: () => ({ type: 'attribute', uuid: 'x2' }) }] };
+    await pivot(g, 'correlations').fetch([o, pnode({ type: 'attribute', uuid: 'x1', scope: 'foreign' })], {}, {});
+    eq('its children, then the attribute', body, { attribute_uuids: ['x2', 'x1'] });
+});
+
+test('a pair already drawn the other way is not drawn again', async () => {
+    let pairs = [pair('x1', 'x2', '8', 'R8'), pair('x2', 'x1', '7', 'R7')];
+    const g = await withPivots([[/correlatedAttributes/, () => ({ pairs, events: {} })]]);
+    const r = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'x1' }), pnode({ type: 'attribute', uuid: 'x2' })], {}, {});
+    eq('one correlation edge for the two', r.edges.filter(e => e.data.kind === 'correlation').map(e => e.id), ['corr:x1:x2']);
+    g.graph.getMutableEdge = id => (id === 'corr:x1:x2' ? {} : undefined);
+    pairs = [pair('x2', 'x1', '7', 'R7')];
+    const again = await pivot(g, 'correlations').fetch([pnode({ type: 'attribute', uuid: 'x2' })], {}, {});
+    eq('nor one already on the canvas', again.edges.filter(e => e.data.kind === 'correlation'), []);
 });
 
 test('an object origin fetches by its live attributes', async () => {
@@ -2071,7 +2156,6 @@ test('elements: a tag already drawn is not offered, and one on a drawn attribute
     g.graph.liveNode({ id: 'attr:a1', data: { type: 'attribute', uuid: 'a1',
                                               tags: [{ name: 'osint:source-type="blog-post"' }] } });
     g.graph.liveNode({ id: 'tag:tlp:white', data: { type: 'tag', name: 'tlp:white' } });
-    g.graph.getNode = id => g.graph.live[id];
     ok('the drawn tag is left out', offered(g, TAG_KINDS).indexOf('tag:tlp:white') === -1);
     const r = elementsOf(g).fetch([], { element: ['tag'], q: 'blog-post' }, {});
     eq('the drawn carrier is joined', r.edges.map(e => [e.from, e.to]), [['attr:a1', 'tag:osint:source-type="blog-post"']]);
@@ -2475,7 +2559,7 @@ test('elements put on the canvas from the element pivot are this event\'s', asyn
         Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1' })] })],
     }), { routes: [[/correlationCounts/, { attributes: {}, objects: {}, events: {} }]] });
     // Push A past the canvas so the pivot offers it too.
-    g.graph.getNode = () => undefined;
+    g.graph.getMutableNode = () => undefined;
     const r = pivot(g, 'event-elements').fetch([], {}, {});
     eq('each, children included', flat(r.nodes).map(n => n.id + '=' + n.data.scope).sort(),
        ['attr:c1=self', 'attr:e1=self', 'obj:A=self']);
