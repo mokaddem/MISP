@@ -528,6 +528,43 @@
         return count + ' × ' + groupTypeName(key);
     }
 
+    // The element all of a group's members are, or null for a mixed group.
+    function groupElement(info) {
+        var seen = {};
+        info.members.forEach(function (n) { seen[elementOf(n) || ''] = true; });
+        var elements = Object.keys(seen);
+        return elements.length === 1 && elements[0] ? elements[0] : null;
+    }
+
+    // A drawn node leaves its colour transparent, so the ring takes the
+    // entity's hue here; a mixed group keeps the library's neutral.
+    function groupStyle(info) {
+        var e = groupElement(info);
+        var colour = e && elementColour(e);
+        return colour ? { color: colour } : undefined;
+    }
+
+    var GROUP_PEEK = 3;
+
+    function groupTooltipExtra(info) {
+        var wrap = document.createElement('div');
+        info.members.slice(0, GROUP_PEEK).forEach(function (n) {
+            var row = document.createElement('div');
+            row.style.cssText = 'font-family:var(--bs-font-monospace,monospace);font-size:.8em;' +
+                'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;';
+            row.textContent = (n.getData() || {}).label || n.id;
+            wrap.appendChild(row);
+        });
+        var rest = info.members.length - GROUP_PEEK;
+        if (rest > 0) {
+            var more = document.createElement('div');
+            more.style.cssText = 'font-size:.75em;opacity:.65;';
+            more.textContent = '+' + rest + ' more';
+            wrap.appendChild(more);
+        }
+        return wrap;
+    }
+
     function simplifyOption() {
         function rule(kind, extra) {
             return Object.assign({ kind: kind, enabled: false, typeOf: mispTypeOf }, extra);
@@ -547,13 +584,16 @@
 
     // The legend samples a node's resolved `color`, which a drawn node leaves
     // transparent, so the Element rows carry the entity hues themselves.
-    function elementLegendEntries(graph) {
+    function elementColour(e) {
         var P = window.MispPivotNodes.palette();
-        var colour = {
+        return {
             event: P.event.core, object: P.object.core, attribute: P.attribute.core,
             image: P.attribute.core, cluster: P.galaxy.core, taxonomy: P.tag.core,
             feed: P.feed.core, server: '#9b59b6'
-        };
+        }[e];
+    }
+
+    function elementLegendEntries(graph) {
         var seen = {};
         graph.getMutableNodes().forEach(function (n) {
             var e = elementOf(n);
@@ -561,7 +601,7 @@
         });
         return Object.keys(seen).map(function (e) {
             return {
-                id: e, label: ELEMENT_LABELS[e] || e, color: colour[e] || '#888',
+                id: e, label: ELEMENT_LABELS[e] || e, color: elementColour(e) || '#888',
                 predicate: function (node) { return elementOf(node) === e; }
             };
         });
@@ -2414,6 +2454,7 @@
                 // with no expand chevron or Enter shortcut.
                 enableNodeExpansion: false,
                 nodeTypeAccessor: elementOf,
+                groupStyle: groupStyle,
                 // A feed is drawn by misp-pivot-nodes, like the elements.
                 nodeStyleMap: Object.assign(mispNodeStyles(), {
                     // misp-iconify has no server mark; pivotick resolves any icon font's class.
@@ -2498,7 +2539,12 @@
                 mode: 'full',
                 theme: 'dark',
                 sidebar: { collapsed: true },
-                tooltip: { enabled: false },
+                // Elements grow into their richer drawing on hover; a group
+                // only explains itself in the library's tooltip.
+                tooltip: {
+                    enabled: { nodes: false, edges: false, groups: true },
+                    renderGroupExtra: groupTooltipExtra
+                },
                 simplify: simplifyOption(),
                 propertiesPanel: {
                     nodePropertiesMap: nodeProperties,

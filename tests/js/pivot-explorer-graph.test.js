@@ -1241,6 +1241,29 @@ test('groups: a card reads N × name', async () => {
     eq('no type', s.typeLabel(undefined, 2), '2 × node');
 });
 
+test('groups: a group takes its members\' entity hue, a mixed one keeps the library\'s', async () => {
+    const g = await withPivots();
+    const style = g.opts.render.groupStyle;
+    const P = g.win.MispPivotNodes.palette();
+    const info = datas => ({ members: datas.map(pnode) });
+    eq('attributes', style(info([{ type: 'attribute' }, { type: 'attribute' }])), { color: P.attribute.core });
+    eq('clusters', style(info([{ type: 'cluster' }])), { color: P.galaxy.core });
+    eq('mixed', style(info([{ type: 'attribute' }, { type: 'object' }])), undefined);
+});
+
+test('groups: only a group shows a tooltip, with its first three values', async () => {
+    const g = await withPivots();
+    const t = g.opts.UI.tooltip;
+    eq('per kind', t.enabled, { nodes: false, edges: false, groups: true });
+    const members = ['110.45.145.103', '114.215.130.173', '119.29.11.203', '124.248.228.30']
+        .map((v, i) => ({ id: 'a' + i, getData: () => ({ label: v }) }));
+    const el = t.renderGroupExtra({ members });
+    const texts = el.children.map(c => c.textContent);
+    eq('three values, then the rest counted',
+       texts, ['110.45.145.103', '114.215.130.173', '119.29.11.203', '+1 more']);
+    eq('no count when all are shown', t.renderGroupExtra({ members: members.slice(0, 3) }).children.length, 3);
+});
+
 test('the correlation pivot applies only where the counts say something correlates', async () => {
     const g = await withPivots();
     const p = pivot(g, 'correlations');
