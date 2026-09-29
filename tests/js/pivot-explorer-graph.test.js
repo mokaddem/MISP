@@ -128,6 +128,7 @@ function buildGraph(payload, options) {
             createTextNode: textNode,
             addEventListener() {},
             removeEventListener() {},
+            documentElement: makeEl('html'),
             body: makeEl('body'),
             head: makeEl('head'),
         },
@@ -184,7 +185,9 @@ function buildGraph(payload, options) {
                 this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
                 this.selected = [];
                 this.selectElement = n => { this.selected.push(n); };
-                this.UIManager = { sidebar: { shown: 0, showSidebar() { this.shown++; } } };
+                const root = makeEl('div');
+                this.UIManager = { sidebar: { shown: 0, showSidebar() { this.shown++; } },
+                                   getRootContainer: () => root };
                 const notices = this.notices = [];
                 this.notifier = {};
                 ['success', 'warning', 'error', 'info'].forEach(level => {
@@ -209,6 +212,7 @@ function buildGraph(payload, options) {
         console: { log() {}, error: (...a) => errors.push(a.map(String).join(' ')) },
         Promise, JSON, Object, String, Number, Array, Math, RegExp, Error,
         encodeURIComponent, setTimeout,
+        MutationObserver: function () { this.observe = function () {}; },
     };
     sandbox.globalThis = sandbox;
 
@@ -2220,8 +2224,8 @@ test('an element wears one badge: everything said about it, coloured by its own 
        ['disputed', 'neutral', 'neutral', 'endorsed']);
     eq('the event node carries its own', nodeById(g.nodes, 'event:EV-SELF').data.analyst_count, 1);
     const b = badgesOf(g, c1);
-    eq('one badge, north-west, clear of the expand corners',
-       b.map(x => [x.position, x.text, x.color]), [['nw', '5', '#6fbe80']]);
+    eq('one badge, north-west, a bubble without a count',
+       b.map(x => [x.position, x.text, x.color]), [['nw', null, '#6fbe80']]);
     eq('it says what it counts', b[0].title, '5 notes and opinions — endorsed');
     eq('colours', ['disputed', 'neutral', 'none'].map(m => badgesOf(g, { analyst_count: 1, analyst_mood: m })[0].color),
        ['#b94a48', '#999', '#999']);
