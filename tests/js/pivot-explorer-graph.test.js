@@ -1191,6 +1191,11 @@ test('a one-click pivot lands up to 25 new candidates without Review', async () 
     eq('the limit', g.opts.pivotQuickIngestLimit, 25);
 });
 
+test('groups: every landing arrives grouped', async () => {
+    const g = await withPivots();
+    eq('the option', g.opts.pivotIngestGrouped, true);
+});
+
 test('groups: MISP declares its rules, a smallest group of 5, only pivot landings on', async () => {
     const g = await withPivots();
     const s = g.opts.UI.simplify;
