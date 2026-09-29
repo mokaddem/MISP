@@ -440,7 +440,7 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
 
 - **Group a large landing by type** — a run that lands many nodes arrives as one group per type with its count ("12 IPs from event B"), which opens onto them, in place of a closed event card. Parked 2026-09-27: it is property grouping applied to one run, so it waits on pivotick grouping and collapsing nodes by a property to coarsen the graph, still to be specified upstream. **Done 2026-09-29** in [`pivot-explorer-graph-simplification-prd.md`](pivot-explorer-graph-simplification-prd.md): every pivot landing arrives grouped by MISP's own kind, 5 or more to a group.
 - **Dedicated graph endpoint (D13)** — deferred to
-  [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
+  [`pivot-explorer-graph-endpoint-prd.md`](../../prd/pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
   slow to open (~100 MB for event 4116 to draw 86 nodes).
 - **Phase 2 open questions** — object aggregation, lazy expansion via `childrenProvider`,

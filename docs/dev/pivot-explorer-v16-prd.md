@@ -977,7 +977,7 @@ knows which elements carry relationships and can answer in kilobytes what now co
 also collapses two other items: the dedicated correlation endpoint (§11) and the client-side
 graph construction that is the bulk of `pivot-explorer.js`.
 
-**Deferred to its own document:** [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md).
+**Deferred to its own document:** [`pivot-explorer-graph-endpoint-prd.md`](../../prd/pivot-explorer-graph-endpoint-prd.md).
 It is a new endpoint with its own ACL, sharing-group filtering and test surface, whereas every
 other decision here is implementable against the existing payload. So this PRD ships against
 `/events/view/{id}.json` unchanged, and **knowingly accepts that large events stay slow to
