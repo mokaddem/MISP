@@ -1,6 +1,6 @@
 # PRD: Groups in the Pivot Explorer — landings, rules and the group card
 
-**Status:** Grilled 2026-09-29 (G1–G14). Waits on two Pivotick changes (§4) before S2 and S3c.
+**Status:** Built and live-checked 2026-09-29 (S1–S4). Three Pivotick follow-ups open (§4 L3–L5).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md). Unparks *Group a large
 landing by type* ([progress](pivot-explorer-v16-progress.md) §Parked).
@@ -179,4 +179,4 @@ On the dev instance, as admin and as one of the lesser readers:
 | S3b | ✅ Three cold prototypes in `prd/pivot-node-designs/entities/group-{deck,tally,peek}.js`, Group tab of the gallery. **Deck chosen 2026-09-29**: the members' own M chip with two rims behind it |
 | S3c-1 | ✅ Live on 1017: the ring draws in attribute green; hovering the group shows its tooltip (label, rule, open hint, three IPs, *+9 more*), hovering a node shows none. The header is unreadable until L4 |
 | S3c-2 | ✅ `R.group.M` in `renderers/10-renderers.js`, `MispPivotNodes.groupCard(view)`; `groupStyle` adds the chip tier from 2 × r × 0.8 rendered px, the zoom an element chip engages at; `groupOutline` names the open group by its label. Live on 1017: at zoom 1.39 and 1.95 the group draws *12 × ip-dst · Pivot landings* as a green deck among the attribute chips. Until L5 the second line is the rule's name, not the pivot's, and the disc's count tier is replaced. The layout still spaces a group for its ring, not its 140-wide chip |
-| S4 | ⬚ |
+| S4 | ✅ 2026-09-29, the dev instance serving this branch. On 2014, as admin and as `user@admin.test`: *Correlations* from the 3 nodes it applies to stages 56, Review's main button lands them as *23 × event*, *12 × ip-dst*, *5 × domain-ip* and *5 × paloalto-threat-event*, never two templates in one group, each group linked to every origin it came from (64 nodes, 23 on the canvas; the reader 61 and 20); *Tags & clusters* on one attribute lands its one tag loose. §7's items 1–3 and 6–8 as S1–S3c above; 1288 folds nothing on *Event elements*, correctly, since its objects are already seeded. Suite 677/677, no console error |

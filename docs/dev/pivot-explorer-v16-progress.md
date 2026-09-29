@@ -437,7 +437,7 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   is the established route for a translated string — though a sentence with counts and plurals
   wants more than one attribute.
 
-- **Group a large landing by type** — a run that lands many nodes arrives as one group per type with its count ("12 IPs from event B"), which opens onto them, in place of a closed event card. Parked 2026-09-27: it is property grouping applied to one run, so it waits on pivotick grouping and collapsing nodes by a property to coarsen the graph, still to be specified upstream. Unblocked by bundle bump 0m (landing groups, P10); drafted 2026-09-29 in [`pivot-explorer-graph-simplification-prd.md`](pivot-explorer-graph-simplification-prd.md).
+- **Group a large landing by type** — a run that lands many nodes arrives as one group per type with its count ("12 IPs from event B"), which opens onto them, in place of a closed event card. Parked 2026-09-27: it is property grouping applied to one run, so it waits on pivotick grouping and collapsing nodes by a property to coarsen the graph, still to be specified upstream. **Done 2026-09-29** in [`pivot-explorer-graph-simplification-prd.md`](pivot-explorer-graph-simplification-prd.md): every pivot landing arrives grouped by MISP's own kind, 5 or more to a group.
 - **Dedicated graph endpoint (D13)** — deferred to
   [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md). Until it
   lands, this PRD knowingly ships against `/events/view/{id}.json`, so large events stay
