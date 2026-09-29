@@ -931,17 +931,18 @@
         }];
     }
 
+    // An icon, not a number: counts on the rim are the pivots'.
     function analystBadges(node) {
         var d = node && node.getData ? node.getData() : null;
         if (!d || !d.analyst_count) return [];
         var n = d.analyst_count;
         return [{
-            position: 'nw',
-            text:     String(n),
-            color:    MOOD_COLOR[d.analyst_mood] || MOOD_COLOR.none,
-            title:    n + (n === 1 ? ' note or opinion' : ' notes and opinions')
-                      + (d.analyst_mood !== 'none' ? ' — ' + d.analyst_mood : ''),
-            onClick:  function (e, clicked) { showInSidebar(clicked); }
+            position:  'nw',
+            iconClass: n === 1 ? 'fas fa-comment' : 'fas fa-comments',
+            color:     MOOD_COLOR[d.analyst_mood] || MOOD_COLOR.none,
+            title:     n + (n === 1 ? ' note or opinion' : ' notes and opinions')
+                       + (d.analyst_mood !== 'none' ? ' — ' + d.analyst_mood : ''),
+            onClick:   function (e, clicked) { showInSidebar(clicked); }
         }];
     }
 
