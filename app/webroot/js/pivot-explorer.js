@@ -536,12 +536,54 @@
         return elements.length === 1 && elements[0] ? elements[0] : null;
     }
 
-    // A drawn node leaves its colour transparent, so the ring takes the
-    // entity's hue here; a mixed group keeps the library's neutral.
+    var KEY_ELEMENT = { tag: 'taxonomy' };
+
+    // What misp-pivot-nodes' group chip draws, from the library's GroupInfo.
+    function groupView(info) {
+        var parts = Object.keys(info.typeCounts).map(function (key) {
+            var head = key.split(':')[0];
+            return { key: key, entity: KEY_ELEMENT[head] || head,
+                     name: groupTypeName(key), count: info.typeCounts[key] };
+        }).sort(function (a, b) { return b.count - a.count; });
+        return {
+            entity: groupElement(info) || 'mixed',
+            parts: parts,
+            count: info.members.length,
+            title: info.title,
+            ruleLabel: _graph && _graph.simplify ? _graph.simplify.ruleLabel(info.rule) : info.rule
+        };
+    }
+
+    // The library's own radius (graph-simplification D37): a group's chip
+    // engages at the zoom an element's does, whatever its size.
+    function groupRadius(count) {
+        return Math.min(34, 11 + 1.3 * Math.sqrt(count));
+    }
+
+    // At rest the library's ring, in the members' hue (a drawn node leaves
+    // its colour transparent); zoomed in, the deck chip. A mixed group keeps
+    // the library's neutral ring.
     function groupStyle(info) {
         var e = groupElement(info);
+        var view = groupView(info);
+        var style = {
+            tiers: [{
+                width: CHIP.width, height: CHIP.height,
+                minRenderedSize: 2 * groupRadius(view.count) * CHIP_FROM_ZOOM,
+                style: {
+                    shape: 'none', color: 'transparent', strokeWidth: 0, text: '',
+                    html: function () { return window.MispPivotNodes.groupCard(view); }
+                }
+            }]
+        };
         var colour = e && elementColour(e);
-        return colour ? { color: colour } : undefined;
+        if (colour) style.color = colour;
+        return style;
+    }
+
+    // The open group's chip reads as the closed one's label.
+    function groupOutline(info) {
+        return _graph && _graph.simplify ? _graph.simplify.labelOf(info) : undefined;
     }
 
     var GROUP_PEEK = 3;
@@ -2455,6 +2497,7 @@
                 enableNodeExpansion: false,
                 nodeTypeAccessor: elementOf,
                 groupStyle: groupStyle,
+                groupOutline: groupOutline,
                 // A feed is drawn by misp-pivot-nodes, like the elements.
                 nodeStyleMap: Object.assign(mispNodeStyles(), {
                     // misp-iconify has no server mark; pivotick resolves any icon font's class.

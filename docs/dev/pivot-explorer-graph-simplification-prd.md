@@ -115,6 +115,7 @@ MISP.
 | L1 | `pivotIngestGrouped: true`: every landing (a one-click run, Review's *Ingest selected* and *Ingest all n*) is flagged with `groupLanding` before it lands, and Review's second button becomes *Ingest loose* | `pivot-ingest-grouped.md` | G1–G3 (S2) |
 | L2 | `tooltip.enabled` also takes `{ nodes, edges, groups }` or `(element) => boolean` | `tooltip-enabled-per-kind.md` | G12 (S3c) |
 | L3 | `UI.simplify.typeOf` and `UI.simplify.colorOf` for every rule and every group colour. Today only `landings`, `neighbours` and `chains` read a rule's `typeOf` (`Simplification.ts:806-808`), so degree, k-core, communities and hand-made groups count parts by element (`6 × attribute, 9 × object`), and `typeColor` never matches a MISP key. A drawn MISP node's resolved colour is transparent, so a mixed group's split ring, the open wash and the tooltip's chips draw in nothing. Found wiring S1, 2026-09-29 | `simplify-host-type-and-colour.md` | G7, G11 |
+| L5 | `render.groupStyle(info, base)`, so a host extends the default tiers instead of replacing them (today MISP's chip tier drops the count-on-disc tier); `GroupInfo.landing = { runId, pivotId, pivotLabel }`, so the chip's second line can name the pivot without parsing the internal run id. Found wiring S3c-2, 2026-09-29 | `group-style-base-and-landing-pivot.md` | G10 |
 | L4 | A portaled tooltip's header takes the light theme under `UI.theme: 'dark'`: the dark map leaves `pvt-sidebar-mainpanelheader-bg` `unset`, which inherits `:root`'s light `#fafafa`, under white text. Found live on 1017, 2026-09-29 | `portal-theme-inherited-light-header.md` | G12 |
 
 ## 5. Tasks
@@ -171,10 +172,11 @@ On the dev instance, as admin and as one of the lesser readers:
 |---|---|
 | G1–G14 | Decided 2026-09-29 |
 | L1, L2 | Built upstream (`a3a95c9`, `cda9895`), bundled 2026-09-29 (progress 0n) |
-| L3, L4 | Written up in `~/git/pivotick/prd/`, not built |
+| L3, L4, L5 | Written up in `~/git/pivotick/prd/`, not built |
 | S1 | ✅ `e4632498d`. Live on 1017: the Simplify mode lists the six rules in order, only *Pivot landings* on, steppers at 5 |
 | S2 | ✅ `71af31888`. Live on 1017: a one-click *Event elements* lands 25 as one *12 × ip-dst* group and 13 loose nodes (3 md5 stay loose); undo clears it; Review reads *Ingest selected · Ingest loose · Ingest all 25* and its main button lands grouped. On 752 nothing reaches 5, so nothing folds |
 | S3a | ✅ The contract: a `group` entity in the design harness, the `GROUPS` samples (seven real landings, view-model in their header) and `prd/pivot-node-designs/group-brief.md` |
-| S3b | 🔜 Three cold prototypes: deck, tally, peek |
+| S3b | ✅ Three cold prototypes in `prd/pivot-node-designs/entities/group-{deck,tally,peek}.js`, Group tab of the gallery. **Deck chosen 2026-09-29**: the members' own M chip with two rims behind it |
 | S3c-1 | ✅ Live on 1017: the ring draws in attribute green; hovering the group shows its tooltip (label, rule, open hint, three IPs, *+9 more*), hovering a node shows none. The header is unreadable until L4 |
-| S3c-2, S4 | ⬚ |
+| S3c-2 | ✅ `R.group.M` in `renderers/10-renderers.js`, `MispPivotNodes.groupCard(view)`; `groupStyle` adds the chip tier from 2 × r × 0.8 rendered px, the zoom an element chip engages at; `groupOutline` names the open group by its label. Live on 1017: at zoom 1.39 and 1.95 the group draws *12 × ip-dst · Pivot landings* as a green deck among the attribute chips. Until L5 the second line is the rule's name, not the pivot's, and the disc's count tier is replaced. The layout still spaces a group for its ring, not its 140-wide chip |
+| S4 | ⬚ |

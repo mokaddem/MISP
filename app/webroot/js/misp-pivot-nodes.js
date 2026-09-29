@@ -1756,6 +1756,229 @@ window.MispPivotNodes = (function () {
     }
 
 
+
+    /* =====================================================================
+       GROUP DECK — the drawing behind R.group.M (prototype: group-m-deck)
+       ---------------------------------------------------------------------
+       The front card is 131 x 39 so two rims, each one step right and up
+       (4, 2), fit inside the 140 x 44 box. Nothing sits in a corner: the
+       library keeps a group's corners for its search arc.
+       ================================================================== */
+
+    var GD = { W: 140, H: 44, DX: 4, DY: 2, R: 10 };
+    GD.CX = 0.5;
+    GD.CY = 2 * GD.DY + 0.5;
+    GD.CW = GD.W - 2 * GD.DX - 1;
+    GD.CH = GD.H - 2 * GD.DY - 1;
+    GD.RIGHT = GD.CX + GD.CW - 6;
+    GD.BASE2 = GD.CY + 32;
+
+    var GD_TOK = { attribute: 'attribute', object: 'object', cluster: 'galaxy',
+                   taxonomy: 'tag', event: 'event' };
+
+    /* Exact up to 9,999: 1,500 is the landing cap, and "1.5k" would hide it. */
+    function gdCount(H, n) {
+        if (n >= 10000) return H.fmtCount(n);
+        return String(n).replace(/\B(?=(\d{3})+$)/g, ',');
+    }
+
+    function gdRect(x, y, fill, stroke, sw) {
+        return '<rect x="' + x + '" y="' + y + '" width="' + GD.CW + '" height="' + GD.CH +
+               '" rx="' + GD.R + '" fill="' + fill + '" stroke="' + stroke +
+               '" stroke-width="' + sw + '"/>';
+    }
+
+    /* The front card's left edge at height y, following its corners. */
+    function gdEdgeX(y) {
+        var R = GD.R, top = GD.CY + R, bot = GD.CY + GD.CH - R;
+        if (y < top) return GD.CX + R - Math.sqrt(Math.max(0, R * R - (top - y) * (top - y)));
+        if (y > bot) return GD.CX + R - Math.sqrt(Math.max(0, R * R - (y - bot) * (y - bot)));
+        return GD.CX;
+    }
+
+    /* A band of width b on the card's left edge from y0 to y1, its outer side
+       following the corner arcs. Sampled, so it can be cut at any height
+       without a clipPath (ids would collide between nodes). */
+    function gdBand(b, y0, y1) {
+        var R = GD.R, inner = GD.CX + b;
+        var dx = R - b, dy = Math.sqrt(R * R - dx * dx);
+        y0 = Math.max(y0, GD.CY + R - dy);
+        y1 = Math.min(y1, GD.CY + GD.CH - R + dy);
+        if (y1 <= y0) return '';
+        var pts = [[inner, y0], [inner, y1]];
+        for (var y = y1; y > y0; y -= 0.5) pts.push([gdEdgeX(y), y]);
+        pts.push([gdEdgeX(y0), y0]);
+        return 'M' + pts.map(function (p) {
+            return p[0].toFixed(2) + ',' + p[1].toFixed(2);
+        }).join('L') + 'Z';
+    }
+
+    function gdKind(d) {
+        return (d.parts && d.parts[0] && d.parts[0].name) || d.entity || '';
+    }
+
+    function tspan(s, o) {
+        var a = [];
+        if (o.fill) a.push('fill="' + o.fill + '"');
+        if (o.weight) a.push('font-weight="' + o.weight + '"');
+        if (o.size) a.push('font-size="' + o.size + '"');
+        if (o.dx) a.push('dx="' + o.dx + '"');
+        return '<tspan ' + a.join(' ') + '>' + s + '</tspan>';
+    }
+
+    /* "12 × ip-dst", or "6  Lorenz C2" for a titled group, or the rule's
+       name for a mixed one (its kinds are the row below). */
+    function gdLead(d, H, P, x, maxW) {
+        var n = gdCount(H, d.count);
+        var nw = H.measure(n, H.SANS(13, 650));
+        var t = tspan(H.esc(n), { size: 13, weight: 650, fill: P.ink });
+        if (d.title) {
+            t += tspan(H.esc(fitEnd(d.title, H.SANS(12, 650), maxW - nw - 5)),
+                       { size: 12, weight: 650, fill: P.ink, dx: 5 });
+        } else if (d.entity === 'mixed') {
+            t += tspan(H.esc(fitEnd(d.ruleLabel || '', H.SANS(12, 400), maxW - nw - 5)),
+                       { size: 12, weight: 400, fill: P.ink3, dx: 5 });
+        } else {
+            var sw = H.measure(' × ', H.SANS(12, 400));
+            t += tspan(' × ', { size: 12, weight: 400, fill: P.ink3 }) +
+                 tspan(H.esc(H.fit(gdKind(d), H.SANS(12, 500), maxW - nw - sw)),
+                       { size: 12, weight: 500, fill: P.ink });
+        }
+        return clipRegion(x, 8, maxW, 17, '<text x="0" y="13" font-family="' + H.FONT +
+                          '" font-variant-numeric="tabular-nums">' + t + '</text>');
+    }
+
+    /* The pivot it landed from, like the attribute chip's analyst line. */
+    function gdVia(d, H, P, x, maxW) {
+        var s = String(d.via || d.ruleLabel || '');
+        return clipRegion(x, GD.BASE2 - 9, maxW, 12,
+            H.txt(0, 9, fitEnd(s, H.SANS(10, 400), maxW), { size: 10, fill: P.ink3 }));
+    }
+
+    /* "6 ip-dst · 6 sigma +1": whole parts drop into "+N" before a name is cut. */
+    function gdBreakdown(d, H, P, x, maxW) {
+        var parts = d.parts || [];
+        var bold = H.SANS(11, 650), reg = H.SANS(11, 400);
+        function runW(k, more) {
+            var w = 0;
+            for (var i = 0; i < k; i++) {
+                if (i) w += H.measure(' · ', reg);
+                w += H.measure(String(parts[i].count), bold) + H.measure(' ' + parts[i].name, reg);
+            }
+            if (more) w += H.measure(' +' + more, bold);
+            return w;
+        }
+        var k = parts.length;
+        while (k > 1 && runW(k, parts.length - k) > maxW) k--;
+        var t = '';
+        for (var i = 0; i < k; i++) {
+            var name = parts[i].name;
+            if (k === 1) {
+                var room = maxW - H.measure(parts[i].count + ' ', bold) -
+                           (parts.length > 1 ? H.measure(' +' + (parts.length - 1), bold) : 0);
+                name = H.fit(name, reg, room);
+            }
+            t += (i ? tspan(' · ', {}) : '') +
+                 tspan(String(parts[i].count), { weight: 650, fill: P.ink }) +
+                 tspan(' ' + H.esc(name), {});
+        }
+        if (k < parts.length) t += tspan(' +' + (parts.length - k), { weight: 650, fill: P.ink });
+        return clipRegion(x, GD.BASE2 - 10, maxW, 13,
+            '<text x="0" y="10" font-family="' + H.FONT + '" font-size="11" fill="' + P.ink2 +
+            '" font-variant-numeric="tabular-nums">' + t + '</text>');
+    }
+
+    function gdRims(P, tok, washed) {
+        var fill = tok && washed ? P[tok].wash : P.surface;
+        var stroke = tok ? P[tok].core : P.line;
+        return gdRect(GD.CX + 2 * GD.DX, 0.5, fill, stroke, 1) +
+               gdRect(GD.CX + GD.DX, 0.5 + GD.DY, fill, stroke, 1);
+    }
+
+    function drawGroupDeck(d, H, P) {
+        var ent = d.entity;
+        var tok = GD_TOK[ent];
+        var s = '', x;
+
+        if (ent === 'event' || ent === 'taxonomy') {
+            /* event-m-title's card: wash fill, core border. A tag group takes
+               the tag hue, as no single tag's own colour speaks for them all. */
+            s += gdRims(P, tok, true);
+            s += gdRect(GD.CX, GD.CY, P[tok].wash, P[tok].core, 1.5);
+            x = 10;
+            s += gdLead(d, H, P, x, GD.RIGHT - x);
+            s += H.use(ent === 'event' ? 'simple/event' : 'simple/tag',
+                       { x: x, y: GD.BASE2 - 10, size: 12, color: P[tok].core });
+            s += gdVia(d, H, P, x + 16, GD.RIGHT - x - 16);
+        } else if (ent === 'attribute') {
+            /* attribute-m-context's edge band and type glyph. A group has no
+               to_ids, so the band is drawn solid as the entity mark only. */
+            s += gdRims(P, tok);
+            s += gdRect(GD.CX, GD.CY, P.surface, P.line, 1);
+            s += '<path d="' + gdBand(6, 0, GD.H) + '" fill="' + P.attribute.core + '"/>';
+            x = 16;
+            s += gdLead(d, H, P, x, GD.RIGHT - x);
+            var ico = H.attrIcon(gdKind(d));
+            s += ico.ref
+                ? H.use(ico.ref, { x: x, y: GD.BASE2 - 11, size: 13, color: P.attribute.inkHi })
+                : H.use(null, { x: x + 1.5, y: GD.BASE2 - 9.5, size: 10, color: P.attribute.inkHi,
+                                fallback: 'fallback-attribute' });
+            s += gdVia(d, H, P, x + 17, GD.RIGHT - x - 17);
+        } else if (ent === 'cluster') {
+            /* cluster-m-spine's galaxy spine and glyph. */
+            s += gdRims(P, tok);
+            s += gdRect(GD.CX, GD.CY, P.surface, P.line, 1);
+            s += '<path d="' + gdBand(4, 0, GD.H) + '" fill="' + P.galaxy.core + '"/>';
+            x = 13;
+            s += gdLead(d, H, P, x, GD.RIGHT - x);
+            var gtype = String((d.parts && d.parts[0] && d.parts[0].key) || '').split(':')[1];
+            var g = H.galaxyIcon(gtype, false);
+            s += H.use(g.exact ? g.ref : null, { x: x, y: GD.BASE2 - 10, size: 12,
+                                                 color: P.galaxy.core, fallback: 'fallback-galaxy' });
+            s += gdVia(d, H, P, x + 16, GD.RIGHT - x - 16);
+        } else if (ent === 'object') {
+            /* sel-object-m-wellvalue's template well. Its count tab counts one
+               object's attributes, which a group has not; the lead carries the count. */
+            s += gdRims(P, tok);
+            s += gdRect(GD.CX, GD.CY, P.surface, P.line, 1);
+            var WELL = 24, wx = 7, wy = GD.CY + (GD.CH - WELL) / 2;
+            s += '<rect x="' + wx + '" y="' + wy + '" width="' + WELL + '" height="' + WELL +
+                 '" rx="6" fill="' + P.object.wash + '" stroke="' + P.object.core +
+                 '" stroke-width="1"/>';
+            var oi = H.objectIcon(gdKind(d), false);
+            var gs = oi.exact ? 14 : 15;
+            s += H.use(oi.ref, { x: wx + (WELL - gs) / 2, y: wy + (WELL - gs) / 2, size: gs,
+                                 color: P.object.core, fallback: 'fallback-object' });
+            x = wx + WELL + 8;
+            s += gdLead(d, H, P, x, GD.RIGHT - x);
+            s += gdVia(d, H, P, x, GD.RIGHT - x);
+        } else {
+            /* Mixed: a neutral deck, the edge band cut into each part's entity
+               hue by share, largest first. */
+            s += gdRims(P, null);
+            s += gdRect(GD.CX, GD.CY, P.surface, P.line, 1);
+            var byEnt = [], seen = {};
+            (d.parts || []).forEach(function (p) {
+                if (!(p.entity in seen)) { seen[p.entity] = byEnt.length; byEnt.push({ e: p.entity, n: 0 }); }
+                byEnt[seen[p.entity]].n += p.count;
+            });
+            var total = byEnt.reduce(function (a, b) { return a + b.n; }, 0) || 1;
+            var y0 = GD.CY, GAP = 2;
+            byEnt.forEach(function (b, i) {
+                var y1 = y0 + GD.CH * b.n / total;
+                var path = gdBand(6, y0 + (i ? GAP / 2 : 0), y1 - (i < byEnt.length - 1 ? GAP / 2 : 0));
+                var t = P[GD_TOK[b.e] || 'object'] || P.object;
+                if (path) s += '<path d="' + path + '" fill="' + t.core + '"/>';
+                y0 = y1;
+            });
+            x = 16;
+            s += gdLead(d, H, P, x, GD.RIGHT - x);
+            s += gdBreakdown(d, H, P, x, GD.RIGHT - x);
+        }
+
+        return H.svg(GD.W, GD.H, s, ' width="' + GD.W + '" height="' + GD.H + '"');
+    }
+
     /* =====================================================================
        The table
        ================================================================== */
@@ -2617,6 +2840,25 @@ window.MispPivotNodes = (function () {
                     return H.svg(W, HH, s);
                 }
             }
+        },
+
+        /* -----------------------------------------------------------------
+           GROUP — not a MISP record: several elements Pivotick folded into
+           one (UI.simplify). S is the library's ringed disc; this is the M
+           chip, `group-m-deck`: the members' own M chip with two rims behind
+           it, so "12 × ip-dst" reads as an ip-dst chip dealt twelve times.
+
+           Data is the explorer's view-model, not a node's data:
+             { entity, parts: [{ key, entity, name, count }], count, title,
+               ruleLabel, via }
+           `entity` is 'mixed' when the parts differ.
+           -------------------------------------------------------------- */
+        group: {
+            M: {
+                channel: 'card',
+                box: { w: 140, h: 44 },
+                draw: function (d, H, P) { return drawGroupDeck(d || {}, H, P); }
+            }
         }
     };
 
@@ -3276,7 +3518,17 @@ window.MispPivotNodes = (function () {
         return spec ? spec.draw(normalise(entity, data), H, M.palette()) : '';
     }
 
+    /**
+     * A group's M chip, for a render.groupStyle tier. `view` is the group
+     * view-model R.group.M draws (see 10-renderers.js).
+     */
+    function groupCard(view) {
+        var spec = R.group.M;
+        return cardElement(spec.draw(view, H, M.palette()), spec.box);
+    }
+
     M.entityOf = entityOf;
+    M.groupCard = groupCard;
     M.styleMap = styleMap;
     M.options = options;
     M.applyTheme = applyTheme;

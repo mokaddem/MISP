@@ -51,6 +51,8 @@ function makeEl(tag) {
         tagName: String(tag).toUpperCase(),
         className: '', type: '', placeholder: '', autocomplete: '', value: '',
         children: [], style: {}, attrs: {}, _html: '', _listeners: {},
+        // A canvas for the node renderers' text measuring: 6px a character.
+        getContext() { return { font: '', measureText: s => ({ width: String(s).length * 6 }) }; },
         appendChild(c) { this.children.push(c); return c; },
         insertBefore(c) { this.children.unshift(c); return c; },
         get firstChild() { return this.children[0] || null; },
@@ -1245,10 +1247,23 @@ test('groups: a group takes its members\' entity hue, a mixed one keeps the libr
     const g = await withPivots();
     const style = g.opts.render.groupStyle;
     const P = g.win.MispPivotNodes.palette();
-    const info = datas => ({ members: datas.map(pnode) });
-    eq('attributes', style(info([{ type: 'attribute' }, { type: 'attribute' }])), { color: P.attribute.core });
-    eq('clusters', style(info([{ type: 'cluster' }])), { color: P.galaxy.core });
-    eq('mixed', style(info([{ type: 'attribute' }, { type: 'object' }])), undefined);
+    const info = (datas, typeCounts) => ({ rule: 'landings', members: datas.map(pnode), typeCounts: typeCounts || {} });
+    eq('attributes', style(info([{ type: 'attribute' }, { type: 'attribute' }])).color, P.attribute.core);
+    eq('clusters', style(info([{ type: 'cluster' }])).color, P.galaxy.core);
+    ok('mixed keeps the library\'s ring', !('color' in style(info([{ type: 'attribute' }, { type: 'object' }]))));
+});
+
+test('groups: zoomed in, a group draws the deck chip of its kind', async () => {
+    const g = await withPivots();
+    const members = Array.from({ length: 12 }, () => ({ type: 'attribute', 'attr-type': 'ip-dst' }));
+    const st = g.opts.render.groupStyle({ rule: 'landings', members: members.map(pnode),
+                                          typeCounts: { 'attribute:ip-dst': 12 } });
+    eq('one chip tier, 140 x 44', st.tiers.map(t => [t.width, t.height]), [[140, 44]]);
+    const r = Math.min(34, 11 + 1.3 * Math.sqrt(12));
+    eq('it engages at the zoom an element chip does', st.tiers[0].minRenderedSize, 2 * r * 0.8);
+    const card = st.tiers[0].style.html();
+    ok('the card is the deck', /12/.test(card.innerHTML) && /ip-dst/.test(card.innerHTML));
+    eq('the open group\'s chip is the label', typeof g.opts.render.groupOutline, 'function');
 });
 
 test('groups: only a group shows a tooltip, with its first three values', async () => {
