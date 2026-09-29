@@ -299,6 +299,19 @@ suite('a multi-selection: what the nodes share, and one property row per value',
     eq('orgs', vm.shared.orgs, [{ count: 2, name: 'CIRCL' }]);
     eq('rows repeat the name, one per value', M.propertyRows(items[0], env()).filter(r => r.name === 'Tag').map(r => r.value),
        ['tlp:clear', 'osint:a']);
+    eq('a tag node counts as its tag', M.propertyRows(node({ type: 'tag', name: 'tlp:amber' }), env()),
+       [{ name: 'Element', value: 'tag' }, { name: 'Tag', value: 'tlp:amber' }]);
+    eq('a cluster node as its cluster', M.propertyRows(node({ type: 'cluster', value: 'APT28', galaxy_type: 'threat-actor' }), env()),
+       [{ name: 'Element', value: 'cluster' }, { name: 'Galaxy cluster', value: 'threat-actor: APT28' }]);
+});
+
+suite('an attribute another event\'s card brought says which of its slices matched', () => {
+    const e = Object.assign(env(), { matchedLabels: { ids: 'IDS indicators' } });
+    const vm = M.build(node({ type: 'attribute', uuid: 'far', scope: 'foreign', event_id: '7', matched: ['ids', 'x'] }), e);
+    eq('named by the explorer, an unknown key as itself', vm.facts.filter(f => f.key === 'matched').map(f => f.value),
+       ['IDS indicators, x']);
+    eq('nothing when nothing matched', M.build(node({ type: 'attribute', uuid: 'far2', scope: 'foreign' }), e)
+       .facts.filter(f => f.key === 'matched'), []);
 });
 
 /* ── runner ────────────────────────────────────────────────── */

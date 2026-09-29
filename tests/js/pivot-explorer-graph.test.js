@@ -38,6 +38,9 @@ const SRC = fs.readFileSync(MODULE_PATH, 'utf8');
 // The node renderers the module requires beside Pivotick, loaded for real.
 const NODES_SRC = fs.readFileSync(
     path.join(__dirname, '..', '..', 'app', 'webroot', 'js', 'misp-pivot-nodes.js'), 'utf8');
+// The sidebar's view-models and view, which the element loads beside it.
+const SIDEBAR_SRC = ['pivot-sidebar-model.js', 'pivot-sidebar-view.js'].map(f => [f, fs.readFileSync(
+    path.join(__dirname, '..', '..', 'app', 'webroot', 'js', f), 'utf8')]);
 
 /* ─────────────────────────── DOM stub ─────────────────────────── */
 
@@ -211,13 +214,14 @@ function buildGraph(payload, options) {
         },
         console: { log() {}, error: (...a) => errors.push(a.map(String).join(' ')) },
         Promise, JSON, Object, String, Number, Array, Math, RegExp, Error,
-        encodeURIComponent, setTimeout,
+        encodeURIComponent, setTimeout, AbortController,
         MutationObserver: function () { this.observe = function () {}; },
     };
     sandbox.globalThis = sandbox;
 
     vm.createContext(sandbox);
     vm.runInContext(NODES_SRC, sandbox, { filename: 'misp-pivot-nodes.js' });
+    SIDEBAR_SRC.forEach(([f, src]) => vm.runInContext(src, sandbox, { filename: f }));
     vm.runInContext(SRC, sandbox, { filename: 'pivot-explorer.js' });
 
     // The build happens in a promise chain off fetch(); let it settle.
@@ -2244,18 +2248,20 @@ test('nothing said, nothing changed: no fields, no badge', async () => {
     eq('an empty badge list', badgesOf(g, c2), []);
 });
 
+const analystPanelOf = g => g.opts.UI.extraPanels.find(p => p.id === 'analyst-data');
+
 test('the panel exists only where there is analyst data to show', async () => {
     const quiet = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
-    ok('an event without any gets no sidebar panel', !quiet.opts.UI.extraPanels);
+    eq('an event without any gets only the shared-labels panel', quiet.opts.UI.extraPanels.map(p => p.id), ['pe-shared']);
     const deep = await buildGraph(ev({ Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c', Note: [note()] })] })] }));
-    eq('one note on one object attribute is enough', deep.opts.UI.extraPanels.map(p => p.id), ['analyst-data']);
+    eq('one note on one object attribute is enough', deep.opts.UI.extraPanels.map(p => p.id), ['pe-shared', 'analyst-data']);
 });
 
 const panelText = el => (el.children || []).map(c => c.tagName === '#text' ? c._text : panelText(c)).join('|');
 
 test('the panel lists what was said about the selected element, as text', async () => {
     const g = await buildGraph(analystFixture());
-    const panel = g.opts.UI.extraPanels[0];
+    const panel = analystPanelOf(g);
     ok('reactive by default, hidden with nothing selected', panel.reactive === undefined && !panel.alwaysVisible);
     const out = panel.render(pnode({ type: 'attribute', uuid: 'c1' }));
     const entries = findByClass(out, 'pe-analyst-entry');
@@ -2270,7 +2276,7 @@ test('the panel lists what was said about the selected element, as text', async 
 
 test('the panel for anything else says so', async () => {
     const g = await buildGraph(analystFixture());
-    const render = g.opts.UI.extraPanels[0].render;
+    const render = analystPanelOf(g).render;
     ok('an element nobody commented on', panelText(render(pnode({ type: 'attribute', uuid: 'c2' }))).indexOf('No notes or opinions') !== -1);
     ok('a correlated element from another event', panelText(render(pnode({ type: 'attribute', uuid: 'x1' }))).indexOf('No notes or opinions') !== -1);
     ok('a multi-selection', panelText(render([pnode({ uuid: 'c1' }), pnode({ uuid: 'A' })])).indexOf('single element') !== -1);
@@ -2287,49 +2293,39 @@ test('clicking the badge selects its node and opens the sidebar', async () => {
 
 test('17: the panel\'s title counts what was said about the selection', async () => {
     const g = await buildGraph(analystFixture());
-    const title = g.opts.UI.extraPanels[0].title;
+    const title = analystPanelOf(g).title;
     eq('with a count', title(pnode(nodeById(g.nodes, 'attr:c1').data)), 'Notes & opinions (5)');
     eq('without', [title(pnode({ type: 'attribute', uuid: 'c2' })), title(null), title([pnode({ analyst_count: 2 })])],
        ['Notes & opinions', 'Notes & opinions', 'Notes & opinions']);
 });
 
-/* ─────────── task 17: the sidebar's properties, under MISP's names ─────────── */
+/* ─────────── the sidebar: hooks into pivotick's panels ─────────── */
 
 const props = (g, data) => g.opts.UI.propertiesPanel.nodePropertiesMap(pnode(data))
     .map(p => p.name + ': ' + p.value);
 const edgeProps = (g, data) => g.opts.UI.propertiesPanel.edgePropertiesMap({ getData: () => data })
     .map(p => p.name + ': ' + p.value);
 
-test('17: an attribute reads by value, type and category, then where it belongs', async () => {
-    const g = await buildGraph(ev({
-        Attribute: [attr({ uuid: 'e1', value: '1.2.3.4', to_ids: true, comment: 'c2 box', FeedHit: true })],
-        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'e1', referenced_type: '0' })],
-                       Attribute: [attr({ uuid: 'c1', object_relation: 'ip', value: 'v' })] })],
-    }));
-    eq('event-level, flagged and commented', props(g, byId(g.nodes, 'attr:e1').data), [
-        'Value: 1.2.3.4', 'Type: ip-dst', 'Category: Network activity', 'IDS flag: Yes', 'Comment: c2 box',
-        'Event: This event', 'Seen in a feed: Yes — too many hits in this event to name which', 'UUID: e1']);
-    eq('an object\'s attribute, with its relation; blank fields left out',
-       props(g, byId(g.nodes, 'obj:A').children[0].data), [
-        'Value: v', 'Type: ip-dst', 'Category: Network activity', 'Object relation: ip', 'IDS flag: No',
-        'Event: This event', 'UUID: c1']);
-    eq('from another event, by its id', props(g, { type: 'attribute', value: 'x', scope: 'foreign', event_id: '7' }),
-       ['Value: x', 'Event: Event 7']);
+test('sidebar: a node\'s rows are one per value, for the multi-selection table', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    eq('an attribute from another event, one row per tag', props(g, {
+        type: 'attribute', uuid: 'x', 'attr-type': 'ip-dst', category: 'Network activity', scope: 'foreign',
+        tags: [{ name: 'tlp:clear' }, { name: 'type:OSINT' }] }), [
+        'Element: attribute', 'Attribute type: ip-dst', 'Category: Network activity',
+        'Tag: tlp:clear', 'Tag: type:OSINT']);
+    eq('an event, by its org', props(g, { type: 'event', uuid: 'E', org: 'CIRCL', scope: 'foreign' }),
+       ['Element: event', 'Organisation: CIRCL']);
 });
 
-test('17: objects, events and sources each read by their own fields', async () => {
-    const g = await buildGraph(ev({ info: 'Seed', date: '2025-01-02', Orgc: { name: 'CIRCL' },
-        Relationship: [toEvent(otherEvent({ uuid: 'R', id: '7', info: 'Other' }), { object_uuid: 'EV-SELF' })],
-        Object: [obj({ uuid: 'A', name: 'domain-ip', 'meta-category': 'network' })] }));
-    eq('object', props(g, byId(g.nodes, 'obj:A').data),
-       ['Template: domain-ip', 'Meta-category: network', 'Event: This event', 'UUID: A']);
-    eq('event', props(g, byId(g.nodes, 'event:EV-SELF').data),
-       ['Info: Seed', 'Date: 2025-01-02', 'Organisation: CIRCL', 'Event ID: 1', 'UUID: EV-SELF']);
-    eq('feed', props(g, { type: 'feed', provider: 'CIRCL', url: 'https://x', source_format: 'misp',
-                          feed_events: 3, source_id: '1', scope: 'foreign' }),
-       ['Provider: CIRCL', 'URL: https://x', 'Format: misp', 'Events: 3', 'Feed ID: 1']);
-    eq('server, with only a name', props(g, { type: 'server', source_id: '4', scope: 'foreign' }), ['Server ID: 4']);
-    eq('anything else, nothing', props(g, { type: 'note' }), []);
+test('sidebar: several elements go back to pivotick\'s own table, one gets the detail', async () => {
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    const render = g.opts.UI.propertiesPanel.render;
+    ok('a multi-selection is handed back', render([pnode({ type: 'event' }), pnode({ type: 'event' })]) === undefined);
+    ok('so is nothing selected', render(null) === undefined);
+    ok('the header hook is set', typeof g.opts.UI.mainHeader.render === 'function');
+    const shared = g.opts.UI.extraPanels.find(p => p.id === 'pe-shared');
+    ok('the shared-labels panel has nothing for one element', shared.render(pnode({ type: 'event' })) === null);
+    ok('nor for several links', shared.render([{ from: {}, to: {}, getData: () => ({}) }]) === null);
 });
 
 test('17: an edge reads by the kind of link and what it asserts', async () => {
@@ -2913,8 +2909,9 @@ test('warninglists: an attribute carries the lists its value is on, once each', 
        [['60', 'Public DNS resolvers', 'false_positive'], ['7', 'Known hosting', 'known']]);
     eq('flagged for the filter', [d.warninglisted, byId(g.nodes, 'attr:e2').data.warninglisted], [true, false]);
     eq('none, none', byId(g.nodes, 'attr:e2').data.warnings, undefined);
-    ok('the sidebar names them, a false positive said so',
-       props(g, d).indexOf('Warninglists: Public DNS resolvers (false positive), Known hosting') !== -1, props(g, d));
+    ok('the multi-selection table counts each list',
+       props(g, d).indexOf('Warninglist: Public DNS resolvers') !== -1
+       && props(g, d).indexOf('Warninglist: Known hosting') !== -1, props(g, d));
 });
 
 test('tags: a cluster named only by its tag still reads its galaxy and value', async () => {
@@ -2932,21 +2929,21 @@ test('tags: a hidden tag is left out', async () => {
     eq('nothing', byId(g.nodes, 'attr:e1').data.tags, undefined);
 });
 
-test('tags: the sidebar lists them, and a tagged attribute wears a tag badge', async () => {
+test('tags: the table has a row per label, and a tagged attribute wears a tag badge', async () => {
     const g = await buildGraph(taggedEvent());
     const rows = props(g, byId(g.nodes, 'attr:e1').data);
-    ok('Tags', rows.indexOf('Tags: LummaC2 (local)') !== -1, rows);
-    ok('Galaxy clusters', rows.indexOf('Galaxy clusters: Threat Actor: APT28') !== -1, rows);
+    ok('a tag', rows.indexOf('Tag: LummaC2') !== -1, rows);
+    ok('a cluster, by its galaxy', rows.filter(r => /^Galaxy cluster: .*APT28$/.test(r)).length === 1, rows);
     const b = badgesOf(g, byId(g.nodes, 'attr:e1').data);
     eq('one badge, bottom-right, in the first tag\'s colour', b.map(x => [x.position, x.iconClass, x.color]),
        [['se', 'fas fa-tag', '#5000fa']]);
     eq('its title names them all', b[0].title, 'LummaC2\nThreat Actor: APT28');
     eq('no badge without tags', badgesOf(g, { type: 'attribute', value: 'x' }), []);
     eq('an event card draws its own', badgesOf(g, { type: 'event', tags: [{ name: 'x' }] }), []);
-    eq('a tag node reads as a tag', props(g, { type: 'tag', name: 'tlp:amber' }), ['Tag: tlp:amber']);
-    eq('a cluster node reads as a cluster',
+    eq('a tag node counts as its tag', props(g, { type: 'tag', name: 'tlp:amber' }), ['Element: tag', 'Tag: tlp:amber']);
+    eq('a cluster node as its cluster',
        props(g, { type: 'cluster', value: 'APT28', galaxy_name: 'Threat Actor', tag_name: 't', uuid: 'U' }),
-       ['Cluster: APT28', 'Galaxy: Threat Actor', 'Tag: t', 'UUID: U']);
+       ['Element: cluster', 'Galaxy cluster: Threat Actor: APT28']);
 });
 
 test('tags: a tag draws as the taxonomy entity and the legend calls it a tag', async () => {
@@ -3402,8 +3399,6 @@ test('another event\'s card: an object lands closed with all its attributes, the
     eq('each joined to its card',
        r.edges.map(e => [e.id, e.from, e.to, e.data.kind]),
        [['in-event:obj:OB', 'obj:OB', 'event:R7', 'in-event'], ['in-event:attr:f1', 'attr:f1', 'event:R7', 'in-event']]);
-    eq('the sidebar names the pivot', props(g, box.children[0].data).filter(p => /^Matched/.test(p)),
-       ['Matched: IDS indicators']);
 });
 
 test('another event\'s card: several cards land each its own, joined to its own card', async () => {

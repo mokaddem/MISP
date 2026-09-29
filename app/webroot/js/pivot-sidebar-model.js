@@ -782,6 +782,13 @@
         };
     }
 
+    // Which of another event's slices brought this attribute onto the canvas.
+    function matchedBy(env, keys) {
+        if (!Array.isArray(keys) || !keys.length) return null;
+        var names = env.matchedLabels || {};
+        return keys.map(function (k) { return names[k] || k; }).join(', ');
+    }
+
     function attributeModel(input, env) {
         var d = input.data;
         var vm = base('attribute', d, input.id);
@@ -812,6 +819,7 @@
                 fact('last_seen', 'Last seen', a && a.last_seen, 'date'),
                 fact('distribution', 'Distribution', enumLabel(DISTRIBUTION, a && a.distribution)),
                 fact('timestamp', 'Last change', num(a && a.timestamp), 'time'),
+                fact('matched', 'Matched', matchedBy(env, d.matched)),
                 fact('uuid', 'UUID', d.uuid, 'code')
             ]);
             if (a) {
@@ -996,6 +1004,7 @@
      *          plan         ValueLabelPriority::planFor() of the viewer's profile
      *          permitted    { taxonomies: [ns…], galaxies: [type…] } enabled on the instance, or null
      *          uiPriorities template uuid.version → { relation: rank }
+     *          matchedLabels a card slice's key → what it brought (Attributes, IDS indicators, …)
      *          correlations (type, uuid) → count, or null when not known
      *          lazy         key → parsed response of a declared read; false when it failed }
      */
@@ -1021,6 +1030,10 @@
         if (d['attr-type']) rows.push({ name: 'Attribute type', value: d['attr-type'] });
         if (d.category) rows.push({ name: 'Category', value: d.category });
         if (d.name && d.type === 'object') rows.push({ name: 'Template', value: d.name });
+        if (d.name && d.type === 'tag') rows.push({ name: 'Tag', value: d.name });
+        if (d.value && d.type === 'cluster') {
+            rows.push({ name: 'Galaxy cluster', value: (d.galaxy_name || d.galaxy_type) + ': ' + d.value });
+        }
         l.tags.forEach(function (t) { rows.push({ name: 'Tag', value: t.name }); });
         l.clusters.forEach(function (c) { rows.push({ name: 'Galaxy cluster', value: (c.galaxy_name || c.galaxy_type) + ': ' + c.value }); });
         (d.warnings || []).forEach(function (w) { rows.push({ name: 'Warninglist', value: w.warninglist_name }); });

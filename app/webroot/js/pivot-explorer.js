@@ -32,6 +32,10 @@
     var analystSharing = { levels: [], sharingGroups: [], default: 1, authors: '' };
     // Per object template ('uuid.version'), the ui-priority of each relation.
     var uiPriorities = {};
+    // The viewer's analyst profile as ValueLabelPriority::planFor() gives it,
+    // and which of its pinned taxonomies and galaxies the instance enables.
+    var labelPlan = null;
+    var permitted = null;
 
     /* ── state ─────────────────────────────────────────────── */
     var _initialized = false;
@@ -1310,6 +1314,8 @@
     // Another event's attribute or object, counted once: the nodes that land
     // together are asked for in one request, and declare when it answers.
     var _foreignAsked = {}, _foreignQueue = [], _foreignTimer = null;
+    // Asked and answered, so a uuid the answer leaves out has no correlations.
+    var _foreignAnswered = {};
     function queueForeignCounts(graph, node) {
         var d = node.getData() || {};
         if ((d.type !== 'attribute' && d.type !== 'object') || !d.uuid || isOwnElement(d)) return;
@@ -1331,8 +1337,10 @@
             .then(function (c) {
                 Object.assign(_foreignCounts.attributes, (c && c.attributes) || {});
                 Object.assign(_foreignCounts.objects, (c && c.objects) || {});
+                uuids.forEach(function (uuid) { _foreignAnswered[uuid] = true; });
                 batch.forEach(function (b) { declarePotential(b.node); });
                 graph.renderer.update();
+                refreshSidebar();
             })
             .catch(function (err) {
                 uuids.forEach(function (uuid) { delete _foreignAsked[uuid]; });
@@ -1365,6 +1373,7 @@
             if (!c || !c.attributes) return;
             _counts = c;
             declareAllPotential(graph);
+            refreshSidebar();
         })
         .catch(function (err) {
             console.error('[pivot-explorer] correlation counts failed:', err);
@@ -2371,66 +2380,219 @@
         return (value == null || value === '') ? null : { name: name, value: String(value) };
     }
 
-    function localMark(t) { return t.local ? ' (local)' : ''; }
-
-    function tagsField(d) {
-        return field('Tags', (d.tags || []).map(function (t) { return t.name + localMark(t); }).join(', '));
-    }
-
-    function clustersField(d) {
-        return field('Galaxy clusters', (d.clusters || []).map(function (c) {
-            return clusterName(c) + localMark(c);
-        }).join(', '));
-    }
-
-    function belongsTo(d) {
-        if (d.scope === 'self') return 'This event';
-        return d.event_id ? 'Event ' + d.event_id : null;
-    }
-
-    function nodeProperties(node) {
-        var d = node.getData() || {};
-        var rows = [];
-        if (d.type === 'attribute') {
-            rows = [
-                field('Value', d.value), field('Type', d['attr-type']), field('Category', d.category),
-                field('Object relation', d.object_relation),
-                field('IDS flag', d.to_ids == null ? null : (d.to_ids ? 'Yes' : 'No')),
-                field('Comment', d.comment), field('Event', belongsTo(d)),
-                field('Matched', (d.matched || []).map(function (k) {
-                    return CARD_SLICES[k] ? CARD_SLICES[k].matched : k;
-                }).join(', ')),
-                field('Seen in a feed', d.feed_hit ? 'Yes — too many hits in this event to name which' : null),
-                field('Warninglists', (d.warnings || []).map(function (w) {
-                    return w.warninglist_name + (w.warninglist_category === 'false_positive' ? ' (false positive)' : '');
-                }).join(', ')),
-                tagsField(d), clustersField(d),
-                field('UUID', d.uuid)
-            ];
-        } else if (d.type === 'object') {
-            rows = [field('Template', d.name), field('Meta-category', d['meta-category']),
-                    field('Event', belongsTo(d)), field('UUID', d.uuid)];
-        } else if (d.type === 'event') {
-            rows = [field('Info', d.info), field('Date', d.date), field('Organisation', d.org),
-                    field('Feed', d.feed_name), tagsField(d), clustersField(d),
-                    field('Event ID', d.event_id), field('UUID', d.uuid)];
-        } else if (d.type === 'tag') {
-            rows = [field('Tag', d.name), field('Local', d.local ? 'Yes' : null)];
-        } else if (d.type === 'cluster') {
-            rows = [field('Cluster', d.value), field('Galaxy', d.galaxy_name || d.galaxy_type),
-                    field('Tag', d.tag_name), field('UUID', d.uuid)];
-        } else if (d.type === 'feed' || d.type === 'server') {
-            rows = [field('Provider', d.provider), field('URL', d.url), field('Format', d.source_format),
-                    field('Events', d.feed_events),
-                    field(d.type === 'feed' ? 'Feed ID' : 'Server ID', d.source_id)];
-        }
-        return rows.filter(Boolean);
-    }
-
     function edgeProperties(edge) {
         var d = edge.getData() || {};
         return [field('Link', KIND_LABELS[d.kind] || d.kind), field('Relationship', d.relationship_type),
                 field('Authors', d.authors), field('UUID', d.uuid)].filter(Boolean);
+    }
+
+    /* ── sidebar ───────────────────────────────────────────── */
+    // pivot-sidebar-model.js says what a selection is, pivot-sidebar-view.js
+    // draws it. The header, the detail and the shared-labels panel of one
+    // selection share one view-model; its lazy reads run once and each answer
+    // is kept for the next selection that asks the same thing.
+    var _reads = {};
+    var _sidebar = null;
+
+    function readKey(req) {
+        return req.method + ' ' + req.url + (req.body ? ' ' + JSON.stringify(req.body) : '');
+    }
+
+    function sidebarRead(req, signal) {
+        var init = {
+            method: req.method,
+            credentials: 'same-origin',
+            signal: signal,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        };
+        if (req.method === 'POST') {
+            init.headers['Content-Type'] = 'application/json';
+            init.headers['X-CSRF-Token'] = window.csrfToken || '';
+            init.body = JSON.stringify(req.body || {});
+        }
+        return fetch(baseurl + req.url, init).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        });
+    }
+
+    // correlationCounts leaves out what has none, so this event's own
+    // elements read 0 when missing; another event's only once they were asked.
+    function knownCorrelations(type, uuid) {
+        if (!_counts) return null;
+        var own = type === 'object' ? _counts.objects : _counts.attributes;
+        var foreign = type === 'object' ? _foreignCounts.objects : _foreignCounts.attributes;
+        if (uuid in own) return own[uuid];
+        if (uuid in foreign) return foreign[uuid];
+        if (_foreignAnswered[uuid]) return 0;
+        var index = ownAttributeIndex();
+        return (type === 'object' ? index.byObject[uuid] : index.byUuid[uuid]) ? 0 : null;
+    }
+
+    function sidebarEnv() {
+        var matchedLabels = {};
+        Object.keys(CARD_SLICES).forEach(function (k) { matchedLabels[k] = CARD_SLICES[k].matched; });
+        return {
+            event: _event, eventId: eventId, plan: labelPlan, permitted: permitted,
+            uiPriorities: uiPriorities, matchedLabels: matchedLabels,
+            correlations: knownCorrelations, lazy: {}
+        };
+    }
+
+    function sidebarNode(node) {
+        var kids = (node.children || []).map(function (k) { return k.getData ? k.getData() : k.data; })
+            .filter(Boolean);
+        return { kind: 'node', id: node.id, data: node.getData() || {}, children: kids.length ? kids : undefined };
+    }
+
+    function isEdge(element) {
+        return !!element && element.from !== undefined && element.to !== undefined;
+    }
+
+    function sidebarInput(selection) {
+        if (Array.isArray(selection)) {
+            return isEdge(selection[0]) ? null : { kind: 'nodes', items: selection.map(sidebarNode) };
+        }
+        if (isEdge(selection)) {
+            return {
+                kind: 'edge', id: selection.id, data: selection.getData() || {},
+                from: { id: selection.from.id, data: selection.from.getData() || {} },
+                to: { id: selection.to.id, data: selection.to.getData() || {} }
+            };
+        }
+        return sidebarNode(selection);
+    }
+
+    // The view-model with every answer already known folded in. A read can
+    // follow from another's answer (a cluster's tag, then the cluster).
+    function buildSidebar(session) {
+        var env = sidebarEnv();
+        var vm = window.MispPivotSidebar.build(session.input, env);
+        for (var round = 0; round < 4; round++) {
+            var known = Object.keys(vm.lazy || {}).filter(function (key) {
+                return vm.lazy[key].state === 'pending' && !(key in env.lazy)
+                    && readKey(vm.lazy[key].request) in _reads;
+            });
+            if (!known.length) break;
+            known.forEach(function (key) { env.lazy[key] = _reads[readKey(vm.lazy[key].request)]; });
+            vm = window.MispPivotSidebar.build(session.input, env);
+        }
+        return vm;
+    }
+
+    function pendingReads(vm) {
+        return Object.keys(vm.lazy || {}).map(function (key) { return vm.lazy[key]; })
+            .filter(function (l) { return l.state === 'pending'; })
+            .map(function (l) { return l.request; });
+    }
+
+    function runSidebarReads(session) {
+        var reads = pendingReads(session.vm);
+        if (!reads.length) return;
+        var signal = session.abort.signal;
+        Promise.all(reads.map(function (req) {
+            return sidebarRead(req, signal).then(function (body) {
+                _reads[readKey(req)] = body;
+            }, function () {
+                if (!signal.aborted) _reads[readKey(req)] = false;
+            });
+        })).then(function () {
+            if (signal.aborted) return;
+            redrawSidebar(session);
+            runSidebarReads(session);
+        });
+    }
+
+    function redrawSidebar(session) {
+        session.vm = buildSidebar(session);
+        Object.keys(session.mounts).forEach(function (name) {
+            var mount = session.mounts[name];
+            if (!mount.el.isConnected) return;
+            var next = mount.make();
+            mount.el.replaceWith(next);
+            mount.el = next;
+        });
+    }
+
+    function sidebarSession(selection) {
+        var input = selection ? sidebarInput(selection) : null;
+        var key = input ? [].concat(selection).map(function (e) { return e.id; }).join('|') : null;
+        if (_sidebar && _sidebar.key === key) return _sidebar;
+        if (_sidebar) _sidebar.abort.abort();
+        _sidebar = null;
+        if (!input) return null;
+        var session = { key: key, input: input, abort: new AbortController(), mounts: {}, fold: null };
+        session.vm = buildSidebar(session);
+        _sidebar = session;
+        runSidebarReads(session);
+        return session;
+    }
+
+    // What the view drew for this slot; redrawn in place as reads land.
+    function mountSidebar(session, name, make) {
+        var el = make();
+        session.mounts[name] = { el: el, make: make };
+        return el;
+    }
+
+    function refreshSidebar() {
+        if (_sidebar) redrawSidebar(_sidebar);
+    }
+
+    // Retry forgets what failed for the drawn selection and reads it again.
+    function retrySidebar() {
+        if (!_sidebar) return;
+        Object.keys(_sidebar.vm.lazy || {}).forEach(function (key) {
+            var sig = readKey(_sidebar.vm.lazy[key].request);
+            if (_reads[sig] === false) delete _reads[sig];
+        });
+        redrawSidebar(_sidebar);
+        runSidebarReads(_sidebar);
+    }
+
+    function sidebarHeader(selection) {
+        if (Array.isArray(selection) && isEdge(selection[0])) {
+            return window.MispPivotSidebarView.header({ entity: 'multi', card: {
+                count: selection.length, kinds: [{ count: selection.length, entity: 'edge' }]
+            } });
+        }
+        var session = sidebarSession(selection);
+        if (!session) return null;
+        return mountSidebar(session, 'header', function () {
+            return window.MispPivotSidebarView.header(session.vm, function (section) {
+                if (session.fold) session.fold.reveal(section);
+            });
+        });
+    }
+
+    // A lone element gets the detail; several go back to pivotick's
+    // aggregated table, fed one row per value by nodePropertiesMap.
+    function sidebarDetail(selection) {
+        if (!selection || Array.isArray(selection)) return undefined;
+        var session = sidebarSession(selection);
+        if (!session) return undefined;
+        return mountSidebar(session, 'detail', function () {
+            session.fold = window.MispPivotSidebarView.detail(session.vm);
+            return session.fold.el;
+        });
+    }
+
+    function sidebarRows(node) {
+        return window.MispPivotSidebar.propertyRows(sidebarNode(node), sidebarEnv());
+    }
+
+    function sharedPanel() {
+        return {
+            id: 'pe-shared',
+            render: function (selection) {
+                if (!Array.isArray(selection) || isEdge(selection[0])) return null;
+                var session = sidebarSession(selection);
+                if (!session) return null;
+                return mountSidebar(session, 'shared', function () {
+                    return window.MispPivotSidebarView.shared(session.vm);
+                });
+            }
+        };
     }
 
     /* ── node context menu ─────────────────────────────────── */
@@ -2663,8 +2825,10 @@
                     renderGroupExtra: groupTooltipExtra
                 },
                 simplify: simplifyOption(),
+                mainHeader: { render: sidebarHeader },
                 propertiesPanel: {
-                    nodePropertiesMap: nodeProperties,
+                    render: sidebarDetail,
+                    nodePropertiesMap: sidebarRows,
                     edgePropertiesMap: edgeProperties
                 },
                 contextMenu: {
@@ -2751,9 +2915,10 @@
                 var opts   = graphOptions();
                 if (editor) Object.assign(opts.callbacks, editor.callbacks);
                 opts.UI.emptyState = emptyStateOption((event && event.Event) || {});
+                opts.UI.extraPanels = [sharedPanel()];
                 // Only an event with something to show gets the panel (§8.10).
                 if (eventHasAnalystData((event && event.Event) || {})) {
-                    opts.UI.extraPanels = [analystPanel()];
+                    opts.UI.extraPanels.push(analystPanel());
                 }
 
                 _graph = new window.Pivotick(
@@ -2767,6 +2932,7 @@
                     catch (e) { console.error('[pivot-explorer] editor attach failed:', e); }
                 }
                 followMispTheme(_graph, _graph.UIManager.getRootContainer());
+                _graph.UIManager.getRootContainer().addEventListener('pivot-sidebar-retry', retrySidebar);
                 watchElementPivot(_graph);
                 declareAllFeedPotential(_graph);
                 declareAllTagPotential(_graph);
@@ -3142,6 +3308,12 @@
             uiPriorities = JSON.parse(d.peUiPriorities || '{}');
         } catch (e) {
             console.error('[pivot-explorer] unreadable object template priorities:', e);
+        }
+        try {
+            labelPlan = JSON.parse(d.peLabelPlan || 'null');
+            permitted = JSON.parse(d.pePermitted || 'null');
+        } catch (e) {
+            console.error('[pivot-explorer] unreadable analyst profile priorities:', e);
         }
         orgUuid    = d.peOrgUuid || '';
         siteAdmin  = d.peSiteAdmin === '1';

@@ -33,11 +33,47 @@
     $uiPriorities = $eventId === '' ? [] : ClassRegistry::init('ObjectTemplate')
         ->uiPrioritiesForEvent($me, $eventId);
 
+    // The sidebar orders tags and clusters by the viewer's analyst profile,
+    // as the event page does, and names a pin the node lacks only when the
+    // instance has that taxonomy or galaxy enabled.
+    // view2 does not run __eventViewCommon, which sets it for the other views.
+    App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+    $labelPlan = $labelPlan ?? ValueLabelPriority::planFor(
+        ClassRegistry::init('AnalystProfile')->resolveFor($me)
+    );
+    $permitted = ['taxonomies' => [], 'galaxies' => []];
+    $pinnedTaxonomies = ValueLabelPriority::keys(
+        $labelPlan, ValueLabelPriority::TAXONOMIES, ValueLabelPriority::PINNED
+    );
+    if (!empty($pinnedTaxonomies)) {
+        $permitted['taxonomies'] = array_values(ClassRegistry::init('Taxonomy')->find('list', [
+            'conditions' => [
+                'LOWER(Taxonomy.namespace)' => $pinnedTaxonomies,
+                'Taxonomy.enabled' => 1,
+            ],
+            'fields' => ['Taxonomy.id', 'Taxonomy.namespace'],
+            'recursive' => -1,
+        ]));
+    }
+    $pinnedGalaxies = ValueLabelPriority::keys(
+        $labelPlan, ValueLabelPriority::GALAXIES, ValueLabelPriority::PINNED
+    );
+    if (!empty($pinnedGalaxies)) {
+        $permitted['galaxies'] = array_values(array_unique(ClassRegistry::init('Galaxy')->find('list', [
+            'conditions' => [
+                'LOWER(Galaxy.type)' => $pinnedGalaxies,
+                'Galaxy.enabled' => 1,
+            ],
+            'fields' => ['Galaxy.id', 'Galaxy.type'],
+            'recursive' => -1,
+        ])));
+    }
+
     // Behaviour lives in webroot/js/pivot-explorer.js, which reads its
     // config from the data-pe-* attributes on #pe-card below.
     echo $this->element('genericElements/assetLoader', [
-        'js'  => ['pivotick.iife', 'misp-pivot-nodes', 'pivot-explorer'],
-        'css' => ['pivotick', 'pivot-explorer'],
+        'js'  => ['pivotick.iife', 'misp-pivot-nodes', 'pivot-sidebar-model', 'pivot-sidebar-view', 'pivot-explorer'],
+        'css' => ['pivotick', 'pivot-explorer', 'pivot-sidebar'],
     ]);
 ?>
 
@@ -48,6 +84,8 @@
      data-pe-can-analyst="<?= $canAnalyst ? '1' : '0' ?>"
      data-pe-analyst-sharing="<?= h(json_encode($analystSharing)) ?>"
      data-pe-ui-priorities="<?= h(json_encode((object)$uiPriorities)) ?>"
+     data-pe-label-plan="<?= h(json_encode($labelPlan)) ?>"
+     data-pe-permitted="<?= h(json_encode($permitted)) ?>"
      data-pe-org-uuid="<?= h($me['Organisation']['uuid'] ?? '') ?>"
      data-pe-site-admin="<?= empty($me['Role']['perm_site_admin']) ? '0' : '1' ?>"
      data-pe-lib-missing="<?= h(__('Graph library failed to load.')) ?>"
