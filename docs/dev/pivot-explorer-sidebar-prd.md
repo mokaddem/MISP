@@ -329,13 +329,15 @@ the failed state draws its Retry buttons, and Retry recovers.
 
 **Open:**
 
-- **With nothing selected the header is empty**, where pivotick draws *"Showing N nodes and M
-  edges"*. A custom `mainHeader.render` replaces every default header, and returning `null`
-  painted the text `null` (pivotick's `toRenderedElement` stringifies it). The hooks now return
-  `undefined`, which draws nothing today; pivotick's `prd/misp/mainheader-render-default-fallback.md`
-  asks for `undefined` to fall back to the default, as the properties panel does, and for `null`
-  to draw nothing everywhere. Once it lands and is vendored, the count comes back with no MISP
-  change.
+- **The neighbour graph is crowded.** pivotick's ego graph copies the canvas's render options,
+  so MISP's zoom tiers turn neighbours into M cards and the selected root into its XL card; and
+  its fit caps the scale at a literal 3, so a sparse graph renders at 3×. Neither is reachable
+  from `neighborsPanel`. pivotick's `prd/misp/neighbors-graph-render-options.md` asks for
+  `neighborsPanel.graph.{render, layout}` overrides and a fit that honours `maxZoom`; MISP will
+  then pass plain S drawings (no tiers, no focus tier) and `maxZoom: 1`.
+- *Resolved 2026-09-29:* with nothing selected the header was empty, then read `null`; pivotick
+  `b43dcd3` (vendored) lets a header `render` return `undefined` for the default count, and
+  renders `null` as nothing.
 - Extra panels sit below pivotick's neighbours panel, so the shared labels come after the
   neighbour graph rather than right under the aggregate.
 - The event page's two `.misp-icon` stylesheets (§5.2) are unchanged; the view uses only
