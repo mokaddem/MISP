@@ -1206,14 +1206,13 @@ test('groups: MISP declares its rules, a smallest group of 5, only pivot landing
     eq('only landings starts on', s.rules.filter(r => r.enabled).map(r => r.kind), ['landings']);
     eq('5 wherever a rule has a smallest group',
        s.rules.filter(r => 'minSize' in r).map(r => r.minSize), [5, 5, 5]);
-    ok('the rules that type take MISP\'s kinds',
-       s.rules.filter(r => r.typeOf).map(r => r.kind).join() === 'landings,neighbours,chains'
-       && new Set(s.rules.filter(r => r.typeOf).map(r => r.typeOf)).size === 1);
+    ok('every rule types by MISP\'s kinds, none on its own',
+       typeof s.typeOf === 'function' && s.rules.every(r => !r.typeOf));
 });
 
 test('groups: a kind is the element and MISP\'s own type', async () => {
     const g = await withPivots();
-    const typeOf = g.opts.UI.simplify.rules[0].typeOf;
+    const typeOf = g.opts.UI.simplify.typeOf;
     eq('an attribute by its type', typeOf(pnode({ type: 'attribute', 'attr-type': 'ip-dst' })), 'attribute:ip-dst');
     ok('ip-src and ip-dst apart',
        typeOf(pnode({ type: 'attribute', 'attr-type': 'ip-src' })) !== typeOf(pnode({ type: 'attribute', 'attr-type': 'ip-dst' })));
@@ -1232,7 +1231,7 @@ test('groups: a kind is the element and MISP\'s own type', async () => {
 test('groups: a card reads N × name', async () => {
     const g = await withPivots();
     const s = g.opts.UI.simplify;
-    s.rules[0].typeOf(pnode({ type: 'cluster', galaxy_type: 'mitre-attack-pattern', galaxy_name: 'Attack Pattern' }));
+    s.typeOf(pnode({ type: 'cluster', galaxy_type: 'mitre-attack-pattern', galaxy_name: 'Attack Pattern' }));
     eq('an attribute', s.typeLabel('attribute:ip-dst', 9), '9 × ip-dst');
     eq('an object', s.typeLabel('object:file', 12), '12 × file');
     eq('a cluster by its galaxy\'s name', s.typeLabel('cluster:mitre-attack-pattern', 3), '3 × Attack Pattern');
@@ -1243,26 +1242,33 @@ test('groups: a card reads N × name', async () => {
     eq('no type', s.typeLabel(undefined, 2), '2 × node');
 });
 
-test('groups: a group takes its members\' entity hue, a mixed one keeps the library\'s', async () => {
+test('groups: a node stands for its entity\'s hue in every group', async () => {
     const g = await withPivots();
-    const style = g.opts.render.groupStyle;
+    const colorOf = g.opts.UI.simplify.colorOf;
     const P = g.win.MispPivotNodes.palette();
-    const info = (datas, typeCounts) => ({ rule: 'landings', members: datas.map(pnode), typeCounts: typeCounts || {} });
-    eq('attributes', style(info([{ type: 'attribute' }, { type: 'attribute' }])).color, P.attribute.core);
-    eq('clusters', style(info([{ type: 'cluster' }])).color, P.galaxy.core);
-    ok('mixed keeps the library\'s ring', !('color' in style(info([{ type: 'attribute' }, { type: 'object' }]))));
+    eq('an attribute', colorOf(pnode({ type: 'attribute' })), P.attribute.core);
+    eq('a cluster', colorOf(pnode({ type: 'cluster' })), P.galaxy.core);
+    eq('a tag', colorOf(pnode({ type: 'tag' })), P.tag.core);
+    ok('the style leaves the colour to the library', !('color' in g.opts.render.groupStyle(
+        { rule: 'landings', members: [pnode({ type: 'attribute' })], typeCounts: {} }, {})));
 });
 
-test('groups: zoomed in, a group draws the deck chip of its kind', async () => {
+test('groups: zoomed in, a group draws the deck chip of its kind, naming its pivot', async () => {
     const g = await withPivots();
     const members = Array.from({ length: 12 }, () => ({ type: 'attribute', 'attr-type': 'ip-dst' }));
-    const st = g.opts.render.groupStyle({ rule: 'landings', members: members.map(pnode),
-                                          typeCounts: { 'attribute:ip-dst': 12 } });
-    eq('one chip tier, 140 x 44', st.tiers.map(t => [t.width, t.height]), [[140, 44]]);
-    const r = Math.min(34, 11 + 1.3 * Math.sqrt(12));
-    eq('it engages at the zoom an element chip does', st.tiers[0].minRenderedSize, 2 * r * 0.8);
-    const card = st.tiers[0].style.html();
+    const countTier = { width: 26, height: 26, minRenderedSize: 26, style: {} };
+    const st = g.opts.render.groupStyle({
+        rule: 'landings', members: members.map(pnode), typeCounts: { 'attribute:ip-dst': 12 },
+        landing: { runId: 'event-elements#3', pivotId: 'event-elements', pivotLabel: 'Event elements' },
+    }, { tiers: [countTier] });
+    eq('the library\'s count tier, then a 140 x 44 chip',
+       st.tiers.map(t => [t.width, t.height]), [[26, 26], [140, 44]]);
+    ok('the count tier is the library\'s own', st.tiers[0] === countTier);
+    eq('spaced like an element', st.layoutSize, 45);
+    eq('it engages where an element chip does', st.tiers[1].minRenderedSize, 2 * 45 * 0.8);
+    const card = st.tiers[1].style.html();
     ok('the card is the deck', /12/.test(card.innerHTML) && /ip-dst/.test(card.innerHTML));
+    ok('it names the pivot it landed from', /Event elements/.test(card.innerHTML));
     eq('the open group\'s chip is the label', typeof g.opts.render.groupOutline, 'function');
 });
 

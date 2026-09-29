@@ -550,35 +550,27 @@
             parts: parts,
             count: info.members.length,
             title: info.title,
-            ruleLabel: _graph && _graph.simplify ? _graph.simplify.ruleLabel(info.rule) : info.rule
+            ruleLabel: _graph && _graph.simplify ? _graph.simplify.ruleLabel(info.rule) : info.rule,
+            via: info.landing ? info.landing.pivotLabel : undefined
         };
     }
 
-    // The library's own radius (graph-simplification D37): a group's chip
-    // engages at the zoom an element's does, whatever its size.
-    function groupRadius(count) {
-        return Math.min(34, 11 + 1.3 * Math.sqrt(count));
-    }
-
-    // At rest the library's ring, in the members' hue (a drawn node leaves
-    // its colour transparent); zoomed in, the deck chip. A mixed group keeps
-    // the library's neutral ring.
-    function groupStyle(info) {
-        var e = groupElement(info);
+    // At rest the library's ring and count; zoomed in, the deck chip. A group
+    // is spaced like an element, so its chip clears its neighbours' and
+    // engages at the same zoom.
+    function groupStyle(info, base) {
         var view = groupView(info);
-        var style = {
-            tiers: [{
+        return {
+            layoutSize: LAYOUT_SIZE,
+            tiers: ((base && base.tiers) || []).concat([{
                 width: CHIP.width, height: CHIP.height,
-                minRenderedSize: 2 * groupRadius(view.count) * CHIP_FROM_ZOOM,
+                minRenderedSize: 2 * LAYOUT_SIZE * CHIP_FROM_ZOOM,
                 style: {
                     shape: 'none', color: 'transparent', strokeWidth: 0, text: '',
                     html: function () { return window.MispPivotNodes.groupCard(view); }
                 }
-            }]
+            }])
         };
-        var colour = e && elementColour(e);
-        if (colour) style.color = colour;
-        return style;
     }
 
     // The open group's chip reads as the closed one's label.
@@ -608,18 +600,18 @@
     }
 
     function simplifyOption() {
-        function rule(kind, extra) {
-            return Object.assign({ kind: kind, enabled: false, typeOf: mispTypeOf }, extra);
-        }
         return {
             rules: [
-                rule('landings',  { enabled: true, minSize: GROUP_MIN_SIZE }),
-                rule('neighbours', { minSize: GROUP_MIN_SIZE }),
-                rule('chains',     { minSize: GROUP_MIN_SIZE }),
-                { kind: 'degree', enabled: false },
-                { kind: 'kcore', enabled: false },
+                { kind: 'landings',   enabled: true,  minSize: GROUP_MIN_SIZE },
+                { kind: 'neighbours', enabled: false, minSize: GROUP_MIN_SIZE },
+                { kind: 'chains',     enabled: false, minSize: GROUP_MIN_SIZE },
+                { kind: 'degree',      enabled: false },
+                { kind: 'kcore',       enabled: false },
                 { kind: 'communities', enabled: false }
             ],
+            typeOf: mispTypeOf,
+            // A drawn node leaves its own colour transparent.
+            colorOf: function (node) { return elementColour(elementOf(node)); },
             typeLabel: groupTypeLabel
         };
     }

@@ -1,6 +1,6 @@
 # PRD: Groups in the Pivot Explorer — landings, rules and the group card
 
-**Status:** Built and live-checked 2026-09-29 (S1–S4). Three Pivotick follow-ups open (§4 L3–L5).
+**Status:** Built and live-checked 2026-09-29 (S1–S5), every library prerequisite (§4 L1–L5) bundled.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md). Unparks *Group a large
 landing by type* ([progress](pivot-explorer-v16-progress.md) §Parked).
@@ -131,6 +131,7 @@ One commit per task.
 | S3c-1 | The ring at rest in the members' entity hue (`groupStyle` → `color`); tooltips on for groups only, with `renderGroupExtra` listing the first three values | S1, L2 |
 | S3c-2 | The chosen chip built into `misp-pivot-nodes.js`, returned as `groupStyle`'s M tier; `groupOutline` | S3b, S3c-1 |
 | S4 | Live check (§7); the progress doc's parked item moved to done | S1–S3c |
+| S5 | Close L3–L5: `UI.simplify.typeOf` / `colorOf` in place of per-rule `typeOf` and the style's `color`; the chip tier appended to `base.tiers`; the chip names `info.landing.pivotLabel`; a group spaced like an element (`layoutSize` 45) | S4, L3–L5 |
 
 ## 6. Scope
 
@@ -172,7 +173,7 @@ On the dev instance, as admin and as one of the lesser readers:
 |---|---|
 | G1–G14 | Decided 2026-09-29 |
 | L1, L2 | Built upstream (`a3a95c9`, `cda9895`), bundled 2026-09-29 (progress 0n) |
-| L3, L4, L5 | Written up in `~/git/pivotick/prd/`, not built |
+| L3, L4, L5 | Built upstream (`09f133b`, `1ab3387`, `30c9833`), bundled 2026-09-29 (progress 0o) |
 | S1 | ✅ `e4632498d`. Live on 1017: the Simplify mode lists the six rules in order, only *Pivot landings* on, steppers at 5 |
 | S2 | ✅ `71af31888`. Live on 1017: a one-click *Event elements* lands 25 as one *12 × ip-dst* group and 13 loose nodes (3 md5 stay loose); undo clears it; Review reads *Ingest selected · Ingest loose · Ingest all 25* and its main button lands grouped. On 752 nothing reaches 5, so nothing folds |
 | S3a | ✅ The contract: a `group` entity in the design harness, the `GROUPS` samples (seven real landings, view-model in their header) and `prd/pivot-node-designs/group-brief.md` |
@@ -180,3 +181,4 @@ On the dev instance, as admin and as one of the lesser readers:
 | S3c-1 | ✅ Live on 1017: the ring draws in attribute green; hovering the group shows its tooltip (label, rule, open hint, three IPs, *+9 more*), hovering a node shows none. The header is unreadable until L4 |
 | S3c-2 | ✅ `R.group.M` in `renderers/10-renderers.js`, `MispPivotNodes.groupCard(view)`; `groupStyle` adds the chip tier from 2 × r × 0.8 rendered px, the zoom an element chip engages at; `groupOutline` names the open group by its label. Live on 1017: at zoom 1.39 and 1.95 the group draws *12 × ip-dst · Pivot landings* as a green deck among the attribute chips. Until L5 the second line is the rule's name, not the pivot's, and the disc's count tier is replaced. The layout still spaces a group for its ring, not its 140-wide chip |
 | S4 | ✅ 2026-09-29, the dev instance serving this branch. On 2014, as admin and as `user@admin.test`: *Correlations* from the 3 nodes it applies to stages 56, Review's main button lands them as *23 × event*, *12 × ip-dst*, *5 × domain-ip* and *5 × paloalto-threat-event*, never two templates in one group, each group linked to every origin it came from (64 nodes, 23 on the canvas; the reader 61 and 20); *Tags & clusters* on one attribute lands its one tag loose. §7's items 1–3 and 6–8 as S1–S3c above; 1288 folds nothing on *Event elements*, correctly, since its objects are already seeded. Suite 677/677, no console error |
+| S5 | ✅ 2026-09-29, live on 2014 with bundle `bd5d913`: every landing group carries `landing.pivotLabel` "Correlations" and its chip reads *12 × ip-dst · Correlations*; the tooltip header is transparent under white ink, its *Linked to* chips in entity hues; at zoom 1.53, 9 cards and no group overlapping another card; *Few links* labels by MISP kind (*1 × asn*, *2 × feed*), each part in its entity's colour. Suite 681/681, no console error |
