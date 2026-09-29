@@ -329,6 +329,13 @@ the failed state draws its Retry buttons, and Retry recovers.
 
 **Open:**
 
+- **With nothing selected the header is empty**, where pivotick draws *"Showing N nodes and M
+  edges"*. A custom `mainHeader.render` replaces every default header, and returning `null`
+  painted the text `null` (pivotick's `toRenderedElement` stringifies it). The hooks now return
+  `undefined`, which draws nothing today; pivotick's `prd/misp/mainheader-render-default-fallback.md`
+  asks for `undefined` to fall back to the default, as the properties panel does, and for `null`
+  to draw nothing everywhere. Once it lands and is vendored, the count comes back with no MISP
+  change.
 - Extra panels sit below pivotick's neighbours panel, so the shared labels come after the
   neighbour graph rather than right under the aggregate.
 - The event page's two `.misp-icon` stylesheets (§5.2) are unchanged; the view uses only
