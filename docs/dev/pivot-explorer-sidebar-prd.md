@@ -1,6 +1,6 @@
 # PRD: A sidebar that completes the node
 
-**Status:** Contract built 2026-09-29 (§5.1); exploration done (§5.2); pick next.
+**Status:** Contract built 2026-09-29 (§5.1); picked 2026-09-29 (§5.3); wiring next.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 **Depends on:** the persona branch's context priority (§4), merged into `personas-pivotick` on 2026-09-29.
@@ -88,8 +88,11 @@ A design that needs something these cannot do is written up for pivotick, not bu
   but keep/exclude reads only a node's first `Tag` row, and a multi-valued property's bar
   overflows: `aggregated-keep-exclude-multi-valued.md`.
 
-Until the first lands, a design keeps the multi-selection on `nodePropertiesMap` (the
-contract's `propertyRows`) and puts the single-node view in an extra panel or the header.
+**Both landed upstream on 2026-09-29** (pivotick `24da317`, `025b6b8`). A
+`propertiesPanel.render` that returns `undefined` hands the selection to the default panel,
+so the single-node view owns the properties body and a multi-selection gets pivotick's
+aggregated table from `propertyRows`; one `Tag` row per tag now counts and filters right.
+MISP vendors pivotick, so wiring starts by taking a bundle that carries both.
 
 ## 4. Context priority
 
@@ -255,8 +258,31 @@ disputed), caution (other warninglists, FP/expiration sightings, unpublished), h
 
 ### 5.3 Pick
 
-The owner compares the three on the same fixtures and picks one, or a combination, recorded
-here with the reason.
+**Picked 2026-09-29: B, priority first**, for every single node, and C's multi-selection.
+It is built as `prd/pivot-sidebar/candidates/picked/`, generated from the two candidates by
+its `build-picked.py`, and passes all three capture runs.
+
+| Case | From | Change |
+|---|---|---|
+| Event | B | **Threat level and analysis dropped** everywhere (strip and Record): they are deprecated. **Tags carry no description**, in the notices or the fold; a pinned handling group keeps "Strictest of n", clusters keep their line. |
+| Attribute, object | B | none |
+| Edge | B | the two ends drawn as C draws them: the entity's icon, a quiet wash of its hue with a thin bar, the kind as a small word on the right |
+| Multi-selection | C | *What do they share?* (n/total with bars) and *Who made them?* in an extra panel; pivotick's own aggregated table in the properties body (§3) |
+
+**"Pinned" is the analyst profile's, checked.** Every `priority` in the view-model comes from
+`order(…, env.plan, …)`, and `env.plan` is `planFor(profile)`, the profile's
+`parameters.context`; the fixtures use `incident-response-v1`. The taxonomies' highlighted
+flag is never read.
+
+**Why B.** It answers what to notice first, and is strongest where the analyst has to stop:
+a warninglisted IDS attribute, a sighted one, an event's handling labels. For a
+multi-selection there is no single node to rank for; the question is what is shared, which
+C's headings answer directly.
+
+**Carried into wiring from the exploration:** the pending state must hide what a lazy read
+supplies, so the view-model has to say which fields came from which read; B's notice list is
+thin on nodes without signals (tag, feed, edges), which its fold opening by default on small
+detail partly offsets; the event page's clashing `.misp-icon` stylesheets (§5.2).
 
 ### 5.4 Wiring
 
