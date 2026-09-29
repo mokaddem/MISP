@@ -25,6 +25,14 @@ class AnalystDataController extends AppController
 
     // public $modelSelection = 'Note';
 
+    public function beforeFilter()
+    {
+        parent::beforeFilter();
+        // The event pivot explorer posts hand-built JSON to add() and delete(),
+        // so it sends the CSRF token as the X-CSRF-Token header.
+        $this->_csrfTokenHeaderOnly(['add', 'delete']);
+    }
+
     private function _setViewElements()
     {
         $dropdownData = [];

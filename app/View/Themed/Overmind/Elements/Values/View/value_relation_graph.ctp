@@ -441,6 +441,13 @@ foreach ($layers as $layer) {
                          * separation this tab rests on.
                          */
                         type: 'svg',
+                        /*
+                         * Pivotick 2 drops a label rendered under 9px,
+                         * which on a zoomed-out 340px rail is all of
+                         * them. The overlay keeps the default and shows
+                         * its labels once zoomed in.
+                         */
+                        minLabelFontSize: rail ? 0 : undefined,
                         nodeTypeAccessor: function (node) {
                             return kindOf(node);
                         },

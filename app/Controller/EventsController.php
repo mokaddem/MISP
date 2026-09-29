@@ -72,9 +72,10 @@ class EventsController extends AppController
 
         $this->Security->unlockedActions[] = 'viewEventAttributes';
         // Posted by hand-built AJAX (the UiBeta publish toggle, the collections
-        // panel), which sends the CSRF token as a header. None of the three take
-        // body fields a form hash would protect.
-        $this->_csrfTokenHeaderOnly(['publish', 'unpublish', 'restSearch','getEventGraphReferences','getEventGraphTags','getEventGraphGeneric']);
+        // panel, the pivot explorer), which sends the CSRF token as a header.
+        // None of them take body fields a form hash would protect.
+        $this->_csrfTokenHeaderOnly(['publish', 'unpublish', 'restSearch','getEventGraphReferences','getEventGraphTags','getEventGraphGeneric',
+            'correlatedAttributes', 'correlationCounts', 'cardElements', 'taggedEvents']);
 
         // if not admin or own org, check private as well..
         if (!$this->_isSiteAdmin() && in_array($this->request->action, ['index', 'proposalEventIndex'], true)) {

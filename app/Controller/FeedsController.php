@@ -40,6 +40,9 @@ class FeedsController extends AppController
         parent::beforeFilter();
         $this->Security->unlockedActions[] = 'previewIndex';
         $this->Security->unlockedActions[] = 'feedCoverage';
+        // The event pivot explorer posts hand-built JSON here with the CSRF
+        // token as the X-CSRF-Token header.
+        $this->_csrfTokenHeaderOnly(['manifestEvents']);
     }
 
     public function loadDefaultFeeds()
