@@ -1,9 +1,9 @@
 # PRD: A sidebar that completes the node
 
-**Status:** Draft 2026-09-27. Exploration not started.
+**Status:** Contract built 2026-09-29 (§5.1); exploration next.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
-**Depends on:** the persona branch's context priority (§4), not yet merged; the sidebar works without it.
+**Depends on:** the persona branch's context priority (§4), merged into `personas-pivotick` on 2026-09-29.
 
 ---
 
@@ -78,6 +78,19 @@ an array of either (a multi-selection) or `null`, and may return a promise (with
 
 A design that needs something these cannot do is written up for pivotick, not built around.
 
+**Two gaps, found while building the contract**, both written up in pivotick's `prd/misp/`:
+
+- A custom `propertiesPanel.render` also receives multi-selections, and the aggregated table
+  with its keep/exclude chips is then gone (`Properties.ts:175`). So a designed single-node view
+  and §2.2's aggregate cannot share the properties panel until `render` can return `undefined`
+  to hand a selection back to the default: `properties-render-default-fallback.md`.
+- The aggregate assumes one value per property. With one `Tag` row per tag it counts right,
+  but keep/exclude reads only a node's first `Tag` row, and a multi-valued property's bar
+  overflows: `aggregated-keep-exclude-multi-valued.md`.
+
+Until the first lands, a design keeps the multi-selection on `nodePropertiesMap` (the
+contract's `propertyRows`) and puts the single-node view in an extra panel or the header.
+
 ## 4. Context priority
 
 The persona work (`worktree-personas`, not merged: 493 commits ahead of `develop` on
@@ -110,11 +123,17 @@ exploration, since D54 keeps them on the value page for now.
 sightings, analyst data, the entity's own fields) is not in the profile. The exploration
 proposes a fixed order for it, one per entity.
 
-**The dependency.** Until personas is merged into this branch's base, the plan is absent and
-the sidebar uses the `default-v1` behaviour: groups in count order. The contract phase builds
-the view-models to take a plan, and tests them with one of the shipped profiles
-(`incident-response-v1` pins `tlp, PAP, admiralty-scale` and prefers
-`threat-actor, mitre-intrusion-set, …`), so nothing changes when the merge lands.
+**The dependency is met.** `personas-pivotick` carries both branches, so `EventsController`'s
+`__eventViewCommon` already sets `labelPlan` for `view2`, and the explorer element can hand it
+over with its other `data-pe-*` attributes; that plumbing is part of the wiring (§5.4). The
+contract's view-models take the plan as input and are tested and dumped with the shipped
+`incident-response-v1` (pins `tlp, PAP, admiralty-scale`, prefers `threat-actor,
+mitre-intrusion-set, …`). The ordering is a JS port of `ValueLabelPriority`, checked against
+the PHP class itself, so the sidebar and the event page cannot rank labels two ways.
+
+Missing pins need the instance's enabled taxonomies and galaxies (D41: a disabled taxonomy
+beats a pin). The view-model computes them only when it is given that list, and leaves them
+`null` otherwise.
 
 ## 5. Phases
 
@@ -132,6 +151,53 @@ No templates. Built and checked before any design starts:
 - **A page frame**: a static page that renders a candidate sidebar at the real width, in both
   themes, from the fixtures, with an `?only=<fixture>` filter so headless Chrome can capture
   each case.
+
+#### What was built (2026-09-29)
+
+**Most of the context is already in the page.** The explorer's `/events/view/{id}.json` carries
+the sightings of every attribute, full galaxy clusters (description, synonyms, meta,
+relations), each attribute's feeds and servers, first/last seen, threat level, analysis,
+reports, related events and all analyst data; the node data just dropped it. So a view-model
+reads this event's own elements from the payload, and only reads lazily what the payload
+cannot say:
+
+| Read | Request | For |
+|---|---|---|
+| `taxonomies` | `POST /tags/search/0/1.json` `{tag: [...]}` | what a tag means: taxonomy, predicate and value text, numerical value |
+| `warninglists` | `GET /warninglists/index/id:3‖7.json` | a warninglist's description and type |
+| `extended_by` | `POST /events/restSearch` `{eventsExtendingUuid, metadata}` | the events extending this one |
+| `record` | `POST /attributes/restSearch` or `/events/restSearch` by uuid | another event's attribute or event, which arrives slim |
+| `cluster_tag`, `cluster` | `/tags/search`, then `GET /galaxy_clusters/view/{uuid}.json` | a cluster node the payload does not hold |
+
+`attributes/restSearch` needed `_csrfTokenHeaderOnly` for a session POST, like the explorer's
+other endpoints; the rest already pass.
+
+- **The view-models:** `app/webroot/js/pivot-sidebar-model.js`, `MispPivotSidebar.build(input, env)`.
+  No DOM and no fetch: a read is declared as `vm.lazy[key] = {state, request}`; the caller
+  fetches it, stores the answer in `env.lazy[key]` (`false` when it failed) and builds again.
+  One grammar for every entity: `title`, `subtitle`, `provenance`, `card` (what the node draws),
+  `facts`, `labels` (tag groups by taxonomy, cluster groups by galaxy, in plan order, plus
+  `missing`), `warninglists`, `sources`, `correlations`, `sightings`, `analyst`, `relations`,
+  `children` (an object's attributes, ranked by the template), `links`. `propertyRows()` gives
+  pivotick one row per value for the multi-selection aggregate.
+- **Correlation counts:** the caller's `env.correlations(type, uuid)` must answer 0 for this
+  event's own elements that `correlationCounts` leaves out, and `null` only for what was never
+  asked. The view-model reads `null` as *not known*.
+- **Tests:** `tests/js/pivot-sidebar-model.test.js` (priority rules, PHP parity with
+  `PHP_BIN` set, every entity, lazy states, the multi-selection).
+- **Fixtures:** `prd/pivot-sidebar/fixtures/`, 14 view-models dumped by `dump-fixtures.mjs` from
+  the dev instance with every lazy read performed: this event (4242, and 1525 for galaxies),
+  a warninglisted IDS attribute (4074's `8.8.8.8`), an attribute with 9 sightings from 3 orgs
+  (46), an object with 26 attributes (1191), another event's card and attribute (from 2014's
+  correlations), a feed, a tag and a cluster (4208), a galaxy tag with no cluster behind it, an
+  authored and a derived edge, and three correlated events. 4242 has no event-level galaxies,
+  so 1525 stands in for that case.
+- **The page frame:** `prd/pivot-sidebar/frame.html?candidate=<name>&only=<ids>&theme=light|dark&lazy=pending|failed`
+  draws a candidate into pivotick's own sidebar containers at the measured 340px, both
+  themes side by side, with the event page's stylesheets. `capture.mjs <name>` screenshots
+  every fixture and fails on a render error or anything wider than the column. A candidate is
+  `candidates/<name>/render.js` filling `slots.header`, `slots.properties` and `slots.extras`,
+  the three hooks of §3; `baseline` is a raw dump that proves the frame.
 
 ### 5.2 Exploration
 

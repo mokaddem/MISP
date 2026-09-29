@@ -45,6 +45,9 @@ class AttributesController extends AppController
         $this->Security->unlockedActions[] = 'index';
         $this->Security->unlockedActions[] = 'editField';
         $this->Security->unlockedActions[] = 'validateValue';
+        // The event pivot explorer's sidebar reads another event's attribute
+        // with hand-built JSON, sending the CSRF token as a header.
+        $this->_csrfTokenHeaderOnly(['restSearch']);
 
         if ($this->request->action === 'add_attachment') {
             $this->Security->unlockedFields = array('values');
