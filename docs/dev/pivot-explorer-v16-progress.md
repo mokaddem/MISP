@@ -5,9 +5,9 @@ Delivery tracker for [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 same pass as the code, not in a catch-up sweep.
 
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
-- **Library:** Pivotick v2 — `develop` at `cda9895` (grouped landings, tooltips per kind). PRD §3.7
+- **Library:** Pivotick v2 — `develop` at `bd5d913` (groups typed and coloured by the host). PRD §3.7
 - **Last updated:** 2026-09-29
-- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33, 35–39 and bundle bumps 0–0n · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
+- **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33, 35–39 and bundle bumps 0–0o · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 645 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
@@ -35,6 +35,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 0l | Bundle to `develop` `89a92dc`, plain `develop` at last (`05fe810` merged as `28295c8`): a narrowing facet honours `default` (`0cae434`); `Edge.clone()` keeps the provenance ledger, so `getEdges()` reports an edge's real sources | ✅ | 0k | 2026-09-28, built from a clean export of `89a92dc`; the CSS came out byte-identical. Suite 645/645. Live, admin, served bundle md5 `d0ce8038…`: on 752 *Event elements* opens with *Attribute* ticked and *Tag* not, breakdown `16 Attributes` (was `16 Attributes · 3 Tags`), a plain browse lands the 16 attributes; on 2014 after a correlations run all 79 edges read the same sources through `getEdges()` as through `getMutableEdges()`, correlation edges as `correlations`; no node carries `pvt-node-expandable`. No console error |
 | 0m | Bundle to `develop` `625fe52`: graph simplification (`prd/graph-simplification.md`) — view-only groups from the neighbour, chain, few-links and k-core rules, a Simplify rail mode, groups opened in place, landing groups, groups made by hand. MISP declares no `UI.simplify`, so `full` mode offers the built-in rules switched off | ✅ | 0l | 2026-09-29, built from a clean export of `625fe52`; the CSS changed this time (238 → 249 KB), the IIFE 937 → 1,006 KB, the worker still inlined. Suite 645/645. Live, admin, bundle swapped in over HTTP (the server serves another tree): on 2014 the rail shows *Simplify* with the four rules off; the neighbour rule at size 2 folds 2 nodes into 1 group and `getNodes()` still returns all 8; on 1340 all 18 nodes draw and the rule finds nothing to fold. Only console errors are 404s on `/events/correlationCounts`, absent from the served tree |
 | 0n | Bundle to `develop` `cda9895`: `pivotIngestGrouped` (every landing grouped, Review offers *Ingest loose*), `UI.tooltip.enabled` per kind or predicate, a right-click inside a selection acts on it (`menuSelection`), Del hides the selection, the header count follows the data | ✅ | 0m | 2026-09-29, built from a clean export of `cda9895`; the CSS changed (249 KB), the IIFE 1,006 → 1,011 KB. Suite 645/645. Used by the groups PRD ([`pivot-explorer-graph-simplification-prd.md`](pivot-explorer-graph-simplification-prd.md)), whose S4 carries the live check |
+| 0o | Bundle to `develop` `bd5d913`: `UI.simplify.typeOf` / `colorOf` for every rule and group colour, `groupStyle(info, base)` and `GroupInfo.landing`, a portaled tooltip's header keeps a forced dark theme | ✅ | 0n | 2026-09-29, built from a clean export of `bd5d913`; the IIFE 1,011 → 1,012 KB. Suite 681/681. Closes the groups PRD's L3–L5 (live check there, S5) |
 | E | Extract inline JS out of the `.ctp` into `webroot/js/pivot-explorer.js` | ✅ | 0 | `edc6a0caa` (2026-08-31) |
 | T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
 | 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
