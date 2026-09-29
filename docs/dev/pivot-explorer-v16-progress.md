@@ -5,7 +5,7 @@ Delivery tracker for [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md).
 same pass as the code, not in a catch-up sweep.
 
 - **Branch:** `pivotick-v2`, off `worktree-pivotick-v16` (the v1.6.0 work)
-- **Library:** Pivotick v2 — `ba7ffab` (`develop`; the context-menu order commit `1eec3f0` is not merged, so bundles since `025b6b8` lack it). PRD §3.7
+- **Library:** Pivotick v2 — `90931b5` (`develop`, with the context-menu order commit `1eec3f0` merged back in). PRD §3.7
 - **Last updated:** 2026-09-29
 - **Status:** every task done — the §9 plan, the P0 sweep (12–18), 19–33, 35–41 and bundle bumps 0–0p · §3.7 answered 2026-09-23 (PRD §5 *Rulings*, P0 + R1–R8)
 - **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 716 assertions, no dependencies
