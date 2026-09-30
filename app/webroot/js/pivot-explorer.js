@@ -3201,9 +3201,12 @@
                     return loadStored(items, ctx && ctx.signal).then(function () {
                         var facet = facetFor(nodes, narrowing);
                         var picked = pickedModules(narrowing, facet);
+                        // Known only when every picked module has answered this value
+                        // before; a module never asked has no count, not a zero.
                         var total = enrichPairs(nodes, narrowing).reduce(function (t, p) {
+                            if (t === null || picked.indexOf(p.module) === -1) return t;
                             var s = storedFor(p);
-                            return t + (picked.indexOf(p.module) !== -1 && s && s.state === 'ok' ? s.total : 0);
+                            return s ? t + (s.state === 'ok' ? s.total : 0) : null;
                         }, 0);
                         var facets = [Object.assign({ key: 'module', label: 'Module', type: 'multiselect' }, facet)];
                         var attributes = attributeFacet(nodes);

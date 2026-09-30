@@ -3696,7 +3696,10 @@ test('enrich: the Module facet carries stored state, pre-ticks, and hides `never
        ['ipasn — 3 h ago', 'mmdb_lookup', 'whois — failed 30 h ago']);
     eq('the stored total is the count', facet.options[0].count, 2);
     eq('fresh and profile-ticked start ticked', facet.default.slice().sort(), ['ipasn', 'mmdb_lookup']);
-    eq('total is the ticked stored totals', s.total, 2);
+    eq('a ticked module never asked leaves the total unknown', s.total, null);
+    eq('every picked module stored: their totals, a failure counting 0',
+       (await p.summarize([IP('8.8.8.8')], { module: ['ipasn', 'whois'] }, {})).total, 2);
+    eq('nothing picked: nothing comes', (await p.summarize([IP('8.8.8.8')], { module: [] }, {})).total, 0);
 });
 
 test('enrich: fetch lands content-hashed objects, drops the echo, and toasts what failed', async () => {
