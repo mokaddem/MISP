@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
 **Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
-added). Next: phase B prototypes (§8).
+added); phase B done, look B picked (§5.4). Next: phase C, wiring (§8).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -44,7 +44,7 @@ canvas like any other pivot's.
 | *Enrich* pivot in the shared kit (§5.2) | ⬚ | both hosts |
 | Landing, `enrichment` edge kind, `scope: 'module'` (§5.3–§5.4) | ⬚ | E4, E5 |
 | Run toast (§5.5) | ⬚ | E6 |
-| Prototypes: result node look + edge (§8, phase B) | ◐ | kit built, three candidates drawing |
+| Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); three pivotick asks filed |
 | Unit tests, acceptance (§7) | ⬚ | |
 | Save into the event (§5.7) | — | E8: later pass |
 
@@ -217,15 +217,34 @@ them; a `known` value is a profile link and a hover-card trigger (E13).
 
 ### 5.4 Look
 
-A result node is drawn by `misp-pivot-nodes` like any attribute or object, with *From enrichment*
-on its own channel, chosen in phase B (v16 D2 lists the channels already taken). The `enrichment`
-edge kind gets its own style and its entry in the edge legend. The Provenance legend and facet
-follow E5.
+**Picked in phase B (2026-09-30): candidate B, a mark on the node**
+(`prd/pivot-enrichment/candidates/b-mark/`).
 
-**Open against v16 D2c**, which settled that "from another event" gets *no* canvas encoding: a
-baked-in cue judges what the subject is, and the facet is symmetric. Module output is arguably a
-different case — an outside claim, not MISP's data — but phase B draws the D2c-consistent answer
-(the edge alone) beside two node encodings, so the pick settles it with the pictures side by side.
+- **The node** is drawn by `misp-pivot-nodes` exactly as MISP's own attribute or object, and wears
+  **one pivotick badge at `ne`**: a white `fa-wand-magic-sparkles` (the icon MISP's UI already
+  puts on enrichment) on a disc of MISP's `--bs-enrichment` hue, lightened to read on the canvas
+  — `#6A6396` light, `#8C84B5` dark. Same mark on every result of every kind. `ne` because none of
+  the explorer's badges (analyst `nw`, feed hit `sw`, tags `se`) can land on a result, and edges
+  from the origin arrive from the upper left and cover `nw` at S.
+- **Its `title`**: *From enrichment — <modules>*, *Not in MISP: a module said this*, plus
+  *Untyped* and *Stored answer, N h ago* when the data says so.
+- **A group** (Simplify) wears the mark only when every member is a result. The explorer's group
+  key gains `scope`, so a group never mixes MISP records with results.
+- **The `enrichment` edge**: solid, 1.25 px, the same violet, labelled with the module. Solid
+  because dashes already mean correlation, feed, server and tag.
+- **The legend**: *From enrichment* takes the violet, *In MISP* a neutral grey.
+
+**Against v16 D2c** ("from another event" gets no canvas encoding): the mark does not fade, tint or
+restyle the node, so D2c's objection — a cue that judges the subject — does not apply; it states a
+fact about the data, that MISP does not hold it. Phase B drew D2c's own answer (candidate A, the
+edge alone) beside it: it fails whenever the edge is not drawn — the `enrichment` legend row
+toggled off, focus mode, a result dragged away — and the results become MISP's nodes.
+
+**Library asks** (pivotick, `prd/misp/`): `focus-tier-keeps-badges.md` — the hover/selection card
+draws no badges and covers the base drawing's, so the mark (and every MISP badge) vanishes when
+the analyst looks closest; `badge-screen-size-floor.md` — the mark is a 3 px dot at zoom 0.5;
+`legend-entry-icon.md` — the legend can only show a dot, not the mark. B ships without them and
+gains when they land.
 
 **Wiring gotcha:** a legend section whose `entries` function returns `[]` makes pivotick derive
 entries of its own (the Element list, repeated). The value page's Provenance section must return
@@ -285,7 +304,7 @@ Against the dev instance, logged in, dev server on this worktree:
 ## 8. Phases
 
 - **A — Contract.** ✅ Grilled 2026-09-30; rulings in §4, JSON frozen in §5.1.
-- **B — Prototypes.** One round, three cold-built candidates for the result node's *From
+- **B — Prototypes.** ✅ B picked 2026-09-30 (§5.4). One round, three cold-built candidates for the result node's *From
   enrichment* look and the `enrichment` edge — **A** the edge alone (D2c-consistent), **B** a mark
   on the node, **C** a drawing of its own. Kit in `prd/pivot-enrichment/` (`brief.md`, `frame.html`,
   `capture.mjs`): the value page's full graph on `8.8.8.8` with the real vendored stack, and a
@@ -302,8 +321,7 @@ Against the dev instance, logged in, dev server on this worktree:
 | `app/Lib/Tools/ModuleRole.php` | new: the non-enrichment deny-list (E7) |
 | `app/Model/ValueProfile.php` | `enrichmentEligible` drops `ModuleRole`'s modules; array forms for the three actions |
 | `app/Controller/ValuesController.php`, `app/Controller/Component/ACLComponent.php` | `enrichmentTypes`, `enrichmentStored`, `enrichmentRun` + ACL |
-| `app/webroot/js/pivot-explorer.js` | the pivot in the kit, landing, `enrichment` kind, `scope: 'module'` legend and facet |
+| `app/webroot/js/pivot-explorer.js` | the pivot in the kit, landing, `enrichment` kind and style, `scope: 'module'` legend and facet, the result badge in `nodeBadges` and on groups, `scope` in the Simplify group key |
 | `app/webroot/js/value-neighbourhood.js` | list the pivot; the provenance legend when module results exist |
-| `app/webroot/js/misp-pivot-nodes.js` | the *From enrichment* channel |
 | `app/webroot/js/pivot-sidebar-model.js` | module, stored age, untyped types, `known` links |
 | `tests/js/pivot-explorer-graph.test.js` | the pivot, ids, landing |
