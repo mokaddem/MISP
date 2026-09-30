@@ -3729,6 +3729,42 @@ test('enrich: one module returning one record for two origins lands one node, tw
     eq('an edge from each origin', r.edges.map(e => e.from).sort(), ['attr:8.8.4.4', 'attr:8.8.8.8']);
 });
 
+const SOCKET = () => Object.assign(enrNode('obj:sock', { type: 'object', name: 'network-socket', scope: 'self' }), {
+    children: [
+        { getData: () => ({ type: 'attribute', value: '53', 'attr-type': 'port', object_relation: 'dst-port', ui_priority: 1 }) },
+        { getData: () => ({ type: 'attribute', value: '8.8.4.4', 'attr-type': 'ip-dst', object_relation: 'ip-dst', ui_priority: 5 }) },
+        { getData: () => ({ type: 'attribute', value: '8.8.8.8', 'attr-type': 'ip-dst', object_relation: 'ip-src', ui_priority: 2 }) },
+    ] });
+
+test('enrich: an object is enriched through its attributes, its lead one by default', async () => {
+    const g = await enrichGraph();
+    const p = pivot(g, 'enrich');
+    eq('an object with an eligible attribute is offered', p.appliesTo([SOCKET()]).map(n => n.id), ['obj:sock']);
+    const s = await p.summarize([SOCKET()], {}, {});
+    const attrs = s.facets.find(f => f.key === 'attribute');
+    eq('its eligible attributes, lead first', attrs.options.map(o => o.label), ['ip-dst: 8.8.4.4', 'ip-src: 8.8.8.8']);
+    eq('the lead one starts picked', attrs.default, ['ip-dst|8.8.4.4']);
+    const r = await p.fetch([SOCKET()], { module: ['mmdb_lookup'] }, { graph: g.graph });
+    eq('only the lead attribute is asked',
+       g.fetchLog.filter(f => /enrichmentRun/.test(f.url)).map(f => JSON.parse(f.init.body).value), ['8.8.4.4']);
+    eq('the result joins the object, the edge names the attribute',
+       r.edges.map(e => [e.from, e.data.label]), [['obj:sock', 'mmdb_lookup · ip-dst']]);
+    ok('the asked value is not echoed back as a result', !r.nodes.some(n => n.id === 'enr:ip-dst:8.8.4.4'));
+    await p.fetch([SOCKET()], { module: ['mmdb_lookup'], attribute: ['ip-dst|8.8.4.4', 'ip-dst|8.8.8.8'] }, { graph: g.graph });
+    eq('a wider pick asks each picked attribute',
+       g.fetchLog.filter(f => /enrichmentRun/.test(f.url)).map(f => JSON.parse(f.init.body).value), ['8.8.4.4', '8.8.4.4', '8.8.8.8']);
+});
+
+test('enrich: a run drops the cached counts of what it asked', async () => {
+    const g = await enrichGraph();
+    const node = IP('8.8.8.8');
+    await pivot(g, 'enrich').fetch([node], { module: ['ipasn'] }, { graph: g.graph });
+    ok('the Enrich summary is invalidated', g.graph.pivots.invalidated.includes('enrich'));
+    const before = g.fetchLog.filter(f => /enrichmentStored/.test(f.url)).length;
+    await pivot(g, 'enrich').summarize([node], {}, {});
+    eq('and the store is read again', g.fetchLog.filter(f => /enrichmentStored/.test(f.url)).length, before + 1);
+});
+
 test('enrich: a run where no module answered fails with their reasons', async () => {
     const g = await enrichGraph();
     let msg = null;

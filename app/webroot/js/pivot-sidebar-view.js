@@ -1114,7 +1114,6 @@
     function childrenSection(vm, list) {
         var kids = vm.children || [];
         var sec = section('children', 'Attributes', kids.length, null, vm);
-        sec.el.querySelector('.pes-sec-h').appendChild(h('span', 'pes-sec-state', 'by template priority'));
         var ul = add(sec.el, h('ul', 'pes-attrs'));
         var SHOW = 8;
         kids.forEach(function (k, i) {

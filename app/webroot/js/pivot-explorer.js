@@ -2954,24 +2954,71 @@
         // What a node can be enriched as: [{ value, type }], one per type any
         // module accepts. A result only when MISP holds it, since the engine
         // enriches a value the reader can see.
+        function offered(type) {
+            return !!type && (_enrichTypes.types[type] || []).length > 0;
+        }
+
+        // An object is enriched through its attributes, each an item of its own
+        // carrying its relation; `lead` marks the one the object leads with.
+        function objectItems(node) {
+            var seen = {};
+            var kids = (node.children || []).map(function (k) { return k.getData ? k.getData() : k.data; })
+                .filter(function (c) {
+                    if (!c || c.value == null || !offered(c['attr-type'])) return false;
+                    var key = c['attr-type'] + '|' + c.value;
+                    return seen[key] ? false : (seen[key] = true);
+                })
+                .sort(function (a, b) {
+                    return (b.ui_priority || 0) - (a.ui_priority || 0) || (b.to_ids ? 1 : 0) - (a.to_ids ? 1 : 0);
+                });
+            return kids.map(function (c, i) {
+                return { value: String(c.value), type: c['attr-type'], relation: c.object_relation || '', lead: i === 0 };
+            });
+        }
+
+        // What a node can be enriched as: [{ value, type }], one per type any
+        // module accepts. A result only when MISP holds it, since the engine
+        // enriches a value the reader can see.
         function enrichItems(node) {
             var d = node.getData() || {};
-            if (!_enrichTypes || d.value == null) return [];
+            if (!_enrichTypes) return [];
+            if (d.type === 'object') return isEnrichmentResult(d) ? [] : objectItems(node);
+            if (d.value == null) return [];
             var types = d.type === 'value' ? (d.types || [])
                 : (d.type === 'attribute' && (!isEnrichmentResult(d) || d.known)) ? [d['attr-type']] : [];
-            return types.filter(function (t) {
-                return t && (_enrichTypes.types[t] || []).length;
-            }).map(function (t) { return { value: String(d.value), type: t }; });
+            return types.filter(offered).map(function (t) { return { value: String(d.value), type: t }; });
         }
 
         function itemKey(item) { return item.type + '|' + item.value; }
 
+        // An object's attributes to enrich: the analyst's pick, else each object's lead.
+        function pickedItems(node, narrowing) {
+            var items = enrichItems(node);
+            if (!items.length || items[0].relation === undefined) return items;
+            var picked = narrowing && Array.isArray(narrowing.attribute) ? narrowing.attribute : null;
+            return items.filter(function (i) { return picked ? picked.indexOf(itemKey(i)) !== -1 : i.lead; });
+        }
+
+        function attributeFacet(nodes) {
+            var options = [], dflt = [], seen = {};
+            nodes.forEach(function (node) {
+                enrichItems(node).forEach(function (i) {
+                    if (i.relation === undefined || seen[itemKey(i)]) return;
+                    seen[itemKey(i)] = true;
+                    options.push({ label: (i.relation ? i.relation + ': ' : '') + truncate(i.value, 40), value: itemKey(i) });
+                    if (i.lead) dflt.push(itemKey(i));
+                });
+            });
+            return options.length ? { key: 'attribute', label: 'Attribute', type: 'multiselect',
+                                      options: options, default: dflt } : null;
+        }
+
         // Per item, the modules to ask: each once per value, under the first of
         // its types that module accepts, and never the profile's `never`.
-        function enrichPairs(nodes) {
+        function enrichPairs(nodes, narrowing) {
             var pairs = [], seen = {};
             nodes.forEach(function (node) {
-                enrichItems(node).forEach(function (item) {
+                pickedItems(node, narrowing).forEach(function (item) {
                     var never = _enrichTypes.profile.never[item.type] || [];
                     _enrichTypes.types[item.type].forEach(function (module) {
                         var key = module + '|' + item.value;
@@ -3094,8 +3141,10 @@
                     var had = land.get(n.id);
                     if (had && had.data.modules.indexOf(module) === -1) had.data.modules.push(module);
                     land.node(n);
+                    // From an object, the edge names the attribute that was asked.
+                    var label = p.item.relation ? module + ' · ' + p.item.relation : module;
                     land.edge({ id: 'enr:' + origin + '>' + n.id + ':' + module, from: origin, to: n.id,
-                                data: { kind: 'enrichment', label: module, module: module } });
+                                data: { kind: 'enrichment', label: label, module: module } });
                 }
                 (run.attributes || []).forEach(function (attr) {
                     // A misp_standard module echoes the attribute it was asked about.
@@ -3128,8 +3177,8 @@
 
         function enrichPivot() {
             loadEnrichTypes();
-            function facetFor(nodes) {
-                return enrichModuleFacet(enrichPairs(nodes));
+            function facetFor(nodes, narrowing) {
+                return enrichModuleFacet(enrichPairs(nodes, narrowing));
             }
             return {
                 id:            ENRICH_PIVOT,
@@ -3142,14 +3191,15 @@
                     var items = [];
                     nodes.forEach(function (n) { items = items.concat(enrichItems(n)); });
                     return loadStored(items, ctx && ctx.signal).then(function () {
-                        var facet = facetFor(nodes);
+                        var facet = facetFor(nodes, narrowing);
                         var picked = pickedModules(narrowing, facet);
-                        var total = enrichPairs(nodes).reduce(function (t, p) {
+                        var total = enrichPairs(nodes, narrowing).reduce(function (t, p) {
                             var s = storedFor(p);
                             return t + (picked.indexOf(p.module) !== -1 && s && s.state === 'ok' ? s.total : 0);
                         }, 0);
-                        return { total: total, facets: [Object.assign({ key: 'module', label: 'Module',
-                                                                        type: 'multiselect' }, facet)] };
+                        var facets = [Object.assign({ key: 'module', label: 'Module', type: 'multiselect' }, facet)];
+                        var attributes = attributeFacet(nodes);
+                        return { total: total, facets: attributes ? [attributes].concat(facets) : facets };
                     });
                 },
                 fetch: function (nodes, narrowing, ctx) {
@@ -3159,8 +3209,8 @@
                     // A one-click run has no summarize before it: what is fresh is read here too.
                     var pairs;
                     return loadStored(items, signal).then(function () {
-                        var picked = pickedModules(narrowing, facetFor(nodes));
-                        pairs = enrichPairs(nodes).filter(function (p) { return picked.indexOf(p.module) !== -1; });
+                        var picked = pickedModules(narrowing, facetFor(nodes, narrowing));
+                        pairs = enrichPairs(nodes, narrowing).filter(function (p) { return picked.indexOf(p.module) !== -1; });
                         var asked = pairs.filter(function (p) { var s = storedFor(p); return !(s && s.fresh); }).length;
                         if (asked > ENRICH_ASK_CAP) {
                             throw new Error(asked + ' module queries would be sent; ' + ENRICH_ASK_CAP
@@ -3172,8 +3222,9 @@
                         if (!landed.answered && landed.missed.length) throw new Error(landed.missed.join(' · '));
                         var g = ctx && ctx.graph;
                         if (landed.missed.length && g && g.notifier) g.notifier.warning('Enrichment', landed.missed.join(' · '));
-                        // The store now holds what was just asked.
+                        // The store now holds what was just asked, so the counts are re-read.
                         pairs.forEach(function (p) { delete _enrichStored[itemKey(p.item)]; });
+                        if (g && g.pivots) g.pivots.invalidate(ENRICH_PIVOT, nodes);
                         return landed.result;
                     });
                 }
