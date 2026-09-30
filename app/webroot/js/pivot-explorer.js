@@ -1744,19 +1744,6 @@
         return def;
     }
 
-    function declareTagPotential(node) {
-        var n = labelCount(node);
-        if (n) node.setPotential(TAG_PIVOT, n);
-        return n > 0;
-    }
-
-    function declareAllTagPotential(graph) {
-        var any = false;
-        graph.getMutableNodes().forEach(function (n) { any = declareTagPotential(n) || any; });
-        if (any) graph.renderer.update();
-        graph.on('nodeAdd', declareTagPotential);
-    }
-
     /* ── pivot: other events carrying a tag or cluster ─────── */
     // Each event lands as a card joined to the selected tag and cluster nodes
     // it carries. /events/taggedEvents says, per event and tag, whether the
@@ -3002,7 +2989,6 @@
                 _graph.UIManager.getRootContainer().addEventListener('pivot-sidebar-retry', retrySidebar);
                 watchElementPivot(_graph);
                 declareAllFeedPotential(_graph);
-                declareAllTagPotential(_graph);
                 loadCorrelationCounts(_graph);
             })
             .catch(function (err) {

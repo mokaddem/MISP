@@ -3108,9 +3108,9 @@ test('tags: the pivot applies to what carries a tag, an object through its attri
     eq('the plain attribute is left out', p.appliesTo(nodes).map(n => n.id), ['attr:e1', 'obj:A']);
     eq('distinct tags and clusters: LummaC2, APT28, tlp:amber', p.summarize(p.appliesTo(nodes)), { total: 3 });
     eq('capped, never saved', [p.maxCandidates, p.save], [1500, undefined]);
-    eq('each carrier wears its count as rim potential',
+    eq('no carrier wears a rim potential for it',
        [potentials(g, 'attr:e1'), potentials(g, 'obj:A'), potentials(g, 'attr:c2')],
-       [[['tags', 2]], [['tags', 2]], []]);
+       [[], [], []]);
 });
 
 test('tags: one node per tag or cluster, joined to every carrier on the canvas', async () => {

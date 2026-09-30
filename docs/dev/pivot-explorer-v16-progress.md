@@ -94,6 +94,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 42 | A server draws as the feed does, not as a triangle: the event family's remote hit at rest (server mark in the hexagon, dashed ring) and the authority chip zoomed in (server mark, name, provider or host), in its own magenta family (`#D0539F`), which its `server-correlation` edges and legend row share | ✅ | 24, 41 | 2026-09-30 — `misp-pivot-nodes` gains a `server` palette family and entity (feed and server built by one `sourceEntity`). Live on 4345 (§2) |
 | 43 | A feed's edges (`feed-correlation`, `feed-event`) take the feed's amber (`palette().feed.core`); the canvas fills the window below its top, down to its card's edge, refitted on resize, never under 480 px (was 72vh) | ✅ | 42 | 2026-09-30 — live on 4345 and 2014 (§2) |
 | 44 | A stand-in edge into a closed object's child dashes like the edges it stands for (`6, 4`), not pivotick's `3`: one rule in `pivot-explorer.css` at the library's own specificity, so its forecast dash still wins | ✅ | 43 | 2026-09-30 — live on 2014 and 4345 (§2). Interim: showing *lands on a hidden child* some other way is not decided |
+| 45 | **Tags & clusters** declares no rim potential: a carrier no longer wears its tag and cluster count on the canvas; the pivot still applies to it | ✅ | 30 | 2026-09-30 |
 
 ### Critical path
 
