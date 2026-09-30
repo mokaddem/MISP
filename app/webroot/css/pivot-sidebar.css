@@ -349,6 +349,7 @@
 .pes-attr-val { font-family: var(--pes-mono); font-size: 11px; color: var(--pes-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pes-attr-marks { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 5px; align-items: center; color: var(--pes-ink-3); font-size: 10.5px; }
 .pes-attr-marks .is-warn { color: var(--pes-alarm); }
+.pes-attr-marks .is-known { color: var(--pes-caution); }
 .pes-attr-more {
     margin-top: 4px; font: inherit; font-size: 11px; color: var(--h-ink); background: none; border: 0; padding: 2px 0; cursor: pointer; font-weight: 600;
 }

@@ -697,12 +697,18 @@
     function childModel(env, a, ranks) {
         var labelled = a.Tag || a.Galaxy ? labelsOfRecord(a) : { tags: a.tags || [], clusters: a.clusters || [] };
         var warn = (a.warnings || []).length;
+        var names = [];
+        (a.warnings || []).forEach(function (w) {
+            if (w.warninglist_name && names.indexOf(w.warninglist_name) === -1) names.push(w.warninglist_name);
+        });
         var relation = a.object_relation || null;
         return {
             uuid: a.uuid, relation: relation, type: a.type || a['attr-type'] || null,
             value: a.value == null ? '' : String(a.value), to_ids: bool(a.to_ids),
             priority: ranks && relation && ranks[relation] ? ranks[relation] : (a.ui_priority || 0),
-            warninglisted: warn > 0, tags: labelled.tags.length, clusters: labelled.clusters.length,
+            warninglisted: warn > 0, warninglists: names,
+            false_positive: (a.warnings || []).some(function (w) { return w.warninglist_category === 'false_positive'; }),
+            tags: labelled.tags.length, clusters: labelled.clusters.length,
             correlations: correlations(env, 'attribute', a.uuid)
         };
     }
@@ -722,7 +728,7 @@
             name: (rec && rec.name) || d.name || null,
             meta_category: (rec && rec['meta-category']) || d['meta-category'] || null,
             attributes: vm.children.length,
-            top: vm.children.slice(0, 3).map(function (c) { return { relation: c.relation, value: c.value }; })
+            top: vm.children.slice(0, 3)
         };
         // What its attributes carry, counted per attribute.
         var tagCount = {}, tagFirst = [], clusterCount = {}, clusterFirst = [], warnCount = {}, warnFirst = [];

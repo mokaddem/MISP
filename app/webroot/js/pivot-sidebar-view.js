@@ -671,6 +671,15 @@
         return s;
     }
 
+    // MISP's triangle on an attribute on a warninglist, in its category colour.
+    function warnMark(k) {
+        var m = fa('triangle-exclamation');
+        m.classList.add(k.false_positive ? 'is-warn' : 'is-known');
+        m.title = (k.false_positive ? 'Likely false positive' : 'Known identifier') +
+                  (k.warninglists && k.warninglists.length ? ' — ' + k.warninglists.join(', ') : '');
+        return m;
+    }
+
     function objectTop(vm) {
         var list = h('ul', 'pes-attrs');
         list.style.marginTop = '8px';
@@ -679,6 +688,7 @@
             add(li, h('div', 'pes-attr-rel', t.relation));
             var v = add(li, h('div', 'pes-attr-val', t.value));
             v.title = t.value;
+            if (t.warninglisted) add(add(li, h('div', 'pes-attr-marks')), warnMark(t));
         });
         return list;
     }
@@ -1068,7 +1078,7 @@
             v.title = k.value;
             var marks = add(li, h('div', 'pes-attr-marks'));
             if (k.to_ids) add(marks, h('span', 'pes-ids', 'IDS')).style.fontSize = '9px';
-            if (k.warninglisted) add(marks, fa('triangle-exclamation')).classList.add('is-warn');
+            if (k.warninglisted) add(marks, warnMark(k));
             if (k.tags + k.clusters) { add(marks, fa('tag')); marks.appendChild(document.createTextNode(String(k.tags + k.clusters))); }
             if (k.correlations && k.correlations.count) { add(marks, fa('arrows-left-right')); marks.appendChild(document.createTextNode(String(k.correlations.count))); }
         });
