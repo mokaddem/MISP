@@ -143,6 +143,10 @@
 /* The full-window graph. */
 .vn-overlay { position: fixed; inset: 0; z-index: 1080; display: flex; flex-direction: column; background: var(--bs-body-bg); }
 .vn-overlay.d-none { display: none; }
+/* Pivotick mounts its tooltips on <body>, which the overlay covers. */
+body:has(> .vn-overlay:not(.d-none)) .pvt-tooltip { z-index: 1083; }
+body:has(> .vn-overlay:not(.d-none)) .pvt-tooltip.pvt-tooltip-floating { z-index: 1082; }
+body:has(> .vn-overlay:not(.d-none)) .pivotick-shadowlink-container { z-index: 1081; }
 .vn-overlay-bar {
     flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 16px;
     border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
