@@ -44,7 +44,7 @@ canvas like any other pivot's.
 | *Enrich* pivot in the shared kit (§5.2) | ⬚ | both hosts |
 | Landing, `enrichment` edge kind, `scope: 'module'` (§5.3–§5.4) | ⬚ | E4, E5 |
 | Run toast (§5.5) | ⬚ | E6 |
-| Prototypes: result node look + edge (§8, phase B) | ⬚ | |
+| Prototypes: result node look + edge (§8, phase B) | ◐ | kit built, three candidates drawing |
 | Unit tests, acceptance (§7) | ⬚ | |
 | Save into the event (§5.7) | — | E8: later pass |
 
@@ -117,6 +117,12 @@ overlap.
 | `objects[]` | `{name, meta_category, description, comment, attributes[{relation, type, value, …, known}]}` |
 | `elements[]` | a legacy module's flat `{types[], value, known}`, with no structure |
 | `total`, `shown`, `capped` | 200 results at most per answer, the true total kept |
+
+**A `misp_standard` answer echoes the attribute it was asked about** in `attributes[]` — every
+recorded answer on the dev instance does (`8.8.8.8` as `ip-dst` comes back in circl_passivedns',
+mmdb_lookup's and ipasn's). Landed as-is it would draw a loose duplicate of the origin; §5.3 drops
+it. On that instance every real result is therefore an **object**: no enabled module returns a
+loose attribute or a legacy element.
 
 `known` (`enrichmentKnown`, VP:15487) is one ACL-scoped prevalence probe over the returned values
 that MISP correlates on, leaving out the value asked about. It is recomputed on every read, never
@@ -201,7 +207,7 @@ value node is held as. No `save` (E8), no `autoIngest`, no `setPotential` (E9).
 
 | Result | Lands as | Joined by |
 |---|---|---|
-| `attributes[]` | attribute node `enr:<type>:<value>` | `enrichment` edge from the origin, label = module |
+| `attributes[]` | attribute node `enr:<type>:<value>` — **except the echo** of the origin's own value and type, which is dropped | `enrichment` edge from the origin, label = module |
 | `objects[]` | closed object node `enr-obj:<module>:<hash>`, its attributes as its own children | `enrichment` edge from the origin |
 | `elements[]` | attribute node `enr:<first type>:<value>`, flagged untyped | `enrichment` edge from the origin |
 
@@ -215,6 +221,15 @@ A result node is drawn by `misp-pivot-nodes` like any attribute or object, with 
 on its own channel, chosen in phase B (v16 D2 lists the channels already taken). The `enrichment`
 edge kind gets its own style and its entry in the edge legend. The Provenance legend and facet
 follow E5.
+
+**Open against v16 D2c**, which settled that "from another event" gets *no* canvas encoding: a
+baked-in cue judges what the subject is, and the facet is symmetric. Module output is arguably a
+different case — an outside claim, not MISP's data — but phase B draws the D2c-consistent answer
+(the edge alone) beside two node encodings, so the pick settles it with the pictures side by side.
+
+**Wiring gotcha:** a legend section whose `entries` function returns `[]` makes pivotick derive
+entries of its own (the Element list, repeated). The value page's Provenance section must return
+its two entries whenever it is shown, not an empty list before results land.
 
 ### 5.5 What did not come back
 
@@ -270,10 +285,14 @@ Against the dev instance, logged in, dev server on this worktree:
 ## 8. Phases
 
 - **A — Contract.** ✅ Grilled 2026-09-30; rulings in §4, JSON frozen in §5.1.
-- **B — Prototypes.** One round, two or three cold-built candidates for the result node's *From
-  enrichment* channel and the `enrichment` edge, as static pages against a recorded answer
-  (`circl_passivedns` on `8.8.8.8`, capped at 200 of 1,374 objects, is the stress case), light and
-  dark. Kept local. The facet and toast wording are settled here, not prototyped.
+- **B — Prototypes.** One round, three cold-built candidates for the result node's *From
+  enrichment* look and the `enrichment` edge — **A** the edge alone (D2c-consistent), **B** a mark
+  on the node, **C** a drawing of its own. Kit in `prd/pivot-enrichment/` (`brief.md`, `frame.html`,
+  `capture.mjs`): the value page's full graph on `8.8.8.8` with the real vendored stack, and a
+  fixture-backed *Enrich* pivot (`enrich-baseline.js`, §5.2–§5.3 as ruled) run on the centre from
+  answers recorded through `forEnrichmentRun(mode=stored)` — mmdb_lookup, ipasn, whois (error),
+  and circl_passivedns (199 objects, 200 of 1,376) as the stress case. Kept local. The facet and
+  toast wording are settled here, not prototyped.
 - **C — Wiring.** `ModuleRole`, the endpoints, the pivot, tests, acceptance.
 
 ## 9. Files (expected)
