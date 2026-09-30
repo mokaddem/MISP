@@ -618,7 +618,23 @@
         return n === null || n === undefined ? null : { count: n };
     }
 
+    // What a module said, when this element is a result of one (enrichment PRD E5).
+    function enrichment(d) {
+        if (d.scope !== 'module') return null;
+        return {
+            modules: (d.modules && d.modules.length ? d.modules : [d.module]).filter(Boolean),
+            from_store: !!d.from_store, age: d.age == null ? null : Number(d.age),
+            untyped: !!d.untyped, candidate_types: d.candidate_types || []
+        };
+    }
+
+    // A module's value links to its profile only when MISP holds it (E13).
+    function profiled(d) {
+        return d.scope !== 'module' || !!d.known;
+    }
+
     function provenance(env, d) {
+        if (d.scope === 'module') return { scope: 'module', event_id: null, label: 'From enrichment' };
         if (d.scope === 'self') return { scope: 'self', event_id: d.event_id || null, label: 'This event' };
         if (d.event_id) return { scope: 'foreign', event_id: String(d.event_id), label: 'Event ' + d.event_id };
         return d.scope ? { scope: d.scope, event_id: null, label: null } : null;
@@ -630,7 +646,7 @@
             title: d.label || '', subtitle: d.description || '',
             provenance: null, card: {}, facts: [], labels: null, warninglists: [], sources: [],
             correlations: null, sightings: null, analyst: null, relations: {}, children: null,
-            links: [], lazy: {}
+            links: [], lazy: {}, enrichment: enrichment(d)
         };
     }
 
@@ -713,7 +729,7 @@
         var value = a.value == null ? '' : String(a.value);
         return {
             uuid: a.uuid, relation: relation, type: a.type || a['attr-type'] || null,
-            value: value, b64: value === '' ? null : valueKey(value), to_ids: bool(a.to_ids),
+            value: value, b64: value === '' || !profiled(a) ? null : valueKey(value), to_ids: bool(a.to_ids),
             priority: ranks && relation && ranks[relation] ? ranks[relation] : (a.ui_priority || 0),
             warninglisted: warn > 0, warninglists: names,
             false_positive: (a.warnings || []).some(function (w) { return w.warninglist_category === 'false_positive'; }),
@@ -872,7 +888,7 @@
                 });
         }
         vm.value_card = !!env.valueCard;
-        vm.profile = vm.card.value === '' ? null : { value: vm.card.value, b64: valueKey(vm.card.value) };
+        vm.profile = vm.card.value === '' || !profiled(d) ? null : { value: vm.card.value, b64: valueKey(vm.card.value) };
         if (d.event_id && String(d.event_id) !== String(env.eventId)) {
             vm.links.push({ kind: 'event', label: 'Open its event', path: '/events/view2/' + d.event_id });
         }

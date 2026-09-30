@@ -357,6 +357,25 @@
         }
     }
 
+    function hoursAgo(seconds) {
+        var h = Math.round((seconds || 0) / 3600);
+        if (h < 1) return 'just now';
+        return h < 48 ? h + ' h ago' : Math.round(h / 24) + ' days ago';
+    }
+
+    // Leads, for a result: MISP does not hold it, a module said it.
+    function enrichmentNotices(vm, N) {
+        var e = vm.enrichment;
+        if (!e) return;
+        N.push('caution', { first: true, mark: 'wand-magic-sparkles',
+                            line: 'Not in MISP: ' + e.modules.join(', ') + ' said this',
+                            why: { text: e.from_store ? 'Stored answer, ' + hoursAgo(e.age) : 'Asked just now' } });
+        if (e.untyped) {
+            N.push('caution', { mark: 'circle-question', line: 'Untyped by the module',
+                                why: e.candidate_types.length ? { text: 'Also possible: ' + e.candidate_types.join(', ') } : null });
+        }
+    }
+
     /* ── per-entity: notices ───────────────────────────────── */
     function eventNotices(vm, N) {
         recordNotice(vm, N);
@@ -383,6 +402,7 @@
     }
 
     function attributeNotices(vm, N) {
+        enrichmentNotices(vm, N);
         recordNotice(vm, N);
         var known = recordKnown(vm);
         if (known) {
@@ -402,6 +422,7 @@
     }
 
     function objectNotices(vm, N) {
+        enrichmentNotices(vm, N);
         warninglistNotices(vm, N, vm.warninglists, false, true);
         labelNotices(vm, N, vm.labels, false);
         if (vm.correlations && vm.correlations.count) {
@@ -578,7 +599,8 @@
         add(kicker, h('span', '', kindLabel(vm)));
         if (vm.provenance && vm.provenance.label) {
             var prov = add(kicker, h('span', 'pes-prov'));
-            add(prov, fa(vm.provenance.scope === 'self' ? 'location-dot' : 'arrow-up-right-from-square'));
+            add(prov, fa({ self: 'location-dot', module: 'wand-magic-sparkles' }[vm.provenance.scope]
+                         || 'arrow-up-right-from-square'));
             prov.appendChild(document.createTextNode(vm.provenance.label));
         }
 
