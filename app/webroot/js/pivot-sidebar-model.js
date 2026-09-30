@@ -266,10 +266,6 @@
         return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
     }
 
-    function profilePath(value) {
-        return '/values/view/' + valueKey(value);
-    }
-
     function enumLabel(table, v) {
         var n = num(v);
         return n === null ? null : (table[n] || null);
@@ -877,7 +873,6 @@
         }
         vm.value_card = !!env.valueCard;
         vm.profile = vm.card.value === '' ? null : { value: vm.card.value, b64: valueKey(vm.card.value) };
-        if (vm.profile) vm.links.push({ kind: 'value', label: 'Open value profile', path: profilePath(vm.card.value) });
         if (d.event_id && String(d.event_id) !== String(env.eventId)) {
             vm.links.push({ kind: 'event', label: 'Open its event', path: '/events/view2/' + d.event_id });
         }
@@ -1070,30 +1065,9 @@
         return rows;
     }
 
-    /**
-     * The value whose profile a node stands for: an attribute's own, an
-     * object's lead attribute's (first by template priority). Null for
-     * anything else, or when there is no value.
-     *
-     * → { value, b64, relation }   relation: the lead's, for an object
-     */
-    function profiled(input, env) {
-        var type = input && input.data && input.data.type;
-        if (type === 'attribute') {
-            var vm = attributeModel(input, env || {});
-            return vm.profile ? { value: vm.profile.value, b64: vm.profile.b64, relation: null } : null;
-        }
-        if (type === 'object') {
-            var lead = (objectModel(input, env || {}).children || []).filter(function (c) { return c.b64; })[0];
-            return lead ? { value: lead.value, b64: lead.b64, relation: lead.relation || lead.type } : null;
-        }
-        return null;
-    }
-
     var api = {
         priority: priority,
         build: build,
-        profiled: profiled,
         valueKey: valueKey,
         propertyRows: propertyRows,
         analyst: analyst,
