@@ -9,3 +9,10 @@
     --pvt-node-selected-color: var(--pvt-misp-primary);
     --pvt-badge-color: var(--pvt-misp-primary);
 }
+
+/* A stand-in for edges into a closed object dashes like the edges it
+   stands for. Kept at pivotick's own specificity so its forecast dash
+   still wins. */
+.pvt-edge-synthetic path.dashed {
+    stroke-dasharray: var(--pvt-edge-stroke-dasharray);
+}
