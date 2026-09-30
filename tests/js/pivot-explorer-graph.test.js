@@ -2366,14 +2366,16 @@ test('the panel lists what was said about the selected element, as text', async 
     const panel = analystPanelOf(g);
     ok('reactive by default, hidden with nothing selected', panel.reactive === undefined && !panel.alwaysVisible);
     const out = panel.render(pnode({ type: 'attribute', uuid: 'c1' }));
-    const entries = findByClass(out, 'pe-analyst-entry');
-    eq('five entries, replies after what they answer', entries.length, 5);
+    eq('five cards', findByClass(out, 'pes-ad-card').length, 5);
+    eq('grouped by kind, roots counted', findByClass(out, 'pes-ad-h').map(panelText), ['|Notes (2)', '|Opinions (2)']);
     const t = panelText(out);
     ok('a note\'s text, left as text', t.indexOf('<b>first</b>') !== -1, t);
-    ok('an opinion names its band and value', t.indexOf('Agree (80/100)') !== -1 && t.indexOf('Strongly disagree (0/100)') !== -1, t);
-    ok('who and when', t.indexOf('CIRCL · 2025-03-11') !== -1, t);
-    ok('the reply is marked', t.indexOf('Opinion · reply') !== -1 || t.indexOf('Strongly disagree (0/100) · reply') !== -1, t);
-    eq('and indented one step', entries.map(e => e.style.cssText.indexOf('0.9rem') !== -1), [false, true, false, false, false]);
+    ok('an opinion names its band and value', t.indexOf('Agree · 80/100') !== -1 && t.indexOf('Strongly Disagree · 0/100') !== -1, t);
+    ok('who and when', t.indexOf('a@x') !== -1 && t.indexOf('2025-03-11') !== -1, t);
+    const first = findByClass(out, 'pes-ad-card').find(c => panelText(c).indexOf('<b>first</b>') !== -1);
+    const replies = findByClass(first, 'pes-ad-replies');
+    eq('the reply nests in what it answers', replies.map(r => findByClass(r, 'pes-ad-card').length), [1]);
+    ok('and is the opinion on it', panelText(replies[0]).indexOf('Strongly Disagree · 0/100') !== -1);
 });
 
 test('the panel for anything else says so', async () => {
@@ -2382,7 +2384,7 @@ test('the panel for anything else says so', async () => {
     ok('an element nobody commented on', panelText(render(pnode({ type: 'attribute', uuid: 'c2' }))).indexOf('No notes or opinions') !== -1);
     ok('a correlated element from another event', panelText(render(pnode({ type: 'attribute', uuid: 'x1' }))).indexOf('No notes or opinions') !== -1);
     ok('a multi-selection', panelText(render([pnode({ uuid: 'c1' }), pnode({ uuid: 'A' })])).indexOf('single element') !== -1);
-    ok('this event, through its node', findByClass(render(pnode({ type: 'event', uuid: 'EV-SELF' })), 'pe-analyst-entry').length === 1);
+    ok('this event, through its node', findByClass(render(pnode({ type: 'event', uuid: 'EV-SELF' })), 'pes-ad-card').length === 1);
 });
 
 test('clicking the badge selects its node and opens the sidebar', async () => {

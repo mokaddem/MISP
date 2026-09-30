@@ -241,7 +241,9 @@ suite("another event's attribute arrives slim and asks for its record", () => {
 suite('an object: attributes ranked by the template, what they carry rolled up', () => {
     const vm = M.build(node({ type: 'object', uuid: 'o-sock', name: 'network-socket', scope: 'self', event_id: '5' }), env());
     eq('ranked', vm.children.map(c => [c.relation, c.priority]), [['ip', 2], ['dst-port', 1]]);
-    eq('card', vm.card.top, [{ relation: 'ip', value: '8.8.4.4' }, { relation: 'dst-port', value: '53' }]);
+    eq('card', vm.card.top.map(c => [c.relation, c.value]), [['ip', '8.8.4.4'], ['dst-port', '53']]);
+    eq('with what marks a row', vm.card.top.map(c => [c.warninglisted, c.warninglists, c.false_positive]),
+       [[false, [], false], [true, ['Ports'], false]]);
     eq('a tag on both attributes counts 2', vm.labels.taxonomies[0].tags.map(t => [t.name, t.count]), [['tlp:clear', 2]]);
     eq('warninglists rolled up', vm.warninglists.map(w => [w.name, w.count]), [['Ports', 1]]);
     eq('references out, deleted ones dropped', vm.relations.references.out.map(r => [r.relationship_type, r.target.label]),
