@@ -450,6 +450,11 @@ class ACLComponent extends Component
             'restSearchExport' => array('*'),
             'runTaxonomyExclusivityCheck' => array('*'),
             'runWorkflow' => array(),
+            // The Pivot Explorer's Save of enrichment results; the event
+            // itself is checked in the action.
+            'saveEnrichment' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
             'saveFreeText' => array('perm_add'),
             'searchGalaxyClusters' => array('theming_enabled'),
             'stix' => array('*'),

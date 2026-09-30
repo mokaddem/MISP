@@ -1304,6 +1304,19 @@ class MispObject extends AppModel
     }
 
     /**
+     * @param array $object An object with its `template_uuid` and `Attribute`s
+     * @param int $eventId
+     * @return string|null The uuid of the object the event already holds with
+     *   the same template and attributes
+     */
+    public function duplicateObjectUuid(array $object, $eventId)
+    {
+        $duplicatedObjectId = $duplicateObjectUuid = null;
+        $duplicate = $this->checkForDuplicateObjects(['Object' => $object], $eventId, $duplicatedObjectId, $duplicateObjectUuid);
+        return $duplicate ? $duplicateObjectUuid : null;
+    }
+
+    /**
      * Drop an intra-batch duplication check cache entry that was registered by
      * checkForDuplicateObjects() for an object that subsequently failed to save.
      *

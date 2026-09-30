@@ -3144,7 +3144,7 @@
                     // From an object, the edge names the attribute that was asked.
                     var label = p.item.relation ? module + ' · ' + p.item.relation : module;
                     land.edge({ id: 'enr:' + origin + '>' + n.id + ':' + module, from: origin, to: n.id,
-                                data: { kind: 'enrichment', label: label, module: module } });
+                                data: { kind: 'enrichment', label: label, module: module, asked: p.item.value } });
                 }
                 (run.attributes || []).forEach(function (attr) {
                     // A misp_standard module echoes the attribute it was asked about.
@@ -3175,6 +3175,132 @@
             return { result: land.result(), missed: missed, answered: answered };
         }
 
+        // RFC 4122 v4; randomUUID needs a secure context, getRandomValues does not.
+        function newUuid() {
+            var b = window.crypto.getRandomValues(new Uint8Array(16));
+            b[6] = (b[6] & 0x0f) | 0x40;
+            b[8] = (b[8] & 0x3f) | 0x80;
+            var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+            return [h.slice(0, 8), h.slice(8, 12), h.slice(12, 16), h.slice(16, 20), h.slice(20)].join('-');
+        }
+
+        var ENRICH_RELATIONSHIP = 'related-to';
+
+        function resultAttributeRecord(d, uuid, comment) {
+            return { uuid: uuid, type: d['attr-type'], category: d.category, value: d.value,
+                     to_ids: !!d.to_ids, comment: comment || '', object_relation: d.object_relation };
+        }
+
+        // A result is tied back to an origin this event holds, as far as
+        // a reference can say it; from another event's origin it goes in
+        // unattached, its comment naming what was enriched.
+        function saveBody(payload) {
+            var body = { Attribute: [], Object: [], ObjectReference: [] }, sent = [];
+            var pendingChildren = {};
+            (payload.children || []).forEach(function (c) { pendingChildren[c.id] = true; });
+            payload.nodes.forEach(function (node) {
+                var d = node.getData() || {};
+                if (!isEnrichmentResult(d)) return;
+                var edges = payload.edges.filter(function (e) {
+                    return e.to && e.to.id === node.id && (e.getData() || {}).kind === 'enrichment';
+                });
+                var own = edges.map(function (e) { return e.from; }).filter(function (o) {
+                    return o && isOwnElement(o.getData());
+                });
+                var first = edges.length ? edges[0].getData() : {};
+                var comment = d.comment || ('Enrichment: ' + (first.module || d.module)
+                                            + (first.asked ? ' on ' + first.asked : ''));
+                var uuid = newUuid(), entry = { node: node, uuid: uuid, children: [] };
+                if (d.type === 'object') {
+                    body.Object.push({
+                        uuid: uuid, name: d.name, comment: comment,
+                        Attribute: (node.children || []).filter(function (c) { return pendingChildren[c.id]; })
+                            .map(function (c) {
+                                var cu = newUuid();
+                                entry.children.push({ node: c, uuid: cu });
+                                return resultAttributeRecord(c.getData() || {}, cu, (c.getData() || {}).comment);
+                            }),
+                        ObjectReference: own.map(function (o) {
+                            return { referenced_uuid: o.getData().uuid, relationship_type: ENRICH_RELATIONSHIP };
+                        })
+                    });
+                } else {
+                    var rec = resultAttributeRecord(d, uuid, comment);
+                    delete rec.object_relation;
+                    body.Attribute.push(rec);
+                    own.forEach(function (o) {
+                        if (o.getData().type !== 'object') return;
+                        body.ObjectReference.push({ object_uuid: o.getData().uuid, referenced_uuid: uuid,
+                                                    relationship_type: ENRICH_RELATIONSHIP });
+                    });
+                }
+                sent.push(entry);
+            });
+            return { body: body, sent: sent };
+        }
+
+        // A saved result is this event's own from then on — a plain MISP
+        // node, which the reference editor can start from.
+        function adoptSaved(entry, uuid, childrenSaved) {
+            var ev = (_event && _event.Event) || {};
+            var own = Object.assign(provenance(eventId, ev.uuid),
+                { module: undefined, modules: undefined, from_store: undefined, age: undefined,
+                  untyped: undefined, candidate_types: undefined, known: undefined });
+            entry.node.updateData(Object.assign({ uuid: uuid }, own));
+            if (entry.node.getData().type === 'object') {
+                var kids = childrenSaved ? entry.children : [];
+                kids.forEach(function (c) { c.node.updateData(Object.assign({ uuid: c.uuid }, own)); });
+                ev.Object = (ev.Object || []).concat([{ uuid: uuid, Attribute: kids.map(function (c) { return { uuid: c.uuid }; }) }]);
+            } else {
+                ev.Attribute = (ev.Attribute || []).concat([{ uuid: uuid }]);
+            }
+            _ownIndex = null;
+        }
+
+        function enrichSave(payload, ctx) {
+            var built = saveBody(payload);
+            if (!built.sent.length) return true;
+            return postJson('/events/saveEnrichment/' + encodeURIComponent(eventId) + '.json',
+                            built.body, ctx && ctx.signal).then(function (r) {
+                var results = (r && r.results) || {};
+                var savedNodeIds = [], canonicalIds = {}, lost = {}, failed = 0;
+                built.sent.forEach(function (entry) {
+                    var res = results[entry.uuid] || {};
+                    var node = entry.node;
+                    if (res.state !== 'saved' && res.state !== 'existing') {
+                        failed++;
+                        lost[node.id] = true;
+                        return;
+                    }
+                    var prefix = node.getData().type === 'object' ? 'obj:' : 'attr:';
+                    // An object the event already held keeps its own attributes.
+                    var fresh = res.state === 'saved';
+                    savedNodeIds.push(node.id);
+                    canonicalIds[node.id] = prefix + res.uuid;
+                    entry.children.forEach(function (c) {
+                        savedNodeIds.push(c.node.id);
+                        if (fresh) canonicalIds[c.node.id] = 'attr:' + c.uuid;
+                    });
+                    adoptSaved(entry, res.uuid, fresh);
+                });
+                var savedEdgeIds = payload.edges.filter(function (e) { return !(e.to && lost[e.to.id]); })
+                    .map(function (e) { return e.id; });
+                // Handing the graph its own nodes back is a re-render and a data
+                // event, which is what the legend counts on.
+                var g = ctx && ctx.graph;
+                var adopted = built.sent.filter(function (entry) { return !lost[entry.node.id]; })
+                    .map(function (entry) { return entry.node; });
+                if (g && adopted.length) g.updateData(adopted);
+                refreshSidebar();
+                return {
+                    savedNodeIds: savedNodeIds,
+                    savedEdgeIds: savedEdgeIds,
+                    canonicalIds: canonicalIds,
+                    message: failed ? (r && r.message) || (failed + ' could not be saved') : undefined
+                };
+            });
+        }
+
         function enrichPivot() {
             loadEnrichTypes();
             function facetFor(nodes, narrowing) {
@@ -3184,6 +3310,8 @@
                 id:            ENRICH_PIVOT,
                 label:         'Enrich',
                 maxCandidates: NODE_BUDGET,
+                // Only a host with an event the viewer may modify can keep them.
+                save:          eventId && canEdit ? enrichSave : undefined,
                 appliesTo: function (nodes) {
                     return nodes.filter(function (n) { return enrichItems(n).length > 0; });
                 },

@@ -9214,7 +9214,11 @@ class Event extends AppModel
      * @return int|string
      * @throws JsonException
      */
-    public function processModuleResultsData(array $user, $resolved_data, $id, $default_comment = '', $jobId = false, $adhereToWarninglists = false, $event_level = false)
+    /**
+     * @param array|null $outcome Filled with `recovered` (sent uuid => the uuid
+     *   the event already holds) and `failed` (sent uuids not written)
+     */
+    public function processModuleResultsData(array $user, $resolved_data, $id, $default_comment = '', $jobId = false, $adhereToWarninglists = false, $event_level = false, &$outcome = null)
     {
         $event = $this->find('first', [
             'recursive' => -1,
@@ -9502,6 +9506,7 @@ class Event extends AppModel
             }
         }
 
+        $outcome = ['recovered' => $recovered_uuids, 'failed' => $failed];
         if ($saved_attributes > 0 || $saved_objects > 0 || $saved_reports > 0) {
             $this->unpublishEvent($event);
         }
@@ -9778,6 +9783,210 @@ class Event extends AppModel
             }
         }
         return $this->processModuleResultsData($user, $resolved_data, $id, $default_comment);
+    }
+
+    /**
+     * Write enrichment results into an event, synchronously, and say what
+     * became of each one.
+     *
+     * An enrichment answer as the Value Profile stores it keeps no object
+     * template, so each object's is resolved here by name.
+     *
+     * @param array $user
+     * @param array $event As fetchSimpleEvent returns it
+     * @param array $data `Attribute[]`, `Object[]` (each with its own
+     *   `ObjectReference[]`), and `ObjectReference[]` from an object the
+     *   event already holds; every element carries a client uuid
+     * @return array `results`: sent uuid => `state` saved|existing|failed,
+     *   the `uuid` the event holds it under, a `message` when failed; and
+     *   the overall `message`
+     */
+    public function saveEnrichmentResults(array $user, array $event, array $data)
+    {
+        $eventId = $event['Event']['id'];
+        $distribution = $this->Attribute->defaultDistribution();
+        $attributeFields = array_flip(['uuid', 'type', 'category', 'value', 'to_ids', 'comment', 'object_relation']);
+        $types = $this->Attribute->typeDefinitions;
+        // The category MISP would give it on save, so the duplicate check
+        // compares like with like.
+        $shape = function (array $attribute) use ($attributeFields, $distribution, $types) {
+            $attribute = array_intersect_key($attribute, $attributeFields) + ['distribution' => $distribution];
+            if (empty($attribute['category']) && isset($types[$attribute['type'] ?? '']['default_category'])) {
+                $attribute['category'] = $types[$attribute['type']]['default_category'];
+            }
+            return $attribute;
+        };
+        $resolved = ['Attribute' => [], 'Object' => []];
+        $results = [];
+        $sentAttributes = $sentObjects = [];
+        $originReferences = is_array($data['ObjectReference'] ?? null) ? $data['ObjectReference'] : [];
+
+        foreach ($data['Attribute'] ?? [] as $attribute) {
+            if (is_array($attribute) && Validation::uuid($attribute['uuid'] ?? '')) {
+                unset($attribute['object_relation']);
+                $resolved['Attribute'][] = $shape($attribute);
+                $sentAttributes[] = $attribute['uuid'];
+            }
+        }
+
+        $templates = [];
+        $objectTemplate = ClassRegistry::init('ObjectTemplate');
+        foreach ($data['Object'] ?? [] as $object) {
+            if (!is_array($object) || !Validation::uuid($object['uuid'] ?? '')) {
+                continue;
+            }
+            $name = (string)($object['name'] ?? '');
+            if (!array_key_exists($name, $templates)) {
+                $templates[$name] = $objectTemplate->find('first', [
+                    'recursive' => -1,
+                    'conditions' => ['name' => $name, 'active' => 1],
+                    'fields' => ['uuid', 'version', 'meta-category'],
+                    'order' => ['version DESC'],
+                ]);
+            }
+            if (empty($templates[$name])) {
+                $results[$object['uuid']] = [
+                    'state' => 'failed',
+                    'message' => __('No object template is named "%s".', $name),
+                ];
+                continue;
+            }
+            $template = $templates[$name]['ObjectTemplate'];
+            $attributes = [];
+            foreach ($object['Attribute'] ?? [] as $attribute) {
+                if (is_array($attribute) && Validation::uuid($attribute['uuid'] ?? '')) {
+                    $attributes[] = $shape($attribute);
+                }
+            }
+            $references = [];
+            foreach ($object['ObjectReference'] ?? [] as $reference) {
+                if ($this->__enrichmentReference($reference)) {
+                    $references[] = [
+                        'object_uuid' => $object['uuid'],
+                        'referenced_uuid' => $reference['referenced_uuid'],
+                        'relationship_type' => $reference['relationship_type'],
+                    ];
+                }
+            }
+            $resolvedObject = [
+                'uuid' => $object['uuid'],
+                'name' => $name,
+                'meta-category' => $template['meta-category'],
+                'template_uuid' => $template['uuid'],
+                'template_version' => $template['version'],
+                'comment' => (string)($object['comment'] ?? ''),
+                'distribution' => $distribution,
+                'Attribute' => $attributes,
+                'ObjectReference' => $references,
+            ];
+            // Saved before, from this origin or another: the event keeps its
+            // copy, and gains this origin's reference.
+            $duplicate = $this->Object->duplicateObjectUuid($resolvedObject, $eventId);
+            if ($duplicate) {
+                $results[$object['uuid']] = ['state' => 'existing', 'uuid' => $duplicate];
+                foreach ($references as $reference) {
+                    $originReferences[] = array_merge($reference, ['object_uuid' => $duplicate]);
+                }
+                continue;
+            }
+            $resolved['Object'][] = $resolvedObject;
+            $sentObjects[] = $object['uuid'];
+            foreach ($attributes as $attribute) {
+                $sentAttributes[] = $attribute['uuid'];
+            }
+        }
+
+        $message = '';
+        $outcome = ['recovered' => [], 'failed' => []];
+        if (!empty($resolved['Attribute']) || !empty($resolved['Object'])) {
+            $message = $this->processModuleResultsData($user, $resolved, $eventId, '', false, false, false, $outcome);
+        }
+        $recovered = $outcome['recovered'];
+
+        $referenceErrors = 0;
+        foreach ($originReferences as $reference) {
+            if (!$this->__enrichmentReference($reference) || !Validation::uuid($reference['object_uuid'] ?? '')) {
+                continue;
+            }
+            $reference = [
+                'object_uuid' => $reference['object_uuid'],
+                'referenced_uuid' => $recovered[$reference['referenced_uuid']] ?? $reference['referenced_uuid'],
+                'relationship_type' => $reference['relationship_type'],
+            ];
+            $objectId = $this->Object->find('first', [
+                'recursive' => -1,
+                'conditions' => ['Object.uuid' => $reference['object_uuid'], 'Object.event_id' => $eventId, 'Object.deleted' => 0],
+                'fields' => ['Object.id'],
+            ]);
+            if (empty($objectId)) {
+                $referenceErrors++;
+                continue;
+            }
+            $exists = $this->Object->ObjectReference->hasAny([
+                'ObjectReference.object_id' => $objectId['Object']['id'],
+                'ObjectReference.referenced_uuid' => $reference['referenced_uuid'],
+                'ObjectReference.relationship_type' => $reference['relationship_type'],
+                'ObjectReference.event_id' => $eventId,
+                'ObjectReference.deleted' => 0,
+            ]);
+            if (!$exists && $this->Object->ObjectReference->smartSave($reference, $eventId) !== true) {
+                $referenceErrors++;
+            }
+        }
+        if ($referenceErrors) {
+            $message .= ' ' . __n('A reference could not be saved.', '%s references could not be saved.', $referenceErrors, $referenceErrors);
+        }
+
+        $held = [
+            'attribute' => $this->__uuidsInEvent($this->Attribute, $sentAttributes, $eventId),
+            'object' => $this->__uuidsInEvent($this->Object, $sentObjects, $eventId),
+        ];
+        foreach (['attribute' => $sentAttributes, 'object' => $sentObjects] as $kind => $uuids) {
+            foreach ($uuids as $uuid) {
+                if (isset($held[$kind][$uuid])) {
+                    $results[$uuid] = ['state' => 'saved', 'uuid' => $uuid];
+                } elseif (isset($recovered[$uuid])) {
+                    $results[$uuid] = ['state' => 'existing', 'uuid' => $recovered[$uuid]];
+                } else {
+                    $results[$uuid] = ['state' => 'failed'];
+                }
+            }
+        }
+        return ['results' => $results, 'message' => trim($message)];
+    }
+
+    /**
+     * @param mixed $reference
+     * @return bool
+     */
+    private function __enrichmentReference($reference)
+    {
+        return is_array($reference)
+            && Validation::uuid($reference['referenced_uuid'] ?? '')
+            && is_string($reference['relationship_type'] ?? null)
+            && trim($reference['relationship_type']) !== '';
+    }
+
+    /**
+     * @param AppModel $model Attribute or Object
+     * @param array $uuids
+     * @param int $eventId
+     * @return array uuid => true, for those the event holds
+     */
+    private function __uuidsInEvent($model, array $uuids, $eventId)
+    {
+        if (empty($uuids)) {
+            return [];
+        }
+        $found = $model->find('column', [
+            'conditions' => [
+                $model->alias . '.uuid' => $uuids,
+                $model->alias . '.event_id' => $eventId,
+                $model->alias . '.deleted' => 0,
+            ],
+            'fields' => [$model->alias . '.uuid'],
+        ]);
+        return array_fill_keys($found, true);
     }
 
     /**

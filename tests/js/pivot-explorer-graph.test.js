@@ -192,6 +192,8 @@ function buildGraph(payload, options) {
                     return { nodes, edges };
                 };
                 this.renderer = { updates: 0, update() { this.updates++; } };
+                this.dataUpdates = [];
+                this.updateData = nodes => { this.dataUpdates.push((nodes || []).map(n => n.id)); };
                 this.listeners = {};
                 this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
                 this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
@@ -216,6 +218,7 @@ function buildGraph(payload, options) {
             opened: [],
             open(url, target, features) { this.opened.push([url, target, features]); },
             navigator: options.navigator || {},
+            crypto: require('crypto').webcrypto,
         },
         Image: function () { return { src: '' }; },
         fetch: (url, init) => {
@@ -3818,6 +3821,121 @@ test('enrich: a result wears the mark, groups keep results apart, the legend has
     const entry = prov.entries(g.graph).find(e => e.id === 'module');
     ok('From enrichment is in the Provenance legend, with the mark', entry && entry.label === 'From enrichment' && !!entry.badge);
     ok('and it is not counted as elsewhere', !prov.entries(g.graph).some(e => e.id === 'elsewhere'));
+});
+
+/* ─────────────────────── enrichment: saving ────────────────────── */
+
+// A landed result as pivotick hands it to `save`: live nodes and edges.
+function liveResult(raw, byId) {
+    const n = { id: raw.id, data: Object.assign({}, raw.data),
+                getData() { return this.data; },
+                updateData(p) { Object.assign(this.data, p); } };
+    n.children = (raw.children || []).map(c => liveResult(c, byId));
+    byId[raw.id] = n;
+    return n;
+}
+function savePayload(result, origins) {
+    const byId = {};
+    origins.forEach(o => { byId[o.id] = o; });
+    const nodes = result.nodes.map(r => liveResult(r, byId));
+    const children = [].concat(...nodes.map(n => n.children));
+    const edges = result.edges.map(e => ({ id: e.id, from: byId[e.from], to: byId[e.to], getData: () => e.data }));
+    return { runId: 'enrich#1', pivotId: 'enrich', origin: origins, nodes, children, edges,
+             vouched: { nodes: [], edges: [] }, attempt: 1 };
+}
+// Saved under the uuid sent, unless `answer` says otherwise for that uuid.
+const saveRoute = (seen, answer) => init => {
+    const body = JSON.parse(init.body);
+    seen.push(body);
+    const results = {};
+    const all = body.Attribute.concat(body.Object, ...body.Object.map(o => o.Attribute));
+    all.forEach((rec, i) => { results[rec.uuid] = (answer && answer(rec, i)) || { state: 'saved', uuid: rec.uuid }; });
+    return { results, message: '' };
+};
+const saveGraph = (seen, answer, options) => buildGraph(ev({
+    Attribute: [attr({ uuid: 'A1', value: '8.8.8.8' })],
+    Object: [obj({ uuid: 'O1', name: 'network-socket', Attribute: [attr({ uuid: 'O1-a', value: '8.8.4.4' })] })],
+}), Object.assign({ canEnrich: true, routes: ENR_ROUTES.concat([[/saveEnrichment/, saveRoute(seen, answer)]]) }, options))
+    .then(g => new Promise(r => setTimeout(() => r(g), 0)));
+const OWN_IP = () => enrNode('attr:A1', { type: 'attribute', uuid: 'A1', value: '8.8.8.8', 'attr-type': 'ip-dst', scope: 'self' });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+test('enrich save: declared only where the viewer may modify the event', async () => {
+    ok('savable with canEdit', typeof pivot(await saveGraph([]), 'enrich').save === 'function');
+    ok('not savable without', pivot(await saveGraph([], null, { canEdit: false }), 'enrich').save === undefined);
+});
+
+test('enrich save: an object result becomes an object referencing its origin', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
+    const out = await p.save(payload, { graph: g.graph });
+    eq('one post, to this event', g.fetchLog.filter(f => /saveEnrichment/.test(f.url)).map(f => f.url),
+       ['/misp/events/saveEnrichment/1.json']);
+    const o = seen[0].Object[0];
+    ok('a fresh uuid', UUID.test(o.uuid), o.uuid);
+    eq('named, commented after the module and the value', [o.name, o.comment], ['asn', 'Enrichment: ipasn on 8.8.8.8']);
+    eq('its attributes, with their relations', o.Attribute.map(a => [a.object_relation, a.type, a.value]),
+       [['asn', 'AS', '15169'], ['subnet-announced', 'ip-src', '8.8.8.0/24']]);
+    eq('tied to the origin, related-to', o.ObjectReference, [{ referenced_uuid: 'A1', relationship_type: 'related-to' }]);
+    eq('no loose attribute, no reference from an object', [seen[0].Attribute, seen[0].ObjectReference], [[], []]);
+    const node = payload.nodes[0];
+    eq('the object and its children are saved', out.savedNodeIds.sort(),
+       [node.id].concat(node.children.map(c => c.id)).sort());
+    eq('under their MISP ids', out.canonicalIds[node.id], 'obj:' + o.uuid);
+    eq('the edge is saved', out.savedEdgeIds, payload.edges.map(e => e.id));
+    eq('it is this event\'s now', [node.data.scope, node.data.uuid, node.data.module], ['self', o.uuid, undefined]);
+    eq('its children too', node.children.map(c => c.data.scope), ['self', 'self']);
+    eq('the graph is told, so the legend recounts', g.graph.dataUpdates, [[node.id]]);
+});
+
+test('enrich save: from another event\'s origin a result goes in unattached', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = enrNode('attr:F1', { type: 'attribute', uuid: 'F1', value: '8.8.8.8', 'attr-type': 'ip-dst',
+                                        scope: 'foreign', event_id: '7' });
+    const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
+    await p.save(payload, { graph: g.graph });
+    eq('no reference', seen[0].Object[0].ObjectReference, []);
+    eq('the comment names what was enriched', seen[0].Object[0].comment, 'Enrichment: ipasn on 8.8.8.8');
+});
+
+test('enrich save: a loose result of an object is referenced from that object', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const origin = enrNode('obj:O1', { type: 'object', uuid: 'O1', name: 'network-socket', scope: 'self' });
+    const result = { nodes: [{ id: 'enr:domain:dns.google', data: { type: 'attribute', scope: 'module', module: 'whois',
+                                     'attr-type': 'domain', value: 'dns.google', category: 'Network activity' } }],
+                     edges: [{ id: 'e1', from: 'obj:O1', to: 'enr:domain:dns.google',
+                               data: { kind: 'enrichment', module: 'whois', asked: '8.8.4.4' } }] };
+    const out = await pivot(g, 'enrich').save(savePayload(result, [origin]), { graph: g.graph });
+    const a = seen[0].Attribute[0];
+    eq('a loose attribute', [a.type, a.value, a.comment, 'object_relation' in a],
+       ['domain', 'dns.google', 'Enrichment: whois on 8.8.4.4', false]);
+    eq('referenced by the origin object', seen[0].ObjectReference,
+       [{ object_uuid: 'O1', referenced_uuid: a.uuid, relationship_type: 'related-to' }]);
+    eq('under its MISP id', out.canonicalIds['enr:domain:dns.google'], 'attr:' + a.uuid);
+});
+
+test('enrich save: a duplicate aliases to what the event holds, a failure stays unsaved', async () => {
+    const seen = [];
+    const g = await saveGraph(seen, rec => rec.value === 'dup.example' ? { state: 'existing', uuid: 'HELD' }
+                                         : rec.value === 'bad' ? { state: 'failed' } : null);
+    const origin = OWN_IP();
+    const loose = (value, id) => ({ id, data: { type: 'attribute', scope: 'module', module: 'm', 'attr-type': 'domain', value } });
+    const result = { nodes: [loose('dup.example', 'enr:domain:dup.example'), loose('bad', 'enr:domain:bad')],
+                     edges: [{ id: 'e1', from: 'attr:A1', to: 'enr:domain:dup.example', data: { kind: 'enrichment', module: 'm' } },
+                             { id: 'e2', from: 'attr:A1', to: 'enr:domain:bad', data: { kind: 'enrichment', module: 'm' } }] };
+    const payload = savePayload(result, [origin]);
+    const out = await pivot(g, 'enrich').save(payload, { graph: g.graph });
+    eq('only the duplicate is saved', out.savedNodeIds, ['enr:domain:dup.example']);
+    eq('as the attribute already there', out.canonicalIds, { 'enr:domain:dup.example': 'attr:HELD' });
+    eq('the failed one\'s edge stays unsaved', out.savedEdgeIds, ['e1']);
+    ok('and the toast says so', /could not be saved/.test(out.message || ''), out.message);
+    eq('the failed one is still a result', payload.nodes[1].data.scope, 'module');
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

@@ -75,7 +75,7 @@ class EventsController extends AppController
         // panel, the pivot explorer), which sends the CSRF token as a header.
         // None of them take body fields a form hash would protect.
         $this->_csrfTokenHeaderOnly(['publish', 'unpublish', 'restSearch','getEventGraphReferences','getEventGraphTags','getEventGraphGeneric',
-            'correlatedAttributes', 'correlationCounts', 'cardElements', 'taggedEvents']);
+            'correlatedAttributes', 'correlationCounts', 'cardElements', 'taggedEvents', 'saveEnrichment']);
 
         // if not admin or own org, check private as well..
         if (!$this->_isSiteAdmin() && in_array($this->request->action, ['index', 'proposalEventIndex'], true)) {
@@ -8065,6 +8065,27 @@ class EventsController extends AppController
         } else {
             $this->redirect(array('controller' => 'events', 'action' => 'view', $event['Event']['id']));
         }
+    }
+
+    /**
+     * Write the enrichment results the Pivot Explorer landed into this event,
+     * and say per uuid what became of each one.
+     */
+    public function saveEnrichment($id)
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException('This endpoint requires a POST request.');
+        }
+        $event = $this->Event->fetchSimpleEvent($this->Auth->user(), $id);
+        if (!$event) {
+            throw new NotFoundException(__('Invalid event.'));
+        }
+        if (!$this->__canModifyEvent($event)) {
+            throw new ForbiddenException(__('You don\'t have permission to do that.'));
+        }
+        $data = is_array($this->request->data) ? $this->request->data : [];
+        $saved = $this->Event->saveEnrichmentResults($this->Auth->user(), $event, $data);
+        return $this->RestResponse->viewData($saved, 'json');
     }
 
     public function importModule($moduleName, $eventId)
