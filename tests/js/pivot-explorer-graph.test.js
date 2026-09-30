@@ -3755,6 +3755,14 @@ test('enrich: an object is enriched through its attributes, its lead one by defa
        g.fetchLog.filter(f => /enrichmentRun/.test(f.url)).map(f => JSON.parse(f.init.body).value), ['8.8.4.4', '8.8.4.4', '8.8.8.8']);
 });
 
+test('enrich: the context menu offers an object\'s attributes as choices', async () => {
+    const p = pivot(await enrichGraph(), 'enrich');
+    eq('one choice per eligible attribute', p.menuChoices([SOCKET()]),
+       [{ label: 'ip-dst: 8.8.4.4', narrowing: { attribute: ['ip-dst|8.8.4.4'] } },
+        { label: 'ip-src: 8.8.8.8', narrowing: { attribute: ['ip-dst|8.8.8.8'] } }]);
+    eq('a loose attribute has none', p.menuChoices([IP('8.8.8.8')]), []);
+});
+
 test('enrich: a run drops the cached counts of what it asked', async () => {
     const g = await enrichGraph();
     const node = IP('8.8.8.8');

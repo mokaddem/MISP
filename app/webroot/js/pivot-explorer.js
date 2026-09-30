@@ -3187,6 +3187,14 @@
                 appliesTo: function (nodes) {
                     return nodes.filter(function (n) { return enrichItems(n).length > 0; });
                 },
+                // Pivot ▸ Enrich ▸ one row per attribute of an object (pivotick
+                // prd/misp/pivot-menu-choices.md).
+                menuChoices: function (nodes) {
+                    var facet = attributeFacet(nodes);
+                    return facet ? facet.options.map(function (o) {
+                        return { label: o.label, narrowing: { attribute: [o.value] } };
+                    }) : [];
+                },
                 summarize: function (nodes, narrowing, ctx) {
                     var items = [];
                     nodes.forEach(function (n) { items = items.concat(enrichItems(n)); });
