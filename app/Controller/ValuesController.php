@@ -60,7 +60,8 @@ class ValuesController extends AppController
         parent::beforeFilter();
         $json = in_array(
             $this->request->params['action'] ?? null,
-            array('graph', 'graphOccurrences'),
+            array('graph', 'graphOccurrences', 'enrichmentTypes',
+                'enrichmentStored', 'enrichmentRun'),
             true
         );
         if (!$json) {
@@ -68,7 +69,8 @@ class ValuesController extends AppController
                 $this->request->params['ext'] ?? null
             );
         }
-        $this->_csrfTokenHeaderOnly(array('graphOccurrences'));
+        $this->_csrfTokenHeaderOnly(array('graphOccurrences',
+            'enrichmentStored', 'enrichmentRun'));
         /*
          * The run endpoint posts two scalars and no form, so the
          * form-tampering hash has nothing to check and its absence
@@ -1174,6 +1176,90 @@ class ValuesController extends AppController
                 ),
                 array_map('strval', $list('exclude')),
                 !empty($data['count'])
+            ),
+            'json'
+        );
+    }
+
+    /**
+     * The Pivot Explorer's *Enrich* pivot: which expansion modules each
+     * type is offered. Read once per page.
+     *
+     * @return CakeResponse
+     */
+    public function enrichmentTypes()
+    {
+        $this->request->allowMethod(['get']);
+        $this->loadModel('ValueProfile');
+        return $this->RestResponse->viewData(
+            $this->ValueProfile->forEnrichmentTypes($this->Auth->user()),
+            'json'
+        );
+    }
+
+    /**
+     * What this organisation already holds for each `{value, type}`.
+     * Reads the store; asks no module.
+     *
+     * @return CakeResponse
+     * @throws BadRequestException
+     */
+    public function enrichmentStored()
+    {
+        $this->request->allowMethod(['post']);
+        $items = array();
+        foreach ((array)($this->request->data['items'] ?? array()) as $item) {
+            if (is_array($item) && isset($item['value'], $item['type'])
+                && is_scalar($item['value']) && is_scalar($item['type'])
+            ) {
+                $items[] = array('value' => (string)$item['value'],
+                    'type' => (string)$item['type']);
+            }
+        }
+        if (empty($items)) {
+            throw new BadRequestException(__('No value supplied.'));
+        }
+        $this->loadModel('ValueProfile');
+        return $this->RestResponse->viewData(
+            $this->ValueProfile->forEnrichmentStored(
+                $this->Auth->user(),
+                array_slice($items, 0, 200)
+            ),
+            'json'
+        );
+    }
+
+    /**
+     * Run one module against one value and type, or read its stored
+     * answer (`mode: stored`), as JSON. The same run as
+     * `viewEnrichmentRun`: the module and type are checked against the
+     * catalogue this reader would be offered.
+     *
+     * @return CakeResponse
+     * @throws BadRequestException
+     */
+    public function enrichmentRun()
+    {
+        $this->request->allowMethod(['post']);
+        $data = $this->request->data;
+        foreach (array('value', 'type', 'module') as $key) {
+            if (!isset($data[$key]) || !is_scalar($data[$key]) || $data[$key] === '') {
+                throw new BadRequestException(__('Missing %s.', $key));
+            }
+        }
+        @session_write_close();
+        $this->loadModel('ValueProfile');
+        return $this->RestResponse->viewData(
+            $this->ValueProfile->forEnrichmentRun(
+                $this->Auth->user(),
+                (string)$data['value'],
+                array(
+                    'module' => (string)$data['module'],
+                    'type' => (string)$data['type'],
+                    'mode' => isset($data['mode']) && is_scalar($data['mode'])
+                        ? (string)$data['mode']
+                        : null,
+                )
             ),
             'json'
         );

@@ -269,10 +269,15 @@ class ValueEnrichmentTool
             && is_array($section['locality'])
             ? $section['locality']
             : array();
+        $roles = isset($section['roles']) && is_array($section['roles'])
+            ? $section['roles']
+            : array();
         return array(
             'auto_run' => $autoRun,
             'declared' => $declared,
             'locality' => $locality,
+            // Per module, `enrichment` or `other`, over ModuleRole's list.
+            'roles' => $roles,
             /*
              * Which visualisations this profile wants promoted, best
              * first. It is a ranking of *shapes* rather than of

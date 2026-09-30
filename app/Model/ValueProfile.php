@@ -18,6 +18,7 @@ App::uses('ValueContestedTool', 'Tools/ValueProfile');
 App::uses('ValueFactsTool', 'Tools/ValueProfile');
 App::uses('ValueContextTool', 'Tools/ValueProfile');
 App::uses('ModuleLocality', 'Tools');
+App::uses('ModuleRole', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
 App::uses('ValueLabelPriority', 'Tools/ValueProfile');
@@ -14098,6 +14099,114 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * Which expansion modules each type is offered, for the Pivot
+     * Explorer's *Enrich* pivot to decide eligibility without a round
+     * trip per node: one `getEnabledModules` per page.
+     *
+     * Expansion only — a hover-only or cortex module is not offered —
+     * and `ModuleRole`'s non-enrichment modules are left out. The
+     * profile's `ticked` and `auto` both pre-tick, `never` hides; the
+     * graph runs nothing unpressed.
+     *
+     * @param array $user
+     * @return array `types`, `modules`, `profile`
+     */
+    public function forEnrichmentTypes(array $user)
+    {
+        $enabled = $this->model('Module')->getEnabledModules($user);
+        $plan = ValueEnrichmentTool::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        );
+        $out = array('types' => array(), 'modules' => array(),
+            'profile' => array('ticked' => array(), 'never' => array()));
+        if (!is_array($enabled) || empty($enabled['modules'])) {
+            return $out;
+        }
+        foreach ($enabled['modules'] as $module) {
+            $kinds = isset($module['meta']['module-type'])
+                ? (array)$module['meta']['module-type']
+                : array();
+            if (!in_array('expansion', $kinds, true)
+                || !ModuleRole::isEnrichment($module['name'], $plan['roles'])
+            ) {
+                continue;
+            }
+            $out['modules'][$module['name']] = array(
+                'format' => $this->enrichmentFormat($module),
+                'description' => isset($module['meta']['description'])
+                    ? $module['meta']['description']
+                    : null,
+            );
+            $inputs = isset($module['mispattributes']['input'])
+                ? (array)$module['mispattributes']['input']
+                : array();
+            foreach ($inputs as $type) {
+                $out['types'][$type][] = $module['name'];
+            }
+        }
+        foreach ($plan['auto_run'] as $type => $states) {
+            foreach ($states as $name => $state) {
+                if (!isset($out['modules'][$name])) {
+                    continue;
+                }
+                $key = $state === ValueEnrichmentTool::STATE_NEVER
+                    ? 'never'
+                    : 'ticked';
+                $out['profile'][$key][$type][] = $name;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * What this organisation already holds for each `{value, type}`,
+     * per module: the store's row, read-only, and whether it is fresh.
+     *
+     * An item the reader holds no visible attribute for comes back
+     * empty, as though never asked — the store is per organisation,
+     * not per reader, and it says nothing about a value this reader
+     * cannot see.
+     *
+     * @param array $user
+     * @param array $items `[{value, type}]`
+     * @return array One entry per item, `{value, type, modules}`
+     */
+    public function forEnrichmentStored(array $user, array $items)
+    {
+        $plan = ValueEnrichmentTool::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        );
+        $store = $this->model('ValueEnrichmentRun');
+        $out = array();
+        foreach ($items as $item) {
+            $value = (string)$item['value'];
+            $type = (string)$item['type'];
+            $modules = array();
+            if (!empty($this->enrichmentOccurrence($user, $value, $type))) {
+                foreach ($store->forValue($user, $value) as $row) {
+                    if ($row['type'] !== $type
+                        || $row['state'] === ValueEnrichmentTool::RUN_RUNNING
+                    ) {
+                        continue;
+                    }
+                    $modules[$row['module']] = array(
+                        'state' => $row['state'],
+                        'ran_at' => (int)$row['last_run'],
+                        'total' => (int)$row['total'],
+                        'fresh' => ValueEnrichmentTool::isFresh(
+                            $row,
+                            $plan['max_age_hours']
+                        ),
+                    );
+                }
+            }
+            $out[] = array('value' => $value, 'type' => $type,
+                'modules' => (object)$modules);
+        }
+        return $out;
+    }
+
+    /**
      * What the modules have said about this value, small enough to sit
      * at the top of the Overview.
      *
@@ -14210,6 +14319,9 @@ class ValueProfile extends AppModel
             ? $options['profile']
             : ClassRegistry::init('AnalystProfile')->resolveFor($user);
         $plan = ValueEnrichmentTool::planFor($profile);
+        if (isset($options['roles'])) {
+            $plan['roles'] = $options['roles'];
+        }
         $rows = $this->enrichmentEligible($enabled, $types, $plan);
         /*
          * Phase 11, D25. One indexed read over the store's leading
@@ -14869,10 +14981,13 @@ class ValueProfile extends AppModel
         $overrides = isset($plan['locality']) && is_array($plan['locality'])
             ? $plan['locality']
             : array();
+        $roles = isset($plan['roles']) && is_array($plan['roles'])
+            ? $plan['roles']
+            : array();
         $rows = array();
         foreach ($eligible as $name => $meta) {
             $module = $this->enrichmentModule($enabled, $name);
-            if ($module === null) {
+            if ($module === null || !ModuleRole::isEnrichment($name, $roles)) {
                 continue;
             }
             $locality = ModuleLocality::resolve($name, $overrides);
@@ -14968,7 +15083,14 @@ class ValueProfile extends AppModel
         $catalogue = $this->enrichmentCatalogue(
             $user,
             $value,
-            array('profile' => null)
+            array(
+                'profile' => null,
+                // Unlike a selection, a role can widen what is offered, so the
+                // profile's roles are the one part the band must honour.
+                'roles' => ValueEnrichmentTool::planFor(
+                    ClassRegistry::init('AnalystProfile')->resolveFor($user)
+                )['roles'],
+            )
         );
         $run = array(
             'module' => $name,

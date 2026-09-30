@@ -1151,6 +1151,17 @@ class ACLComponent extends Component
             'viewEnrichmentBadge' => array(
                 'AND' => array('perm_add', 'theming_enabled')
             ),
+            // The Pivot Explorer's Enrich pivot: offered only to readers
+            // who may run a module, stored answers included.
+            'enrichmentTypes' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
+            'enrichmentStored' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
+            'enrichmentRun' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
             'viewAnalystStanding' => array('theming_enabled'),
             'viewAnalystThread' => array('theming_enabled'),
             'viewAnalystReports' => array('theming_enabled'),

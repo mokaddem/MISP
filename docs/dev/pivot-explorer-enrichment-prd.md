@@ -240,11 +240,11 @@ fact about the data, that MISP does not hold it. Phase B drew D2c's own answer (
 edge alone) beside it: it fails whenever the edge is not drawn — the `enrichment` legend row
 toggled off, focus mode, a result dragged away — and the results become MISP's nodes.
 
-**Library asks** (pivotick, `prd/misp/`): `focus-tier-keeps-badges.md` — the hover/selection card
-draws no badges and covers the base drawing's, so the mark (and every MISP badge) vanishes when
-the analyst looks closest; `badge-screen-size-floor.md` — the mark is a 3 px dot at zoom 0.5;
-`legend-entry-icon.md` — the legend can only show a dot, not the mark. B ships without them and
-gains when they land.
+**Library asks** (pivotick, `prd/misp/`), both shipped in `e2537f0` and vendored in MISP:
+`focus-tier-keeps-badges.md` — the hover/selection card now wears the node's badges;
+`legend-entry-icon.md` — a legend entry takes a `badge`, so *From enrichment* shows the mark
+itself. `badge-screen-size-floor.md` (the mark is a 3 px dot at zoom 0.5) was **declined**: the
+mark stays in world units.
 
 **Wiring gotcha:** a legend section whose `entries` function returns `[]` makes pivotick derive
 entries of its own (the Element list, repeated). The value page's Provenance section must return
