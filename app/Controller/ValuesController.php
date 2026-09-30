@@ -58,9 +58,17 @@ class ValuesController extends AppController
     public function beforeFilter()
     {
         parent::beforeFilter();
-        $this->__rejectNonHtmlExtension(
-            $this->request->params['ext'] ?? null
+        $json = in_array(
+            $this->request->params['action'] ?? null,
+            array('graph', 'graphOccurrences'),
+            true
         );
+        if (!$json) {
+            $this->__rejectNonHtmlExtension(
+                $this->request->params['ext'] ?? null
+            );
+        }
+        $this->_csrfTokenHeaderOnly(array('graphOccurrences'));
         /*
          * The run endpoint posts two scalars and no form, so the
          * form-tampering hash has nothing to check and its absence
@@ -1106,6 +1114,63 @@ class ValuesController extends AppController
             $b64value,
             'forRelationGraph',
             'value_relation_graph'
+        );
+    }
+
+    /**
+     * The Neighbourhood graph's opening records, shaped as an event
+     * payload shapes them.
+     *
+     * @param string $b64value
+     * @return CakeResponse
+     */
+    public function graph($b64value = null)
+    {
+        $this->request->allowMethod(['get']);
+        $this->loadModel('ValueGraph');
+        return $this->RestResponse->viewData(
+            $this->ValueGraph->seed(
+                $this->Auth->user(),
+                $this->__decodeValue($b64value)
+            ),
+            'json'
+        );
+    }
+
+    /**
+     * More occurrences of drawn values: counted with `count`, landed
+     * without it.
+     *
+     * @return CakeResponse
+     */
+    public function graphOccurrences()
+    {
+        $this->request->allowMethod(['post']);
+        $data = $this->request->data;
+        $list = function ($key) use ($data) {
+            if (!isset($data[$key]) || !is_array($data[$key])) {
+                return array();
+            }
+            return array_values(array_filter($data[$key], 'is_scalar'));
+        };
+        $values = array_map('strval', $list('values'));
+        if (empty($values)) {
+            throw new BadRequestException(__('No value supplied.'));
+        }
+        $this->loadModel('ValueGraph');
+        return $this->RestResponse->viewData(
+            $this->ValueGraph->occurrences(
+                $this->Auth->user(),
+                $values,
+                array(
+                    'template' => $list('template'),
+                    'org' => $list('org'),
+                    'year' => $list('year'),
+                ),
+                array_map('strval', $list('exclude')),
+                !empty($data['count'])
+            ),
+            'json'
         );
     }
 
