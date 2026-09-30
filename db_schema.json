@@ -327,151 +327,6 @@
                 "extra": ""
             }
         ],
-        "analyst_profiles": [
-            {
-                "column_name": "id",
-                "is_nullable": "NO",
-                "data_type": "int",
-                "character_maximum_length": null,
-                "numeric_precision": "10",
-                "collation_name": null,
-                "column_type": "int(11)",
-                "column_default": null,
-                "extra": "auto_increment"
-            },
-            {
-                "column_name": "uuid",
-                "is_nullable": "NO",
-                "data_type": "varchar",
-                "character_maximum_length": "40",
-                "numeric_precision": null,
-                "collation_name": "ascii_general_ci",
-                "column_type": "varchar(40)",
-                "column_default": null,
-                "extra": ""
-            },
-            {
-                "column_name": "name",
-                "is_nullable": "NO",
-                "data_type": "varchar",
-                "character_maximum_length": "191",
-                "numeric_precision": null,
-                "collation_name": "utf8mb4_unicode_ci",
-                "column_type": "varchar(191)",
-                "column_default": null,
-                "extra": ""
-            },
-            {
-                "column_name": "description",
-                "is_nullable": "YES",
-                "data_type": "text",
-                "character_maximum_length": "65535",
-                "numeric_precision": null,
-                "collation_name": "utf8mb4_unicode_ci",
-                "column_type": "text",
-                "column_default": null,
-                "extra": ""
-            },
-            {
-                "column_name": "user_id",
-                "is_nullable": "YES",
-                "data_type": "int",
-                "character_maximum_length": null,
-                "numeric_precision": "10",
-                "collation_name": null,
-                "column_type": "int(11)",
-                "column_default": null,
-                "extra": ""
-            },
-            {
-                "column_name": "org_id",
-                "is_nullable": "YES",
-                "data_type": "int",
-                "character_maximum_length": null,
-                "numeric_precision": "10",
-                "collation_name": null,
-                "column_type": "int(11)",
-                "column_default": null,
-                "extra": ""
-            },
-            {
-                "column_name": "default",
-                "is_nullable": "NO",
-                "data_type": "tinyint",
-                "character_maximum_length": null,
-                "numeric_precision": "3",
-                "collation_name": null,
-                "column_type": "tinyint(1)",
-                "column_default": "0",
-                "extra": ""
-            },
-            {
-                "column_name": "enabled",
-                "is_nullable": "NO",
-                "data_type": "tinyint",
-                "character_maximum_length": null,
-                "numeric_precision": "3",
-                "collation_name": null,
-                "column_type": "tinyint(1)",
-                "column_default": "1",
-                "extra": ""
-            },
-            {
-                "column_name": "version",
-                "is_nullable": "NO",
-                "data_type": "int",
-                "character_maximum_length": null,
-                "numeric_precision": "10",
-                "collation_name": null,
-                "column_type": "int(11)",
-                "column_default": "1",
-                "extra": ""
-            },
-            {
-                "column_name": "revision",
-                "is_nullable": "NO",
-                "data_type": "int",
-                "character_maximum_length": null,
-                "numeric_precision": "10",
-                "collation_name": null,
-                "column_type": "int(11)",
-                "column_default": "1",
-                "extra": ""
-            },
-            {
-                "column_name": "parameters",
-                "is_nullable": "YES",
-                "data_type": "longtext",
-                "character_maximum_length": "4294967295",
-                "numeric_precision": null,
-                "collation_name": "utf8mb4_unicode_ci",
-                "column_type": "longtext",
-                "column_default": null,
-                "extra": ""
-            },
-            {
-                "column_name": "created",
-                "is_nullable": "NO",
-                "data_type": "datetime",
-                "character_maximum_length": null,
-                "numeric_precision": null,
-                "collation_name": null,
-                "column_type": "datetime",
-                "column_default": null,
-                "extra": ""
-            },
-            {
-                "column_name": "modified",
-                "is_nullable": "NO",
-                "data_type": "datetime",
-                "character_maximum_length": null,
-                "numeric_precision": null,
-                "collation_name": null,
-                "column_type": "datetime",
-                "column_default": null,
-                "extra": ""
-            }
-        ],
         "attachment_scans": [
             {
                 "column_name": "id",
@@ -809,6 +664,17 @@
             }
         ],
         "attr_value_counts": [
+            {
+                "column_name": "id",
+                "is_nullable": "NO",
+                "data_type": "int",
+                "character_maximum_length": null,
+                "numeric_precision": "10",
+                "collation_name": null,
+                "column_type": "int(11)",
+                "column_default": null,
+                "extra": "auto_increment"
+            },
             {
                 "column_name": "value",
                 "is_nullable": "NO",
@@ -1213,6 +1079,17 @@
             }
         ],
         "bruteforces": [
+            {
+                "column_name": "id",
+                "is_nullable": "NO",
+                "data_type": "int",
+                "character_maximum_length": null,
+                "numeric_precision": "10",
+                "collation_name": null,
+                "column_type": "int(11)",
+                "column_default": null,
+                "extra": "auto_increment"
+            },
             {
                 "column_name": "ip",
                 "is_nullable": "NO",
@@ -7363,6 +7240,17 @@
                 "column_type": "int(11)",
                 "column_default": "0",
                 "extra": ""
+            },
+            {
+                "column_name": "perm_ai_tools",
+                "is_nullable": "NO",
+                "data_type": "tinyint",
+                "character_maximum_length": null,
+                "numeric_precision": "3",
+                "collation_name": null,
+                "column_type": "tinyint(1)",
+                "column_default": "0",
+                "extra": ""
             }
         ],
         "scheduled_tasks": [
@@ -7495,6 +7383,74 @@
                 "numeric_precision": "10",
                 "collation_name": null,
                 "column_type": "int(11)",
+                "column_default": "NULL",
+                "extra": ""
+            }
+        ],
+        "schema_migrations": [
+            {
+                "column_name": "id",
+                "is_nullable": "NO",
+                "data_type": "int",
+                "character_maximum_length": null,
+                "numeric_precision": "10",
+                "collation_name": null,
+                "column_type": "int(11)",
+                "column_default": null,
+                "extra": "auto_increment"
+            },
+            {
+                "column_name": "migration_id",
+                "is_nullable": "NO",
+                "data_type": "varchar",
+                "character_maximum_length": "191",
+                "numeric_precision": null,
+                "collation_name": "utf8mb4_general_ci",
+                "column_type": "varchar(191)",
+                "column_default": null,
+                "extra": ""
+            },
+            {
+                "column_name": "applied_at",
+                "is_nullable": "NO",
+                "data_type": "datetime",
+                "character_maximum_length": null,
+                "numeric_precision": null,
+                "collation_name": null,
+                "column_type": "datetime",
+                "column_default": null,
+                "extra": ""
+            },
+            {
+                "column_name": "duration_ms",
+                "is_nullable": "NO",
+                "data_type": "int",
+                "character_maximum_length": null,
+                "numeric_precision": "10",
+                "collation_name": null,
+                "column_type": "int(11)",
+                "column_default": "0",
+                "extra": ""
+            },
+            {
+                "column_name": "status",
+                "is_nullable": "NO",
+                "data_type": "varchar",
+                "character_maximum_length": "16",
+                "numeric_precision": null,
+                "collation_name": "utf8mb4_general_ci",
+                "column_type": "varchar(16)",
+                "column_default": "'applied'",
+                "extra": ""
+            },
+            {
+                "column_name": "error",
+                "is_nullable": "YES",
+                "data_type": "text",
+                "character_maximum_length": "65535",
+                "numeric_precision": null,
+                "collation_name": "utf8mb4_general_ci",
+                "column_type": "text",
                 "column_default": "NULL",
                 "extra": ""
             }
@@ -8821,6 +8777,17 @@
         ],
         "system_settings": [
             {
+                "column_name": "id",
+                "is_nullable": "NO",
+                "data_type": "int",
+                "character_maximum_length": null,
+                "numeric_precision": "10",
+                "collation_name": null,
+                "column_type": "int(11)",
+                "column_default": null,
+                "extra": "auto_increment"
+            },
+            {
                 "column_name": "setting",
                 "is_nullable": "NO",
                 "data_type": "varchar",
@@ -8861,7 +8828,7 @@
                 "data_type": "varchar",
                 "character_maximum_length": "255",
                 "numeric_precision": null,
-                "collation_name": "utf8mb3_bin",
+                "collation_name": "utf8mb4_unicode_ci",
                 "column_type": "varchar(255)",
                 "column_default": null,
                 "extra": ""
@@ -9274,10 +9241,10 @@
                 "column_name": "auth_type",
                 "is_nullable": "YES",
                 "data_type": "varchar",
-                "character_maximum_length": "255",
+                "character_maximum_length": "191",
                 "numeric_precision": null,
                 "collation_name": "utf8mb4_unicode_ci",
-                "column_type": "varchar(255)",
+                "column_type": "varchar(191)",
                 "column_default": "'basic'",
                 "extra": ""
             },
@@ -11054,15 +11021,6 @@
             "analyst_data_uuid": false,
             "id": true
         },
-        "analyst_profiles": {
-            "default": false,
-            "enabled": false,
-            "id": true,
-            "name": false,
-            "org_id": false,
-            "user_id": false,
-            "uuid": true
-        },
         "attachment_scans": {
             "attribute_id": false,
             "id": true,
@@ -11090,6 +11048,7 @@
             "tag_id": false
         },
         "attr_value_counts": {
+            "id": true,
             "value": true
         },
         "audit_logs": {
@@ -11111,7 +11070,9 @@
             "org_id": false,
             "user_id": false
         },
-        "bruteforces": [],
+        "bruteforces": {
+            "id": true
+        },
         "cake_sessions": {
             "expires": false,
             "id": true
@@ -11476,6 +11437,10 @@
         "scheduled_tasks": {
             "id": true
         },
+        "schema_migrations": {
+            "id": true,
+            "migration_id": true
+        },
         "servers": {
             "id": true,
             "org_id": false,
@@ -11558,6 +11523,7 @@
             "org_uuid": false
         },
         "system_settings": {
+            "id": true,
             "setting": true
         },
         "tags": {
@@ -11672,5 +11638,5 @@
             "uuid": false
         }
     },
-    "db_version": "160"
+    "db_version": "159"
 }
