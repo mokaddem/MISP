@@ -201,7 +201,8 @@ suite("this event's attribute: everything the payload knows, in the plan's order
     eq('taxonomy text is asked for, namespaced tags only', vm.lazy.taxonomies.request,
        { method: 'POST', url: '/tags/search/0/1.json', body: { tag: ['tlp:clear', 'tlp:red', 'osint:source-type="blog-post"'] } });
     eq('warninglist text too', vm.lazy.warninglists.request.url, '/warninglists/index/id:3.json');
-    eq('no link to the page it is on', vm.links, []);
+    eq('its value profile, no link to the page it is on', vm.links,
+       [{ kind: 'value', label: 'Open value profile', path: '/values/view/OC44LjguOA==' }]);
 });
 
 suite('a lazy read: pending, then ready with its answer, or failed', () => {
@@ -230,7 +231,7 @@ suite("another event's attribute arrives slim and asks for its record", () => {
     eq('the record read', before.lazy.record.request,
        { method: 'POST', url: '/attributes/restSearch',
          body: { returnFormat: 'json', uuid: 'far', includeSightings: 1, includeWarninglistHits: 1, includeEventTags: 0 } });
-    eq('its event linked', before.links, [{ kind: 'event', label: 'Open its event', path: '/events/view2/16' }]);
+    eq('its profile and its event linked', before.links.map(l => l.path), ['/values/view/MS4xLjEuMQ==', '/events/view2/16']);
     const after = M.build(node(d), env({ lazy: { record: { response: { Attribute: [{
         uuid: 'far', value: '1.1.1.1', type: 'ip-dst', event_id: '16', Tag: [{ name: 'pap:green' }],
         Sighting: [{ Sighting: { type: '0', date_sighting: '9' }, Organisation: { name: 'X' } }] }] } } } }));
@@ -314,6 +315,23 @@ suite('an attribute another event\'s card brought says which of its slices match
        ['IDS indicators, x']);
     eq('nothing when nothing matched', M.build(node({ type: 'attribute', uuid: 'far2', scope: 'foreign' }), e)
        .facts.filter(f => f.key === 'matched'), []);
+});
+
+suite('value profile: the value a node stands for, keyed as ValueUrlTool::encode()', () => {
+    eq('url-safe alphabet, bytes not characters', ['\u00ff>?/', '\u00e9vil.example', 'http://x.y/?q=~~'].map(M.valueKey),
+       ['w78-Py8=', 'w6l2aWwuZXhhbXBsZQ==', 'aHR0cDovL3gueS8_cT1-fg==']);
+    const attr = node({ type: 'attribute', uuid: 'a-ip', scope: 'self', event_id: '5' });
+    eq('an attribute: its own value', M.profiled(attr, env()), { value: '8.8.8.8', b64: 'OC44LjguOA==', relation: null });
+    const sock = node({ type: 'object', uuid: 'o-sock', name: 'network-socket', scope: 'self', event_id: '5' });
+    eq('an object: its lead attribute, by template priority', M.profiled(sock, env()),
+       { value: '8.8.4.4', b64: 'OC44LjQuNA==', relation: 'ip' });
+    eq('each attribute keyed', M.build(sock, env()).children.map(c => c.b64), ['OC44LjQuNA==', 'NTM=']);
+    eq('an object with no attribute: none', M.profiled(node({ type: 'object', uuid: 'o-file', scope: 'self' }), env()), null);
+    eq('an attribute with no value: none, and no link', [M.profiled(node({ type: 'attribute', uuid: 'nope' }), env()),
+        M.build(node({ type: 'attribute', uuid: 'nope' }), env()).links], [null, []]);
+    eq('anything else: none', M.profiled(node({ type: 'tag', name: 'tlp:clear' }), env()), null);
+    eq('the card follows the instance', [M.build(attr, env()).value_card, M.build(attr, env({ valueCard: true })).value_card,
+        M.build(sock, env({ valueCard: true })).value_card], [false, true, true]);
 });
 
 /* ── runner ────────────────────────────────────────────────── */

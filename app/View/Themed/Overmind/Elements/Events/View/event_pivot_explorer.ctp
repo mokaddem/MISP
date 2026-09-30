@@ -60,6 +60,7 @@
      data-pe-permitted="<?= h(json_encode($permitted)) ?>"
      data-pe-org-uuid="<?= h($me['Organisation']['uuid'] ?? '') ?>"
      data-pe-site-admin="<?= empty($me['Role']['perm_site_admin']) ? '0' : '1' ?>"
+     data-pe-value-card="<?= Configure::read('MISP.value_hover_card') ? '1' : '0' ?>"
      data-pe-lib-missing="<?= h(__('Graph library failed to load.')) ?>"
      data-pe-load-failed="<?= h(__('Failed to load event graph.')) ?>">
 

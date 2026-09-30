@@ -8,6 +8,7 @@
 //   [data-pe-event-id]     event fetched as /events/view/{id}/includeServerCorrelations:1.json
 //   [data-pe-baseurl]      MISP $baseurl, prefixed onto every request
 //   [data-pe-can-edit]     "1" when the viewer may add object references
+//   [data-pe-value-card]   "1" when MISP.value_hover_card is on
 //   [data-pe-lib-missing]  translated error: pivotick failed to load
 //   [data-pe-load-failed]  translated error: the event fetch failed
 //
@@ -51,6 +52,8 @@
         // and which of its pinned taxonomies and galaxies the instance enables.
         var labelPlan = cfg.labelPlan || null;
         var permitted = cfg.permitted || null;
+        // MISP.value_hover_card: hovering a value reads its assessment.
+        var valueCard = !!cfg.valueCard;
         // "This event" against "elsewhere": only a graph of one event has a self.
         var hasProvenance = host.provenance !== false;
 
@@ -699,6 +702,54 @@
                 wrap.appendChild(more);
             }
             return wrap;
+        }
+
+        /* ── value hover card in the node tooltip ──────────────── */
+        // An attribute node shows its value's card, an object node its lead
+        // attribute's. Each card is one assessment, read once per value.
+        var _valueCards = {};
+
+        function nodeProfile(node) {
+            return window.MispPivotSidebar.profiled(sidebarNode(node), sidebarEnv());
+        }
+
+        function tooltipEnabled(element, kind) {
+            if (kind === 'group') return true;
+            return kind === 'node' && valueCard && !!nodeProfile(element);
+        }
+
+        function valueCardHtml(b64, signal) {
+            if (_valueCards[b64]) return Promise.resolve(_valueCards[b64]);
+            return fetch(baseurl + '/values/viewHoverCard/' + encodeURIComponent(b64), {
+                credentials: 'same-origin', signal: signal,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+            }).then(function (html) {
+                _valueCards[b64] = html;
+                return html;
+            });
+        }
+
+        function nodeTooltip(node, ctx) {
+            var p = nodeProfile(node);
+            if (!p) return null;
+            return valueCardHtml(p.b64, ctx && ctx.signal).then(function (html) {
+                var wrap = document.createElement('div');
+                wrap.className = 'pe-tip-card';
+                wrap.innerHTML = html;
+                // Filled only by value-hover-card.js, for its own card.
+                var enrich = wrap.querySelector('[data-vp-hc-enrich]');
+                if (enrich) enrich.remove();
+                if (p.relation) {
+                    var lead = document.createElement('div');
+                    lead.className = 'pe-tip-lead';
+                    lead.textContent = p.relation;
+                    wrap.insertBefore(lead, wrap.firstChild);
+                }
+                return wrap;
+            });
         }
 
         function simplifyOption() {
@@ -2519,7 +2570,7 @@
             return {
                 event: _event, eventId: eventId, plan: labelPlan, permitted: permitted,
                 uiPriorities: uiPriorities, matchedLabels: matchedLabels,
-                correlations: knownCorrelations, lazy: {}
+                correlations: knownCorrelations, valueCard: valueCard, lazy: {}
             };
         }
 
@@ -2885,9 +2936,11 @@
                     theme: mispTheme(),
                     sidebar: { collapsed: true },
                     // Elements grow into their richer drawing on hover; a group
-                    // only explains itself in the library's tooltip.
+                    // explains itself in the library's tooltip, and an attribute
+                    // or object shows a value's hover card there.
                     tooltip: {
-                        enabled: { nodes: false, edges: false, groups: true },
+                        enabled: tooltipEnabled,
+                        render: nodeTooltip,
                         renderGroupExtra: groupTooltipExtra
                     },
                     simplify: simplifyOption(),
@@ -3482,6 +3535,7 @@
                 uiPriorities:   readJson(d.peUiPriorities, '{}', 'object template priorities'),
                 labelPlan:      readJson(d.peLabelPlan, 'null', 'analyst profile priorities'),
                 permitted:      readJson(d.pePermitted, 'null', 'analyst profile priorities'),
+                valueCard:      d.peValueCard === '1',
                 orgUuid:        d.peOrgUuid || '',
                 siteAdmin:      d.peSiteAdmin === '1',
                 text: {

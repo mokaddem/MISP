@@ -258,6 +258,18 @@
         return list.filter(Boolean);
     }
 
+    // A value as ValueUrlTool::encode() puts it in a /values/* path segment.
+    function valueKey(value) {
+        var bytes = new TextEncoder().encode(String(value));
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
+    }
+
+    function profilePath(value) {
+        return '/values/view/' + valueKey(value);
+    }
+
     function enumLabel(table, v) {
         var n = num(v);
         return n === null ? null : (table[n] || null);
@@ -702,9 +714,10 @@
             if (w.warninglist_name && names.indexOf(w.warninglist_name) === -1) names.push(w.warninglist_name);
         });
         var relation = a.object_relation || null;
+        var value = a.value == null ? '' : String(a.value);
         return {
             uuid: a.uuid, relation: relation, type: a.type || a['attr-type'] || null,
-            value: a.value == null ? '' : String(a.value), to_ids: bool(a.to_ids),
+            value: value, b64: value === '' ? null : valueKey(value), to_ids: bool(a.to_ids),
             priority: ranks && relation && ranks[relation] ? ranks[relation] : (a.ui_priority || 0),
             warninglisted: warn > 0, warninglists: names,
             false_positive: (a.warnings || []).some(function (w) { return w.warninglist_category === 'false_positive'; }),
@@ -769,6 +782,7 @@
             vm.relations.references = references(env, rec);
             vm.relations.event = { id: rec.event_id || null, self: true };
         }
+        vm.value_card = !!env.valueCard;
         var foreign = d.event_id && String(d.event_id) !== String(env.eventId);
         if (foreign) vm.links.push({ kind: 'event', label: 'Open its event', path: '/events/view2/' + d.event_id });
         return vm;
@@ -861,6 +875,9 @@
                     if (a) build(a, null);
                 });
         }
+        vm.value_card = !!env.valueCard;
+        vm.profile = vm.card.value === '' ? null : { value: vm.card.value, b64: valueKey(vm.card.value) };
+        if (vm.profile) vm.links.push({ kind: 'value', label: 'Open value profile', path: profilePath(vm.card.value) });
         if (d.event_id && String(d.event_id) !== String(env.eventId)) {
             vm.links.push({ kind: 'event', label: 'Open its event', path: '/events/view2/' + d.event_id });
         }
@@ -1018,6 +1035,7 @@
      *          uiPriorities template uuid.version → { relation: rank }
      *          matchedLabels a card slice's key → what it brought (Attributes, IDS indicators, …)
      *          correlations (type, uuid) → count, or null when not known
+     *          valueCard    MISP.value_hover_card: values open the hover card
      *          lazy         key → parsed response of a declared read; false when it failed }
      */
     function build(input, env) {
@@ -1052,9 +1070,31 @@
         return rows;
     }
 
+    /**
+     * The value whose profile a node stands for: an attribute's own, an
+     * object's lead attribute's (first by template priority). Null for
+     * anything else, or when there is no value.
+     *
+     * → { value, b64, relation }   relation: the lead's, for an object
+     */
+    function profiled(input, env) {
+        var type = input && input.data && input.data.type;
+        if (type === 'attribute') {
+            var vm = attributeModel(input, env || {});
+            return vm.profile ? { value: vm.profile.value, b64: vm.profile.b64, relation: null } : null;
+        }
+        if (type === 'object') {
+            var lead = (objectModel(input, env || {}).children || []).filter(function (c) { return c.b64; })[0];
+            return lead ? { value: lead.value, b64: lead.b64, relation: lead.relation || lead.type } : null;
+        }
+        return null;
+    }
+
     var api = {
         priority: priority,
         build: build,
+        profiled: profiled,
+        valueKey: valueKey,
         propertyRows: propertyRows,
         analyst: analyst,
         DISTRIBUTION: DISTRIBUTION, ANALYSIS: ANALYSIS, THREAT_LEVEL: THREAT_LEVEL, EDGE_KINDS: EDGE_KINDS

@@ -111,6 +111,7 @@ function buildGraph(payload, options) {
         peAnalystSharing: options.analystSharing !== undefined ? options.analystSharing : '',
         peOrgUuid: options.orgUuid || '',
         peSiteAdmin: options.siteAdmin ? '1' : '0',
+        peValueCard: options.valueCard ? '1' : '0',
         peLibMissing: 'lib missing',
         peLoadFailed: 'load failed',
     };
@@ -222,11 +223,12 @@ function buildGraph(payload, options) {
             const body = route ? (typeof route[1] === 'function' ? route[1](init) : route[1]) : payload;
             // A route answering { __status: 500 } stands for a failed request.
             const status = body && body.__status ? body.__status : 200;
-            return Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) });
+            return Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body),
+                                     text: () => Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)) });
         },
         console: { log() {}, error: (...a) => errors.push(a.map(String).join(' ')) },
         Promise, JSON, Object, String, Number, Array, Math, RegExp, Error,
-        encodeURIComponent, setTimeout, AbortController,
+        encodeURIComponent, setTimeout, AbortController, TextEncoder, btoa,
         MutationObserver: function () { this.observe = function () {}; },
     };
     sandbox.globalThis = sandbox;
@@ -1396,10 +1398,38 @@ test('groups: zoomed in, a group draws the deck chip of its kind, naming its piv
     eq('the open group\'s chip is the label', typeof g.opts.render.groupOutline, 'function');
 });
 
-test('groups: only a group shows a tooltip, with its first three values', async () => {
+const valueNode = (data, kids) => ({ id: data.type + ':' + data.uuid, getData: () => data,
+    children: (kids || []).map(k => ({ getData: () => k })) });
+const sockNode = () => valueNode({ type: 'object', uuid: 'far-sock', scope: 'foreign', event_id: '9' },
+    [{ uuid: 'c1', type: 'port', object_relation: 'dst-port', value: '53' }]);
+
+test('value card: attribute and object nodes show one only where the instance has the card on', async () => {
+    const ip = valueNode({ type: 'attribute', uuid: 'far-ip', value: '8.8.8.8', scope: 'foreign', event_id: '9' });
+    const off = (await withPivots()).opts.UI.tooltip;
+    ok('off: an attribute shows none', !off.enabled(ip, 'node'));
+    const g = await buildGraph(pivotFixture(), { valueCard: true, routes: [
+        [/\/values\/viewHoverCard\//, '<div class="vp-hc">card</div>'],
+        [/correlationCounts\/1\.json$/, COUNTS]] });
+    const t = g.opts.UI.tooltip;
+    ok('an attribute with a value', t.enabled(ip, 'node'));
+    ok('an object with an attribute', t.enabled(sockNode(), 'node'));
+    ok('not a tag', !t.enabled(valueNode({ type: 'tag', name: 'tlp:clear' }), 'node'));
+    ok('not an attribute without a value', !t.enabled(valueNode({ type: 'attribute', uuid: 'x' }), 'node'));
+    ok('not an edge', !t.enabled({}, 'edge'));
+    const card = await t.render(ip, { signal: new AbortController().signal });
+    ok('the card, read by its value', g.fetchLog.some(f => /\/misp\/values\/viewHoverCard\/OC44LjguOA%3D%3D$/.test(f.url)));
+    ok('is the tooltip', /vp-hc/.test(card.innerHTML));
+    const lead = await t.render(sockNode(), { signal: new AbortController().signal });
+    eq('an object names the relation its card is for', lead.children[0].textContent, 'dst-port');
+    const asked = g.fetchLog.filter(f => /viewHoverCard/.test(f.url)).length;
+    await t.render(ip, { signal: new AbortController().signal });
+    eq('a value is read once', g.fetchLog.filter(f => /viewHoverCard/.test(f.url)).length, asked);
+});
+
+test('groups: a group shows a tooltip, with its first three values', async () => {
     const g = await withPivots();
     const t = g.opts.UI.tooltip;
-    eq('per kind', t.enabled, { nodes: false, edges: false, groups: true });
+    ok('a group always', t.enabled({}, 'group'));
     const members = ['110.45.145.103', '114.215.130.173', '119.29.11.203', '124.248.228.30']
         .map((v, i) => ({ id: 'a' + i, getData: () => ({ label: v }) }));
     const el = t.renderGroupExtra({ members });

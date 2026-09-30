@@ -33,6 +33,7 @@ $config = array(
     'permitted' => $pivotLabels['permitted'],
     'orgUuid' => isset($me['Organisation']['uuid']) ? $me['Organisation']['uuid'] : '',
     'siteAdmin' => !empty($me['Role']['perm_site_admin']),
+    'valueCard' => (bool)Configure::read('MISP.value_hover_card'),
     'text' => array(
         'libMissing' => __('Graph library failed to load.'),
         'loadFailed' => __('Failed to load the neighbourhood.'),

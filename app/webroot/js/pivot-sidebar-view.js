@@ -588,7 +588,10 @@
         } else {
             var title = add(text, h('div', 'pes-title', vm.title || kindLabel(vm)));
             title.title = vm.title || '';
-            if (vm.entity === 'attribute') title.classList.add('is-value');
+            if (vm.entity === 'attribute') {
+                title.classList.add('is-value');
+                if (vm.profile) valueCard(title, vm, vm.profile.b64);
+            }
         }
         var sub = subtitle(vm);
         if (sub) add(text, h('div', 'pes-sub', sub));
@@ -680,14 +683,36 @@
         return m;
     }
 
+    // value-hover-card.js answers a hover on the value, where the instance has
+    // the card on; the native title would cover it.
+    function valueCard(el, vm, b64) {
+        if (!vm.value_card || !b64) return el;
+        el.classList.add('vp-hc-trigger');
+        el.setAttribute('data-vp-hc-value', b64);
+        el.tabIndex = 0;
+        el.removeAttribute('title');
+        return el;
+    }
+
+    // An object's attribute value, linked to its profile.
+    function attrValue(vm, k) {
+        var v = h(k.b64 ? 'a' : 'div', 'pes-attr-val', k.value);
+        v.title = k.value;
+        if (k.b64) {
+            v.href = '/values/view/' + k.b64;
+            v.target = '_blank';
+            v.rel = 'noopener';
+        }
+        return valueCard(v, vm, k.b64);
+    }
+
     function objectTop(vm) {
         var list = h('ul', 'pes-attrs');
         list.style.marginTop = '8px';
         (vm.card.top || []).forEach(function (t) {
             var li = add(list, h('li', 'pes-attr'));
             add(li, h('div', 'pes-attr-rel', t.relation));
-            var v = add(li, h('div', 'pes-attr-val', t.value));
-            v.title = t.value;
+            add(li, attrValue(vm, t));
             if (t.warninglisted) add(add(li, h('div', 'pes-attr-marks')), warnMark(t));
         });
         return list;
@@ -1074,8 +1099,7 @@
             var li = add(ul, h('li', 'pes-attr'));
             if (i >= SHOW) li.hidden = true;
             add(li, h('div', 'pes-attr-rel', (k.relation || k.type) + (k.relation && k.type ? ' · ' + k.type : '')));
-            var v = add(li, h('div', 'pes-attr-val', k.value));
-            v.title = k.value;
+            add(li, attrValue(vm, k));
             var marks = add(li, h('div', 'pes-attr-marks'));
             if (k.to_ids) add(marks, h('span', 'pes-ids', 'IDS')).style.fontSize = '9px';
             if (k.warninglisted) add(marks, warnMark(k));

@@ -18,7 +18,7 @@
 // relationship reaching out of it — is a lead, and never folds.
 //
 // config: { value, b64, baseurl, containerEl, loaderEl, labelPlan, permitted,
-//           orgUuid, siteAdmin, text, seed? }
+//           orgUuid, siteAdmin, valueCard, text, seed? }
 
 (function () {
     'use strict';
@@ -735,6 +735,7 @@
                 permitted: config.permitted,
                 orgUuid:   config.orgUuid,
                 siteAdmin: config.siteAdmin,
+                valueCard: config.valueCard,
                 text:      config.text
             },
             load:       loadSeed(config),
