@@ -318,6 +318,13 @@
     // seed budget, so the canvas never opens past the point of legibility.
     var NODE_BUDGET = 1500;
 
+    // Whether a feed or server edge will be drawn into one of its attributes.
+    function hasSourceHit(obj) {
+        return (obj.Attribute || []).some(function (a) {
+            return !isDeleted(a) && SOURCES.some(function (s) { return (a[s.scope] || []).length > 0; });
+        });
+    }
+
     function liveChildCount(obj) {
         var n = 0;
         (obj.Attribute || []).forEach(function (a) { if (!isDeleted(a)) n++; });
@@ -329,7 +336,10 @@
     // The canvas builder reads it; the element pivot offers whatever it left out.
     //
     //   L1  everything an object reference or analyst relationship touches
-    //   L2  the remaining objects, containment only, if the whole set fits
+    //   L2  the remaining objects a feed or server hits, if the whole set fits
+    //
+    // An object nothing links to would land with no edge, so it is left to
+    // the element pivot.
     //
     // Correlations are not a level: they are fetched per element (R1), and the
     // Correlations tab already lists the events this one shares values with.
@@ -368,6 +378,7 @@
             if (isDeleted(obj)) return;
             var cost = 1 + liveChildCount(obj);
             if (conn.connectedObjUuids[obj.uuid]) { l1 += cost; return; }
+            if (!hasSourceHit(obj)) return;
             l2Uuids[obj.uuid] = true;
             l2Cost += cost;
         });
@@ -873,9 +884,8 @@
         });
 
         /* L1 objects (an authored relationship touches them) and, when the
-           level fits the budget, L2's containment-only clusters. An L2 object
-           has no relationship by definition, so it arrives with no edge — the
-           cluster's own structure is what it says. */
+           level fits the budget, L2's: objects linked only by a feed or
+           server hit, whose edge is drawn below. */
         (ev.Object || []).forEach(function (obj) {
             if (isDeleted(obj)) return;
             // Everything else is offered by the element pivot instead.
@@ -925,10 +935,9 @@
                       relationship_type: type });
         });
 
-        /* Feed and server correlations (D1). Derived, like correlations, so a
-           hit never puts an element on the canvas: it is drawn from elements
-           the seed already took, and a source node appears with its first
-           drawable hit. Past 10,000
+        /* Feed and server correlations (D1). A hit is drawn from elements the
+           seed already took — L2 took an object for its hits — and a source
+           node appears with its first drawable hit. Past 10,000
            hits MISP drops the sources and flags each attribute FeedHit, which
            attributeNodeData turns into a badge.
            The edge runs source → attribute: pivotick stands in for an edge
@@ -2359,7 +2368,7 @@
                      + ' listed under Event elements, to search and add.';
         return seededEmpty ? {
             title:  'Nothing in this event is linked yet',
-            detail: 'No object references or analyst relationships to draw. Its ' + listed
+            detail: 'No object references, analyst relationships or feed and server hits to draw. Its ' + listed
                     + ' Correlations are fetched from the elements on the canvas.',
             action: true
         } : {

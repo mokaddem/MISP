@@ -95,6 +95,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 43 | A feed's edges (`feed-correlation`, `feed-event`) take the feed's amber (`palette().feed.core`); the canvas fills the window below its top, down to its card's edge, refitted on resize, never under 480 px (was 72vh) | ✅ | 42 | 2026-09-30 — live on 4345 and 2014 (§2) |
 | 44 | A stand-in edge into a closed object's child dashes like the edges it stands for (`6, 4`), not pivotick's `3`: one rule in `pivot-explorer.css` at the library's own specificity, so its forecast dash still wins | ✅ | 43 | 2026-09-30 — live on 2014 and 4345 (§2). Interim: showing *lands on a hidden child* some other way is not decided |
 | 45 | **Tags & clusters** declares no rim potential: a carrier no longer wears its tag and cluster count on the canvas; the pivot still applies to it | ✅ | 30 | 2026-09-30 |
+| 46 | L2 draws only an object a feed or server hits; an object nothing links (no reference, relationship or hit) is left to *Event elements*, and the empty state names hits among the links | ✅ | 3c, 28 | 2026-09-30 — live on 4466: the 81 `http-request` objects (the kit's admin endpoints, no reference, correlation or hit) leave the canvas and are the 81 objects *Event elements* offers; 108 objects stay, each with its feed edge |
 
 ### Critical path
 

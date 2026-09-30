@@ -278,16 +278,22 @@ const obj = o => Object.assign({
 
 const ref = o => Object.assign({ referenced_type: '1', relationship_type: 'related-to' }, o);
 
+// An object nothing references whose one attribute a feed hits: what L2 draws.
+const fedObj = o => obj(Object.assign({
+    Attribute: [attr({ uuid: o.uuid + '-hit', Feed: [{ id: '1', name: 'CIRCL OSINT Feed' }] })],
+}, o));
+
 // Another event, as Relationship::getRelatedElement() attaches it: a
 // fetchSimpleEvent row, with no Orgc.
 const otherEvent = o => Object.assign({ id: '99', uuid: 'R', info: '', date: '' }, o);
 
-// Enough relationship-less objects to blow the 1,500-node budget, so the seed
-// stops at L1 and the L1 rule becomes observable on its own. No test seam —
-// this is the same arithmetic a 28,410-object event triggers.
+// Objects L2 would draw — each a feed hit, 2 nodes with its attribute — so
+// enough of them blow the 1,500-node budget, the seed stops at L1 and the L1
+// rule becomes observable on its own. No test seam — this is the same
+// arithmetic a 28,410-object event triggers.
 const fillers = n => {
     const out = [];
-    for (let i = 0; i < n; i++) out.push(obj({ uuid: 'fill-' + i, name: 'filler' }));
+    for (let i = 0; i < n; i++) out.push(fedObj({ uuid: 'fill-' + i, name: 'filler' }));
     return out;
 };
 
@@ -335,17 +341,16 @@ const byId = (nodes, id) => nodes.filter(n => n.id === id)[0];
 const TESTS = [];
 const test = (name, fn) => TESTS.push({ name, fn });
 
-test('connectivity: a reference seeds both ends into L1; an untouched object arrives via L2', async () => {
+test('connectivity: a reference seeds both ends into L1; a feed hit brings an object in via L2; an untouched one stays in the tray', async () => {
     const g = await buildGraph(ev({ Object: [
         obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })] }),
         obj({ uuid: 'B' }),
         obj({ uuid: 'C' }),
+        fedObj({ uuid: 'F' }),
     ] }));
-    eq('nodes', ids(g.nodes), ['obj:A', 'obj:B', 'obj:C']);
-    eq('edges', edgeKeys(g.edges), ['obj:A->obj:B:related-to']);
-    eq('the untouched object draws no edge — its containment is all it says',
-       g.edges.filter(e => e.from === 'obj:C' || e.to === 'obj:C'), []);
-    eq('so nothing is left for the tray', g.tray, []);
+    eq('nodes', ids(g.nodes), ['feed:1', 'obj:A', 'obj:B', 'obj:F']);
+    eq('edges', edgeKeys(g.edges), ['feed:1->attr:F-hit:', 'obj:A->obj:B:related-to']);
+    eq('the untouched object is left for the tray', g.tray.map(t => t.id), ['obj:C']);
     eq('no console errors', g.errors, []);
 });
 
@@ -380,11 +385,10 @@ test('soft-deleted records are tombstones, in all three encodings', async () => 
         obj({ uuid: 'Y', Attribute: [attr({ uuid: 'y1', deleted: '1' }), attr({ uuid: 'y2' })],
               ObjectReference: [ref({ referenced_uuid: 'B' })] }),
     ] }));
-    eq('the live objects, and only those', ids(g.nodes), ['obj:A', 'obj:B', 'obj:Y']);
+    eq('the live linked objects, and only those', ids(g.nodes), ['obj:B', 'obj:Y']);
     ok('the deleted object X is absent', !byId(g.nodes, 'obj:X'));
     ok('Y is present via its live reference', !!byId(g.nodes, 'obj:Y'));
-    eq('A drew nothing — its only reference is a tombstone, so L2 is what put it there',
-       g.edges.filter(e => e.from === 'obj:A' || e.to === 'obj:A'), []);
+    eq('A\'s only reference is a tombstone, so it is left for the tray', g.tray.map(t => t.id), ['obj:A']);
     eq('only the live edge survives', edgeKeys(g.edges), ['obj:Y->obj:B:related-to']);
     const y = byId(g.nodes, 'obj:Y');
     eq('the deleted child attribute is not nested', y.children.map(c => c.id), ['attr:y2']);
@@ -475,7 +479,9 @@ test('a label is the whole value: the canvas shortens it, not the builder', asyn
 });
 
 test('no node can be expanded: the renderer draws no chevron and binds no Enter', async () => {
-    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'a1' })] })] }));
+    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'a1' })],
+                                                   ObjectReference: [ref({ referenced_uuid: 'B' })] }),
+                                              obj({ uuid: 'B' })] }));
     eq('expansion is off renderer-wide', g.opts.render.enableNodeExpansion, false);
     eq('the object still carries its attributes as children',
        byId(g.nodes, 'obj:A').children.map(c => c.id), ['attr:a1']);
@@ -495,7 +501,7 @@ test('INVARIANT: every live element is either on the canvas or in the tray, neve
                 ref({ referenced_uuid: 'B' }),
             ] }),
             obj({ uuid: 'B' }),
-            obj({ uuid: 'C', name: 'url' }),
+            fedObj({ uuid: 'C', name: 'url' }),
             obj({ uuid: 'D', name: 'domain' }),
         ],
     });
@@ -505,12 +511,12 @@ test('INVARIANT: every live element is either on the canvas or in the tray, neve
     // Tray chips carry the label, so map fixture labels back to uuids.
     const trayLabels = new Set(g.tray.map(t => t.label));
 
-    eq('canvas holds the L1 spine and the L2 clusters',
-       [...canvas].sort(), ['A', 'B', 'C', 'D', 'e1']);
-    eq('tray holds exactly the live event-level leftovers — L2 never adds those',
-       [...trayLabels].sort(), ['loose-1', 'loose-2']);
+    eq('canvas holds the L1 spine and the L2 object a feed hits',
+       [...canvas].sort(), ['A', 'B', 'C', 'e1', 'feed:1']);
+    eq('tray holds the event-level leftovers and the object nothing links',
+       [...trayLabels].sort(), ['domain', 'loose-1', 'loose-2']);
     ok('no element is in both places',
-       ![...trayLabels].some(l => ['referenced', 'url', 'domain'].indexOf(l) !== -1));
+       ![...trayLabels].some(l => ['referenced', 'url'].indexOf(l) !== -1));
     ok('the deleted attribute appears in neither', !canvas.has('e4') && !trayLabels.has('gone'));
 });
 
@@ -529,9 +535,9 @@ test('a read-only viewer still gets the element pivot — putting an element on 
         obj({ uuid: 'B' }),
         obj({ uuid: 'C' }),
     ] }), { canEdit: false });
-    eq('graph still builds', ids(g.nodes), ['obj:A', 'obj:B', 'obj:C']);
+    eq('graph still builds', ids(g.nodes), ['obj:A', 'obj:B']);
     ok('the element pivot is declared', g.opts.pivots.some(p => p.id === 'event-elements'));
-    eq('and has nothing to offer here', g.tray, []);
+    eq('and offers what the canvas left out', g.tray.map(t => t.id), ['obj:C']);
 });
 
 test('edges are tagged with the kind that created them (D1 dimension 1)', async () => {
@@ -662,11 +668,11 @@ test('D5 prime: an analyst relationship alone is enough to seed an element', asy
             obj({ uuid: 'Z' }),
         ],
     }));
-    eq('the analyst-linked pair is seeded, and Z rides in on L2',
-       ids(g.nodes), ['attr:e1', 'obj:A', 'obj:Z']);
+    eq('the analyst-linked pair is seeded, and nothing else',
+       ids(g.nodes), ['attr:e1', 'obj:A']);
     eq('edge points at the attribute', edgeKeys(g.edges), ['obj:A->attr:e1:analysed-with']);
-    eq('the untouched attribute stays in the tray — L2 never adds a bare attribute',
-       g.tray.map(t => t.label).sort(), ['truly-loose']);
+    eq('the untouched attribute and object stay in the tray',
+       g.tray.map(t => t.label).sort(), ['file', 'truly-loose']);
 });
 
 test('a relationship on a child attribute pulls its owning object in', async () => {
@@ -728,10 +734,9 @@ test('relationships the canvas cannot draw are skipped, not half-drawn', async (
 });
 
 test('an object whose only reference dangles is not seeded by it', async () => {
-    // Task 3 fixed the source being seeded before the target was checked. Since
-    // task 3c the dangler is still drawn — but by L2, as a bare cluster — so
-    // what proves the seeding rule is the absent edge, and the companion test
-    // below, where L2 does not fit and the dangler disappears entirely.
+    // Task 3 fixed the source being seeded before the target was checked. L2
+    // draws only an object a feed or server hits, so the dangler is not drawn
+    // at all.
     const g = await buildGraph(ev({ Object: [
         obj({ uuid: 'A', name: 'dangler', ObjectReference: [
             ref({ referenced_uuid: 'not-in-this-event' }),
@@ -739,10 +744,9 @@ test('an object whose only reference dangles is not seeded by it', async () => {
         obj({ uuid: 'B', name: 'linked', ObjectReference: [ref({ referenced_uuid: 'C' })] }),
         obj({ uuid: 'C', name: 'target' }),
     ] }));
-    eq('all three are drawn, the dangler among them', ids(g.nodes),
-       ['obj:A', 'obj:B', 'obj:C']);
+    eq('the linked pair is drawn, the dangler is not', ids(g.nodes), ['obj:B', 'obj:C']);
     eq('no edge was invented', edgeKeys(g.edges), ['obj:B->obj:C:related-to']);
-    eq('nothing is left in the tray', g.tray, []);
+    eq('the dangler is left in the tray', trayLabels(g), ['dangler']);
 });
 
 test('...and once L2 does not fit, the dangler is gone entirely', async () => {
@@ -768,7 +772,7 @@ test('a reference to a deleted element does not seed its source', async () => {
         obj({ uuid: 'D', deleted: true }),
     ];
     const g = await buildGraph(ev({ Object: objects }));
-    eq('the tombstone is not drawn', ids(g.nodes), ['obj:A']);
+    eq('neither the tombstone nor its source is drawn', ids(g.nodes), []);
     eq('and it seeded no edge', g.edges, []);
     const over = await buildGraph(ev({ Object: objects.concat(fillers(1501)) }));
     eq('L2 put the source there, not the reference', over.nodes, []);
@@ -804,7 +808,7 @@ test('a relationship pointing at a tombstoned element seeds neither end', async 
         ] })],
     };
     const g = await buildGraph(ev(parts));
-    eq('the tombstoned attribute is not drawn', ids(g.nodes), ['obj:A']);
+    eq('neither the tombstoned attribute nor its partner is drawn', ids(g.nodes), []);
     eq('no edges', g.edges, []);
     const over = await buildGraph(ev(Object.assign({}, parts,
         { Object: parts.Object.concat(fillers(1501)) })));
@@ -825,8 +829,7 @@ test('the target TYPE gates resolution, not just whether the uuid exists', async
     ];
     const g = await buildGraph(ev({ Object: objects }));
     eq('no edges — every target type is off-canvas', g.edges, []);
-    eq('both objects are on the canvas by containment alone', ids(g.nodes),
-       ['obj:A', 'obj:B']);
+    eq('so neither object is drawn', ids(g.nodes), []);
     const over = await buildGraph(ev({ Object: objects.concat(fillers(1501)) }));
     eq('nothing was seeded by them', over.nodes, []);
 });
@@ -866,8 +869,8 @@ test('tombstones apply to analyst relationships too', async () => {
         ] })] }),
     ];
     const g = await buildGraph(ev({ Object: objects }));
-    eq('the live objects are drawn by L2; the tombstoned owners are not',
-       ids(g.nodes), ['obj:A', 'obj:B', 'obj:Y']);
+    eq('nothing is drawn: every relationship is a tombstone or on one',
+       ids(g.nodes), []);
     eq('no edges', g.edges, []);
     const over = await buildGraph(ev({ Object: objects.concat(fillers(1501)) }));
     eq('nothing was seeded by a tombstoned relationship', over.nodes, []);
@@ -899,9 +902,9 @@ test('INVARIANT still holds with two kinds in play', async () => {
     }));
     const canvas = new Set(g.nodes.map(n => n.id.replace(/^(obj|attr):/, '')));
     const tray = new Set(g.tray.map(t => t.label));
-    eq('canvas', [...canvas].sort(), ['A', 'B', 'C', 'e1']);
-    eq('tray holds only the event-level attribute no relationship touches',
-       [...tray].sort(), ['loose']);
+    eq('canvas', [...canvas].sort(), ['A', 'B', 'e1']);
+    eq('tray holds what no relationship touches',
+       [...tray].sort(), ['loose', 'url']);
 
     const styled = Object.keys(g.opts.render.edgeStyleMap);
     const accessor = g.opts.render.edgeTypeAccessor;
@@ -1125,15 +1128,27 @@ test('double-click on another event opens it, and does nothing anywhere else', a
 
 /* ─────────────────────── task 3c — L2 ─────────────────────────── */
 
-test('L2: a relationship-less object is a containment cluster — parent, children, no edge', async () => {
+test('L2: an object only a feed hits is drawn whole, its hit its only edge', async () => {
     const g = await buildGraph(ev({ Object: [
         obj({ uuid: 'C', name: 'file',
-              Attribute: [attr({ uuid: 'c1' }), attr({ uuid: 'c2' })] }),
+              Attribute: [attr({ uuid: 'c1', Feed: [{ id: '1', name: 'CIRCL OSINT Feed' }] }),
+                          attr({ uuid: 'c2' })] }),
     ] }));
-    eq('one top-level node', ids(g.nodes), ['obj:C']);
+    eq('the object and the feed', ids(g.nodes), ['feed:1', 'obj:C']);
     eq('with its attributes nested inside it',
        byId(g.nodes, 'obj:C').children.map(c => c.id), ['attr:c1', 'attr:c2']);
-    eq('and no edges — containment is the whole statement', g.edges, []);
+    eq('and one edge, the hit', edgeKeys(g.edges), ['feed:1->attr:c1:']);
+});
+
+test('L2: an object nothing links is left for the tray', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'C', name: 'file', Attribute: [attr({ uuid: 'c1' }), attr({ uuid: 'c2' })] }),
+        obj({ uuid: 'D', name: 'gone-hit', Attribute: [attr({ uuid: 'd1', deleted: true,
+            Feed: [{ id: '1', name: 'CIRCL OSINT Feed' }] })] }),
+    ] }));
+    eq('nothing on the canvas', g.nodes, []);
+    eq('both in the tray, a hit on a deleted attribute counting for nothing',
+       trayLabels(g).sort(), ['file', 'gone-hit']);
 });
 
 test('L2 never adds a bare event-level attribute (D10 governing principle)', async () => {
@@ -1147,13 +1162,13 @@ test('L2 never adds a bare event-level attribute (D10 governing principle)', asy
 });
 
 test('the budget is all-or-nothing: one node over and L2 is skipped whole', async () => {
-    const at = await buildGraph(ev({ Object: fillers(1500) }));
-    eq('and every object is drawn', at.nodes.length, 1500);
+    const at = await buildGraph(ev({ Object: fillers(750) }));
+    eq('1,500 nodes fit, and every object is drawn, beside its feed', at.nodes.length, 751);
     eq('so the tray is empty', at.tray, []);
 
-    const over = await buildGraph(ev({ Object: fillers(1501) }));
-    eq('one node over, and not a single one is drawn', over.nodes, []);
-    eq('the skipped objects fall back to the tray (D4)', over.tray.length, 1501);
+    const over = await buildGraph(ev({ Object: fillers(751) }));
+    eq('one object over, and not a single one is drawn', over.nodes, []);
+    eq('the skipped objects fall back to the tray (D4)', over.tray.length, 751);
 });
 
 test('over budget, the seed falls back to the relationship spine', async () => {
@@ -1177,7 +1192,8 @@ test('an object is counted at its true cost — children included — before L2 
     const heavy = [];
     for (let i = 0; i < 750; i++) {
         heavy.push(obj({ uuid: 'h' + i,
-                         Attribute: [attr({ uuid: 'h' + i + 'a' }), attr({ uuid: 'h' + i + 'b' })] }));
+                         Attribute: [attr({ uuid: 'h' + i + 'a', Feed: [{ id: '1' }] }),
+                                     attr({ uuid: 'h' + i + 'b' })] }));
     }
     const g = await buildGraph(ev({ Object: heavy }));
     eq('L2 is refused', g.nodes, []);
@@ -1185,13 +1201,11 @@ test('an object is counted at its true cost — children included — before L2 
 });
 
 test('a deleted child does not cost the budget anything', async () => {
-    // 1,500 objects with one tombstoned child each: 1,500 live nodes, not 3,000.
-    const many = [];
-    for (let i = 0; i < 1500; i++) {
-        many.push(obj({ uuid: 'd' + i, Attribute: [attr({ uuid: 'd' + i + 'x', deleted: true })] }));
-    }
+    // 750 fed objects with one tombstoned child each: 1,500 live nodes, not 2,250.
+    const many = fillers(750);
+    many.forEach((o, i) => o.Attribute.push(attr({ uuid: 'd' + i + 'x', deleted: true })));
     const g = await buildGraph(ev({ Object: many }));
-    eq('and no tombstone was nested', countAll(g.nodes), 1500);
+    eq('all drawn, beside the feed, and no tombstone was nested', countAll(g.nodes), 1501);
 });
 
 test('a skipped L2 leaves the tray as the only route to those objects', async () => {
@@ -1268,7 +1282,7 @@ function pivotFixture() {
     return ev({
         Attribute: [attr({ uuid: 'e1' })],
         Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1' })] }),
-                 obj({ uuid: 'B', Relationship: [
+                 obj({ uuid: 'B', ObjectReference: [ref({ referenced_uuid: 'A' })], Relationship: [
                      toEvent(otherEvent({ uuid: 'R7', id: '7' }), { object_uuid: 'B' })] })],
     });
 }
@@ -2251,9 +2265,9 @@ test('elements: the event\'s tags and clusters are offered, but a plain browse l
         'tag:tlp:white',
     ]);
     eq('the picker offers them, unpicked', p.summarize([], {}).facets[1].options.map(o => [o.value, o.label, o.count]),
-       [['attribute', 'Attributes', 1], ['tag', 'Tags', 3], ['cluster', 'Galaxy clusters', 1]]);
+       [['attribute', 'Attributes', 1], ['object', 'Objects', 1], ['tag', 'Tags', 3], ['cluster', 'Galaxy clusters', 1]]);
     eq('category counts leave them out', p.summarize([], {}).facets[2].options.map(o => o.value),
-       ['Network activity']);
+       ['Network activity', 'file']);
     eq('a category pick leaves them out', offered(g, { element: ['attribute', 'tag'], category: 'Network activity' }),
        ['attr:a1']);
     eq('the one-kind string form still reads', offered(g, { element: 'tag' }).length, 3);
@@ -2305,7 +2319,9 @@ function analystFixture() {
         Relationship: [arel({ object_uuid: 'EV-SELF', related_object_uuid: 'c2',
                               related_object_type: 'Attribute' })],
         Object: [
-            obj({ uuid: 'A', Opinion: [opinion({ opinion: '10', comment: 'Clearly a FP' })], Attribute: [
+            // A's references are what put the other objects on the canvas.
+            obj({ uuid: 'A', Opinion: [opinion({ opinion: '10', comment: 'Clearly a FP' })],
+                  ObjectReference: ['B', 'C', 'at40', 'at41', 'at60', 'at61'].map(u => ref({ referenced_uuid: u })), Attribute: [
                 attr({ uuid: 'c1', value: 'noted',
                        Note: [note({ note: '<b>first</b>', Opinion: [opinion({ opinion: '0' })] }), note({ note: 'second' })],
                        Opinion: [opinion({ opinion: '80' }), opinion({ opinion: '70' })],
@@ -2595,7 +2611,7 @@ test('an empty seed says why, and where the contents are', async () => {
     eq('nothing drawn', g.nodes, []);
     const t = emptyText(g);
     ok('it names what is missing', t.indexOf('Nothing in this event is linked yet') !== -1
-       && t.indexOf('No object references or analyst relationships to draw') !== -1, t);
+       && t.indexOf('No object references, analyst relationships or feed and server hits to draw') !== -1, t);
     ok('and where correlations come from', t.indexOf('Correlations are fetched from the elements on the canvas') !== -1, t);
     ok('and counts what is there, deleted ones aside', t.indexOf('Its 2 attributes are listed under Event elements') !== -1, t);
     eq('one action', emptyButton(g).textContent, 'Browse event elements');
@@ -2671,7 +2687,7 @@ test('an element merged in from an extension event is foreign, known by id alone
 });
 
 test('a record without an event_id belongs to the event it came in', async () => {
-    const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
+    const g = await buildGraph(ev({ Object: [fedObj({ uuid: 'A' })] }));
     eq('self', prov(byId(g.nodes, 'obj:A')), ['self', '1', 'EV-SELF']);
 });
 
@@ -2833,17 +2849,18 @@ test('5b: a feed seen only by elements not drawn draws no node', async () => {
     const g = await buildGraph(ev({
         Feed: [FEED9],
         Attribute: [attr({ uuid: 'e2', Feed: [FEED9] })],
-        Object: [obj({ uuid: 'A' })],
+        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })] }), obj({ uuid: 'B' })],
     }));
-    eq('no feed node', ids(g.nodes), ['obj:A']);
+    eq('no feed node', ids(g.nodes), ['obj:A', 'obj:B']);
 });
 
 test('5b: deleted attributes carry no hits', async () => {
     const g = await buildGraph(ev({
         Feed: [FEED1],
-        Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1', deleted: true, Feed: [FEED1] })] })],
+        Object: [obj({ uuid: 'A', Attribute: [attr({ uuid: 'c1', deleted: true, Feed: [FEED1] })],
+                       ObjectReference: [ref({ referenced_uuid: 'B' })] }), obj({ uuid: 'B' })],
     }));
-    eq('no feed node', ids(g.nodes), ['obj:A']);
+    eq('no feed node', ids(g.nodes), ['obj:A', 'obj:B']);
 });
 
 test('5b: past 10,000 hits, a badge on each attribute', async () => {

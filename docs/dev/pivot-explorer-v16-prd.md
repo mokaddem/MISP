@@ -550,7 +550,7 @@ and reads as a density map), and the same budget caps D9's correlation fetch.
 |---|---|---|---|---|
 | **L0** | event + correlated-event proxy nodes | `RelatedEvent` | **86 nodes** (event 4116) | free, already in payload |
 | **L1** | authored relationships — object references + analyst relationships | inline | 2,362 edges (event 1195) | free, already in payload |
-| **L2** | objects with no relationship, containment only | inline | budget-capped (D10) | free, already in payload |
+| **L2** | objects with no relationship that a feed or server hits (since 2026-09-30; before, every such object) | inline | budget-capped (D10) | free, already in payload |
 | **L3** | per-attribute correlations | `RelatedAttribute` | fetch-capped (D9) | one extra request |
 
 **Why this matters:** a behemoth event is no longer a special case needing an apology. Event 4116
@@ -1076,7 +1076,9 @@ budget:
 L0  if edged    event node + one proxy node per RelatedEvent
 L1  always      elements participating in an object reference or analyst relationship
                 (+ the attribute children of any object node, as today)
-L2  if it fits  objects with no relationship, as containment-only clusters
+L2  if it fits  objects with no relationship that a feed or server hits, their hit
+                the only edge; an object nothing links is left to the element pivot
+                (2026-09-30: event 4466 drew 81 kit endpoints with no edge at all)
 L3  on demand   per-attribute correlations (§6.7)
 ```
 
