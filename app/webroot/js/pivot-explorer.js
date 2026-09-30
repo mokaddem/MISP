@@ -3335,7 +3335,9 @@
                 onBeforeEdgeCreate: onBeforeEdgeCreate,
                 onBeforeDelete:     onBeforeDelete
             },
-            attach: function (g) { graph = g; }
+            // The vocabulary is asked for now, so the form opens at once on
+            // the first edge drawn.
+            attach: function (g) { graph = g; loadVocabulary(); }
         };
     }
 

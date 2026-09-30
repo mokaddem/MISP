@@ -1759,11 +1759,22 @@ test('a refused save leaves no edge', async () => {
 
 test('without the vocabulary the form is one free-text field, and asks again next time', async () => {
     const g = await withEditor([[/objectRelationships\/index\.json$/, { __status: 500 }]]);
+    const asked = () => g.fetchLog.filter(f => /objectRelationships/.test(f.url)).length;
+    await new Promise(r => setTimeout(r, 0));
+    const before = asked();
     const ctx = edgeCtx(own.objA, own.objB, { custom: 'drops' });
     eq('saved', (await g.opts.callbacks.onBeforeEdgeCreate(ctx)).accept, true);
     eq('one text field', ctx.asked.fields.map(f => [f.key, f.type]), [['custom', 'text']]);
     await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, null));
-    eq('asked twice', g.fetchLog.filter(f => /objectRelationships/.test(f.url)).length, 2);
+    eq('asked again on each edge', asked() - before, 2);
+});
+
+test('the vocabulary is asked for when the editor attaches, once', async () => {
+    const g = await withEditor();
+    const asked = () => g.fetchLog.filter(f => /objectRelationships/.test(f.url)).length;
+    eq('before any edge is drawn', asked(), 1);
+    await g.opts.callbacks.onBeforeEdgeCreate(edgeCtx(own.objA, own.objB, { custom: 'x' }));
+    eq('the first edge reuses it', asked(), 1);
 });
 
 test('nothing carries a pending flag any more (D2)', async () => {
