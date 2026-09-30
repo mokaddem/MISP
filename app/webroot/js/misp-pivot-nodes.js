@@ -127,9 +127,11 @@ window.MispPivotNodes = (function () {
     var ICON_SCALE = 1.4;                       // svgIcon box = ICON_SCALE * size
     function sizeForVisual(w) { return w / ICON_SCALE; }
 
-    var FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-    var FONT_MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, ' +
-                    '"Liberation Mono", monospace';
+    // Single-quoted family names: txt() splices these into a double-quoted
+    // font-family attribute.
+    var FONT = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+    var FONT_MONO = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, " +
+                    "'Liberation Mono', monospace";
 
     function SANS(px, w) { return (w || 400) + ' ' + px + 'px ' + FONT; }
     function MONO(px, w) { return (w || 400) + ' ' + px + 'px ' + FONT_MONO; }
@@ -1602,6 +1604,24 @@ window.MispPivotNodes = (function () {
 
     function uuidShort(u) { return u ? String(u).slice(0, 8) : ''; }
 
+    function valueDisc(d, H, P, cx, cy, r) {
+        var ico = H.attrIcon(d['attr-type'] || (d.types || [])[0]).ref;
+        var g = r * 1.15, s = '';
+        if (d.centre) {
+            s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 1.32) +
+                 '" fill="none" stroke="' + P.ink3 + '" stroke-width="1"/>';
+            s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + P.ink + '"/>';
+            s += H.use(ico, { x: cx - g / 2, y: cy - g / 2, size: g, color: P.canvas,
+                              fallback: 'fallback-attribute' });
+        } else {
+            s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + P.surface +
+                 '" stroke="' + P.ink2 + '" stroke-width="1.5" stroke-dasharray="3 2.4"/>';
+            s += H.use(ico, { x: cx - g * 0.45, y: cy - g * 0.45, size: g * 0.9, color: P.ink2,
+                              fallback: 'fallback-attribute' });
+        }
+        return s;
+    }
+
     /* The detached provenance ring (tokens.css §5). Local gets none — absence
        is the local signal. */
     function ringSVG(p, cx, cy, r, P) {
@@ -2354,6 +2374,40 @@ window.MispPivotNodes = (function () {
            -------------------------------------------------------------- */
         feed:   sourceEntity('feed'),
         server: sourceEntity('server'),
+
+        /* -----------------------------------------------------------------
+           VALUE — a value itself rather than a record: the centre of a
+           value's neighbourhood, and each value near it. Neutral ink, since a
+           value is no entity: the centre is a solid ink disc in a hairline
+           ring, the one inverse node on the canvas; a near value is the same
+           disc hollow and dashed. The glyph is the value's first MISP type
+           (`attr-type`), the neutral mark when it has none.
+           -------------------------------------------------------------- */
+        value: {
+            S: {
+                channel: 'composed',
+                box: { w: 44, h: 44 },
+                draw: function (d, H, P) {
+                    return H.svg(44, 44, valueDisc(d, H, P, 22, 22, d.centre ? 15 : 12));
+                }
+            },
+            M: {
+                channel: 'card',
+                box: { w: 140, h: 44 },
+                draw: function (d, H, P) {
+                    var s = '<rect x=".5" y=".5" width="139" height="43" rx="10" fill="' + P.surface +
+                            '" stroke="' + (d.centre ? P.ink2 : P.line) + '" stroke-width="' +
+                            (d.centre ? 1.5 : 1) + '"' + (d.centre ? '' : ' stroke-dasharray="3 2.4"') + '/>';
+                    s += valueDisc(d, H, P, 21, 22, d.centre ? 11 : 10);
+                    s += H.txt(40, 20, H.fit(String(d.value == null ? '' : d.value), H.MONO(12, 500), 94),
+                               { size: 12, weight: 500, mono: true, fill: P.ink });
+                    var second = d.centre ? 'THIS VALUE' : String(d.near_label || 'NEAR VALUE').toUpperCase();
+                    s += H.txt(40, 34, H.fit(second, H.SANS(10, 650), 94, 0.6),
+                               { size: 10, weight: 650, tracking: '0.06em', fill: P.ink3 });
+                    return H.svg(140, 44, s);
+                }
+            }
+        },
 
         /* -----------------------------------------------------------------
            OBJECT
@@ -3270,7 +3324,7 @@ window.MispPivotNodes = (function () {
     var R = M._renderers;      /* set by 10-renderers.js */
 
     var ENTITIES = ['event', 'object', 'attribute', 'cluster', 'taxonomy', 'feed',
-                    'server'];
+                    'server', 'value'];
 
     /* Which MISP entity a pivotick node is. Reads the node's data, matching the
        shape the Pivot Explorer already builds (`type` on every node), and falls
@@ -3279,7 +3333,7 @@ window.MispPivotNodes = (function () {
         if (!data) return undefined;
         var t = data.type || data.entity;
         if (t === 'event' || t === 'object' || t === 'attribute' || t === 'feed' ||
-            t === 'server') return t;
+            t === 'server' || t === 'value') return t;
         if (t === 'cluster' || t === 'galaxy-cluster') return 'cluster';
         if (t === 'taxonomy' || t === 'tag') return 'taxonomy';
         if (data.galaxy_type || data.tag_name) return 'cluster';
@@ -3305,7 +3359,8 @@ window.MispPivotNodes = (function () {
        explorer's data builders.
        ------------------------------------------------------------------ */
     var ENTITY_WORDS = { event: 1, object: 1, attribute: 1, cluster: 1,
-                         taxonomy: 1, tag: 1, 'galaxy-cluster': 1, feed: 1, server: 1 };
+                         taxonomy: 1, tag: 1, 'galaxy-cluster': 1, feed: 1, server: 1,
+                         value: 1 };
     var _norm = (typeof WeakMap === 'function') ? new WeakMap() : null;
 
     /* An object's attributes are pivotick CHILDREN in the Pivot Explorer, not a
