@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
-**Status:** DRAFT 2026-09-30 — every decision in §4 is **open, to be grilled**. Each carries a
-recommendation so the grilling has something to push against; none is settled.
+**Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
+added). Next: phase B prototypes (§8).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -30,63 +30,73 @@ Both halves already exist:
 - **Pivotick** has the whole pivot flow: offer, count, narrow, fetch, triage in Review, ingest,
   undo, and a `save` hook with a ledger of unsaved results.
 
-This PRD joins them: one more pivot on attribute nodes, whose results land on the canvas like any
-other pivot's.
+This PRD joins them: one more pivot, offered on every explorer host, whose results land on the
+canvas like any other pivot's.
 
 ### State
 
 | Part | Status | Note |
 |---|---|---|
-| JSON endpoints over the engine (§5.1) | ⬚ | the model methods already return arrays |
-| ACL entries | ⬚ | `perm_add` to run, as the Value Profile |
-| *Enrich* pivot (§5.2) | ⬚ | |
-| Landing shape, `enrichment` edge kind, result provenance (§5.3–§5.4) | ⬚ | E4, E5 |
-| Per-module outcome in Review (§5.5) | ⬚ | E6; may need a library ask |
-| Prototypes (§8, phase B) | ⬚ | |
-| Save into the event (§5.7) | ⬚ | E8 — maybe not this pass |
+| Contract (§4 ruled, §5 frozen) | ✅ | grilled 2026-09-30 |
+| Non-enrichment deny-list, `ModuleRole` (§5.1) | ⬚ | E7; the Value Profile tab honours it too |
+| JSON endpoints on `ValuesController` (§5.1) | ⬚ | H1, H2; the model methods already return arrays |
+| ACL entries | ⬚ | `perm_add` for all three (E11) |
+| *Enrich* pivot in the shared kit (§5.2) | ⬚ | both hosts |
+| Landing, `enrichment` edge kind, `scope: 'module'` (§5.3–§5.4) | ⬚ | E4, E5 |
+| Run toast (§5.5) | ⬚ | E6 |
+| Prototypes: result node look + edge (§8, phase B) | ⬚ | |
 | Unit tests, acceptance (§7) | ⬚ | |
+| Save into the event (§5.7) | — | E8: later pass |
 
 ## 2. What the analyst sees
 
-Select an attribute node and open *Pivot ▸*. A new entry, **Enrich**, is offered when at least
-one enrichment module accepts the attribute's type and the viewer may run modules.
+Select an attribute node — or, on the value page, a value node — and open *Pivot ▸*. A new entry,
+**Enrich**, is offered when at least one expansion module accepts the node's type and the viewer
+may run modules. A Read Only user never sees it.
 
-The pivot panel lists the eligible modules, each with what the organisation already knows about
-it for this value: *answered 3 h ago · 12 results*, *timed out yesterday*, or nothing if it has
-never been asked. The analyst ticks the modules to run and presses Fetch.
+The pivot panel has one control, **Module**: every eligible module, each labelled with what the
+organisation already knows about it for this value — `circl_passivedns — 3 h ago` with its
+result count, `whois — timed out yesterday`, or the bare name if it has never been asked. The
+modules the analyst profile ticks, and those with a fresh stored answer, start ticked. The
+analyst adjusts the ticks and presses Fetch.
 
-A module whose stored answer is fresh answers at once, from the store. The others are asked, a few
+A module whose stored answer is fresh answers at once, from the store. The others are asked, five
 at a time. What comes back goes to Review:
 
-- **Objects** a module returned (a `passive-dns` record, a `whois` record) as closed object nodes
+- **Objects** a module returned (a `passive-dns` record, a `dns-record`) as closed object nodes
   with their attributes.
-- **Attributes** it returned (an IP, a domain) as attribute nodes.
-- Each joined to the attribute it was run on by an **enrichment** edge labelled with the module.
-- A returned value MISP already holds says so on the node.
+- **Attributes** it returned (an IP, a domain) as attribute nodes; a legacy module's bare values
+  the same way, marked as untyped by the module.
+- Each joined to the node it was run on by an **enrichment** edge labelled with the module.
+- A returned value MISP already holds says so on the node, and in the sidebar its value opens
+  the value's profile.
 
-Review also says what did not come back: a module that answered with nothing, one that errored,
-one that timed out, one that returned only text.
+A single toast says what did not come back: a module that answered with nothing, one that
+errored, one that timed out, an answer cut to 200 of its results.
 
-Ingest lands the ticked rows; undo takes them away, like any pivot. The results are the canvas's
-only: nothing is written into MISP (unless E8 decides otherwise). The stored answer, though, is
-the organisation's, so the Value Profile's Enrichment tab shows the same run afterwards.
+Ingest lands the ticked rows; undo takes them away, like any pivot. The Provenance legend gains
+**From enrichment**, so everything the outside world said can be hidden at once. The results are
+the canvas's only: nothing is written into MISP. The stored answer, though, is the
+organisation's, so the Value Profile's Enrichment tab shows the same run afterwards.
 
 ## 3. What the engine gives, and what it does not
 
 Measured from the code on 2026-09-30. `VP` is `app/Model/ValueProfile.php`.
 
 **It is scoped to a value and a type, not to an attribute.** `enrichmentRun(user, value, module,
-type, mode)` (VP:15526) takes no attribute id. For a `misp_standard` module it sends the reader's
-*first* visible attribute holding that value and type (`enrichmentOccurrence`, VP:15873), not
+type, mode)` (VP:14918) takes no attribute id. For a `misp_standard` module it sends the reader's
+*first* visible attribute holding that value and type (`enrichmentOccurrence`, VP:15265), not
 necessarily the one clicked, and it sends no object or event context. A `simplified` module gets
-`{type: value}`. So an attribute inside an object enriches as its bare value. E3 asks whether that
-is enough.
+`{type: value}`. The same lookup is what keeps a user from enriching a value they cannot see.
 
-**It picks modules by the value's types.** `enrichmentCatalogue` (VP:14790) unions, over every
-type the value is held as, the enabled expansion, cortex and hover modules that accept it
-(`Module::getEnabledModules`: the service switch, the per-module switch, the per-org
-restriction). Each row carries `name`, `kinds`, the types, the output `format`, a description, and
-the latest stored answer. `can_run` is `perm_add`.
+**It picks modules by the value's types.** `enrichmentCatalogue` (VP:14182) unions, over every
+type the value is held as, the enabled expansion and hover modules that accept it
+(`enrichmentEligible`, VP:14843, over `Module::getEnabledModules`: the service switch, the
+per-module switch, the per-org restriction). Every call is a round trip to the module server.
+Each row carries `name`, `kinds`, the types, the output `format`, a description, `locality`, and
+the latest stored answer. `can_run` is `perm_add` (VP:14241). **Nothing filters out modules that
+are not enrichment** — sample submitters, uploaders, document transforms — so the Value
+Profile's tab offers them today.
 
 **It stores every answer, per organisation.** Table `value_enrichment_runs`, unique on
 `(org_id, sha256(value), module, type)`, upserted: state, when, how long it took, the counts, and
@@ -98,7 +108,7 @@ the in-flight lock. Failures are stored too.
 default. The Value Profile caps itself at 5 parallel requests and closes the session first so they
 overlap.
 
-**It normalises the answer** (`enrichmentShape`, VP:15948) into:
+**It normalises the answer** (`enrichmentShape`, VP:15340) into:
 
 | Key | Holds |
 |---|---|
@@ -108,144 +118,173 @@ overlap.
 | `elements[]` | a legacy module's flat `{types[], value, known}`, with no structure |
 | `total`, `shown`, `capped` | 200 results at most per answer, the true total kept |
 
-`known` is one ACL-scoped prevalence probe over the returned values that MISP correlates on,
-leaving out the value asked about. It is recomputed on every read, never stored.
+`known` (`enrichmentKnown`, VP:15487) is one ACL-scoped prevalence probe over the returned values
+that MISP correlates on, leaving out the value asked about. It is recomputed on every read, never
+stored.
 
 **It writes nothing into events.** Write-back exists elsewhere: `EventsController::
 handleModuleResults($id)` takes resolved MISP-format JSON for an event the user can modify.
 
-## 4. Decisions — open, to be grilled
+**Legacy output is shrinking, not gone.** misp-modules' `modules-answering-in-objects` branch
+(18 commits over `main` at `953bd2b6`, unmerged) moves 15 flattening modules to `misp_standard`
+— dns, reversedns, geoip_*, securitytrails, urlscan, hibp, vulners, … On its tip 39 non-hover
+expansion modules still answer `simplified`; 15 of those are real enrichment (apifreaks,
+apiosintds, backscatter_io, domaintools, eupi, intel471, iprep, mwdb, otx, passivetotal,
+threatcrowd, threatfox, threatminer, vulndb, and whois by choice), the other 24 are not
+enrichment at all (E7).
 
-| # | Question | Recommendation |
+## 4. Decisions — ruled 2026-09-30
+
+| # | Question | Ruling |
 |---|---|---|
-| E1 | **One pivot or many.** One *Enrich* pivot with a module picker, one pivot per module, or one per module *kind*? | **One pivot, a `multiselect` Module facet.** 146 modules as pivots would bury the Pivot menu. The facet shows each module's stored state beside its name. |
-| E2 | **Which modules.** Expansion only, or hover and cortex too? | **Expansion and cortex; not hover.** Hover modules are built to be cheap and shallow for a popover; the Value Profile shows them in its own place. |
-| E3 | **Value or attribute.** Is the engine's value-scoped run enough, or must the module see the clicked attribute, its object and its event? | **Value-scoped for this pass**, which buys the per-org store and the Value Profile's shared answers. Object-input modules (inputs matched on object name) stay out, and say so. Revisit if a module needs the object. |
-| E4 | **Where results sit, and what they are.** A returned attribute has no uuid and belongs to no event. How is it identified, and does the same value from two modules become one node? | **One node per `type` + `value`** (`enr:<type>:<value>`), shared across modules and runs, each module adding its own edge. A returned object is one node per run (`enr-obj:<module>:<n>`), closed with its attributes. A result is never merged into a MISP attribute of the same value; `known` says the value is in MISP. |
-| E5 | **Provenance.** Every node is *This event* or *Elsewhere* today (v16 D2). Module output is neither. | **A third value, *From a module*,** with its own look and its own entry in the Provenance legend filter, so an analyst can hide everything the outside world said at once. |
-| E6 | **What did not come back.** A pivot's result is nodes and edges only, and a thrown error fails the whole run. How does Review say "whois timed out, passive DNS answered with nothing, shodan returned only text"? | **Ask pivotick for per-run notices** on `PivotResult` (a list of `{level, text}` Review draws above its rows). Until it ships, a MISP notification per module that did not answer. A run where no module answered fails with their reasons. |
-| E7 | **Legacy text modules.** Half the modules answer `simplified`: bare values with a list of possible types. | **Land each as an attribute node of its first listed type**, flagged as untyped by the module. Never drop one silently. |
-| E8 | **Saving into the event.** Pivotick's `save` hook would write an ingested result into MISP. | **Not this pass.** Results are canvas-only. Leave the seam: the pivot declares no `save`, so nothing is counted unsaved. A later pass adds `save` over `handleModuleResults`, for this event's own attributes and editors only. |
-| E9 | **Potential.** Should an attribute wear a rim badge before anything is run? | **Only for a stored answer**, with its result count: "the organisation already asked, and 12 came back". An eligible-module count is not potential; it would put a badge on every IP. |
-| E10 | **Many origins.** Ten attributes selected, three modules ticked, is thirty requests. | **Up to 5 at once, and a cap of 25 attribute × module pairs per run**, stated in the summary like any cap. Stored answers do not count toward it. |
-| E11 | **Readers who may not run modules.** `perm_add` gates running. | **They get Enrich with stored answers only** (`mode=stored`): what their organisation already asked, nothing new. The facet says which modules have no answer. |
-| E12 | **The analyst profile's declarations.** Profiles mark modules `ticked`, `never` or `auto` per type. | **`ticked` pre-ticks the facet; `never` hides the module; `auto` is not honoured here.** Nothing runs without a press on the graph. |
-| E13 | **A result that is known.** Should a returned value MISP holds offer a way into MISP? | **Not this pass.** It says *In MISP* on the node. A later pivot, *Where this is in MISP*, would need a value search endpoint. |
+| H1 | **Which hosts, and where the endpoints live.** | **Value-scoped JSON on `ValuesController`**, beside the `viewEnrichment*` actions; the pivot is in the shared kit. The event page and the value page (attribute *and* `value` nodes) get *Enrich* now, the Intelligence Graph when it lands. The engine is value-scoped, so an event id would only tie the feature to one host. |
+| H2 | **How a node learns it is eligible.** `appliesTo` must be synchronous; the catalogue costs a module-server call per request. | **Two reads.** A type → modules map fetched once per page decides eligibility, by the **node's own type** (a value node: each type it is held as). The stored answers are read in `summarize`, for the origin only. The graph does not union the value's other types the way the Value Profile does: the node *is* that type. |
+| E1 | **One pivot or many.** | **One *Enrich* pivot, a `multiselect` Module facet.** Pivotick's facet option is `{label, value, count}`, so the stored state is a label suffix (`— 3 h ago`, `— timed out yesterday`) and the count is the stored total. **Pre-ticked:** the profile's `ticked` and `auto` modules, and every module with a fresh stored answer (it costs nothing). The pivot's `total` is the stored totals of the ticked modules; a never-asked module adds 0. |
+| E2 | **Which modules.** | **Expansion only.** A module that is hover *and* expansion stays, run as expansion; hover-only and cortex modules are out. |
+| E3 | **Value or attribute.** | **Value-scoped** (follows from H1), which buys the per-org store and answers shared with the Value Profile. Object-input modules stay out. |
+| E4 | **Where results sit, and what they are.** | **Attribute: `enr:<type>:<value>`**, one node shared across modules, origins and runs, each module adding its own edge. **Object: `enr-obj:<module>:<hash>`**, the hash over its name and sorted `(relation, type, value)` triples, so identical records collapse, reruns keep their ids and two origins never collide. Its attributes are its own children, `<object id>:<relation>:<value>`, never shared `enr:` nodes. A result is never merged into a MISP attribute or value node; `known` says the value is in MISP. |
+| E5 | **Provenance.** | **`scope: 'module'`, labelled *From enrichment*.** The Provenance legend and facet appear whenever a module result is on the canvas, even on a host that turns provenance off: *This event · Elsewhere · From enrichment* on the event page, *In MISP · From enrichment* on the value page. |
+| E6 | **What did not come back.** | **One `graph.notifier.warning` per run**, listing each module that gave nothing and why, and each capped answer. A run where no module answered throws with their reasons. No pivotick change: the notifier is already the explorer's, and the stored failure shows in the facet label next time. |
+| E7 | **Legacy text modules, and modules that are not enrichment.** | **A legacy element lands as its first listed type**, flagged untyped by the module, with its other types in the sidebar; an ip-src/ip-dst duplicate against a typed module's answer is accepted. **A shipped deny-list, `ModuleRole`**, removes the modules that are not enrichment — submitters and uploaders (they send a sample out, with side effects), document transforms, query builders and validators — with a profile override like `ModuleLocality`'s. The Value Profile's tab honours it too. |
+| E8 | **Saving into the event.** | **Not this pass.** No `save` is declared, so nothing is counted unsaved. The value page has no event to save into; §5.7 stays as the seam. |
+| E9 | **Potential.** | **No rim badge for enrichment**, stored answer or not. |
+| E10 | **Many origins.** | **5 calls in flight; at most 25 asked pairs** (node × module) per run, stored answers not counted. Over it, `fetch` refuses **before any call**, with the number, the limit and the way out. `maxCandidates: NODE_BUDGET` as every other pivot. |
+| E11 | **Readers who may not run modules.** | **No `perm_add`, no *Enrich*** — `appliesTo` returns nothing and the endpoints refuse. Among the shipped roles only *Read Only* lacks it, and a role's permission tier 0 is what clears it (`Role.php:52`, `:80`). |
+| E12 | **The analyst profile's declarations.** | **`ticked` and `auto` pre-tick; `never` removes the module from the facet.** Nothing runs without a press on the graph. |
+| E13 | **A result that is known.** | **Its sidebar value links to `/values/view/<b64>`** (new tab) and is a hover-card trigger (`MISP.value_hover_card`), as an object attribute's value is — **only when `known`**. Unknown values get neither. A *Where this is in MISP* pivot stays out. |
 
-## 5. Design (assuming the recommendations)
+## 5. Design
 
-### 5.1 Endpoints
+### 5.1 Server
 
-Two JSON actions on `EventsController`, beside `correlationCounts` and `cardElements`, so the event
-the explorer is open on scopes them:
+**`app/Lib/Tools/ModuleRole.php`** — a shipped list of modules that are not enrichment, in
+`ModuleLocality`'s style, with the analyst profile able to override it per module.
+`enrichmentEligible` drops them, so the Value Profile and the graph agree.
 
-- `POST /events/enrichmentModules/{id}.json` with `{attribute_uuids}` → for each attribute, the
-  catalogue rows for its value and type: `name`, `kinds`, `format`, `description`, and the stored
-  answer's `state`, `ran_at`, `total`. One catalogue per distinct value. ACL `*`, like the view.
-- `POST /events/enrichmentRun/{id}.json` with `{attribute_uuid, module, mode}` → the shaped answer
-  (§3) for that attribute's value and type. ACL `perm_add` for any mode that may ask; `stored`
-  open to readers (E11). `session_write_close()` first, as the Value Profile does.
+Three JSON actions on `ValuesController`, ACL `perm_add` (E11), each resolving through the
+engine with no new engine code:
 
-Both resolve the attribute through `fetchAttributesSimple($user)`, so an attribute the user cannot
-see is not enriched, and both call the existing `ValueProfile::forEnrichment*` methods. No new
-engine code.
+- `GET /values/enrichmentTypes.json` → `{types: {<type>: [module names]}, modules: {<name>:
+  {format, description}}, profile: {ticked: {<type>: [names]}, never: {<type>: [names]}}}`.
+  Expansion modules only (E2), `ModuleRole` applied (E7), `auto` folded into `ticked` (E12). One
+  `getEnabledModules` per page.
+- `POST /values/enrichmentStored.json` with `{items: [{value, type}]}` → for each item, per module,
+  the stored answer's `state`, `ran_at`, `total`, and whether it is fresh. A store read only.
+  Items the user holds no visible attribute for come back empty, as if never asked.
+- `POST /values/enrichmentRun.json` with `{value, type, module, mode}` → the shaped answer (§3).
+  `session_write_close()` first, as the Value Profile does. The value must be one the user can
+  see under that type (`enrichmentOccurrence`), or the answer is `ineligible`.
 
 ### 5.2 The pivot
 
 ```js
 {
     id: 'enrich', label: 'Enrich',
-    appliesTo: nodes => nodes.filter(n => isAttribute(n) && eligible(n)),
-    summarize: (nodes, narrowing) => ({
-        total: /* stored totals of the picked modules */,
+    appliesTo: nodes => canRun ? nodes.filter(n => typesOf(n).some(t => typeMap[t])) : [],
+    summarize: async (nodes, narrowing) => /* enrichmentStored for the origin */ ({
+        total: /* stored totals of the ticked modules */,
         facets: [{ key: 'module', label: 'Module', type: 'multiselect',
-                   options: /* one per eligible module, count = stored total */,
-                   default: /* the profile's ticked modules (E12) */ }]
+                   options: /* eligible, minus `never`; label = name + stored-state suffix,
+                               count = stored total */,
+                   default: /* profile ticked/auto + fresh stored */ }]
     }),
-    fetch: (nodes, narrowing, ctx) => /* pairs, 5 at a time, ctx.signal forwarded */
+    fetch: (nodes, narrowing, ctx) => /* refuse over 25 asked pairs; else pairs 5 at a time,
+                                         ctx.signal forwarded; one toast for what did not come */
+    maxCandidates: NODE_BUDGET
 }
 ```
 
-`eligible(n)` reads the catalogue, fetched once per distinct value when the node lands, the way
-correlation counts are. No `save` (E8), no `autoIngest`.
+In the shared kit, so both hosts list it. `typesOf(n)` is the attribute's type, or every type a
+value node is held as. No `save` (E8), no `autoIngest`, no `setPotential` (E9).
 
 ### 5.3 Landing
 
 | Result | Lands as | Joined by |
 |---|---|---|
-| `attributes[]` | attribute node `enr:<type>:<value>` (E4) | `enrichment` edge from the origin attribute, label = module |
-| `objects[]` | closed object node `enr-obj:<module>:<n>`, its attributes as children | `enrichment` edge from the origin |
-| `elements[]` | attribute node of its first type, flagged untyped (E7) | `enrichment` edge from the origin |
+| `attributes[]` | attribute node `enr:<type>:<value>` | `enrichment` edge from the origin, label = module |
+| `objects[]` | closed object node `enr-obj:<module>:<hash>`, its attributes as its own children | `enrichment` edge from the origin |
+| `elements[]` | attribute node `enr:<first type>:<value>`, flagged untyped | `enrichment` edge from the origin |
 
-The node data carries `provenance: 'module'` (E5), the module name, `known`, and whether the
-answer came from the store and how old it is. The sidebar shows them.
+The node data carries `scope: 'module'`, the module name, `known`, the other candidate types of an
+untyped element, and whether the answer came from the store and how old it is. The sidebar shows
+them; a `known` value is a profile link and a hover-card trigger (E13).
 
 ### 5.4 Look
 
-A result node is drawn by `misp-pivot-nodes` like any attribute or object, with the module
-provenance on its own channel (to be chosen in the prototypes; v16 D2 lists the channels already
-taken). The `enrichment` edge kind gets its own colour and legend entry.
+A result node is drawn by `misp-pivot-nodes` like any attribute or object, with *From enrichment*
+on its own channel, chosen in phase B (v16 D2 lists the channels already taken). The `enrichment`
+edge kind gets its own style and its entry in the edge legend. The Provenance legend and facet
+follow E5.
 
 ### 5.5 What did not come back
 
-Per E6. The states that are not results: `silent` → "answered with nothing"; `error` → the
-module's message; `timeout`, `unreachable` → as the Value Profile words them; `refused` → "MISP's
-enrichment workflow declined the query". Nothing a user may not see is counted or hinted at.
+One toast per run (E6). The states that are not results: `silent` → "answered with nothing";
+`error` → the module's message; `timeout`, `unreachable` → as the Value Profile words them;
+`refused` → "MISP's enrichment workflow declined the query"; a `capped` answer → "*module*: 200
+of 1,374 shown". The refusal over the pair cap reads: "30 module queries would be sent; 25 at most per
+run — untick modules or select fewer nodes." Nothing a user may not see is counted or hinted at.
 
 ### 5.6 Cost
 
 A module is asked at most once per value, type and organisation within the freshness window,
 whoever asks, from the graph or the Value Profile. Each ask holds one PHP worker for up to the
-timeout; 5 at once is what the Value Profile already accepts.
+timeout; 5 at once is what the Value Profile already accepts. The module server is asked for its
+module list once per page, not once per node.
 
 ### 5.7 Saving (later pass)
 
 When E8 is taken up: `save` builds the MISP-format JSON of the ingested nodes still unsaved and
-posts it to `handleModuleResults` for this event, only where the origin attribute is this event's
-own and the user can modify it. The library's ledger then counts and offers them.
+posts it to `handleModuleResults` for this event — event-page host only, only where the origin
+attribute is this event's own and the user can modify it. The library's ledger then counts and
+offers them.
 
 ## 6. Out of scope
 
 - Writing results into an event (E8), a *Where this is in MISP* pivot (E13).
-- Hover modules (E2), object-input modules (E3), per-query module options (`userConfig`): no
-  expansion module declares one, and letting a reader set `meta.config` is a credential leak.
-- Auto-running modules on the graph (E12).
+- Hover-only and cortex modules (E2), object-input modules (E3), per-query module options
+  (`userConfig`): no expansion module declares one, and letting a reader set `meta.config` is a
+  credential leak.
+- Auto-running modules on the graph (E12), enrichment potential badges (E9).
 - Enrichment of events, objects as a whole, tags or clusters.
 
 ## 7. Acceptance
 
 Against the dev instance, logged in, dev server on this worktree:
 
-1. On an event with an IP attribute, *Enrich* is offered on it and not on an object or event node.
-2. The Module facet lists only modules that accept the type, with stored answers counted.
+1. On an event with an IP attribute, *Enrich* is offered on it and not on an object or event node;
+   on the value page it is offered on the value node.
+2. The Module facet lists only expansion modules that accept the type — no submitter, uploader or
+   transform — each with its stored state, and starts with the profile's and the fresh ones ticked.
 3. A run with two modules, one answering and one not, lands the first's results joined by
-   `enrichment` edges and says why the second did not.
+   `enrichment` edges, and one toast says why the second did not.
 4. Running the same module again inside the freshness window answers from the store, without
    asking the module server.
 5. The Value Profile's Enrichment tab for that value shows the graph's run.
-6. As `user@admin.test`: *Enrich* offers stored answers only if the user lacks `perm_add`.
+6. A Read Only user is not offered *Enrich*, and `enrichmentRun.json` refuses them.
 7. Undo takes the landed results away; the stored answer stays.
 8. A legacy module's elements land as untyped attributes; none is dropped.
+9. The same record returned from two origins lands as one object node with two edges.
+10. Asking more than 25 pairs is refused before any module is called.
+11. *From enrichment* in the Provenance legend hides every result, on both hosts.
 
 ## 8. Phases
 
-Following the pattern the Value Profile used (contract, competing prototypes, wiring):
-
-- **A — Contract.** Grill §4; record the rulings here; freeze §5.1's JSON.
-- **B — Prototypes.** Two or three cold-built candidates, as static pages against a recorded
-  answer (`circl_passivedns` on `8.8.8.8`, 1,374 objects, is the stress case):
-  - the Module facet with stored state,
-  - Review rows for enrichment results with the per-module notices,
-  - the result node's provenance look.
-- **C — Wiring.** The endpoints, the pivot, tests, acceptance.
+- **A — Contract.** ✅ Grilled 2026-09-30; rulings in §4, JSON frozen in §5.1.
+- **B — Prototypes.** One round, two or three cold-built candidates for the result node's *From
+  enrichment* channel and the `enrichment` edge, as static pages against a recorded answer
+  (`circl_passivedns` on `8.8.8.8`, capped at 200 of 1,374 objects, is the stress case), light and
+  dark. Kept local. The facet and toast wording are settled here, not prototyped.
+- **C — Wiring.** `ModuleRole`, the endpoints, the pivot, tests, acceptance.
 
 ## 9. Files (expected)
 
 | File | Change |
 |---|---|
-| `app/Controller/EventsController.php`, `app/Controller/Component/ACLComponent.php` | `enrichmentModules`, `enrichmentRun` + ACL |
-| `app/webroot/js/pivot-explorer.js` | the pivot, landing, `enrichment` kind, provenance value |
-| `app/webroot/js/misp-pivot-nodes.js` | the module provenance on the node drawing |
-| `app/webroot/js/pivot-sidebar-model.js` | module, stored age, `known` in the sidebar |
-| `tests/js/pivot-explorer-graph.test.js` | the pivot and landing |
-| `~/git/pivotick/prd/` | per-run notices on `PivotResult` (E6), if taken |
+| `app/Lib/Tools/ModuleRole.php` | new: the non-enrichment deny-list (E7) |
+| `app/Model/ValueProfile.php` | `enrichmentEligible` drops `ModuleRole`'s modules; array forms for the three actions |
+| `app/Controller/ValuesController.php`, `app/Controller/Component/ACLComponent.php` | `enrichmentTypes`, `enrichmentStored`, `enrichmentRun` + ACL |
+| `app/webroot/js/pivot-explorer.js` | the pivot in the kit, landing, `enrichment` kind, `scope: 'module'` legend and facet |
+| `app/webroot/js/value-neighbourhood.js` | list the pivot; the provenance legend when module results exist |
+| `app/webroot/js/misp-pivot-nodes.js` | the *From enrichment* channel |
+| `app/webroot/js/pivot-sidebar-model.js` | module, stored age, untyped types, `known` links |
+| `tests/js/pivot-explorer-graph.test.js` | the pivot, ids, landing |
