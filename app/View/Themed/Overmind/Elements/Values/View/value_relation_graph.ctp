@@ -76,8 +76,9 @@ $config = array(
 
         function ready() {
             return typeof window.Pivotick === 'function' && window.MispPivotNodes
+                && window.MispPivotSidebar && window.MispPivotSidebarView
                 && window.MispPivotExplorer && window.MispValueNeighbourhood
-                && window.MispValueNeighbourhood.peek;
+                && window.MispValueNeighbourhoodPeek;
         }
 
         function fail(message) {
@@ -127,7 +128,7 @@ $config = array(
             V.fetchSeed(config.baseurl, config.b64).then(function (seed) {
                 peekEl.innerHTML = '';
                 var shell = window.MispPivotExplorer.create(V.host(Object.assign({}, config, { containerEl: null })));
-                return V.peek(peekEl, seed, {
+                return window.MispValueNeighbourhoodPeek(peekEl, seed, {
                     kit: shell.kit,
                     theme: theme(),
                     onOpen: function () { openFull(seed); }

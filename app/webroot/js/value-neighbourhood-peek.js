@@ -7,14 +7,16 @@
 // everything else counted. No pivots and no interaction; its one action opens
 // the full graph.
 //
-//   MispValueNeighbourhood.peek(el, seed, { kit, theme, onOpen })
+//   MispValueNeighbourhoodPeek(el, seed, { kit, theme, onOpen })
 //
 // Requires value-neighbourhood.js (the model) and misp-pivot-nodes.js.
 
 (function () {
     'use strict';
 
-    var V = window.MispValueNeighbourhood;
+    // The model, read when the peek is drawn: the page's loader runs its
+    // scripts in whatever order they arrive.
+    var V = null;
     var FAR_ROWS = 4;
     var STORY_ROWS = 3;
     var GRAPH_HEIGHT = 190;
@@ -430,6 +432,7 @@
     }
 
     function peek(el0, seed, opts) {
+        V = window.MispValueNeighbourhood;
         var kit = opts.kit;
         // Declares the icon font the node drawings are set in.
         N().options({ size: 'S', theme: opts.theme, fontUrl: kit.baseurl + '/webfonts/misp-iconify.woff2' });
@@ -455,5 +458,5 @@
         return N().ready ? N().ready() : undefined;
     }
 
-    V.peek = peek;
+    window.MispValueNeighbourhoodPeek = peek;
 }());
