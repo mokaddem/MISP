@@ -5160,10 +5160,6 @@ th[aria-sort="descending"] .sort-icon::before,
  * a number; the paragraph behind it is in the fold below. `.vp-fact-
  * line` still renders here, for the two or three readings that are
  * exceptions.
- *
- * Hairline separators rather than borders, following `.vp-rel-strip-
- * row` in the panel above — the rail already reads name-left,
- * figure-right in that shape.
  */
 .vp-rules {
     display: flex;
@@ -5851,60 +5847,6 @@ th[aria-sort="descending"] .sort-icon::before,
     .vp-relsum-landed {
         animation: none;
     }
-}
-
-/*
- * The graph's fallback, and what replaced the three-region SVG sketch.
- *
- * The sketch drew one labelled region per notion and there were three.
- * There are five now, and five regions in a 300px box is a diagram
- * about its own layout. What a reader needs when the library did not
- * arrive is the composition — which notions this value has and how
- * much of each — and that is a list, honestly, rather than a picture
- * pretending to be a graph.
- */
-.vp-rel-strip {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.vp-rel-strip-row {
-    display: grid;
-    grid-template-columns: 10px 1fr auto;
-    align-items: center;
-    gap: 8px;
-    padding: 3px 2px;
-    font-size: 0.78rem;
-}
-
-.vp-rel-strip-row + .vp-rel-strip-row {
-    border-top: 1px solid var(--bs-border-color);
-}
-
-.vp-rel-strip-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-    background: var(--vp-rel-color, var(--bs-secondary-color));
-}
-
-.vp-rel-strip-row.vp-rel-strip-none .vp-rel-strip-dot {
-    background: transparent;
-    border: 1px dashed var(--bs-border-color);
-}
-
-.vp-rel-strip-count {
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-}
-
-.vp-rel-strip-row.vp-rel-strip-none {
-    color: var(--bs-secondary-color);
-}
-
-.vp-rel-strip-row.vp-rel-strip-none .vp-rel-strip-count {
-    font-weight: 400;
 }
 
 /*
@@ -10757,72 +10699,6 @@ a.vp-lane-tag:focus-visible {
     color: var(--bs-secondary-color);
     margin-top: 3px;
 }
-
-/* ------------------------------------------------------------------
- * The neighbourhood graph (phase 24)
- * ------------------------------------------------------------------
- * Pivotick draws into a box it is given and does not pick a height for
- * itself, so the rail states one. 320px is what a 37-node force layout
- * settles into without the labels leaving the card; the overlay below
- * is where a reader goes to see them apart.
- *
- * The sketch this replaces is still in the markup and still styled
- * above — it is the fallback when the library does not arrive, so its
- * rules must not be removed with this addition.
- * ------------------------------------------------------------------ */
-
-.vp-relgraph {
-    width: 100%;
-    height: 320px;
-    min-height: 320px;
-    border-radius: 6px;
-    background: var(--bs-tertiary-bg);
-}
-
-.vp-relgraph-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1080;
-    display: flex;
-    flex-direction: column;
-    background: var(--bs-body-bg);
-}
-
-.vp-relgraph-overlay-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
-}
-
-.vp-relgraph-overlay-title {
-    font-weight: 600;
-    font-family: var(--bs-font-monospace);
-    font-size: 0.9rem;
-    overflow-wrap: anywhere;
-    margin-right: auto;
-}
-
-/* The close button is `btn-outline-light`, which is a light ink — it
-   needs a dark ground in both themes or it disappears in light mode. */
-.vp-relgraph-overlay-bar .btn-outline-light {
-    color: var(--bs-body-color);
-    border-color: var(--bs-border-color);
-}
-
-.vp-relgraph-overlay-bar .btn-outline-light:hover {
-    color: var(--bs-body-bg);
-    background: var(--bs-body-color);
-    border-color: var(--bs-body-color);
-}
-
-.vp-relgraph-overlay-stage {
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
 
 /* ------------------------------------------------------------------
    Proposed additions

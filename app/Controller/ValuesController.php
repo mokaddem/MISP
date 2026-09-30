@@ -1108,13 +1108,18 @@ class ValuesController extends AppController
         );
     }
 
+    /**
+     * The Neighbourhood card: markup only. It draws itself from `graph`,
+     * and the full graph it opens orders labels by the viewer's profile.
+     *
+     * @param string $b64value
+     * @return void
+     */
     public function viewRelationGraph($b64value = null)
     {
-        $this->__renderLivePanel(
-            $b64value,
-            'forRelationGraph',
-            'value_relation_graph'
-        );
+        $value = $this->__decodeValue($b64value);
+        $this->set('pivotLabels', ClassRegistry::init('AnalystProfile')->pivotLabels($this->Auth->user()));
+        $this->__renderPanel(array('value' => $value), 'value_relation_graph');
     }
 
     /**

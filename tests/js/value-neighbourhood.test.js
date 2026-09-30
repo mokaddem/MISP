@@ -65,7 +65,9 @@ function build(seed, routes) {
                 this.getMutableNode = id => live[id];
                 this.getMutableNodes = () => Object.values(live);
                 this.getMutableEdges = () => [];
-                this.on = () => {};
+                const listeners = this.listeners = {};
+                this.on = (evt, f) => { (listeners[evt] = listeners[evt] || []).push(f); };
+                this.addLive = n => { index([n]); (listeners.nodeAdd || []).forEach(f => f()); };
                 this.pivots = { invalidate() {} };
                 const root = makeEl('div');
                 this.UIManager = { getRootContainer: () => root };
@@ -116,7 +118,8 @@ function seed(overrides) {
             Attribute: [attr('a-rdata', '8.8.8.8', { object_relation: 'rdata', event_id: '1' }),
                         attr('a-rrname', 'dns.example', { object_relation: 'rrname', type: 'domain', event_id: '1' })],
         }],
-        Attribute: [attr('a-free', '8.8.8.8', { event_id: '2', Relationship: [{
+        Attribute: [attr('a-plain', '8.8.8.8', { event_id: '2', comment: 'resolver\nsecond line' }),
+                    attr('a-free', '8.8.8.8', { event_id: '2', Relationship: [{
             uuid: 'rel-1', relationship_type: 'derived-from', related_object_type: 'Event',
             related_object_uuid: 'ev-9', authors: 'a@b', orgc_uuid: 'org-1',
             related_object: { Event: { id: '9', uuid: 'ev-9', info: 'Elsewhere', Orgc: { name: 'X' } } },
@@ -211,11 +214,76 @@ test('a near value is a value node on a near edge', () => build(seed()).then(b =
 }));
 
 test('the rest of the occurrences sit on the value\'s rim', () => build(seed()).then(b => {
-    assert.strictEqual(b.live['value:OC44LjguOA=='].potentials.get('more-occurrences'), 28);
+    assert.strictEqual(b.live['value:OC44LjguOA=='].potentials.get('more-occurrences'), 27);
 }));
 
-test('no rim count once everything is drawn', () => build(seed({ meta: { occurrences: { units: 2, seeded: 2 } } })).then(b => {
-    assert.strictEqual(b.live['value:OC44LjguOA=='].potentials.size, 0);
+test('no rim count once everything is drawn', () => build(seed({ meta: { occurrences: { units: 3, seeded: 3 } } })).then(b => {
+    assert.strictEqual(b.live['value:OC44LjguOA=='].potentials.get('more-occurrences') || 0, 0);
+}));
+
+test('the rim count shrinks as occurrences land', () => build(seed()).then(b => {
+    b.graph.addLive({ id: 'attr:landed', data: { type: 'attribute', occurrence_of: 'value:OC44LjguOA==' } });
+    assert.strictEqual(b.live['value:OC44LjguOA=='].potentials.get('more-occurrences'), 26);
+}));
+
+test('an occurrence a reference or claim leaves is a lead; a plain one is not', () => build(seed()).then(b => {
+    assert.strictEqual(byId(b, 'obj:obj-pdns').data.lead, true);
+    assert.strictEqual(byId(b, 'attr:a-free').data.lead, true);
+    assert.strictEqual(byId(b, 'attr:a-plain').data.lead, undefined);
+    const occ = to => edgesOf(b, 'occurrence').find(e => e.to === to);
+    assert.strictEqual(occ('obj:obj-pdns').data.lead, true);
+    assert.strictEqual(occ('attr:a-plain').data.lead, undefined);
+    assert.strictEqual(b.opts.render.edgeTypeAccessor({ getData: () => occ('obj:obj-pdns').data }), 'occurrence-lead');
+    assert.strictEqual(b.opts.render.edgeTypeAccessor({ getData: () => occ('attr:a-plain').data }), 'occurrence');
+}));
+
+test('leads are gathered by far end, new things first', () => build(seed()).then(b => {
+    const L = b.sandbox.window.MispValueNeighbourhood.leads(seed(), b.explorer.kit);
+    assert.deepStrictEqual(Array.from(L.leadUnits, u => u.id).sort(), ['attr:a-free', 'obj:obj-pdns']);
+    assert.deepStrictEqual(Array.from(L.ends, e => e.id), ['obj:obj-far', 'event:ev-9']);
+    assert.strictEqual(L.ends[0].via[0].rel, 'resolves-to');
+    assert.strictEqual(L.ends[0].via[0].dir, 'out');
+    assert.strictEqual(L.ends[0].label, 'dns.example');
+}));
+
+test('the by-event rule folds an event\'s plain occurrences and leaves leads free', () => build(seed()).then(b => {
+    const rule = b.opts.UI.simplify.rules.find(r => r.id === 'by-event');
+    assert.ok(rule && rule.minSize === 3);
+    const node = (id, data) => ({ id, getData: () => data });
+    const ev = node('event:ev-2', { type: 'event' });
+    const plain = node('attr:p', { type: 'attribute', occurrence_of: 'value:x' });
+    const lead = node('attr:l', { type: 'attribute', occurrence_of: 'value:x', lead: true });
+    const far = node('attr:f', { type: 'attribute' });
+    const view = { nodes: [plain, lead, far, ev], groupOf: () => null,
+                   outNeighbours: () => [ev], inNeighbours: () => [] };
+    const out = rule.partition(view);
+    assert.deepStrictEqual(Array.from(out.entries()), [['attr:p', 'event:event:ev-2']]);
+    const order = Array.from(b.opts.UI.simplify.rules, r => r.id || r.kind);
+    assert.strictEqual(order.indexOf('by-event'), order.indexOf('landings') + 1);
+}));
+
+test('the graph opens as a horizontal tree from the value, rim counts shown', () => build(seed()).then(b => {
+    assert.strictEqual(b.opts.layout.type, 'tree');
+    assert.strictEqual(b.opts.layout.horizontal, true);
+    assert.strictEqual(b.opts.layout.rootId, 'value:OC44LjguOA==');
+    assert.strictEqual(b.opts.pivotRimBadgeVisible, 'always');
+}));
+
+test('stories: one per event, newest first, with roles, links and context', () => build(seed()).then(b => {
+    const V = b.sandbox.window.MispValueNeighbourhood;
+    // Same date: the event holding the value more often comes first.
+    assert.deepStrictEqual(Array.from(V.stories(seed()), s => s.id), ['2', '1']);
+    const s = seed();
+    s.events[1].date = '2026-09-20';
+    const list = V.stories(s);
+    assert.deepStrictEqual(Array.from(list, x => x.id), ['1', '2']);
+    const pdns = list[0];
+    assert.strictEqual(pdns.roles[pdns.roleOrder[0]].label.rel, 'rdata');
+    assert.strictEqual(pdns.links[0].rel, 'resolves-to');
+    assert.strictEqual(pdns.links[0].name, 'domain-ip');
+    assert.strictEqual(list[1].count, 2);
+    assert.strictEqual(list[1].notes[0], 'resolver');
+    assert.strictEqual(list[1].claims, 1);
 }));
 
 test('no provenance: no "this event" legend or facet', () => build(seed()).then(b => {
@@ -244,8 +312,8 @@ test('value nodes draw, and occurrence and near edges are styled', () => build(s
 
 test('the payload handed to the explorer holds every record drawn', () => build(seed()).then(b => {
     const p = b.sandbox.window.MispValueNeighbourhood.payloadOf(seed());
-    assert.deepStrictEqual(p.Event.Object.map(o => o.uuid), ['obj-pdns', 'obj-far']);
-    assert.deepStrictEqual(p.Event.Attribute.map(a => a.uuid), ['a-free']);
+    assert.deepStrictEqual(Array.from(p.Event.Object, o => o.uuid), ['obj-pdns', 'obj-far']);
+    assert.deepStrictEqual(Array.from(p.Event.Attribute, a => a.uuid), ['a-plain', 'a-free']);
 }));
 
 function moreOccurrences(b) {
@@ -276,6 +344,18 @@ test('more occurrences counts with facets, excluding what is drawn', () => {
             const template = s.facets.find(f => f.key === 'template');
             assert.deepStrictEqual(template.options.map(o => o.label), ['passive-dns', 'Not in an object']);
             assert.strictEqual(s.facets.find(f => f.key === 'org').options[0].value, '9');
+        });
+    });
+});
+
+test('more occurrences says the window it lands and the whole set it matched', () => {
+    const routes = [[/graphOccurrences/, () => ({ total: 48195, by_template: {}, by_org: [], by_year: {} })]];
+    return build(seed(), routes).then(b => {
+        const centre = b.graph.getMutableNode('value:OC44LjguOA==');
+        return moreOccurrences(b).summarize([centre], {}, {}).then(s => {
+            assert.strictEqual(s.total, 200);
+            assert.strictEqual(s.matched, 48195);
+            assert.strictEqual(moreOccurrences(b).maxCandidates, 200);
         });
     });
 });
