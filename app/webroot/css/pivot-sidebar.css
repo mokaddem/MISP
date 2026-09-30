@@ -291,6 +291,40 @@
 .pes-entry-sub { font-size: 11px; color: var(--pes-ink-2); overflow-wrap: anywhere; }
 .pes-entry-sub .pes-code { color: var(--pes-ink); }
 
+/* Notes and opinions, as AnalystData/thread.ctp draws them: a group per kind
+   under its accent, a card per item ruled in its own kind's accent. The page's
+   Bootstrap colours, which follow the same data-bs-theme pivotick does. */
+.pes-ad { display: flex; flex-direction: column; gap: 12px; margin-top: 2px; }
+.pes-ad-group { display: flex; flex-direction: column; gap: 6px; }
+.pes-ad-h { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+            display: flex; align-items: center; gap: 5px; }
+.pes-ad-h.is-note { color: var(--bs-primary, #0D6EFD); }
+.pes-ad-h.is-opinion { color: var(--bs-success, #198754); }
+.pes-ad-card { border: 1px solid var(--pes-line); border-left: 3px solid var(--pes-ad-accent);
+               border-radius: 6px; padding: 6px 8px; min-width: 0; }
+.pes-ad-card.is-note { --pes-ad-accent: var(--bs-primary, #0D6EFD); }
+.pes-ad-card.is-opinion { --pes-ad-accent: var(--bs-success, #198754); }
+.pes-ad-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pes-ad-card.is-note > .pes-ad-top { align-items: flex-start; }
+.pes-ad-dist { flex: none; font-size: 10px; color: var(--pes-ink-3); }
+.pes-ad-card.is-note > .pes-ad-top > .pes-ad-dist { margin-top: 3px; }
+.pes-ad-text { color: var(--pes-ink); white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; flex: 1 1 auto; }
+.pes-ad-card.is-opinion > .pes-ad-text { margin-top: 4px; }
+.pes-ad-opinion { font-size: 10.5px; font-weight: 600; line-height: 1.4; padding: 1px 6px; border-radius: 4px;
+                  border: 1px solid var(--pes-ad-op-edge); background: var(--pes-ad-op-bg); color: var(--pes-ad-op-ink); }
+.pes-ad-opinion.is-agree { --pes-ad-op-bg: var(--bs-success-bg-subtle, #D1E7DD);
+                           --pes-ad-op-ink: var(--bs-success-text-emphasis, #0A3622);
+                           --pes-ad-op-edge: var(--bs-success-border-subtle, #A3CFBB); }
+.pes-ad-opinion.is-disagree { --pes-ad-op-bg: var(--bs-danger-bg-subtle, #F8D7DA);
+                              --pes-ad-op-ink: var(--bs-danger-text-emphasis, #58151C);
+                              --pes-ad-op-edge: var(--bs-danger-border-subtle, #F1AEB5); }
+.pes-ad-opinion.is-neutral { --pes-ad-op-bg: var(--bs-secondary-bg-subtle, #E2E3E5);
+                             --pes-ad-op-ink: var(--bs-secondary-text-emphasis, #2B2F32);
+                             --pes-ad-op-edge: var(--bs-secondary-border-subtle, #C4C8CB); }
+.pes-ad-meta { font-size: 10.5px; color: var(--pes-ink-3); margin-top: 4px; overflow-wrap: anywhere; }
+.pes-ad-meta .fa-solid { font-size: 9px; margin-right: 3px; }
+.pes-ad-replies { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 0 10px; }
+
 .pes-skel { display: block; height: 9px; border-radius: 3px; background: var(--pes-inset); margin: 4px 0 0;
            background-image: linear-gradient(90deg, transparent, var(--pes-line), transparent); }
 .pes-skel.w60 { width: 60%; } .pes-skel.w80 { width: 80%; } .pes-skel.w40 { width: 40%; }

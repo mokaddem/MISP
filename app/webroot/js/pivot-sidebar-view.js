@@ -916,25 +916,66 @@
         list.push(sec);
     }
 
+    /* ── analyst data, drawn as AnalystData/thread.ctp draws it ── */
+    function titleCase(s) {
+        return String(s).replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    }
+    function analystCard(it) {
+        var card = h('div', 'pes-ad-card is-' + it.kind);
+        var top = add(card, h('div', 'pes-ad-top'));
+        if (it.distribution) {
+            var dist = add(top, fa(DIST_ICON[it.distribution] || 'share-nodes'));
+            dist.classList.add('pes-ad-dist');
+            dist.title = it.distribution;
+        }
+        if (it.kind === 'opinion') {
+            if (it.opinion !== null) {
+                var mood = it.opinion === 50 ? 'is-neutral' : it.opinion > 50 ? 'is-agree' : 'is-disagree';
+                add(top, h('span', 'pes-ad-opinion ' + mood,
+                           titleCase(it.opinion_label) + ' · ' + Math.round(it.opinion) + '/100'));
+            }
+            if (it.text) add(card, h('div', 'pes-ad-text', it.text));
+        } else {
+            add(top, h('div', 'pes-ad-text', it.text));
+        }
+        var meta = [];
+        if (it.authors) meta.push([fa('user'), it.authors]);
+        if (it.created) meta.push([fa('clock'), it.created]);
+        if (meta.length) {
+            var m = add(card, h('div', 'pes-ad-meta'));
+            meta.forEach(function (bit, i) {
+                if (i) m.appendChild(document.createTextNode(' · '));
+                stripItem(m, bit);
+            });
+        }
+        if (it.children && it.children.length) {
+            var replies = add(card, h('div', 'pes-ad-replies'));
+            it.children.forEach(function (c) { add(replies, analystCard(c)); });
+        }
+        return card;
+    }
+    function analystThread(a) {
+        var wrap = h('div', 'pes-ad');
+        [['note', 'Notes', 'analyst-note'], ['opinion', 'Opinions', 'analyst-opinion']].forEach(function (g) {
+            var roots = (a.roots || []).filter(function (it) { return it.kind === g[0]; });
+            if (!roots.length) return;
+            var group = add(wrap, h('div', 'pes-ad-group'));
+            var head = add(group, h('div', 'pes-ad-h is-' + g[0]));
+            add(head, mi('simple', g[2]));
+            head.appendChild(document.createTextNode(g[1] + ' (' + roots.length + ')'));
+            roots.forEach(function (it) { add(group, analystCard(it)); });
+        });
+        return wrap;
+    }
+
     function analystSection(vm, list) {
         var a = vm.analyst;
         if (!recordKnown(vm)) return;
         if (!a) return;
         var sec = section('analyst', 'Analyst data', a.items.length + a.relationships, null, vm);
-        rows(sec, [
-            ['Notes', a.notes || null], ['Opinions', a.opinions ? a.opinions + (a.mood !== 'none' ? ' · ' + a.mood : '') : null],
-            ['Relationships', a.relationships || null]
-        ]);
-        var ul = add(sec.el, h('ul', 'pes-entries'));
-        a.items.forEach(function (it) {
-            var li = add(ul, h('li', 'pes-entry'));
-            li.style.paddingLeft = (it.depth * 10) + 'px';
-            var top = add(li, h('div', 'pes-entry-top'));
-            add(top, h('span', 'pes-entry-name', it.kind === 'note' ? 'Note' : 'Opinion · ' + it.opinion_label));
-            if (it.authors) add(top, h('span', 'pes-entry-fig', it.authors));
-            if (it.text) add(li, h('div', 'pes-meaning', it.text));
-            sec.weight += 2;
-        });
+        if (a.relationships) rows(sec, [['Relationships', a.relationships]]);
+        add(sec.el, analystThread(a));
+        sec.weight += 2 * a.items.length;
         list.push(sec);
     }
 
@@ -1396,6 +1437,8 @@
         // A multi-selection: the labels and orgs its nodes share.
         shared: function (vm) {
             return Q.shared(vm);
-        }
+        },
+        // The notes and opinions MispPivotSidebar.analyst() found on a record.
+        analystThread: analystThread
     };
 }(typeof window !== 'undefined' ? window : this));

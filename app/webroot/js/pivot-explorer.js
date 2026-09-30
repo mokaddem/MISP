@@ -985,11 +985,6 @@
         return mean < 41 ? 'disputed' : (mean > 60 ? 'endorsed' : 'neutral');
     }
 
-    function opinionLabel(v) {
-        return v >= 81 ? 'Strongly agree' : v >= 61 ? 'Agree' : v >= 41 ? 'Neutral'
-             : v >= 21 ? 'Disagree' : 'Strongly disagree';
-    }
-
     // The two fields a node carries, flat so the filter builder can index
     // them. Absent — not zero — without analyst data, so such a node's data
     // is exactly what it was before.
@@ -1097,38 +1092,6 @@
         return e;
     }
 
-    // One entry: who, when, and what they said. Replies are indented a step
-    // under what they answer; the list itself stays flat (§4).
-    function analystEntry(item) {
-        var a = item.rec, row = el('div', 'pe-analyst-entry');
-        row.style.cssText = 'margin:0 0 .6rem ' + (item.depth * .9) + 'rem;';
-        var head = [];
-        if (item.kind === 'Opinion') {
-            var v = Number(a.opinion);
-            head.push(isNaN(v) ? 'Opinion' : opinionLabel(v) + ' (' + v + '/100)');
-        } else {
-            head.push('Note');
-        }
-        if (item.depth) head.push('reply');
-        var meta = [(a.Orgc && a.Orgc.name) || a.authors, a.created && String(a.created).slice(0, 10)]
-            .filter(Boolean).join(' · ');
-        var h = el('div', null, head.join(' · '));
-        h.style.cssText = 'font-weight:600;';
-        row.appendChild(h);
-        if (meta) {
-            var m = el('div', null, meta);
-            m.style.cssText = 'font-size:.75em;opacity:.65;';
-            row.appendChild(m);
-        }
-        var body = item.kind === 'Opinion' ? a.comment : a.note;
-        if (body) {
-            var b = el('div', null, String(body));
-            b.style.cssText = 'white-space:pre-wrap;word-break:break-word;';
-            row.appendChild(b);
-        }
-        return row;
-    }
-
     function renderAnalystPanel(selection) {
         var wrap = el('div', 'pe-analyst');
         wrap.style.cssText = 'font-size:.85rem;';
@@ -1138,14 +1101,14 @@
         }
         var d = selection && selection.getData ? selection.getData() : null;
         var rec = d && d.uuid && analystSource(d.uuid);
-        var items = rec ? analystRecords(rec) : [];
-        if (!items.length) {
+        var a = rec ? window.MispPivotSidebar.analyst(rec) : null;
+        if (!a || !a.items.length) {
             var none = el('div', null, 'No notes or opinions on this element.');
             none.style.cssText = 'opacity:.65;';
             wrap.appendChild(none);
             return wrap;
         }
-        items.forEach(function (item) { wrap.appendChild(analystEntry(item)); });
+        wrap.appendChild(window.MispPivotSidebarView.analystThread(a));
         return wrap;
     }
 

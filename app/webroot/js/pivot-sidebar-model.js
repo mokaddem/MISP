@@ -567,24 +567,30 @@
              : v >= 21 ? 'Disagree' : 'Strongly disagree';
     }
 
-    // Notes and opinions on a record, and those left on them in turn.
+    // Notes and opinions on a record, and those left on them in turn: flat in
+    // `items`, and as the thread they form from `roots` down `children`.
     function analyst(rec) {
         var items = [];
-        (function walk(r, depth) {
+        var roots = (function walk(r, depth) {
+            var level = [];
             ['Note', 'Opinion'].forEach(function (k) {
                 (r[k] || []).forEach(function (a) {
                     var op = k === 'Opinion' ? num(a.opinion) : null;
-                    items.push({
+                    var it = {
                         kind: k === 'Note' ? 'note' : 'opinion', uuid: a.uuid, depth: depth,
                         text: k === 'Note' ? (a.note || '') : (a.comment || ''),
                         opinion: op, opinion_label: op === null ? null : opinionLabel(op),
-                        authors: a.authors || null, org_uuid: a.orgc_uuid || null,
+                        authors: a.authors || (a.Orgc && a.Orgc.name) || null, org_uuid: a.orgc_uuid || null,
                         created: a.created || null, modified: a.modified || null,
-                        language: a.language || null
-                    });
-                    walk(a, depth + 1);
+                        language: a.language || null,
+                        distribution: enumLabel(DISTRIBUTION, a.distribution)
+                    };
+                    items.push(it);
+                    level.push(it);
+                    it.children = walk(a, depth + 1);
                 });
             });
+            return level;
         })(rec || {}, 0);
         var relationships = ((rec && rec.Relationship) || []).filter(function (r) { return !isDeleted(r); });
         if (!items.length && !relationships.length) return null;
@@ -595,7 +601,7 @@
             opinions: items.filter(function (i) { return i.kind === 'opinion'; }).length,
             relationships: relationships.length,
             mood: mean === null ? 'none' : mean < 41 ? 'disputed' : mean > 60 ? 'endorsed' : 'neutral',
-            items: items
+            items: items, roots: roots
         };
     }
 
@@ -1044,6 +1050,7 @@
         priority: priority,
         build: build,
         propertyRows: propertyRows,
+        analyst: analyst,
         DISTRIBUTION: DISTRIBUTION, ANALYSIS: ANALYSIS, THREAT_LEVEL: THREAT_LEVEL, EDGE_KINDS: EDGE_KINDS
     };
 
