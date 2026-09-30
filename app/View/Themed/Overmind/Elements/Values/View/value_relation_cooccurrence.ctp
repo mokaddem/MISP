@@ -2,6 +2,7 @@
 App::uses('ValueFieldKind', 'Tools/ValueProfile');
 App::uses('ValueRelationTool', 'Tools/ValueProfile');
 App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
 App::uses('GalaxyColour', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine
@@ -386,6 +387,21 @@ $listedMark = function ($lists) use ($view) {
         array('lists' => $lists)
     );
 };
+
+/**
+ * A neighbour's value cell opens its own hover card where the instance
+ * has the card on, and is left exactly as it was where it has not.
+ *
+ * @param string $value
+ * @return string the trigger's attribute, or nothing
+ */
+$hoverCardOn = (bool)Configure::read('MISP.value_hover_card');
+$hoverCard = function ($value) use ($hoverCardOn) {
+    return $hoverCardOn
+        ? ' data-vp-hc-value="' . h(ValueUrlTool::encode($value)) . '"'
+        : '';
+};
+$hoverClass = $hoverCardOn ? ' vp-hc-trigger' : '';
 
 /**
  * The type, through MISP's own badge, re-flowed for a dense row by
@@ -1528,7 +1544,9 @@ $headerSub = ob_get_clean();
                                         empty($sibling['warninglists'])
                                             ? ''
                                             : ' vp-rel-listed'
-                                    ?>"><?=
+                                    ?><?= $hoverClass ?>"<?=
+                                        $hoverCard($sibling['value'])
+                                    ?>><?=
                                         h($sibling['value']) ?></span><?=
                                         $listedMark(
                                             $sibling['warninglists']
@@ -2362,7 +2380,9 @@ $headerSub = ob_get_clean();
                                             empty($row['warninglists'])
                                                 ? ''
                                                 : ' vp-rel-listed'
-                                        ?>"><?=
+                                        ?><?= $hoverClass ?>"<?=
+                                            $hoverCard($row['value'])
+                                        ?>><?=
                                             h($row['value']) ?></span><?=
                                             $listedMark(
                                                 $row['warninglists']
