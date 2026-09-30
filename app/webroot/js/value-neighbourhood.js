@@ -614,7 +614,8 @@
         });
         var p = kit.pivots;
         return [more, where, p.feedEvents(), p.tags(), p.taggedEvents(), p.relatedClusters(),
-                p.surroundings(), p.cardElements('ids'), p.cardElements('network'), p.cardElements('all')];
+                p.surroundings(), p.cardElements('ids'), p.cardElements('network'), p.cardElements('all'),
+                p.enrich()].filter(Boolean);
     }
 
     /* ── options ───────────────────────────────────────────── */
@@ -736,6 +737,7 @@
                 orgUuid:   config.orgUuid,
                 siteAdmin: config.siteAdmin,
                 valueCard: config.valueCard,
+                canEnrich: config.canEnrich,
                 text:      config.text
             },
             load:       loadSeed(config),
