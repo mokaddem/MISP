@@ -66,6 +66,8 @@ function makeEl(tag) {
         removeEventListener() {},
         querySelector() { return null; },
         focus() {},
+        // Layout, as a test sets it: `_rect` in viewport coordinates.
+        getBoundingClientRect() { return Object.assign({ top: 0, bottom: 0 }, this._rect); },
         classList: {
             _s: new Set(),
             add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },
@@ -115,13 +117,18 @@ function buildGraph(payload, options) {
     const pane = makeEl('div');
     pane.classList.add('active');
 
+    const graphEl = makeEl('div');
+    const layout = options.layout || {};
+    graphEl._rect = { top: layout.graphTop || 0, bottom: (layout.graphTop || 0) + 720 };
+    card._rect = { bottom: graphEl._rect.bottom + (layout.cardBorder || 0) };
     const byId = {
         'pe-card': card,
         'pe-stage': makeEl('div'),
         'pivot-explorer-loader': makeEl('div'),
-        'pivot-explorer-graph': makeEl('div'),
+        'pivot-explorer-graph': graphEl,
         'tab-pivot-explorer': pane,
     };
+    const resizers = [];
 
     const sandbox = {
         document: {
@@ -199,6 +206,11 @@ function buildGraph(payload, options) {
                 constructed.graph = this;
             },
             location: { href: '' },
+            innerHeight: layout.innerHeight || 1000,
+            scrollY: layout.scrollY || 0,
+            getComputedStyle: el => ({ marginBottom: el === card ? (layout.cardMargin || 0) + 'px' : '0px' }),
+            addEventListener: (t, f) => { if (t === 'resize') resizers.push(f); },
+            requestAnimationFrame: f => f(),
             opened: [],
             open(url, target, features) { this.opened.push([url, target, features]); },
             navigator: options.navigator || {},
@@ -241,6 +253,7 @@ function buildGraph(payload, options) {
             opts: constructed.opts,
             graph: constructed.graph,
             win: sandbox.window,
+            graphEl, resizers,
             fetchLog,
             tray, errors,
         };
@@ -2738,6 +2751,18 @@ test('a facet\'s options are what the live graph holds, children included', asyn
         { label: 'Payload delivery', value: 'Payload delivery' }]);
 });
 
+test('the canvas takes the window height below its top, down to its card\'s edge', async () => {
+    const layout = { innerHeight: 1000, graphTop: 246, cardBorder: 1, cardMargin: 16 };
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'a1', id: '1' })] }), { layout });
+    eq('fitted when shown', g.graphEl.style.height, (1000 - 246 - 17) + 'px');
+    g.win.innerHeight = 1400;
+    g.resizers.forEach(f => f());
+    eq('refitted on resize', g.graphEl.style.height, (1400 - 246 - 17) + 'px');
+    g.win.innerHeight = 600;
+    g.resizers.forEach(f => f());
+    eq('never shorter than 480px', g.graphEl.style.height, '480px');
+});
+
 /* ────────────── task 5b: feed and server correlations ────────────── */
 
 // A feed as Feed::attachFeedCorrelations() attaches it: the full record on the
@@ -2874,6 +2899,9 @@ test('5b: sources are styled, iconed and keyed like the other elements', async (
     ok('its chip names the server and its provider, in the server hue',
        /Partner MISP/.test(chip) && /CIRCL/.test(chip) && /#D0539F/.test(chip));
     eq('its edges take the same hue', r.edgeStyleMap['server-correlation'].strokeColor, '#D0539F');
+    eq('a feed\'s edges take the feed\'s hue',
+       [r.edgeStyleMap['feed-correlation'].strokeColor, r.edgeStyleMap['feed-event'].strokeColor],
+       ['#D4A017', '#D4A017']);
     eq('the accessor reads the type', r.nodeTypeAccessor(pnode({ type: 'feed' })), 'feed');
     const styled = Object.keys(r.edgeStyleMap);
     g.edges.forEach(e => ok('kind ' + e.data.kind + ' is styled',

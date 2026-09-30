@@ -2843,8 +2843,8 @@
                     'in-event':             { strokeColor: '#6c737d', strokeWidth: 1, markerEnd: 'none' },
                     'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
                     'correlation':          { strokeColor: '#888', dashed: true },
-                    'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
-                    'feed-event':           { strokeColor: FEED_COLOR },
+                    'feed-correlation':     { strokeColor: window.MispPivotNodes.palette().feed.core, dashed: true },
+                    'feed-event':           { strokeColor: window.MispPivotNodes.palette().feed.core },
                     'server-correlation':   { strokeColor: window.MispPivotNodes.palette().server.core, dashed: true },
                     'tag':                  { strokeColor: '#8a8f98', dashed: true },
                     'cluster-relation':     { strokeColor: window.MispPivotNodes.palette().galaxy.core }
@@ -2958,6 +2958,34 @@
         loaderEl.appendChild(p);
     }
 
+    // The canvas takes the window's height below its top, down to its card's
+    // own bottom edge; MISP's footer stays below the fold.
+    var MIN_GRAPH_HEIGHT = 480;
+    function fitGraphHeight(el) {
+        if (!el || document.fullscreenElement) return;
+        var card = document.getElementById('pe-card');
+        var rect = el.getBoundingClientRect();
+        var below = card
+            ? card.getBoundingClientRect().bottom - rect.bottom +
+              (parseFloat(window.getComputedStyle(card).marginBottom) || 0)
+            : 0;
+        var top = rect.top + window.scrollY;
+        el.style.height = Math.max(MIN_GRAPH_HEIGHT,
+                                   Math.floor(window.innerHeight - top - below)) + 'px';
+    }
+
+    function keepGraphFitted(el) {
+        var pending = false;
+        window.addEventListener('resize', function () {
+            if (pending) return;
+            pending = true;
+            window.requestAnimationFrame(function () {
+                pending = false;
+                fitGraphHeight(el);
+            });
+        });
+    }
+
     /* ── init ──────────────────────────────────────────────── */
     function initGraph() {
         if (_initialized) return;
@@ -2981,7 +3009,11 @@
                 var data = buildGraphData(event);
 
                 if (loaderEl)    loaderEl.style.display    = 'none';
-                if (containerEl) containerEl.style.display = '';
+                if (containerEl) {
+                    containerEl.style.display = '';
+                    fitGraphHeight(containerEl);
+                    keepGraphFitted(containerEl);
+                }
 
                 var editor = (canEdit || canAnalyst) ? createEditor() : null;
                 var opts   = graphOptions();

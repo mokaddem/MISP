@@ -1169,7 +1169,7 @@ render: {
         'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
         'event-correlation':    { strokeColor: '#6fbe80', dashed: true },
         'correlation':          { strokeColor: '#888', dashed: true },
-        'feed-correlation':     { strokeColor: '#5bc0de', dashed: true },
+        'feed-correlation':     { strokeColor: '#D4A017', dashed: true },  // palette().feed.core
         'server-correlation':   { strokeColor: '#D0539F', dashed: true },  // palette().server.core
     },
 },
