@@ -267,6 +267,9 @@ test('the graph opens as a horizontal tree from the value, rim counts shown', ()
     assert.strictEqual(b.opts.layout.horizontal, true);
     assert.strictEqual(b.opts.layout.rootId, 'value:OC44LjguOA==');
     assert.strictEqual(b.opts.pivotRimBadgeVisible, 'always');
+    // Too big to fit legibly: open at the cards' zoom, on the value.
+    assert.strictEqual(b.opts.render.minFitScale, 0.82);
+    assert.strictEqual(b.opts.render.fitAnchor, 'value:OC44LjguOA==');
 }));
 
 test('stories: one per event, newest first, with roles, links and context', () => build(seed()).then(b => {

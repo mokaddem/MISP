@@ -100,11 +100,7 @@
                     simplify: { rules: [V.byEventRule()] }
                 }
             });
-            graph.on('ready', function () {
-                // The library's own fit measures before the groups fold.
-                graph.renderer.fitAndCenterWhenSettled();
-                window.setTimeout(function () { box.style.visibility = ''; }, 250);
-            });
+            graph.on('ready', function () { box.style.visibility = ''; });
         } catch (e) {
             console.error('[value-neighbourhood] peek graph failed:', e);
             box.remove();

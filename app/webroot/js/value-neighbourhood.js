@@ -635,6 +635,10 @@
                 return d && d.kind === 'occurrence' && d.lead ? 'occurrence-lead' : edgeType(edge);
             };
             opts.layout = openingLayout(seed.raw, config.containerEl && config.containerEl.clientHeight);
+            // Too many rows to fit at a readable size: open where the cards
+            // read, on the value, and leave the rest to the minimap.
+            opts.render.minFitScale = CARD_ZOOM;
+            opts.render.fitAnchor = valueNodeId(seed.raw.value.b64);
             // The tree places every node; the physics only settles it.
             opts.simulation.cooldownTime = 1000;
             // What is not drawn yet is the value's rim count, shown from the start.
@@ -694,16 +698,6 @@
                 };
                 graph.on('nodeAdd', changed);
                 graph.on('nodeRemove', changed);
-            }
-            // Too many rows to fit at a readable size: open where the cards
-            // read, on the value's row, and leave the rest to the minimap.
-            var height = (config.containerEl && config.containerEl.clientHeight) || 900;
-            if (rowsOf(seed.raw) * ROW_PX > height && typeof graph.on === 'function') {
-                graph.on('ready', function () {
-                    if (graph.renderer && graph.renderer.fitAndCenterWhenSettled) {
-                        graph.renderer.fitAndCenterWhenSettled(CARD_ZOOM);
-                    }
-                });
             }
         };
     }
