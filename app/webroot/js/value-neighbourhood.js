@@ -552,9 +552,9 @@
             maxCandidates: PIVOT_BUDGET,
             appliesTo:     function (nodes) { return nodes.filter(spec.applies); },
             summarize: function (nodes, narrowing, ctx) {
-                // A fetch lands the newest PIVOT_BUDGET: that is what the run is
-                // judged on; `matched` is the whole set, for when pivotick shows it
-                // (prd/pivot-summary-window). The value's rim count says it today.
+                // A fetch lands the newest PIVOT_BUDGET, which is what the run is
+                // judged on; `matched` is the whole set, which the value's rim
+                // count shows.
                 return ask(body(nodes, narrowing, true), ctx && ctx.signal).then(function (c) {
                     return { total: Math.min(c.total || 0, PIVOT_BUDGET), matched: c.total || 0,
                              facets: occurrenceFacets(c) };
