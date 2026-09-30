@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
 **Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
-added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Next: saving (E8).
+added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30 (§10); two parts wait on pivotick.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -47,7 +47,7 @@ canvas like any other pivot's.
 | Sidebar: provenance, notice, known-only links (E13) | ✅ | `5cccb6836` |
 | Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); two pivotick asks shipped (`e2537f0`, vendored `b9ff699ec`), one declined |
 | Unit tests, acceptance (§7) | ✅ | explorer 765/0, sidebar model 87/0, neighbourhood 29/0; §7 below |
-| Save into the event (§5.7) | — | E8: later pass |
+| Save into the event (§10) | 🟡 | panel Save wired and accepted (§10.7); the prompt and the selection action wait on pivotick (§10.4); S9 open |
 
 ## 2. What the analyst sees
 
@@ -155,7 +155,7 @@ enrichment at all (E7).
 | E5 | **Provenance.** | **`scope: 'module'`, labelled *From enrichment*.** The Provenance legend and facet appear whenever a module result is on the canvas, even on a host that turns provenance off: *This event · Elsewhere · From enrichment* on the event page, *In MISP · From enrichment* on the value page. |
 | E6 | **What did not come back.** | **One `graph.notifier.warning` per run**, listing each module that gave nothing and why, and each capped answer. A run where no module answered throws with their reasons. No pivotick change: the notifier is already the explorer's, and the stored failure shows in the facet label next time. |
 | E7 | **Legacy text modules, and modules that are not enrichment.** | **A legacy element lands as its first listed type**, flagged untyped by the module, with its other types in the sidebar; an ip-src/ip-dst duplicate against a typed module's answer is accepted. **A shipped deny-list, `ModuleRole`**, removes the modules that are not enrichment — submitters and uploaders (they send a sample out, with side effects), document transforms, query builders and validators — with a profile override like `ModuleLocality`'s. The Value Profile's tab honours it too. |
-| E8 | **Saving into the event.** | **Not this pass.** No `save` is declared, so nothing is counted unsaved. The value page has no event to save into; §5.7 stays as the seam. |
+| E8 | **Saving into the event.** | **Not this pass** at first; taken up and ruled 2026-09-30 in §10 (S1–S8). The value page has no event to save into, so it declares no `save`. |
 | E9 | **Potential.** | **No rim badge for enrichment**, stored answer or not. |
 | E10 | **Many origins.** | **5 calls in flight; at most 25 asked pairs** (node × module) per run, stored answers not counted. Over it, `fetch` refuses **before any call**, with the number, the limit and the way out. `maxCandidates: NODE_BUDGET` as every other pivot. |
 | E11 | **Readers who may not run modules.** | **No `perm_add`, no *Enrich*** — `appliesTo` returns nothing and the endpoints refuse. Among the shipped roles only *Read Only* lacks it, and a role's permission tier 0 is what clears it (`Role.php:52`, `:80`). |
@@ -268,7 +268,7 @@ whoever asks, from the graph or the Value Profile. Each ask holds one PHP worker
 timeout; 5 at once is what the Value Profile already accepts. The module server is asked for its
 module list once per page, not once per node.
 
-### 5.7 Saving (later pass)
+### 5.7 Saving (later pass — taken up in §10)
 
 When E8 is taken up: `save` builds the MISP-format JSON of the ingested nodes still unsaved and
 posts it to `handleModuleResults` for this event — event-page host only, only where the origin
@@ -277,7 +277,7 @@ offers them.
 
 ## 6. Out of scope
 
-- Writing results into an event (E8), a *Where this is in MISP* pivot (E13).
+- A *Where this is in MISP* pivot (E13). Writing results into an event is §10.
 - Hover-only and cortex modules (E2), object-input modules (E3), per-query module options
   (`userConfig`): no expansion module declares one, and letting a reader set `meta.config` is a
   credential leak.
@@ -346,3 +346,121 @@ Against the dev instance, logged in, dev server on this worktree:
 | `app/webroot/js/value-neighbourhood.js` | list the pivot; the provenance legend when module results exist |
 | `app/webroot/js/pivot-sidebar-model.js` | module, stored age, untyped types, `known` links |
 | `tests/js/pivot-explorer-graph.test.js` | the pivot, ids, landing |
+
+## 10. Saving into the event (E8)
+
+### 10.1 What the analyst sees (proposed)
+
+On the event page, for a viewer who may modify the event, the Enrich pivot's results can be
+saved. Once some are ingested, the Pivot panel says how many are unsaved and offers **Save**;
+the triage pane says the same for its own provider. Save writes them into this event: an object
+result becomes a MISP object, a loose result a MISP attribute, each tied back to what it was run
+on where MISP can say so. A toast reports *Saved 12* or *Saved 9 of 12 — Retry*, and why.
+
+A saved result stops claiming *Not in MISP*: it is this event's now. Undo after a save takes it
+off the canvas only; the event keeps it. The value page, and a viewer who may not modify the
+event, see no Save and no unsaved count — the results stay the canvas's only, as today.
+
+### 10.2 Measured 2026-09-30
+
+- **Pivotick has the whole door** (`~/git/pivotick/prd/pivot-persistence.md`, built): `save` on
+  the definition, a per-element ledger, `unsavedCount`, a panel/pane Save, partial outcomes with
+  Retry, `canonicalIds` so a re-run dedups against what was saved, `pivotMarkUnsaved`. Vendored
+  in MISP. **Savability is per pivot**, not per run (`PivotManager.savable`): every run of a
+  pivot that declares `save` is enrolled.
+- **`handleModuleResults` does not fit.** It goes through `processModuleResultsDataRouter`,
+  which queues a background job when `MISP.background_jobs` is on and answers "queued"; either
+  way the answer is a flash string, with no per-element outcome and no ids.
+- **`processModuleResultsData` fits, called synchronously.** It keeps the client's `uuid`s, so
+  the graph can mint them and know every canonical id up front; an attribute the event already
+  holds (same type and value) fails as a duplicate and the model finds the existing one.
+- **The stored answer is not writable as it is.** `enrichmentObject` keeps name, meta-category,
+  description, comment and attributes; it drops `template_uuid` / `template_version`, which
+  `MispObject` requires on create, and the module's `ObjectReference`s and `uuid`s.
+- **Graph ids of MISP records** are `attr:<uuid>` and `obj:<uuid>`; the event page's `canEdit`
+  is `Acl->canModifyEvent`, and `isOwnElement` says whether a node is this event's.
+- **A reference starts from an object.** A loose attribute can be referenced, but cannot
+  reference anything.
+
+### 10.3 Decisions — ruled 2026-09-30
+
+S3, S4, S6 and S7 were put to the owner; S1, S2, S5 and S8 stand as proposed.
+
+| # | Question | Ruling |
+|---|---|---|
+| S1 | **Server path.** | **A new synchronous JSON action, `POST /events/saveEnrichment/<id>.json`**, ACL `perm_add` + `canModifyEvent` (as `handleModuleResults`). Takes MISP-format `Attribute[]` / `Object[]` / references with client uuids; resolves each object's template by name; calls `processModuleResultsData` (never the router); answers per uuid: `saved`, `existing` (with the uuid already in the event) or `failed` with a reason. |
+| S2 | **Where it is declared.** | `save` only when the host has an event and `canEdit`; otherwise the pivot has none and nothing is counted (P5). `autoSave: false`. |
+| S3 | **An origin that is not this event's** (a correlated attribute of another event). | **Saved into this event unattached** — no reference, the comment names the origin value. Otherwise those runs count as unsaved forever, since savability is per pivot. |
+| S4 | **The link to the origin.** | **Asked on Save, `related-to` picked by default** — one prompt per save, the relationship list the reference editor offers. Result object → origin (attribute or object): an object reference on the result object. Origin object → loose result: a reference on the origin object. Loose origin → loose result: none is possible; the comment carries it. The `enrichment` edge is reported saved in every case. Cancelling the prompt writes nothing. |
+| S5 | **Fields.** | Distribution: the instance's attribute default, as module results get today. `to_ids`, category and comment from the module; an empty comment becomes `Enrichment: <module> on <origin value>`. No prompt. |
+| S6 | **After a save.** | `canonicalIds`: `enr:*` → `attr:<uuid>`, `enr-obj:*` → `obj:<uuid>`; a duplicate aliases to the attribute already there. **A saved result becomes a plain MISP node**: its data gains the uuid and this event's scope, and loses `module` scope, so the *From enrichment* mark, the Provenance entry and the sidebar's enrichment block no longer apply. The `enrichment` edge keeps its label. The event index learns the new uuids, so the reference editor can start from a saved object. |
+| S7 | **The affordance.** | **Pivotick's panel/pane count and Save, plus *Save to this event* on selected results** in the node menu, offered when a selected node is savable and unsaved. `pivotMarkUnsaved` off — the enrichment mark already sets results apart. |
+| S8 | **Undo.** | Canvas-only after a save (pivotick P13); nothing is deleted from the event. |
+
+### 10.4 Library asks
+
+Both in `~/git/pivotick/prd/misp/`, proposed 2026-09-30:
+
+- `save-a-selection.md` — `graph.pivots.save({ elements })` writes only the named elements
+  (their children and edges with them) and leaves the rest of each run pending. **S7's menu entry
+  waits on it**: writing a selection outside the ledger would leave it counted unsaved and
+  written twice.
+- `save-context-prompt.md` — `PivotSaveContext.promptData`, the modal edge creation already
+  has, and a cancel outcome that is not a failure. **S4's prompt uses it when present**; until
+  it ships, a save writes `related-to` without asking.
+
+### 10.5 Phases
+
+| Phase | Status | Note |
+|---|---|---|
+| D1 — endpoint `saveEnrichment` + ACL (S1) | ✅ | `perm_add` + `theming_enabled`, `canModifyEvent` in the action, CSRF by header |
+| D2 — `save` on the Enrich pivot, panel Save (S2–S6, S8) | ✅ | |
+| D3 — relationship prompt (S4) | ⏳ | waits on `save-context-prompt.md`; `related-to` meanwhile |
+| D4 — *Save to this event* on the selection (S7) | ⏳ | waits on `save-a-selection.md` |
+| D5 — tests, acceptance | ✅ | explorer 802/0 (5 new); §10.7 |
+
+### 10.6 As built
+
+- **`POST /events/saveEnrichment/<id>.json`** takes `{Attribute[], Object[] (each with
+  ObjectReference[]), ObjectReference[]}` and answers `{results: {<sent uuid>: {state, uuid}},
+  message}`, `state` ∈ `saved` · `existing` · `failed`. Only `uuid, type, category, value, to_ids,
+  comment` (and `object_relation` inside an object) are read; distribution is the instance default.
+- **The template** is the active one named like the object, latest version; none → `failed`.
+- **What counts as written is read back** from the database by uuid, not trusted from the
+  import's counters. `processModuleResultsData` gained an optional `&$outcome` (`recovered`,
+  `failed`) for the attribute an event already holds.
+- **A saved object is not written twice.** `processModuleResultsData`'s own match compares raw
+  values and misses a normalised one (`last-seen` stored as `…T08:00:00.000000+0000`, sent as
+  `…T08:00:00`), which wrote duplicates on a second save. The endpoint asks
+  `MispObject::duplicateObjectUuid` (new, over the existing `checkForDuplicateObjects`) first,
+  after filling each attribute's default category so the hashes compare like with like; a match
+  is `existing`, and gains this origin's reference if it lacks it.
+- **Client.** The graph mints v4 uuids (`getRandomValues`), so every canonical id is known up
+  front: `obj:<uuid>`, `attr:<uuid>`, or the uuid the event already holds. An adopted node gets
+  `scope: 'self'` and loses its module fields, the event index learns it, and handing the graph
+  its own nodes back (`graph.updateData`) makes the legend recount.
+- **An object's attributes are saved with it**, never alone: a child failing validation does not
+  keep the object unsaved in the ledger; the toast carries the server's message.
+
+### 10.7 Acceptance — run 2026-09-30
+
+On event 46 (`ip-dst 8.8.8.8`, its own), dev server on this worktree, `ipasn` from the store:
+
+| # | Check | Result |
+|---|---|---|
+| 1 | After ingest the panel shows *10 unsaved · Save* | ✅ |
+| 2 | Save writes 2 `asn` objects (template v6, distribution 5, comment *Enrichment: ipasn on 8.8.8.8*), their 6 attributes, 2 `related-to` references to the origin | ✅ read back from the database |
+| 3 | Toast *Saved 8 nodes and 2 edges*; nothing pending; the nodes draw as plain MISP objects; the legend recounts | ✅ |
+| 4 | A second save from a fresh page answers `existing` for both, aliases to the first uuids, writes no object and no reference | ✅ (after the fix above) |
+| 5 | Not savable without `canEdit`, nor on the value page (no event) | ✅ unit |
+| 6 | Foreign origin unattached; origin object → loose result reference; a failure stays unsaved | ✅ unit |
+
+The objects were removed afterwards; the event stays unpublished, as a save leaves it.
+
+### 10.8 Open
+
+- **S9 — a saved result and the event's own copy of it.** On a fresh page the event's own copy of a
+  saved object is drawn from the event, and Enrich lands its result beside it (E4: a result is
+  never merged into a MISP node). A save then answers `existing`, and the canvas holds two nodes
+  for one MISP object. Either a result the event already holds lands as that MISP node, or it is
+  left out of the fetch. Not ruled.
