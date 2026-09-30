@@ -2818,12 +2818,12 @@ function feedEvent(extra) {
 
 test('5b: one node per feed, joined to every drawn attribute seen in it', async () => {
     const g = await buildGraph(feedEvent());
-    eq('the two feeds join the canvas', ids(g.nodes), ['attr:e1', 'feed:1', 'feed:9', 'obj:A']);
-    eq('edges into the referenced attribute and the object\'s child — into, which pivotick draws for a child',
+    eq('the two feeds join the canvas', ids(g.nodes), ['attr:e1', 'attr:e2', 'feed:1', 'feed:9', 'obj:A']);
+    eq('edges into the referenced attribute, the hit one and the object\'s child — into, which pivotick draws for a child',
        g.edges.filter(e => e.data.kind === 'feed-correlation').map(e => e.from + '->' + e.to).sort(),
-       ['feed:1->attr:c1', 'feed:1->attr:e1', 'feed:9->attr:c1']);
+       ['feed:1->attr:c1', 'feed:1->attr:e1', 'feed:1->attr:e2', 'feed:9->attr:c1', 'feed:9->attr:e2']);
     eq('a correlation asserts nothing', g.edges.filter(e => e.data.kind === 'feed-correlation')
-       .map(e => [e.data.label, 'relationship_type' in e.data]), [['', false], ['', false], ['', false]]);
+       .map(e => [e.data.label, 'relationship_type' in e.data]), Array(5).fill(['', false]));
     const f = byId(g.nodes, 'feed:1').data;
     eq('the node reads the event\'s full record, not the attribute\'s copy', f, {
         type: 'feed', label: 'CIRCL OSINT Feed', description: 'CIRCL · misp feed', source_id: '1',
@@ -2839,17 +2839,19 @@ test('5b: the source map is read by id, as a list or keyed', async () => {
         ['feed:1', 'feed:9'].map(i => byId(g.nodes, i).data.label), ['CIRCL OSINT Feed', 'URLHaus']));
 });
 
-test('5b: a feed hit never puts an element on the canvas', async () => {
+test('5b: a feed hit puts an event-level attribute on the canvas, through L2', async () => {
     const g = await buildGraph(feedEvent());
-    ok('the loose attribute stays off', !byId(g.nodes, 'attr:e2'));
-    eq('and it is still offered by the element pivot', trayLabels(g), ['loose']);
+    ok('the attribute nothing references is drawn for its hits', !!byId(g.nodes, 'attr:e2'));
+    eq('so the element pivot no longer offers it', trayLabels(g), []);
 });
 
 test('5b: a feed seen only by elements not drawn draws no node', async () => {
+    // Over budget, L2 is skipped whole, the hit attribute with it.
     const g = await buildGraph(ev({
         Feed: [FEED9],
         Attribute: [attr({ uuid: 'e2', Feed: [FEED9] })],
-        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })] }), obj({ uuid: 'B' })],
+        Object: [obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })] }), obj({ uuid: 'B' })]
+            .concat(fillers(750)),
     }));
     eq('no feed node', ids(g.nodes), ['obj:A', 'obj:B']);
 });
@@ -3000,8 +3002,8 @@ test('feed events: each lands as a cached event card, joined to its feed and its
     const g = await withFeedEvents(b => { body = b; });
     const r = await pivot(g, 'feed-events').fetch([pnode(byId(g.nodes, 'feed:1').data)], {}, {});
     eq('it asks for the feed\'s events by uuid', body, { feeds: { '1': ['u1', 'u2'] } });
-    eq('two feed events, and the attribute not drawn yet',
-       r.nodes.map(n => n.id), ['feed-event:1:u1', 'feed-event:1:u2', 'attr:e2']);
+    eq('two feed events; every attribute they were seen with is already drawn',
+       r.nodes.map(n => n.id), ['feed-event:1:u1', 'feed-event:1:u2']);
     const d = r.nodes[0].data;
     eq('the card is drawn from the manifest entry',
        [d.type, d.label, d.date, d.orgc, d.tags, d.context],

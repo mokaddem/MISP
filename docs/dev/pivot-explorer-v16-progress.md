@@ -96,6 +96,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 44 | A stand-in edge into a closed object's child dashes like the edges it stands for (`6, 4`), not pivotick's `3`: one rule in `pivot-explorer.css` at the library's own specificity, so its forecast dash still wins | ✅ | 43 | 2026-09-30 — live on 2014 and 4345 (§2). Interim: showing *lands on a hidden child* some other way is not decided |
 | 45 | **Tags & clusters** declares no rim potential: a carrier no longer wears its tag and cluster count on the canvas; the pivot still applies to it | ✅ | 30 | 2026-09-30 |
 | 46 | L2 draws only an object a feed or server hits; an object nothing links (no reference, relationship or hit) is left to *Event elements*, and the empty state names hits among the links | ✅ | 3c, 28 | 2026-09-30 — live on 4466: the 81 `http-request` objects (the kit's admin endpoints, no reference, correlation or hit) leave the canvas and are the 81 objects *Event elements* offers; 108 objects stay, each with its feed edge |
+| 47 | L2 also draws an event-level attribute a feed or server hits, one node each against the budget, as it draws an object a hit reaches (D10 amended) | ✅ | 46 | 2026-09-30 — live on 4345: `secure-pay.com`, `backup-service.local`, `secure-book.com` and `update-software-service.com` join the canvas on their server hit alone; 2014's `1.1.1.1` unchanged (a reference already drew it) |
 
 ### Critical path
 

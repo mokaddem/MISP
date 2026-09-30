@@ -318,11 +318,13 @@
     // seed budget, so the canvas never opens past the point of legibility.
     var NODE_BUDGET = 1500;
 
-    // Whether a feed or server edge will be drawn into one of its attributes.
+    // Whether a feed or server edge will be drawn into this attribute.
+    function isSourceHit(a) {
+        return !isDeleted(a) && SOURCES.some(function (s) { return (a[s.scope] || []).length > 0; });
+    }
+
     function hasSourceHit(obj) {
-        return (obj.Attribute || []).some(function (a) {
-            return !isDeleted(a) && SOURCES.some(function (s) { return (a[s.scope] || []).length > 0; });
-        });
+        return (obj.Attribute || []).some(isSourceHit);
     }
 
     function liveChildCount(obj) {
@@ -336,9 +338,10 @@
     // The canvas builder reads it; the element pivot offers whatever it left out.
     //
     //   L1  everything an object reference or analyst relationship touches
-    //   L2  the remaining objects a feed or server hits, if the whole set fits
+    //   L2  the remaining objects and event-level attributes a feed or
+    //       server hits, if the whole set fits
     //
-    // An object nothing links to would land with no edge, so it is left to
+    // An element nothing links to would land with no edge, so it is left to
     // the element pivot.
     //
     // Correlations are not a level: they are fetched per element (R1), and the
@@ -372,8 +375,13 @@
             if (!isDeleted(a) && conn.linkedAttrUuids[a.uuid]) l1++;
         });
 
-        var l2Uuids = {};
-        var l2Cost  = 0;   // nodes: the object plus its live children
+        var l2Uuids = {}, l2AttrUuids = {};
+        var l2Cost  = 0;   // nodes: an attribute, or an object plus its live children
+        (ev.Attribute || []).forEach(function (a) {
+            if (conn.linkedAttrUuids[a.uuid] || !isSourceHit(a)) return;
+            l2AttrUuids[a.uuid] = true;
+            l2Cost++;
+        });
         (ev.Object || []).forEach(function (obj) {
             if (isDeleted(obj)) return;
             var cost = 1 + liveChildCount(obj);
@@ -390,9 +398,10 @@
             connectedObjUuids: conn.connectedObjUuids,
             eventNodes:        eventNodes,
             foreignNodes:      foreignNodes,
-            // Objects L2 actually draws — empty when the level did not fit, so
-            // "is this object on the canvas?" is one lookup for every caller.
-            l2Uuids:           l2Fits ? l2Uuids : {}
+            // What L2 actually draws — empty when the level did not fit, so
+            // "is this on the canvas?" is one lookup for every caller.
+            l2Uuids:           l2Fits ? l2Uuids : {},
+            l2AttrUuids:       l2Fits ? l2AttrUuids : {}
         };
     }
 
@@ -874,11 +883,12 @@
             addEdge(f.id, cardId, '', 'in-event');
         });
 
-        /* L1 — event-level attributes, surfaced only when an authored
-           relationship touches them, so every node stays connected to the
-           graph. This also covers referenced screenshots. */
+        /* Event-level attributes, surfaced only when an authored relationship
+           touches them (L1) or, when L2 fits, a feed or server hits them, so
+           every node stays connected to the graph. This also covers
+           referenced screenshots. */
         (ev.Attribute || []).forEach(function (attr) {
-            if (!isDeleted(attr) && linkedAttrUuids[attr.uuid]) {
+            if (!isDeleted(attr) && (linkedAttrUuids[attr.uuid] || seed.l2AttrUuids[attr.uuid])) {
                 addAttributeNode(attr);
             }
         });

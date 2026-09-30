@@ -550,7 +550,7 @@ and reads as a density map), and the same budget caps D9's correlation fetch.
 |---|---|---|---|---|
 | **L0** | event + correlated-event proxy nodes | `RelatedEvent` | **86 nodes** (event 4116) | free, already in payload |
 | **L1** | authored relationships — object references + analyst relationships | inline | 2,362 edges (event 1195) | free, already in payload |
-| **L2** | objects with no relationship that a feed or server hits (since 2026-09-30; before, every such object) | inline | budget-capped (D10) | free, already in payload |
+| **L2** | objects and event-level attributes with no relationship that a feed or server hits (since 2026-09-30; before, every relationship-less object) | inline | budget-capped (D10) | free, already in payload |
 | **L3** | per-attribute correlations | `RelatedAttribute` | fetch-capped (D9) | one extra request |
 
 **Why this matters:** a behemoth event is no longer a special case needing an apology. Event 4116
@@ -606,6 +606,11 @@ event-level, so seeding those means seeding the whole event again.
 
 > **Governing principle:** the graph draws things with **structure or relationships**; the table
 > draws things that are **just values**.
+
+**Amended 2026-09-30:** a feed or server hit counts as a relationship: the edge to its source is
+drawn. L2 therefore takes an event-level attribute a feed or server hits, at one node each,
+alongside the objects a hit reaches, and leaves out an object nothing links. Whatever carries no
+link, object or attribute, is left to the element pivot.
 
 #### D11 — The empty-graph case is explicit ✅ SETTLED (consequence of D5′ + D9 + D12)
 
@@ -1076,17 +1081,18 @@ budget:
 L0  if edged    event node + one proxy node per RelatedEvent
 L1  always      elements participating in an object reference or analyst relationship
                 (+ the attribute children of any object node, as today)
-L2  if it fits  objects with no relationship that a feed or server hits, their hit
-                the only edge; an object nothing links is left to the element pivot
-                (2026-09-30: event 4466 drew 81 kit endpoints with no edge at all)
+L2  if it fits  objects and event-level attributes with no relationship that a feed
+                or server hits, their hit the only edge; anything nothing links is
+                left to the element pivot (2026-09-30: event 4466 drew 81 kit
+                endpoints with no edge at all)
 L3  on demand   per-attribute correlations (§6.7)
 ```
 
 `computeConnectivity()` generalises from "a reference touches it" to "any authored relationship
 touches it", and now resolves `event:` endpoints too, so an analyst relationship may target this
 event or one of its correlated neighbours. `computeSeed()` sits above it and owns the level
-arithmetic: it costs L0 and L1, then admits L2 whole or not at all (D10). Event-level attributes
-are never added by L2 — see D10's governing principle.
+arithmetic: it costs L0 and L1, then admits L2 whole or not at all (D10). L2 adds an event-level
+attribute only for a feed or server hit — see D10's governing principle and its amendment.
 
 **One seed, two readers.** `computeSeed()` is what the canvas builder and the editor tray both
 consult, so the invariant that every live element is on the canvas *or* in the tray — never both,
