@@ -63,9 +63,18 @@
         // A wide tree fits the rail by width; the box then need not be tall.
         var columns = data.edges.filter(function (e) { return e.from === data.nodes[0].id; }).length;
         box.style.height = (columns > 14 ? GRAPH_HEIGHT_WIDE : GRAPH_HEIGHT) + 'px';
-        box.style.visibility = 'hidden';
+        // The graph is laid out out of sight, with a note in its place.
+        var loading = el('div', 'vn-graph-loading');
+        var spinner = el('span', 'spinner-border spinner-border-sm');
+        spinner.setAttribute('role', 'status');
+        loading.appendChild(spinner);
+        loading.appendChild(el('span', null, 'Drawing the graph…'));
+        var canvas = el('div', 'vn-graph-canvas');
+        canvas.style.visibility = 'hidden';
+        box.appendChild(loading);
+        box.appendChild(canvas);
         try {
-            var graph = new window.Pivotick(box, data, {
+            var graph = new window.Pivotick(canvas, data, {
                 isDirected: true,
                 render: {
                     type: 'svg',
@@ -102,7 +111,10 @@
                     simplify: { rules: [V.byEventRule()] }
                 }
             });
-            graph.on('ready', function () { box.style.visibility = ''; });
+            graph.on('ready', function () {
+                loading.remove();
+                canvas.style.visibility = '';
+            });
         } catch (e) {
             console.error('[value-neighbourhood] peek graph failed:', e);
             box.remove();

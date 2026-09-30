@@ -24,6 +24,11 @@
 
 .vn-graph { margin: 0 -12px 8px; position: relative; border-bottom: 1px solid var(--bs-border-color); }
 .vn-graph:empty { display: none; }
+.vn-graph-canvas { height: 100%; }
+.vn-graph-loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    gap: 8px; font-size: 12px; color: var(--bs-secondary-color);
+}
 /* A picture, not a canvas: no grid. */
 .vn-graph .pivotick { --pvt-graph-grid-color: transparent; }
 .vn-peek > .vn-head:first-child, .vn-graph:empty + .vn-head { padding-top: 12px; }
