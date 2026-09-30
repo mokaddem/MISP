@@ -1903,13 +1903,28 @@ window.MispPivotNodes = (function () {
         return '<tspan ' + a.join(' ') + '>' + s + '</tspan>';
     }
 
+    var GD_NOUN = { attribute: 'attributes', object: 'objects', cluster: 'clusters',
+                    taxonomy: 'tags', event: 'events' };
+
+    /* Whether "N × kind" is too long for the lead line, so the kind moves to
+       the second line whole ("60 objects" over "paloalto-threat-event")
+       rather than being cut to "palo…ent". */
+    function gdNameMoves(d, H, maxW) {
+        if (d.title || d.entity === 'mixed' || !GD_NOUN[d.entity]) return false;
+        var w = H.measure(gdCount(H, d.count), H.SANS(13, 650)) +
+                H.measure(' × ', H.SANS(12, 400)) + H.measure(gdKind(d), H.SANS(12, 500));
+        return w > maxW;
+    }
+
     /* "12 × ip-dst", or "6  Lorenz C2" for a titled group, or the rule's
        name for a mixed one (its kinds are the row below). */
     function gdLead(d, H, P, x, maxW) {
         var n = gdCount(H, d.count);
         var nw = H.measure(n, H.SANS(13, 650));
         var t = tspan(H.esc(n), { size: 13, weight: 650, fill: P.ink });
-        if (d.title) {
+        if (gdNameMoves(d, H, maxW)) {
+            t += tspan(' ' + GD_NOUN[d.entity], { size: 12, weight: 400, fill: P.ink3 });
+        } else if (d.title) {
             t += tspan(H.esc(fitEnd(d.title, H.SANS(12, 650), maxW - nw - 5)),
                        { size: 12, weight: 650, fill: P.ink, dx: 5 });
         } else if (d.entity === 'mixed') {
@@ -1925,8 +1940,13 @@ window.MispPivotNodes = (function () {
                           '" font-variant-numeric="tabular-nums">' + t + '</text>');
     }
 
-    /* The pivot it landed from, like the attribute chip's analyst line. */
-    function gdVia(d, H, P, x, maxW) {
+    /* The pivot it landed from, like the attribute chip's analyst line — or
+       the kind, when it did not fit beside the count (`moved`). */
+    function gdVia(d, H, P, x, maxW, moved) {
+        if (moved) {
+            return clipRegion(x, GD.BASE2 - 9, maxW, 12,
+                H.txt(0, 9, H.fit(gdKind(d), H.SANS(11, 500), maxW), { size: 11, weight: 500, fill: P.ink }));
+        }
         var s = String(d.via || d.ruleLabel || '');
         return clipRegion(x, GD.BASE2 - 9, maxW, 12,
             H.txt(0, 9, fitEnd(s, H.SANS(10, 400), maxW), { size: 10, fill: P.ink3 }));
@@ -1986,7 +2006,7 @@ window.MispPivotNodes = (function () {
             s += gdLead(d, H, P, x, GD.RIGHT - x);
             s += H.use(ent === 'event' ? 'simple/event' : 'simple/tag',
                        { x: x, y: GD.BASE2 - 10, size: 12, color: P[tok].core });
-            s += gdVia(d, H, P, x + 16, GD.RIGHT - x - 16);
+            s += gdVia(d, H, P, x + 16, GD.RIGHT - x - 16, gdNameMoves(d, H, GD.RIGHT - x));
         } else if (ent === 'attribute') {
             /* attribute-m-context's edge band and type glyph. A group has no
                to_ids, so the band is drawn solid as the entity mark only. */
@@ -2000,7 +2020,7 @@ window.MispPivotNodes = (function () {
                 ? H.use(ico.ref, { x: x, y: GD.BASE2 - 11, size: 13, color: P.attribute.inkHi })
                 : H.use(null, { x: x + 1.5, y: GD.BASE2 - 9.5, size: 10, color: P.attribute.inkHi,
                                 fallback: 'fallback-attribute' });
-            s += gdVia(d, H, P, x + 17, GD.RIGHT - x - 17);
+            s += gdVia(d, H, P, x + 17, GD.RIGHT - x - 17, gdNameMoves(d, H, GD.RIGHT - x));
         } else if (ent === 'cluster') {
             /* cluster-m-spine's galaxy spine and glyph. */
             s += gdRims(P, tok);
@@ -2012,7 +2032,7 @@ window.MispPivotNodes = (function () {
             var g = H.galaxyIcon(gtype, false);
             s += H.use(g.exact ? g.ref : null, { x: x, y: GD.BASE2 - 10, size: 12,
                                                  color: P.galaxy.core, fallback: 'fallback-galaxy' });
-            s += gdVia(d, H, P, x + 16, GD.RIGHT - x - 16);
+            s += gdVia(d, H, P, x + 16, GD.RIGHT - x - 16, gdNameMoves(d, H, GD.RIGHT - x));
         } else if (ent === 'object') {
             /* sel-object-m-wellvalue's template well. Its count tab counts one
                object's attributes, which a group has not; the lead carries the count. */
@@ -2028,7 +2048,7 @@ window.MispPivotNodes = (function () {
                                  color: P.object.core, fallback: 'fallback-object' });
             x = wx + WELL + 8;
             s += gdLead(d, H, P, x, GD.RIGHT - x);
-            s += gdVia(d, H, P, x, GD.RIGHT - x);
+            s += gdVia(d, H, P, x, GD.RIGHT - x, gdNameMoves(d, H, GD.RIGHT - x));
         } else {
             /* Mixed: a neutral deck, the edge band cut into each part's entity
                hue by share, largest first. */
