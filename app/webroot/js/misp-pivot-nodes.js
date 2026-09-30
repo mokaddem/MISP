@@ -2513,6 +2513,8 @@ window.MispPivotNodes = (function () {
                     var fRel = H.SANS(9.5, 500);
                     var fVal = H.MONO(12, 500);
                     picks.forEach(function (a) {
+                        var warn = warningInfo(a);
+                        var relW = colW - 11 - (warn ? 16 : 0);
                         /* to_ids = fill weight, never colour: a solid dot, or
                            a hollow one with an attribute-hairline ring. */
                         if (a.to_ids) {
@@ -2527,9 +2529,12 @@ window.MispPivotNodes = (function () {
                         }
                         s += H.txt(PAD + 11, t + 8.35,
                             fitEnd(a.object_relation || a.type || '',
-                                   fRel, colW - 11, 0.19),
+                                   fRel, relW, 0.19),
                             { size: 9.5, weight: 500, tracking: '0.02em',
                               fill: P.ink3 });
+                        /* The row's own warninglist hit, on the relation
+                           line so the value keeps its full width. */
+                        if (warn) s += warnMark(warn, right - 12, t, 12, H, P);
                         s += H.txt(PAD, t + 23.5,
                             H.fit(a.value, fVal, colW, -0.12),
                             { size: 12, weight: 500, mono: true,
@@ -2538,9 +2543,28 @@ window.MispPivotNodes = (function () {
                     });
 
                     /* --- footer: what was not shown ---------------------- */
+                    /* Hits on attributes past the three rows, so the card
+                       never hides one the rows could not show. */
+                    var hidden = warningInfoAmong(attrsOf(d).filter(function (a) {
+                        return picks.indexOf(a) === -1;
+                    }));
+                    var footW = colW;
+                    if (hidden) {
+                        var fHit = H.SANS(9, 600);
+                        var hit = String(hidden.attrs);
+                        s += warnMark(hidden, right - 11, 130.5, 11, H, P,
+                            hidden.attrs + ' more ' +
+                            plural(hidden.attrs, 'attribute', 'attributes') +
+                            ' on a warninglist');
+                        s += H.txt(right - 14, 138.5, hit, {
+                            size: 9, weight: 600, anchor: 'end',
+                            fill: hidden.fp ? P.warn.fp : P.warn.known
+                        });
+                        footW -= H.measure(hit, fHit) + 22;
+                    }
                     s += H.txt(PAD, 138.5,
                         fitEnd(overflowNote(d, picks.length).toUpperCase(),
-                               H.SANS(9, 500), colW, 0.54),
+                               H.SANS(9, 500), footW, 0.54),
                         { size: 9, weight: 500, tracking: '0.06em', fill: P.ink3 });
 
                     return H.svg(W, HH, s);
@@ -3100,17 +3124,37 @@ window.MispPivotNodes = (function () {
     function warningInfoDeep(d) {
         var own = warningInfo(d);
         if (own) return own;
-        var attrs = attrsOf(d), fp = false, names = [], seen = {}, count = 0;
+        var w = warningInfoAmong(attrsOf(d));
+        if (w) w.inherited = true;
+        return w;
+    }
+
+    /* The hits across several attributes; `attrs` counts those with one. */
+    function warningInfoAmong(attrs) {
+        var fp = false, names = [], seen = {}, count = 0, hit = 0;
         for (var i = 0; i < attrs.length; i++) {
             var w = warningInfo(attrs[i]);
             if (!w) continue;
             count += w.count;
+            hit++;
             if (w.fp) fp = true;
             for (var j = 0; j < w.names.length; j++) {
                 if (!seen[w.names[j]]) { seen[w.names[j]] = 1; names.push(w.names[j]); }
             }
         }
-        return count ? { fp: fp, names: names, count: count, inherited: true } : null;
+        return count ? { fp: fp, names: names, count: count, attrs: hit } : null;
+    }
+
+    /* MISP's triangle in its category colour, drawn inside a card, with the
+       lists named in its tooltip. */
+    function warnMark(w, x, y, size, H, P, lead) {
+        var title = (w.fp ? 'Likely false positive' : 'Known identifier') +
+                    (w.names.length ? ' — ' + w.names.join(', ') : '');
+        return '<g>' + H.use('warning-triangle', {
+                   x: x, y: y, size: size,
+                   color: w.fp ? P.warn.fp : P.warn.known }) +
+               '<title>' + H.esc(lead ? lead + ' · ' + title : title) +
+               '</title></g>';
     }
 
     /* Notes and opinions on one node. `avg` is null when nothing carried a
