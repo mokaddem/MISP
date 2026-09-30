@@ -399,6 +399,52 @@ class AnalystProfile extends AppModel
     }
 
     /**
+     * What a Pivot Explorer sidebar orders tags and clusters by: the
+     * viewer's label plan, and which of its pinned taxonomies and galaxies
+     * the instance has enabled, so a pin the node lacks is only named when
+     * it could be there.
+     *
+     * @param array $user
+     * @param array|null $plan An already resolved plan; resolved when null
+     * @return array `plan`, `permitted` (`taxonomies`, `galaxies`)
+     */
+    public function pivotLabels(array $user, $plan = null)
+    {
+        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        if ($plan === null) {
+            $plan = ValueLabelPriority::planFor($this->resolveFor($user));
+        }
+        $permitted = ['taxonomies' => [], 'galaxies' => []];
+        $taxonomies = ValueLabelPriority::keys(
+            $plan, ValueLabelPriority::TAXONOMIES, ValueLabelPriority::PINNED
+        );
+        if (!empty($taxonomies)) {
+            $permitted['taxonomies'] = array_values(ClassRegistry::init('Taxonomy')->find('list', [
+                'conditions' => [
+                    'LOWER(Taxonomy.namespace)' => $taxonomies,
+                    'Taxonomy.enabled' => 1,
+                ],
+                'fields' => ['Taxonomy.id', 'Taxonomy.namespace'],
+                'recursive' => -1,
+            ]));
+        }
+        $galaxies = ValueLabelPriority::keys(
+            $plan, ValueLabelPriority::GALAXIES, ValueLabelPriority::PINNED
+        );
+        if (!empty($galaxies)) {
+            $permitted['galaxies'] = array_values(array_unique(ClassRegistry::init('Galaxy')->find('list', [
+                'conditions' => [
+                    'LOWER(Galaxy.type)' => $galaxies,
+                    'Galaxy.enabled' => 1,
+                ],
+                'fields' => ['Galaxy.id', 'Galaxy.type'],
+                'recursive' => -1,
+            ])));
+        }
+        return ['plan' => $plan, 'permitted' => $permitted];
+    }
+
+    /**
      * Resolution, with its reasoning — what won, how it was reached, and
      * what each scope declared that did not resolve.
      *
