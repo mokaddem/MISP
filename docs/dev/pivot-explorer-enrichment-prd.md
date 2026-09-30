@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
 **Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
-added); phase B done, look B picked (§5.4). Next: phase C, wiring (§8).
+added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Next: saving (E8).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -38,14 +38,15 @@ canvas like any other pivot's.
 | Part | Status | Note |
 |---|---|---|
 | Contract (§4 ruled, §5 frozen) | ✅ | grilled 2026-09-30 |
-| Non-enrichment deny-list, `ModuleRole` (§5.1) | ⬚ | E7; the Value Profile tab honours it too |
-| JSON endpoints on `ValuesController` (§5.1) | ⬚ | H1, H2; the model methods already return arrays |
-| ACL entries | ⬚ | `perm_add` for all three (E11) |
-| *Enrich* pivot in the shared kit (§5.2) | ⬚ | both hosts |
-| Landing, `enrichment` edge kind, `scope: 'module'` (§5.3–§5.4) | ⬚ | E4, E5 |
-| Run toast (§5.5) | ⬚ | E6 |
-| Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); three pivotick asks filed |
-| Unit tests, acceptance (§7) | ⬚ | |
+| Non-enrichment deny-list, `ModuleRole` (§5.1) | ✅ | `000690b9f`; `enrichment.roles` overrides it, raw profile JSON only — the profile editor has no control for it yet |
+| JSON endpoints on `ValuesController` (§5.1) | ✅ | `000690b9f` |
+| ACL entries | ✅ | `perm_add` + `theming_enabled` for all three (E11) |
+| *Enrich* pivot in the shared kit (§5.2) | ✅ | `231c7b8c6`; both hosts, `canEnrich` from the same ACL |
+| Landing, `enrichment` edge kind, `scope: 'module'` (§5.3–§5.4) | ✅ | `231c7b8c6`; the value page has the legend section but no Provenance *facet* — its filter is the legend's |
+| Run toast (§5.5) | ✅ | |
+| Sidebar: provenance, notice, known-only links (E13) | ✅ | `5cccb6836` |
+| Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); two pivotick asks shipped (`e2537f0`, vendored `b9ff699ec`), one declined |
+| Unit tests, acceptance (§7) | ✅ | explorer 765/0, sidebar model 87/0, neighbourhood 29/0; §7 below |
 | Save into the event (§5.7) | — | E8: later pass |
 
 ## 2. What the analyst sees
@@ -301,6 +302,23 @@ Against the dev instance, logged in, dev server on this worktree:
 10. Asking more than 25 pairs is refused before any module is called.
 11. *From enrichment* in the Provenance legend hides every result, on both hosts.
 
+**Run 2026-09-30** on the dev instance (this worktree served), event 46 and the value page of
+`8.8.8.8`, light and dark:
+
+| # | Result |
+|---|---|
+| 1 | ✅ live on both hosts; object and event nodes refused by `appliesTo` (unit) |
+| 2 | ✅ `enrichmentTypes` offers ipasn, whois, mmdb_lookup, circl_passivedns for `ip-dst`, no transform; labels `ipasn — 9 days ago (2)`, `whois — failed 16 days ago`. The admin's profile ticks three, so they start ticked though none was fresh |
+| 3 | ✅ ipasn + mmdb_lookup landed 5 objects and 5 edges; one toast: *whois: Whois local instance address is missing* |
+| 4 | ✅ the second run read ipasn from the store (`mode: stored`); the sidebar said *Stored answer, just now* |
+| 5 | ✅ the graph's run rewrote the organisation's rows in `value_enrichment_runs`, which the tab reads |
+| 6 | ✅ at the ACL (no Read Only user on the instance): `perm_add=0` is refused all three endpoints, the tab stays readable; both hosts take `canEnrich` from that same answer |
+| 7 | ✅ value page: 23 result nodes, 0 after undo; the store keeps them |
+| 8 | unit only — no enabled module answers in the legacy format |
+| 9 | ✅ unit (one mmdb record for two origins: one node, two edges) |
+| 10 | ✅ unit (27 asked pairs refused, no call made) |
+| 11 | the entry is present on both hosts, with the mark; the value page's section appears only once results land. Toggling it was not exercised — it is pivotick's legend filter over the entry's predicate |
+
 ## 8. Phases
 
 - **A — Contract.** ✅ Grilled 2026-09-30; rulings in §4, JSON frozen in §5.1.
@@ -312,7 +330,8 @@ Against the dev instance, logged in, dev server on this worktree:
   answers recorded through `forEnrichmentRun(mode=stored)` — mmdb_lookup, ipasn, whois (error),
   and circl_passivedns (199 objects, 200 of 1,376) as the stress case. Kept local. The facet and
   toast wording are settled here, not prototyped.
-- **C — Wiring.** `ModuleRole`, the endpoints, the pivot, tests, acceptance.
+- **C — Wiring.** ✅ 2026-09-30. `ModuleRole`, the endpoints, the pivot, the sidebar, tests,
+  acceptance (§7).
 
 ## 9. Files (expected)
 
