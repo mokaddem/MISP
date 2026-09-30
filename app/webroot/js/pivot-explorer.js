@@ -599,6 +599,10 @@
         // key is made.
         var _galaxyNames = {};
 
+        // Each simplify rule's label by id, for a group drawn while the
+        // graph is still being constructed and cannot be asked.
+        var _ruleLabels = {};
+
         function mispTypeOf(node) {
             var e = elementOf(node);
             if (!e) return undefined;
@@ -647,7 +651,8 @@
                 parts: parts,
                 count: info.members.length,
                 title: info.title,
-                ruleLabel: _graph && _graph.simplify ? _graph.simplify.ruleLabel(info.rule) : info.rule,
+                ruleLabel: _graph && _graph.simplify ? _graph.simplify.ruleLabel(info.rule)
+                                                     : (_ruleLabels[info.rule] || info.rule),
                 via: info.landing ? info.landing.pivotLabel : undefined
             };
         }
@@ -3030,6 +3035,9 @@
                     if (editor) Object.assign(opts.callbacks, editor.callbacks);
                     if (host.options) host.options(opts, kit, seed);
                     else eventOptions(opts, _event);
+                    ((opts.UI.simplify && opts.UI.simplify.rules) || []).forEach(function (r) {
+                        if (r.label) _ruleLabels[r.id || r.kind] = r.label;
+                    });
 
                     _graph = new window.Pivotick(
                         containerEl,
