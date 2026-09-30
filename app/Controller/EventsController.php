@@ -7356,18 +7356,25 @@ class EventsController extends AppController
         ], 'json');
     }
 
+    /**
+     * Events carrying these tags, leaving out event $id; 0 leaves out none.
+     */
     public function taggedEvents($id)
     {
         $this->request->allowMethod(['post']);
         $user = $this->Auth->user();
-        $event = $this->Event->fetchSimpleEvent($user, $id, ['fields' => ['Event.id']]);
-        if (empty($event)) {
-            throw new NotFoundException(__('Invalid event'));
+        $eventId = 0;
+        if ((string)$id !== '0') {
+            $event = $this->Event->fetchSimpleEvent($user, $id, ['fields' => ['Event.id']]);
+            if (empty($event)) {
+                throw new NotFoundException(__('Invalid event'));
+            }
+            $eventId = (int)$event['Event']['id'];
         }
         $data = $this->request->data;
         $tags = isset($data['tags']) && is_array($data['tags']) ? $data['tags'] : [];
         $mode = isset($data['mode']) && $data['mode'] === 'or' ? 'or' : 'and';
-        $result = $this->Event->taggedEventCards($user, (int)$event['Event']['id'], $tags, $mode);
+        $result = $this->Event->taggedEventCards($user, $eventId, $tags, $mode);
         return $this->RestResponse->viewData($result, 'json');
     }
 
