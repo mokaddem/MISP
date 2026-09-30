@@ -683,7 +683,7 @@
         return {
             event: P.event.core, object: P.object.core, attribute: P.attribute.core,
             image: P.attribute.core, cluster: P.galaxy.core, taxonomy: P.tag.core,
-            feed: P.feed.core, server: '#9b59b6'
+            feed: P.feed.core, server: P.server.core
         }[e];
     }
 
@@ -746,8 +746,6 @@
     // What misp-pivot-nodes does not draw.
     function otherNodeStyles() {
         return {
-            // misp-iconify has no server mark; pivotick resolves any icon font's class.
-            server:    { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' },
             // Image attachments (screenshots) draw an embedded thumbnail.
             image:     {
                 imageFit:    'frame',
@@ -2829,7 +2827,7 @@
                 nodeTypeAccessor: elementOf,
                 groupStyle: groupStyle,
                 groupOutline: groupOutline,
-                // A feed is drawn by misp-pivot-nodes, like the elements.
+                // Feeds and servers are drawn by misp-pivot-nodes, like the elements.
                 nodeStyleMap: Object.assign(mispNodeStyles(), otherNodeStyles()),
                 defaultNodeStyle: Object.assign(labelStyle(), { badges: nodeBadges }),
                 // D1's first edge dimension.
@@ -2847,7 +2845,7 @@
                     'correlation':          { strokeColor: '#888', dashed: true },
                     'feed-correlation':     { strokeColor: FEED_COLOR, dashed: true },
                     'feed-event':           { strokeColor: FEED_COLOR },
-                    'server-correlation':   { strokeColor: '#9b59b6', dashed: true },
+                    'server-correlation':   { strokeColor: window.MispPivotNodes.palette().server.core, dashed: true },
                     'tag':                  { strokeColor: '#8a8f98', dashed: true },
                     'cluster-relation':     { strokeColor: window.MispPivotNodes.palette().galaxy.core }
                 },

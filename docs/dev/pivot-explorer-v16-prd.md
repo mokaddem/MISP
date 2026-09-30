@@ -1127,11 +1127,17 @@ dotted ring; zoomed in it is `event-m-authority` for a source: the feed mark in 
 authority slot, the feed name on line 1, the provider (else the URL's host) on line 2, the dotted
 teal rail, and no preview triangle since nothing on the node opens the feed. It has no XL, so
 its focus card is that chip. The entity lives in `prd/pivot-node-designs/renderers/` like the
-others. A server is still a purple `#9b59b6` `triangle` with Font Awesome's `fa-server`. Its data
-carries the label, provider, format and URL where MISP sends them, `feed_events` for a MISP-format
-feed, and `scope: 'foreign'`: provenance stays binary (D2), and a value the Provenance facet does
-not offer would hide the node under either choice. It has no `name` key, which the Object facet
-reads. A restricted `Server` source carries only id and name, and draws as a bare label.
+others. A server is drawn the same way (task 42), as the event family's remote hit: the server
+mark in the hexagon inside the dashed ring at rest, and the same authority chip with the server
+mark in the slot, the server name, then the provider or the URL's host. It wears its own hue,
+magenta `#D0539F` (the palette's `server` family); the purple it had as a triangle sat 25° from
+the galaxy violet and read as a cluster. The `server-correlation` edges take the same hue.
+
+A source node's data carries the label, provider, format and URL where MISP sends them,
+`feed_events` for a MISP-format feed, and `scope: 'foreign'`: provenance stays binary (D2), and a
+value the Provenance facet does not offer would hide the node under either choice. It has no
+`name` key, which the Object facet reads. A restricted `Server` source carries only id and name;
+its chip's second line then reads *MISP Server*.
 
 **A MISP-format feed opens onto its events (the `feed-events` pivot).** Each hit on an attribute
 names the feed events its value is in (`event_uuids`); a feed listed once per lookup batch is merged
@@ -1164,7 +1170,7 @@ render: {
         'event-correlation':    { strokeColor: '#6fbe80', dashed: true },
         'correlation':          { strokeColor: '#888', dashed: true },
         'feed-correlation':     { strokeColor: '#5bc0de', dashed: true },
-        'server-correlation':   { strokeColor: '#9b59b6', dashed: true },
+        'server-correlation':   { strokeColor: '#D0539F', dashed: true },  // palette().server.core
     },
 },
 UI: { filter: { edgeFacets: [

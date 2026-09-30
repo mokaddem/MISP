@@ -2860,8 +2860,20 @@ test('5b: sources are styled, iconed and keyed like the other elements', async (
        [feed.shape, typeof feed.svgIcon, feed.tiers[0].width, feed.tiers[0].height,
         typeof feed.tiers[0].style.html],
        ['none', 'function', 140, 44, 'function']);
-    eq('a server is still a triangle in its layer\'s colour', r.nodeStyleMap.server,
-       { shape: 'triangle', color: '#9b59b6', size: 24, iconClass: 'fas fa-server' });
+    const server = r.nodeStyleMap.server;
+    eq('so is a server',
+       [server.shape, typeof server.svgIcon, server.tiers[0].width, server.tiers[0].height,
+        typeof server.tiers[0].style.html],
+       ['none', 'function', 140, 44, 'function']);
+    const srv = pnode({ type: 'server', label: 'Partner MISP', provider: 'CIRCL',
+                        url: 'https://misp.example.org', scope: 'foreign' });
+    const rest = server.svgIcon(srv);
+    ok('at rest it is a hexagon in the server hue, in a dashed ring',
+       /fill="#D0539F"/.test(rest) && /stroke-dasharray="3 3"/.test(rest));
+    const chip = server.tiers[0].style.html(srv).innerHTML;
+    ok('its chip names the server and its provider, in the server hue',
+       /Partner MISP/.test(chip) && /CIRCL/.test(chip) && /#D0539F/.test(chip));
+    eq('its edges take the same hue', r.edgeStyleMap['server-correlation'].strokeColor, '#D0539F');
     eq('the accessor reads the type', r.nodeTypeAccessor(pnode({ type: 'feed' })), 'feed');
     const styled = Object.keys(r.edgeStyleMap);
     g.edges.forEach(e => ok('kind ' + e.data.kind + ' is styled',

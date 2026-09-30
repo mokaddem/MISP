@@ -65,6 +65,8 @@ window.MispPivotNodes = (function () {
                          onCore: '#0B0B0C', wash: '#362420', hair: '#6F3C2E' },
             feed:      { core: '#D4A017', ink: '#D4A017', inkHi: '#E8C04A',
                          onCore: '#0B0B0C', wash: '#2F2915', hair: '#5E4B14' },
+            server:    { core: '#D0539F', ink: '#D0539F', inkHi: '#E08FC0',
+                         onCore: '#0B0B0C', wash: '#2F1F2A', hair: '#5D2E4C' },
             mono: ['#766C9D', '#9B6269', '#966947', '#52815E', '#45836B', '#996274'],
             alarm: '#DC3545', meterTrack: '#454547', meterFill: '#B5B5B5',
             provInk: '#B5B5B5', badgeBg: '#313132', badgeInk: '#ECECED',
@@ -93,6 +95,8 @@ window.MispPivotNodes = (function () {
                          onCore: '#0B0B0C', wash: '#FCF2EE', hair: '#F3CFC4' },
             feed:      { core: '#D4A017', ink: '#8A6500', inkHi: '#6B4E00',
                          onCore: '#0B0B0C', wash: '#FBF5E4', hair: '#EEDCA6' },
+            server:    { core: '#D0539F', ink: '#A02C73', inkHi: '#80235C',
+                         onCore: '#0B0B0C', wash: '#FAEEF5', hair: '#EDBEDB' },
             mono: ['#655B8A', '#885159', '#835836', '#41704E', '#33715A', '#865163'],
             alarm: '#DC3545', meterTrack: '#CECECE', meterFill: '#59595A',
             provInk: '#59595A', badgeBg: '#F0F0F0', badgeInk: '#1F1F1F',
@@ -1356,6 +1360,8 @@ window.MispPivotNodes = (function () {
      event     XL  card 280x150        sel-event-xl-dossier  entities/selection.js
      feed      S   composed            event-s-ring, value-only feed   event.js
      feed      M   card 140x44         event-m-authority, source only  event.js
+     server    S   composed            event-s-ring, value-only server event.js
+     server    M   card 140x44         event-m-authority, source only  event.js
      object    S   shape {d} + glyph   object-s-case         entities/object.js
      object    M   card 140x44         sel-object-m-wellvalue entities/selection.js
      object    XL  card 280x150        object-xl-values      entities/object.js
@@ -1388,7 +1394,7 @@ window.MispPivotNodes = (function () {
           tags[].name, tags[].colour
           attribute_count, object_count, report_count, distribution
 
-   feed   (the Pivot Explorer's source node)
+   feed, server   (the Pivot Explorer's source nodes)
      S    —
      M    label (falls back from name), provider, url
 
@@ -1531,15 +1537,66 @@ window.MispPivotNodes = (function () {
         return s.kind === 'feed' ? 'Feed' : 'MISP Server';
     }
 
-    /* A feed node as the value-only feed hit the event renderers already
-       draw. The explorer keeps the feed's name in `label`, since `name` is
-       what its Object facet reads. */
-    function feedHit(d) {
+    /* A feed or server node as the value-only hit the event renderers
+       already draw. The explorer keeps the source's name in `label`, since
+       `name` is what its Object facet reads. */
+    var SOURCE_KINDS = {
+        feed:   { provenance: 'feed',   type: 'Feed',        mark: 'prov-feed' },
+        server: { provenance: 'remote', type: 'MISP Server', mark: 'prov-server' }
+    };
+    function sourceHit(d, entity) {
         d = d || {};
+        var k = SOURCE_KINDS[entity];
         return {
-            _provenance: 'feed', uuid: null,
-            source: { kind: 'feed', type: 'Feed', name: d.name || d.label,
+            _provenance: k.provenance, uuid: null,
+            source: { kind: entity, type: k.type, name: d.name || d.label,
                       provider: d.provider, url: d.url }
+        };
+    }
+
+    /* The source node in its own hue, so it reads neither as an event nor as
+       a value. S is event-s-ring, value-only: the source's mark in the
+       hexagon and its provenance ring (dotted for a feed, dashed for a
+       server), no corner badge. M is event-m-authority for a source: the
+       20px slot carries the mark, line 1 the name, line 2 who-or-where. No
+       preview triangle — nothing on the node opens the source. */
+    function sourceEntity(entity) {
+        var mark = SOURCE_KINDS[entity].mark;
+        return {
+            S: {
+                channel: 'composed',
+                box: { w: 48, h: 48 },
+                draw: function (d, H, P) {
+                    return M._renderers.event.S.draw(sourceHit(d, entity), H,
+                        Object.assign({}, P, { event: P[entity] }));
+                }
+            },
+            M: {
+                channel: 'card',
+                box: { w: 140, h: 44 },
+                draw: function (d, H, P) {
+                    var W = 140, HH = 44, s = '', F = P[entity];
+                    s += '<rect x=".75" y=".75" width="' + (W - 1.5) +
+                         '" height="' + (HH - 1.5) + '" rx="10" fill="' +
+                         F.wash + '" stroke="' + F.core + '" stroke-width="1.5"/>';
+                    s += '<rect x="10" y="12" width="20" height="20" rx="5" fill="' +
+                         F.hair + '"/>';
+                    s += H.use(mark, { x: 8.5, y: 10.5, size: 23,
+                                       color: F.inkHi });
+
+                    var tx = 34, tw = W - tx - 8;
+                    var hit = sourceHit(d, entity), l = srcLines(hit);
+                    var host = String(d.url || '').replace(/^https?:\/\//, '')
+                                                  .replace(/\/.*$/, '');
+                    s += H.txt(tx, 19.5, H.fit(l.primary, H.SANS(12, 500), tw),
+                               { size: 12, weight: 500, fill: P.ink });
+                    s += H.txt(tx, 33.5,
+                               fitEnd(d.provider || host || srcType(hit),
+                                      H.SANS(11), tw),
+                               { size: 11, fill: P.ink3 });
+                    return H.svg(W, HH, s);
+                }
+            }
         };
     }
 
@@ -2290,55 +2347,13 @@ window.MispPivotNodes = (function () {
         },
 
         /* -----------------------------------------------------------------
-           FEED — the feed itself, as the Pivot Explorer draws a source node
-           (type 'feed', name in `label`). It is the event family's value-only
-           feed hit: no event behind it, so the node is the feed.
+           FEED, SERVER — the source itself, as the Pivot Explorer draws a
+           source node (type 'feed' or 'server', name in `label`). It is the
+           event family's value-only hit: no event behind it, so the node is
+           the source.
            -------------------------------------------------------------- */
-        feed: {
-
-            /* event-s-ring, value-only, in the feed's hue: the feed mark in
-               the hexagon, the dotted ring, no corner badge. */
-            S: {
-                channel: 'composed',
-                box: { w: 48, h: 48 },
-                draw: function (d, H, P) {
-                    var F = P.feed;
-                    return M._renderers.event.S.draw(feedHit(d), H,
-                        Object.assign({}, P, { event: F }));
-                }
-            },
-
-            /* event-m-authority for a source, in the feed's own hue so it
-               reads neither as an event nor as a value: the 20px slot carries
-               the feed mark, line 1 the feed name, line 2 who-or-where. No
-               preview triangle — nothing on the node opens the feed. */
-            M: {
-                channel: 'card',
-                box: { w: 140, h: 44 },
-                draw: function (d, H, P) {
-                    var W = 140, HH = 44, s = '', F = P.feed;
-                    s += '<rect x=".75" y=".75" width="' + (W - 1.5) +
-                         '" height="' + (HH - 1.5) + '" rx="10" fill="' +
-                         F.wash + '" stroke="' + F.core + '" stroke-width="1.5"/>';
-                    s += '<rect x="10" y="12" width="20" height="20" rx="5" fill="' +
-                         F.hair + '"/>';
-                    s += H.use('prov-feed', { x: 8.5, y: 10.5, size: 23,
-                                              color: F.inkHi });
-
-                    var tx = 34, tw = W - tx - 8;
-                    var hit = feedHit(d), l = srcLines(hit);
-                    var host = String(d.url || '').replace(/^https?:\/\//, '')
-                                                  .replace(/\/.*$/, '');
-                    s += H.txt(tx, 19.5, H.fit(l.primary, H.SANS(12, 500), tw),
-                               { size: 12, weight: 500, fill: P.ink });
-                    s += H.txt(tx, 33.5,
-                               fitEnd(d.provider || host || srcType(hit),
-                                      H.SANS(11), tw),
-                               { size: 11, fill: P.ink3 });
-                    return H.svg(W, HH, s);
-                }
-            }
-        },
+        feed:   sourceEntity('feed'),
+        server: sourceEntity('server'),
 
         /* -----------------------------------------------------------------
            OBJECT
@@ -3210,7 +3225,8 @@ window.MispPivotNodes = (function () {
     var H = M.helpers;
     var R = M._renderers;      /* set by 10-renderers.js */
 
-    var ENTITIES = ['event', 'object', 'attribute', 'cluster', 'taxonomy', 'feed'];
+    var ENTITIES = ['event', 'object', 'attribute', 'cluster', 'taxonomy', 'feed',
+                    'server'];
 
     /* Which MISP entity a pivotick node is. Reads the node's data, matching the
        shape the Pivot Explorer already builds (`type` on every node), and falls
@@ -3218,7 +3234,8 @@ window.MispPivotNodes = (function () {
     function entityOf(data) {
         if (!data) return undefined;
         var t = data.type || data.entity;
-        if (t === 'event' || t === 'object' || t === 'attribute' || t === 'feed') return t;
+        if (t === 'event' || t === 'object' || t === 'attribute' || t === 'feed' ||
+            t === 'server') return t;
         if (t === 'cluster' || t === 'galaxy-cluster') return 'cluster';
         if (t === 'taxonomy' || t === 'tag') return 'taxonomy';
         if (data.galaxy_type || data.tag_name) return 'cluster';
@@ -3244,7 +3261,7 @@ window.MispPivotNodes = (function () {
        explorer's data builders.
        ------------------------------------------------------------------ */
     var ENTITY_WORDS = { event: 1, object: 1, attribute: 1, cluster: 1,
-                         taxonomy: 1, tag: 1, 'galaxy-cluster': 1, feed: 1 };
+                         taxonomy: 1, tag: 1, 'galaxy-cluster': 1, feed: 1, server: 1 };
     var _norm = (typeof WeakMap === 'function') ? new WeakMap() : null;
 
     /* An object's attributes are pivotick CHILDREN in the Pivot Explorer, not a
