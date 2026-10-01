@@ -230,6 +230,7 @@ class ValueVerdictTool
             'configured' => count($entries),
             'evaluated' => 0,
             'fired' => 0,
+            'supporting' => 0,
             'silent' => 0,
             'not_counted' => 0,
         );
@@ -272,13 +273,21 @@ class ValueVerdictTool
              * what `configured`, `evaluated` and `silent` are counting
              * beside it.
              */
+            $added = 0;
             foreach ($outcome['rows'] as $row) {
-                $rows[] = $this->anchor(
+                $anchored = $this->anchor(
                     $row,
                     $entry,
                     $outcome['signal'],
                     $polarity
                 );
+                if ($anchored['axis'] === self::AXIS_QUALITY) {
+                    $added += $anchored['contribution'];
+                }
+                $rows[] = $anchored;
+            }
+            if ($added > 0) {
+                $counts['supporting']++;
             }
             /*
              * And a signal may set some of its own evidence aside. The
@@ -367,7 +376,7 @@ class ValueVerdictTool
                 self::AXIS_LEAN),
             'band' => self::qualityBand(
                 $quality,
-                $counts['fired'],
+                $counts,
                 $profile,
                 $context
             ),
@@ -448,7 +457,8 @@ class ValueVerdictTool
             'tug' => $this->tug(array(), $polarity),
             'not_counted' => array(),
             'counts' => array('configured' => 0, 'evaluated' => 0,
-                'fired' => 0, 'silent' => 0, 'not_counted' => 0),
+                'fired' => 0, 'supporting' => 0, 'silent' => 0,
+                'not_counted' => 0),
             'context' => $context,
             'profile' => $profile,
         ));
@@ -607,7 +617,7 @@ class ValueVerdictTool
              */
             'band_reason' => self::bandReason(
                 $parts['quality'],
-                $parts['counts']['fired'],
+                $parts['counts'],
                 $parts['profile'],
                 $parts['context']
             ),
@@ -1132,10 +1142,14 @@ class ValueVerdictTool
      *
      * `quality_high_min_signals` is what stops one heavy row buying a
      * `high` band on its own: a value's quality is high when several
-     * independent readings agree, not when one signal is generous.
+     * independent readings agree, not when one signal is generous. It
+     * counts the quality signals that added points: an absence row or
+     * a lean row fires on nearly every value, so counting those would
+     * leave the guard with nothing to hold.
      *
      * @param int $quality
-     * @param int $fired
+     * @param array $signals `fired`, and `supporting` — the quality
+     *                       signals whose rows sum above zero
      * @param array|null $profile
      * @param array $context Needed for the thin-record clamp; an empty
      *                       array asks for the unclamped band, which
@@ -1143,10 +1157,10 @@ class ValueVerdictTool
      *                       clamp is what is holding a band down
      * @return string `none`, `low`, `medium` or `high`
      */
-    public static function qualityBand($quality, $fired, $profile,
-        array $context = array()
+    public static function qualityBand($quality, array $signals,
+        $profile, array $context = array()
     ) {
-        if ($fired === 0) {
+        if ((int)($signals['fired'] ?? 0) === 0) {
             return 'none';
         }
         $thresholds = self::section($profile, 'thresholds');
@@ -1158,7 +1172,9 @@ class ValueVerdictTool
         $minSignals = isset($thresholds['quality_high_min_signals'])
             ? (int)$thresholds['quality_high_min_signals']
             : 4;
-        if ($quality >= $high && $fired >= $minSignals) {
+        if ($quality >= $high
+            && (int)($signals['supporting'] ?? 0) >= $minSignals
+        ) {
             $band = 'high';
         } elseif ($quality >= $medium) {
             $band = 'medium';
@@ -1188,14 +1204,14 @@ class ValueVerdictTool
      * implementation of them.
      *
      * @param int $quality
-     * @param int $fired
+     * @param array $signals As `qualityBand()` takes them
      * @param array|null $profile
      * @param array $context
      * @return array `reason` — `no_signal`, `clamped`, `min_signals`
      *               or `points` — and `floors`, the numbers in force
      */
-    public static function bandReason($quality, $fired, $profile,
-        array $context = array()
+    public static function bandReason($quality, array $signals,
+        $profile, array $context = array()
     ) {
         $thresholds = self::section($profile, 'thresholds');
         $bands = isset($thresholds['quality_bands'])
@@ -1222,17 +1238,19 @@ class ValueVerdictTool
                 : null,
         );
 
-        if ((int)$fired === 0) {
+        if ((int)($signals['fired'] ?? 0) === 0) {
             return array('reason' => 'no_signal', 'floors' => $floors);
         }
-        $withContext = self::qualityBand($quality, $fired, $profile,
+        $withContext = self::qualityBand($quality, $signals, $profile,
             $context);
-        $unclamped = self::qualityBand($quality, $fired, $profile);
+        $unclamped = self::qualityBand($quality, $signals, $profile);
         if ($withContext !== $unclamped) {
             $floors['would_be'] = $unclamped;
             return array('reason' => 'clamped', 'floors' => $floors);
         }
-        if ($quality >= $floors['high'] && $fired < $floors['min_signals']) {
+        if ($quality >= $floors['high']
+            && (int)($signals['supporting'] ?? 0) < $floors['min_signals']
+        ) {
             return array(
                 'reason' => 'min_signals',
                 'floors' => $floors,
@@ -1295,9 +1313,7 @@ class ValueVerdictTool
         $orgs = isset($context['occurrences']['orgs'])
             ? (int)$context['occurrences']['orgs']
             : 0;
-        $sightings = isset($context['sightings']['total'])
-            ? (int)$context['sightings']['total']
-            : 0;
+        $sightings = self::corroboratingSightings($context);
         $maxOrgs = isset($clamp['max_orgs'])
             ? (int)$clamp['max_orgs']
             : 1;
@@ -1308,6 +1324,38 @@ class ValueVerdictTool
             return $clamp['max_band'];
         }
         return $band;
+    }
+
+    /**
+     * Type-0 sightings filed by organisations that did not report the
+     * value — what the clamp means by *corroborated*.
+     *
+     * A reporter sighting its own value is still one source, and a
+     * false positive or an expiration is not a sighting at all. An
+     * anonymised sighting is left out: its filer may be the reporter.
+     *
+     * @param array $context
+     * @return int
+     */
+    public static function corroboratingSightings(array $context)
+    {
+        $byOrg = isset($context['sightings']['seen']['by_org'])
+            && is_array($context['sightings']['seen']['by_org'])
+            ? $context['sightings']['seen']['by_org']
+            : array();
+        $reporters = array();
+        foreach ($context['orgs'] ?? array() as $org) {
+            if (isset($org['id'])) {
+                $reporters[(int)$org['id']] = true;
+            }
+        }
+        $count = 0;
+        foreach ($byOrg as $id => $n) {
+            if (!isset($reporters[(int)$id])) {
+                $count += (int)$n;
+            }
+        }
+        return $count;
     }
 
     /**

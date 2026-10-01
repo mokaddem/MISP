@@ -352,13 +352,14 @@ class ValueChangersTool
             return null;
         }
         $target = $verdict['band'] === 'medium' ? 'high' : 'medium';
+        $enough = max(
+            (int)$this->thresholds($profile,
+                'quality_high_min_signals', 4),
+            (int)$verdict['signals']['fired']
+        );
         $reachable = ValueVerdictTool::qualityBand(
             $this->bandFloor($profile, $target),
-            max(
-                (int)$this->thresholds($profile,
-                    'quality_high_min_signals', 4),
-                (int)$verdict['signals']['fired']
-            ),
+            array('fired' => $enough, 'supporting' => $enough),
             $profile,
             $context
         );
@@ -369,9 +370,9 @@ class ValueChangersTool
          * The sighting half is offered only where a sighting could be
          * read. On an over-correlating value the sightings signals are
          * never evaluated — the rail says so, one card away, in *Not
-         * counted* — so *or one sighting from anyone* would name an act
-         * that moves nothing, with the reason it moves nothing printed
-         * directly above it.
+         * counted* — so *or a sighting from an organisation that did
+         * not* would name an act that moves nothing, with the reason it
+         * moves nothing printed directly above it.
          */
         return array(
             'axis' => 'quality',
@@ -379,8 +380,9 @@ class ValueChangersTool
             'text' => sprintf(
                 $this->sightingsReadable($context)
                     ? __('A second source: one more organisation'
-                        . ' reporting it, or a sighting from anyone. More'
-                        . ' from the same source cannot lift it past %s.')
+                        . ' reporting it, or a sighting from an'
+                        . ' organisation that did not. More from the same'
+                        . ' source cannot lift it past %s.')
                     : __('A second source: one more organisation'
                         . ' reporting it. More from the same source'
                         . ' cannot lift it past %s.'),
@@ -473,13 +475,17 @@ class ValueChangersTool
             return null;
         }
         $quality = (int)$verdict['quality'];
-        $fired = (int)$verdict['signals']['fired'];
+        $signals = array(
+            'fired' => (int)$verdict['signals']['fired'],
+            'supporting' => (int)($verdict['signals']['supporting'] ?? 0),
+        );
         $removed = 0;
         foreach ($rows as $row) {
             $quality -= $row['contribution'];
-            $fired--;
+            $signals['fired']--;
+            $signals['supporting']--;
             $removed++;
-            $band = ValueVerdictTool::qualityBand($quality, $fired,
+            $band = ValueVerdictTool::qualityBand($quality, $signals,
                 $profile);
             if ($band !== 'high') {
                 return array(
@@ -524,7 +530,8 @@ class ValueChangersTool
         }
         $minimum = $this->thresholds($profile, 'quality_high_min_signals',
             4);
-        $short = (int)$minimum - (int)$verdict['signals']['fired'];
+        $short = (int)$minimum
+            - (int)($verdict['signals']['supporting'] ?? 0);
         if ($short <= 0) {
             return null;
         }
@@ -533,9 +540,9 @@ class ValueChangersTool
             'direction' => 'up',
             'text' => sprintf(
                 __('The points are already there; %1$d more of the'
-                    . ' profile\'s signals have to find something to'
-                    . ' say. A high band means %2$d independent'
-                    . ' readings agree, not one generous one.'),
+                    . ' profile\'s signals have to add points. A high'
+                    . ' band means %2$d independent readings agree, not'
+                    . ' one generous one.'),
                 $short,
                 (int)$minimum
             ),

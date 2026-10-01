@@ -1137,6 +1137,43 @@ class ValueStatsTool
     }
 
     /**
+     * The same rows narrowed to type-0 sightings, which are the only
+     * reports that say the value was seen.
+     *
+     * The tallies above count every type, because the cards that print
+     * them show the three types side by side. A score cannot: a false
+     * positive argues the other way and an expiration says the value
+     * is over, so counting either as volume, spread or recency lifts a
+     * value on the very report that disputes it.
+     *
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @param int $now
+     * @param int $recentDays What the row calls recent
+     * @return array `total`, `orgs`, `last_stamp`, `recent`, `by_org`
+     *               (orgId => count) and `anonymous`
+     */
+    public static function seenFacts(array $rows, $now, $recentDays)
+    {
+        $seen = array();
+        foreach ($rows as $row) {
+            if ((int)$row['Sighting']['type'] === 0) {
+                $seen[] = $row;
+            }
+        }
+        $totals = self::sightingTotals($seen);
+        $signals = self::sightingSignals($seen, $now, $recentDays);
+        $attributed = self::sightingsByOrg($seen);
+        return array(
+            'total' => $totals['total'],
+            'orgs' => $signals['orgs'],
+            'last_stamp' => $totals['last_stamp'],
+            'recent' => $signals['recent'],
+            'by_org' => $attributed['by_org'],
+            'anonymous' => $attributed['anonymous'],
+        );
+    }
+
+    /**
      * The individual-sightings table, oldest first.
      *
      * Oldest first because `value_sighting_list` reverses what it is

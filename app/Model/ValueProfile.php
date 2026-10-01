@@ -16573,7 +16573,9 @@ class ValueProfile extends AppModel
                 $types,
                 $profile
             ),
-            'sightings' => array('total' => 0, 'fp' => 0),
+            'sightings' => array('total' => 0, 'fp' => 0,
+                'seen' => ValueStatsTool::seenFacts(array(), $now,
+                    self::VERDICT_RECENT_DAYS)),
             /*
              * The relevance clock's sighting half. Empty here and
              * filled by the row read below, so a value whose rows were
@@ -17234,6 +17236,11 @@ class ValueProfile extends AppModel
                 'by_org_fp' => $attributed['by_org_fp'],
                 'anonymous' => $attributed['anonymous'],
                 'anonymous_fp' => $attributed['anonymous_fp'],
+                'seen' => ValueStatsTool::seenFacts(
+                    $rows,
+                    $now,
+                    self::VERDICT_RECENT_DAYS
+                ),
                 'recent' => $signals['recent'],
                 'recent_days' => $signals['recent_days'],
                 'first_stamp' => $signals['first_stamp'],

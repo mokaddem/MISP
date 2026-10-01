@@ -20,6 +20,11 @@
  * nobody has seen: a stale sighting history scales the whole row down
  * rather than subtracting a fixed penalty from it.
  *
+ * **Only type-0 reports count.** A false positive argues the value is
+ * benign and an expiration that it is over; counted as volume, either
+ * would lift the row on the report disputing it. They are read by
+ * `sightings.false_positive` and the relevance clock instead.
+ *
  * Absence fires as `none_recent`, and only on genuine absence — a
  * sighting set an exclusion emptied is not a value nobody sighted, and
  * `ValueSignalBase::absenceFires()` is where that rule lives.
@@ -83,18 +88,23 @@ class SightingsVolumeRecency extends ValueSignalBase
 
     public function evaluate(array $context, array $config)
     {
-        $sightings = isset($context['sightings'])
-            ? $context['sightings']
+        $sightings = isset($context['sightings']['seen'])
+            && is_array($context['sightings']['seen'])
+            ? $context['sightings']['seen']
             : array();
         $total = (int)($sightings['total'] ?? 0);
         if ($total === 0) {
             if (!$this->absenceFires($config, $context, 'sightings')) {
                 return null;
             }
+            $reports = (int)($context['sightings']['total'] ?? 0);
             return $this->row(
                 $this->points($config, 'none_recent'),
                 __('Nobody has sighted this value'),
-                __('No sighting from any organisation'),
+                $reports > 0
+                    ? __('Only false-positive or expiration reports,'
+                        . ' which are not sightings')
+                    : __('No sighting from any organisation'),
                 $context
             );
         }

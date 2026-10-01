@@ -695,10 +695,10 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 4,
                             'help' => __(
-                                'How many signals must fire before high'
-                                . ' is allowed at all, so one generous'
-                                . ' signal cannot buy the band on its'
-                                . ' own.'
+                                'How many signals must add points before'
+                                . ' high is allowed at all, so one'
+                                . ' generous signal cannot buy the band'
+                                . ' on its own.'
                             ),
                             'path' => array('thresholds',
                                 'quality_high_min_signals'),
@@ -737,7 +737,7 @@ class AnalystProfileFormTool
                         ),
                         array(
                             'key' => 'max_sightings',
-                            'label' => __('Sighted at most'),
+                            'label' => __('Sighted by others at most'),
                             'type' => 'int',
                             'unit' => __('times'),
                             'value' => isset($clamp['max_sightings'])
@@ -745,9 +745,11 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 0,
                             'help' => __(
-                                'More sightings than this and it is not'
-                                . ' thin either — both conditions have'
-                                . ' to hold before the cap bites.'
+                                'Sightings from organisations that did not'
+                                . ' report the value. More than this and'
+                                . ' it is not thin either — both'
+                                . ' conditions have to hold before the'
+                                . ' cap bites.'
                             ),
                             'path' => array('thresholds',
                                 'thin_record_clamp', 'max_sightings'),

@@ -58,8 +58,8 @@ class ValueBandReasonTool
         }
 
         $band = isset($verdict['band']) ? $verdict['band'] : 'none';
-        $fired = (int)(isset($verdict['signals']['fired'])
-            ? $verdict['signals']['fired'] : 0);
+        $supporting = (int)(isset($verdict['signals']['supporting'])
+            ? $verdict['signals']['supporting'] : 0);
         $high = (int)(isset($floors['high']) ? $floors['high'] : 60);
 
         switch ($reason) {
@@ -74,8 +74,8 @@ class ValueBandReasonTool
                  */
                 return sprintf(
                     __('The points alone would make this %1$s. This'
-                        . ' profile holds a single-source record with no'
-                        . ' sightings at %2$s.'),
+                        . ' profile holds a single-source record that no'
+                        . ' other organisation has sighted at %2$s.'),
                     self::bandWord(isset($floors['would_be'])
                         ? $floors['would_be'] : 'medium'),
                     self::bandWord($band)
@@ -85,16 +85,18 @@ class ValueBandReasonTool
                 return sprintf(
                     __n(
                         'The points reach %1$s (%2$s), but %1$s needs'
-                            . ' %3$s signals and only %4$s fired.',
+                            . ' %3$s signals adding points and only %4$s'
+                            . ' does.',
                         'The points reach %1$s (%2$s), but %1$s needs'
-                            . ' %3$s signals and only %4$s fired.',
-                        $fired
+                            . ' %3$s signals adding points and only %4$s'
+                            . ' do.',
+                        $supporting
                     ),
                     self::bandWord('high'),
                     $high,
                     (int)(isset($floors['min_signals'])
                         ? $floors['min_signals'] : 4),
-                    $fired
+                    $supporting
                 );
         }
 

@@ -78,7 +78,9 @@
  * temporal     ['occurrences','with_first_seen']              row
  * sightings    ['total','fp','expiration','orgs','fp_orgs',
  *               'fp_org_names','first_stamp','last_stamp',
- *               'recent','recent_days']                          row
+ *               'recent','recent_days',
+ *               'seen' => ['total','orgs','last_stamp','recent',
+ *                          'by_org','anonymous']]                row
  * galaxies     ['clusters' => ['APT28' => 2],
  *               'techniques' => ['T1071.001' => 3]]              row
  * warninglist  ['hits' => [['name','category'], …],

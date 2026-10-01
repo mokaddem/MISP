@@ -8,9 +8,9 @@
  * would take them to.
  *
  * **`min_signals` is on the tile because it is the surprise.** A value
- * scoring 80 still bands `medium` if only two signals fired — quality
- * is high when several independent readings agree, not when one is
- * generous (`ValueVerdictTool::qualityBand()`). That is the one rule
+ * scoring 80 still bands `medium` if only two signals added points —
+ * quality is high when several independent readings agree, not when
+ * one is generous (`ValueVerdictTool::qualityBand()`). That is the one rule
  * here a reader cannot infer from a band they are looking at, and
  * leaving it off would make the tile's two numbers a promise the
  * engine does not keep.
