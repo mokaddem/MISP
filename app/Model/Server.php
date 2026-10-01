@@ -687,12 +687,13 @@ class Server extends AppModel
 
             $pulledSightings = $eventModel->Sighting->pullSightings($user, $serverSync);
 
-            if ($jobId) {
-                $job->saveProgress($jobId, 'Pulling analyst data.', 87);
+            if (!empty($server['Server']['pull_analyst_data'])) {
+                if ($jobId) {
+                    $job->saveProgress($jobId, 'Pulling analyst data.', 87);
+                }
+                $this->AnalystData = ClassRegistry::init('AnalystData');
+                $pulledAnalystData = $this->AnalystData->pull($user, $serverSync);
             }
-
-            $this->AnalystData = ClassRegistry::init('AnalystData');
-            $pulledAnalystData = $this->AnalystData->pull($user, $serverSync);
 
             // Collections: gated on the per-server pull_collections toggle (T1.2) AND
             // feature negotiation (isSupported reads the already-cached remote info, so no
