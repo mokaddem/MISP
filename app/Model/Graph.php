@@ -201,6 +201,45 @@ class Graph extends AnalystData
     }
 
     /**
+     * Every column but the document: what a push collects of each graph.
+     *
+     * @return array
+     */
+    public function metadataFields(): array
+    {
+        $fields = [];
+        foreach (array_keys($this->schema()) as $column) {
+            if ($column !== 'content') {
+                $fields[] = $this->alias . '.' . $column;
+            }
+        }
+        return $fields;
+    }
+
+    /**
+     * Reads the document, and the modified time that goes with it, into a
+     * graph collected without them.
+     *
+     * @param array $graph
+     * @return array|null null when the graph is gone
+     */
+    public function attachContent(array $graph)
+    {
+        $stored = $this->find('first', [
+            'conditions' => [$this->alias . '.id' => $graph[$this->alias]['id']],
+            'fields' => [$this->alias . '.content', $this->alias . '.modified'],
+            'recursive' => -1,
+            'callbacks' => false,
+        ]);
+        if (empty($stored)) {
+            return null;
+        }
+        $graph[$this->alias]['content'] = AnalystGraphDocumentTool::decode($stored[$this->alias]['content']);
+        $graph[$this->alias]['modified'] = $stored[$this->alias]['modified'];
+        return $graph;
+    }
+
+    /**
      * Editing also needs the analyst-data permission, so `_canEdit` tells a
      * client whether to offer saving or forking.
      */

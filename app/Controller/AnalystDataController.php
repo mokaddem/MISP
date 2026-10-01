@@ -541,7 +541,8 @@ class AnalystDataController extends AppController
                 return $this->RestResponse->viewData([], $this->response->type());
             }
         }
-        $allData = $this->AnalystData->indexMinimal($this->Auth->user(), $options);
+        $types = AnalystData::syncTypes($filters['types'] ?? null);
+        $allData = $this->AnalystData->indexMinimal($this->Auth->user(), $options, $types);
 
         return $this->RestResponse->viewData($allData, $this->response->type());
     }

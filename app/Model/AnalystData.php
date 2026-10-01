@@ -48,6 +48,10 @@ class AnalystData extends AppModel
         'Graph',
     ];
 
+    // A graph pull fetches at most this many bytes, or graphs, per request
+    const GRAPH_PULL_BATCH_BYTES = 8388608,
+        GRAPH_PULL_BATCH_COUNT = 100;
+
     protected const BASE_EDITABLE_FIELDS = [
         'language',
         'authors',
@@ -845,7 +849,12 @@ class AnalystData extends AppModel
 
         $serverSync->debug("Starting Analyst Data sync");
 
-        $analystData = $this->collectDataForPush($serverSync->server());
+        $types = self::ANALYST_DATA_TYPES;
+        // A peer that predates graphs fails its whole analyst-data push on the key
+        if ($serverSync->isSupported(ServerSyncTool::FEATURE_ANALYST_GRAPH)) {
+            $types[] = 'Graph';
+        }
+        $analystData = $this->collectDataForPush($serverSync->server(), $types);
         $keyedAnalystData = [];
         foreach ($analystData as $type => $entries) {
             foreach ($entries as $entry) {
@@ -882,10 +891,11 @@ class AnalystData extends AppModel
     /**
      * Collect eligible data to be pushed on a server
      *
-     * @param array $user
+     * @param array $server
+     * @param array $types
      * @return array
      */
-    public function collectDataForPush(array $server): array
+    public function collectDataForPush(array $server, array $types = self::ANALYST_DATA_TYPES): array
     {
         $sgIDs = $this->collectValidSharingGroupIDs($server);
         $options = [
@@ -907,7 +917,12 @@ class AnalystData extends AppModel
                 ]
             ],
         ];
-        $dataForPush = $this->getAllAnalystData('all', $options);
+        $typeOptions = [];
+        if (in_array('Graph', $types, true)) {
+            // Content is read at upload, for the graphs the remote accepts
+            $typeOptions['Graph']['fields'] = ClassRegistry::init('Graph')->metadataFields();
+        }
+        $dataForPush = $this->getAllAnalystData('all', $options, $types, $typeOptions);
         $this->Event = ClassRegistry::init('Event');
         $SGModel = ClassRegistry::init('SharingGroup');
         $sgStore = [];
@@ -1043,14 +1058,12 @@ class AnalystData extends AppModel
 
     public function filterAnalystDataForPush($allIncomingAnalystData): array
     {
-        $validModels = [
-            'Note' => ClassRegistry::init('Note'),
-            'Opinion' => ClassRegistry::init('Opinion'),
-            'Relationship' => ClassRegistry::init('Relationship'),
-        ];
-
-        $allData = ['Note' => [], 'Opinion' => [], 'Relationship' => []];
+        $allData = array_fill_keys(self::ANALYST_DATA_TYPES, []);
         foreach ($allIncomingAnalystData as $model => $entries) {
+            // A type this instance does not know is left out, not fatal
+            if (!in_array($model, self::TYPES, true) || !is_array($entries)) {
+                continue;
+            }
             $incomingAnalystData = $entries;
             $incomingUuids = array_keys($entries);
             $options = [
@@ -1058,7 +1071,7 @@ class AnalystData extends AppModel
                 'recursive' => -1,
                 'fields' => ['uuid', 'modified', 'locked']
             ];
-            $analystData = $validModels[$model]->find('all', $options);
+            $analystData = ClassRegistry::init($model)->find('all', $options);
             foreach ($analystData as $entry) {
                 if (empty($incomingAnalystData[$entry[$model]['uuid']])) {
                     continue;
@@ -1083,7 +1096,29 @@ class AnalystData extends AppModel
         return true;
     }
 
-    public function indexMinimal(array $user, $filters = []): array
+    /**
+     * The types a sync index lists: those the caller names, or the embedded
+     * types when it names none, as a caller that predates graphs does.
+     *
+     * @param mixed $requested
+     * @return array
+     */
+    public static function syncTypes($requested): array
+    {
+        if (!is_array($requested)) {
+            return self::ANALYST_DATA_TYPES;
+        }
+        return array_values(array_intersect(self::TYPES, array_filter($requested, 'is_string')));
+    }
+
+    /**
+     * @param array $user
+     * @param array $filters
+     * @param array $types
+     * @return array [type => [uuid => modified]]; a Graph entry is
+     *               {modified, size}, its content size in bytes
+     */
+    public function indexMinimal(array $user, $filters = [], array $types = self::ANALYST_DATA_TYPES): array
     {
         $options = [
             'recursive' => -1,
@@ -1095,34 +1130,42 @@ class AnalystData extends AppModel
             ],
             'fields' => ['uuid', 'modified', 'locked']
         ];
-        $tmp = $this->getAllAnalystData('all', $options);
+        $tmp = $this->getAllAnalystData('all', $options, $types, [
+            'Graph' => ['fields' => ['uuid', 'modified', 'locked', 'content_size']],
+        ]);
         $allData = [];
         foreach ($tmp as $type => $entries) {
             foreach ($entries as $i => $entry) {
                 $entry = $entry[$type];
-                $allData[$type][$entry['uuid']] = $entry['modified'];
+                if ($type === 'Graph') {
+                    $allData[$type][$entry['uuid']] = [
+                        'modified' => $entry['modified'],
+                        'size' => (int)$entry['content_size'],
+                    ];
+                } else {
+                    $allData[$type][$entry['uuid']] = $entry['modified'];
+                }
             }
         }
         return $allData;
     }
 
     /**
-     * getAllAnalystData Collect all analyst data regardless if they are notes, opinions or relationships
+     * getAllAnalystData Collect the analyst data of the given types
      *
-     * @param array $user
+     * @param string $findType
+     * @param array $findOptions
+     * @param array $types
+     * @param array $typeOptions Find options of one type, over $findOptions
      * @return array
      */
-    public function getAllAnalystData($findType='all', array $findOptions=[]): array
+    public function getAllAnalystData($findType='all', array $findOptions=[], array $types = self::ANALYST_DATA_TYPES, array $typeOptions = []): array
     {
         $allData = [];
-        $validModels = [
-            'Note' => ClassRegistry::init('Note'),
-            'Opinion' => ClassRegistry::init('Opinion'),
-            'Relationship' => ClassRegistry::init('Relationship'),
-        ];
-        foreach ($validModels as $model) {
-            $result = $model->find($findType, $findOptions);
-            $allData[$model->alias] = $result;
+        foreach ($types as $type) {
+            $model = ClassRegistry::init($type);
+            $options = array_merge($findOptions, $typeOptions[$type] ?? []);
+            $allData[$model->alias] = $model->find($findType, $options);
         }
         return $allData;
     }
@@ -1130,6 +1173,12 @@ class AnalystData extends AppModel
     public function uploadEntryToServer($type, array $analystData, array $server, ServerSyncTool $serverSync, array $user)
     {
         $analystDataID = $analystData[$type]['id'];
+        if ($type === 'Graph') {
+            $analystData = ClassRegistry::init('Graph')->attachContent($analystData);
+            if ($analystData === null) {
+                return __('The graph was deleted before it could be pushed.');
+            }
+        }
         $analystData = $this->prepareForPushToServer($type, $analystData, $server);
         if (is_numeric($analystData)) {
             return $analystData;
@@ -1220,44 +1269,125 @@ class AnalystData extends AppModel
         $this->Server = ClassRegistry::init('Server');
         try {
             $filterRules = $this->buildPullFilterRules($serverSync->server());
+            $filterRules['types'] = self::TYPES;
             $remoteData = $serverSync->fetchIndexMinimal($filterRules)->json();
         } catch (Exception $e) {
             $this->logException("Could not fetch analyst data IDs from server {$serverSync->server()['Server']['name']}", $e);
             return 0;
         }
 
-        $allRemoteUUIDs = [];
-        if (empty($remoteData)) {
+        if (empty($remoteData) || !is_array($remoteData)) {
             return 0;
         }
-        foreach (self::ANALYST_DATA_TYPES as $type) {
-            if (isset($remoteData[$type])) {
-                $allRemoteUUIDs = array_merge($allRemoteUUIDs, array_keys($remoteData[$type]));
-            }
+        $remoteIndex = self::readRemoteIndex($remoteData);
+        $allRemoteUUIDs = [];
+        foreach ($remoteIndex as $entries) {
+            $allRemoteUUIDs = array_merge($allRemoteUUIDs, array_keys($entries));
+        }
+        if (empty($allRemoteUUIDs)) {
+            return 0;
         }
 
         $localAnalystData = $this->getAllAnalystData('list', [
             'conditions' => ['uuid' => $allRemoteUUIDs],
             'fields' => ['uuid', 'modified'],
-        ]);
+        ], array_keys($remoteIndex));
 
-        $remoteUUIDsToFetch = [];
-        foreach ($remoteData as $type => $remoteAnalystData) {
-            foreach ($remoteAnalystData as $remoteUUID => $remoteModified) {
-                if (!isset($localAnalystData[$type][$remoteUUID])) {
-                    $remoteUUIDsToFetch[$type][$remoteUUID] = $remoteModified;
-                } elseif (strtotime($localAnalystData[$type][$remoteUUID]) < strtotime($remoteModified)) {
-                    $remoteUUIDsToFetch[$type][$remoteUUID] = $remoteModified;
-                }
-            }
-        }
-        unset($remoteData, $allRemoteUUIDs, $localAnalystData);
+        $remoteUUIDsToFetch = self::planPull($remoteIndex, $localAnalystData);
+        unset($remoteData, $remoteIndex, $allRemoteUUIDs, $localAnalystData);
 
         if (empty($remoteUUIDsToFetch)) {
             return 0;
         }
 
         return $this->pullInChunks($user, $remoteUUIDsToFetch, $serverSync);
+    }
+
+    /**
+     * A remote sync index, read: only the types known here, each entry as its
+     * modified time and size. The size is null when the remote gives none or
+     * an unusable one.
+     *
+     * @param array $remoteData
+     * @return array [type => [uuid => ['modified' => string, 'size' => int|null]]]
+     */
+    public static function readRemoteIndex(array $remoteData): array
+    {
+        $index = [];
+        foreach (self::TYPES as $type) {
+            if (empty($remoteData[$type]) || !is_array($remoteData[$type])) {
+                continue;
+            }
+            foreach ($remoteData[$type] as $uuid => $entry) {
+                $modified = is_array($entry) ? ($entry['modified'] ?? null) : $entry;
+                $size = is_array($entry) ? ($entry['size'] ?? null) : null;
+                if (!is_string($modified)) {
+                    continue;
+                }
+                $index[$type][$uuid] = [
+                    'modified' => $modified,
+                    'size' => is_numeric($size) && $size >= 0 ? (int)$size : null,
+                ];
+            }
+        }
+        return $index;
+    }
+
+    /**
+     * The remote entries to fetch: missing here, or newer than the local copy.
+     *
+     * @param array $remoteIndex As readRemoteIndex() returns it
+     * @param array $local [type => [uuid => modified]]
+     * @return array [type => [uuid => size|null]]
+     */
+    public static function planPull(array $remoteIndex, array $local): array
+    {
+        $toFetch = [];
+        foreach ($remoteIndex as $type => $entries) {
+            foreach ($entries as $uuid => $entry) {
+                if (
+                    !isset($local[$type][$uuid]) ||
+                    strtotime($local[$type][$uuid]) < strtotime($entry['modified'])
+                ) {
+                    $toFetch[$type][$uuid] = $entry['size'];
+                }
+            }
+        }
+        return $toFetch;
+    }
+
+    /**
+     * Packs keys, in order, into batches of at most $maxCount keys and
+     * $maxBytes bytes. A key of unknown size (null), or over $maxBytes
+     * alone, gets a batch of its own.
+     *
+     * @param array $sizes [key => int|null]
+     * @param int $maxBytes
+     * @param int $maxCount
+     * @return array[] Lists of keys
+     */
+    public static function sizedBatches(array $sizes, int $maxBytes, int $maxCount): array
+    {
+        $batches = [];
+        $batch = [];
+        $bytes = 0;
+        foreach ($sizes as $key => $size) {
+            if ($size === null || $size > $maxBytes) {
+                $batches[] = [(string)$key];
+                continue;
+            }
+            if (!empty($batch) && (count($batch) >= $maxCount || $bytes + $size > $maxBytes)) {
+                $batches[] = $batch;
+                $batch = [];
+                $bytes = 0;
+            }
+            $batch[] = (string)$key;
+            $bytes += $size;
+        }
+        if (!empty($batch)) {
+            $batches[] = $batch;
+        }
+        return $batches;
     }
 
     private function pullInChunks(array $user, array $analystDataUuids, ServerSyncTool $serverSync)
@@ -1273,12 +1403,16 @@ class AnalystData extends AppModel
         $remotePermSyncInternal = !empty($remoteUser['Role']['perm_sync_internal']);
 
         foreach ($analystDataUuids as $type => $entries) {
-            $uuids = array_keys($entries);
-            if (empty($uuids)) {
+            if (empty($entries)) {
                 continue;
             }
+            if ($type === 'Graph') {
+                $chunks = self::sizedBatches($entries, self::GRAPH_PULL_BATCH_BYTES, self::GRAPH_PULL_BATCH_COUNT);
+            } else {
+                $chunks = array_chunk(array_keys($entries), 100);
+            }
 
-            foreach (array_chunk($uuids, 100) as $uuidChunk) {
+            foreach ($chunks as $uuidChunk) {
                 try {
                     $chunkedAnalystData = $serverSync->fetchAnalystData($type, $uuidChunk)->json();
                 } catch (Exception $e) {
