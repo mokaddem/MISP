@@ -1238,6 +1238,16 @@ class Value extends AppModel
                     . ' AS to_ids_no',
                 'MAX(' . self::OBSERVED_AT . ') AS newest',
                 /*
+                 * When this organisation last wrote a `to_ids = 1` row,
+                 * which is when it last made the assertion — the row
+                 * date and not the observed date, because a false
+                 * positive filed after it is weighed against the
+                 * statement, not against the sighting the statement
+                 * was about (`16-signal-corrections.md` D63).
+                 */
+                'MAX(CASE WHEN Attribute.to_ids = 1'
+                    . ' THEN Attribute.timestamp END) AS newest_flagged',
+                /*
                  * When this organisation first held the value, which is
                  * the relevance clock's occurrence half: the most
                  * recent of these across organisations is the last time

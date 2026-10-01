@@ -1100,23 +1100,28 @@ class ValueStatsTool
      * a grade ends up printed against the wrong organisation.
      *
      * @param array $rows Rows as `Sighting::listSightings` returns
-     * @return array `by_org` and `by_org_fp` (orgId => count), `names`
-     *               (orgId => name), plus `anonymous` and
-     *               `anonymous_fp` for the rest
+     * @return array `by_org` and `by_org_fp` (orgId => count),
+     *               `by_org_fp_last` (orgId => newest false positive),
+     *               `names` (orgId => name), plus `anonymous`,
+     *               `anonymous_fp` and `anonymous_fp_last` for the rest
      */
     public static function sightingsByOrg(array $rows)
     {
         $byOrg = array();
         $byOrgFp = array();
         $names = array();
+        $fpLast = array();
         $anonymous = 0;
         $anonymousFp = 0;
+        $anonymousFpLast = null;
         foreach ($rows as $row) {
             $isFp = ((int)$row['Sighting']['type'] === 1);
+            $stamp = (int)$row['Sighting']['date_sighting'];
             if (!self::sightingHasOrg($row)) {
                 $anonymous++;
                 if ($isFp) {
                     $anonymousFp++;
+                    $anonymousFpLast = max((int)$anonymousFpLast, $stamp);
                 }
                 continue;
             }
@@ -1125,14 +1130,17 @@ class ValueStatsTool
             $names[$id] = $row['Organisation']['name'];
             if ($isFp) {
                 $byOrgFp[$id] = ($byOrgFp[$id] ?? 0) + 1;
+                $fpLast[$id] = max($fpLast[$id] ?? 0, $stamp);
             }
         }
         return array(
             'by_org' => $byOrg,
             'by_org_fp' => $byOrgFp,
+            'by_org_fp_last' => $fpLast,
             'names' => $names,
             'anonymous' => $anonymous,
             'anonymous_fp' => $anonymousFp,
+            'anonymous_fp_last' => $anonymousFpLast,
         );
     }
 

@@ -2,7 +2,7 @@
     "uuid": "7701d271-fd42-45fd-b680-b5b137a96fe3",
     "name": "Risk & Reporting",
     "description": "For an analyst who will be asked to explain the number. It changes no number at all - only what the page shows first - so a band read here is the instance's band and not this profile's opinion of it.",
-    "version": 3,
+    "version": 4,
     "parameters": {
         "format": 1,
         "signals": [
@@ -148,6 +148,7 @@
         ],
         "thresholds": {
             "lean_supermajority": 0.66,
+            "dispute_stale_factor": 0.5,
             "quality_bands": {
                 "high": 60,
                 "medium": 30

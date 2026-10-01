@@ -71,14 +71,16 @@
  * types        [['type','count'], …]                     aggregate
  * occurrences  ['total','events','orgs','oldest','newest']  aggregate
  * orgs         [['id','name','occurrences','to_ids_yes',
- *                'to_ids_no','newest','oldest'], …]       aggregate
+ *                'to_ids_no','newest','newest_flagged',
+ *                'oldest'], …]                            aggregate
  * publication  ['events','published','unpublished']       aggregate
  * activity     ['months' => ['2025-07' => 3, …], 'active_months',
  *               'span_months','longest_run','gaps']       aggregate
  * temporal     ['occurrences','with_first_seen']              row
  * sightings    ['total','fp','expiration','orgs','fp_orgs',
  *               'fp_org_names','first_stamp','last_stamp',
- *               'recent','recent_days',
+ *               'recent','recent_days','by_org_fp',
+ *               'by_org_fp_last','anonymous_fp','anonymous_fp_last',
  *               'seen' => ['total','orgs','last_stamp','recent',
  *                          'by_org','anonymous']]                row
  * galaxies     ['clusters' => ['APT28' => 2],
@@ -249,6 +251,16 @@ abstract class ValueSignalBase
      * *no hit* does not.
      */
     public $axis = self::AXIS_QUALITY;
+
+    /**
+     * Whether this signal's evidence is already counted as voices in
+     * the lean's stance count (`16-signal-corrections.md` D63).
+     *
+     * Its lean rows are still drawn, but they do not decide the
+     * lean-disputed check: a voice weighed against the reporters once
+     * must not get a second, unweighted say as a sum of points.
+     */
+    public $voice = false;
 
     /** The value-page tab a reader should go and argue with the row in. */
     public $tab = 'occurrences';

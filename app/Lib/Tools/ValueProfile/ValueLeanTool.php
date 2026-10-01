@@ -1,6 +1,7 @@
 <?php
 
 App::uses('ValueSignalLoader', 'Tools/ValueProfile');
+App::uses('ValueTrustTool', 'Tools/ValueProfile');
 App::uses('ValueEscalationBase', 'Model/ValueEscalations');
 
 /**
@@ -16,7 +17,7 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * ledger says how thin or thick that record is; the lean says which way
  * it points.
  *
- * ## Stances are counted per organisation, never per occurrence
+ * ## Stances are voices: one per organisation, at its grade
  *
  * One organisation putting the same value in forty events with `to_ids`
  * set is one voice, not forty. Counting occurrences would let a single
@@ -24,11 +25,35 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * the same independence argument the reporting signal already makes
  * about corroboration.
  *
+ * **A dispute is a voice too, and never a veto** (D63,
+ * `16-signal-corrections.md` §3.1). A false positive or an outside
+ * verdict used to decide the lean alone through the lean-disputed
+ * check, so one false positive outvoted ten reporters. It is now
+ * weighed in the same count:
+ *
  * ```
- * threat_orgs   orgs holding at least one occurrence with to_ids = 1
- * benign_orgs   orgs whose every occurrence has to_ids = 0
- * threat_share  threat_orgs / (threat_orgs + benign_orgs)
+ * threat voices  Σ factor of orgs asserting it (to_ids = 1)
+ *                + Σ weight of graded verdicts arguing threat
+ * benign voices  Σ factor of orgs whose every occurrence has to_ids = 0
+ *                + Σ factor of orgs that filed a false positive and
+ *                  do not themselves assert it
+ *                + Σ weight of graded verdicts arguing benign
+ * threat_share   threat / (threat + benign)
  * ```
+ *
+ * The factor is the organisation's reliability grade once the
+ * profile grades anybody, and `1` until then (D64): `G` abstains, `E`
+ * is a quarter voice. A verdict weighs its module's grade, halved
+ * where it hedges — the same weight its ledger row is paid.
+ *
+ * **An organisation's latest statement wins.** A reporter filing a
+ * false positive after its own newest `to_ids = 1` row has changed its
+ * stance: one benign voice, not a threat voice and a benign one.
+ *
+ * **An old dispute counts less.** A false positive older than another
+ * organisation's newest standing assertion counts at
+ * `thresholds.dispute_stale_factor` — the reporters reasserting the
+ * value after the dispute is information.
  *
  * ## The rules, first match wins
  *
@@ -54,12 +79,18 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * collision of two deliberate judgements, and the conflict rule that
  * names it has to get there before either one wins quietly.
  *
+ * A record whose every voice abstains — reported only by
+ * organisations graded to count for nothing — has nothing to lean on
+ * either, and answers `none` with `decided_by = 'no_voice'`.
+ *
  * There is a seventh rule, and it lives with the ledger rather than
- * here: a lean whose anchored **lean rows** sum below zero becomes
- * contested, because the record is then disputing its own assertion.
- * That one cannot be decided before scoring, so `ValueVerdictTool`
- * applies it, and it writes `decided_by = 'lean_disputed'` so the
- * band stops naming the lean the rule discarded.
+ * here: a lean whose anchored lean rows **that are not voices** sum
+ * below zero becomes contested, because the record is then disputing
+ * its own assertion. On the shipped catalogue that is the warninglist
+ * hit. That one cannot be decided before scoring, so
+ * `ValueVerdictTool` applies it, and it writes
+ * `decided_by = 'lean_disputed'` so the band stops naming the lean the
+ * rule discarded.
  *
  * **The lean rows and not the quality**: weighed against the whole
  * ledger the rule would fire on thin records rather than contradictory
@@ -94,6 +125,9 @@ class ValueLeanTool
      * smaller than one organisation can move any real share.
      */
     const SHARE_TOLERANCE = 1e-9;
+
+    /** What an old dispute counts for when the profile does not say. */
+    const DISPUTE_STALE_FACTOR = 0.5;
 
     /**
      * Whether a share reaches a threshold, at the boundary as well as
@@ -131,6 +165,16 @@ class ValueLeanTool
         if ($this->nothingVisible($context, $stances)) {
             return $this->answer('none', null, $stances, $errors,
                 'nothing_visible');
+        }
+        /*
+         * Something visible and nobody counted: every reporter is
+         * graded to count for nothing and no dispute or verdict has
+         * weight either. Not a share of zero, which rule 5 would read
+         * as a benign supermajority.
+         */
+        if ($stances['voices'] <= 0.0) {
+            return $this->answer('none', null, $stances, $errors,
+                'no_voice');
         }
 
         // Rule 2.
@@ -182,6 +226,10 @@ class ValueLeanTool
      * already derived a lean should not have to count the stances
      * again to explain it.
      *
+     * `threat_orgs` and `benign_orgs` stay headcounts — of the
+     * organisations whose voice carries weight — because the prose
+     * names organisations; `threat_share` is read off the voices.
+     *
      * @param array $context
      * @param array|null $profile
      * @return array
@@ -191,14 +239,27 @@ class ValueLeanTool
         $orgs = isset($context['orgs']) && is_array($context['orgs'])
             ? $context['orgs']
             : array();
-        $threat = 0;
-        $benign = 0;
-        foreach ($orgs as $org) {
-            if (!empty($org['to_ids_yes'])) {
-                $threat++;
-            } elseif (!empty($org['to_ids_no'])) {
-                $benign++;
-            }
+        $sightings = isset($context['sightings'])
+            && is_array($context['sightings'])
+            ? $context['sightings']
+            : array();
+        $trust = ValueTrustTool::blockFrom($context);
+        $weighted = !empty($trust['in_force']);
+        $staleFactor = self::disputeStaleFactor($profile);
+        $fpLast = $this->falsePositiveStamps($sightings);
+
+        /*
+         * Who still asserts it, and since when. Settled before any
+         * dispute is weighed, because whether a false positive is old
+         * is a question about the assertions that stand — not about
+         * one a reporter has since withdrawn.
+         */
+        $reporters = array();
+        $reporterIds = array();
+        $standing = array();
+        foreach ($orgs as $index => $org) {
+            $id = (int)($org['id'] ?? 0);
+            $yes = !empty($org['to_ids_yes']);
             /*
              * An organisation whose stance columns are both zero holds
              * no occurrence and so casts no vote. It cannot happen from
@@ -207,17 +268,282 @@ class ValueLeanTool
              * the denominator would dilute everybody else's vote with
              * a row that says nothing.
              */
+            if (!$yes && empty($org['to_ids_no'])) {
+                continue;
+            }
+            /*
+             * Keyed by position, not id: an organisation this viewer
+             * cannot name arrives as `0`, and so does every
+             * organisation a probe appends.
+             */
+            $reporters[$index] = $org;
+            $reporterIds[$id] = true;
+            if (!$yes) {
+                continue;
+            }
+            $flagged = isset($org['newest_flagged'])
+                ? (int)$org['newest_flagged']
+                : (int)($org['newest'] ?? 0);
+            $withdrawnAt = $fpLast[$id] ?? null;
+            if ($id > 0 && $withdrawnAt !== null
+                && $withdrawnAt > $flagged
+            ) {
+                continue;
+            }
+            $standing[$index] = array('id' => $id, 'at' => $flagged);
         }
-        $counted = $threat + $benign;
+
+        $threat = 0.0;
+        $benign = 0.0;
+        $threatOrgs = 0;
+        $benignOrgs = 0;
+        $abstained = array();
+        $disputes = array();
+        $graded = false;
+        $factor = function ($id) use ($context, $weighted, &$graded) {
+            if (!$weighted) {
+                return 1.0;
+            }
+            if (ValueTrustTool::gradeFor($context, $id) !== null) {
+                $graded = true;
+            }
+            return ValueTrustTool::factor($context, $id);
+        };
+
+        foreach ($reporters as $index => $org) {
+            $id = (int)($org['id'] ?? 0);
+            $f = $factor($id);
+            if ($f <= 0.0) {
+                $abstained[] = (string)($org['name'] ?? '');
+            }
+            if (isset($standing[$index])) {
+                $threat += $f;
+                $threatOrgs += $f > 0.0 ? 1 : 0;
+                continue;
+            }
+            if (!empty($org['to_ids_yes'])) {
+                // Withdrawn: its own later false positive is its voice.
+                $disputes[] = $this->dispute($id, $org['name'] ?? null,
+                    $fpLast[$id], $f, $standing, $staleFactor, true);
+                $last = end($disputes);
+                $benign += $last['weight'];
+                $benignOrgs += $last['weight'] > 0.0 ? 1 : 0;
+                continue;
+            }
+            $benign += $f;
+            $benignOrgs += $f > 0.0 ? 1 : 0;
+        }
+
+        $names = isset($sightings['fp_org_list'])
+            && is_array($sightings['fp_org_list'])
+            ? array_column($sightings['fp_org_list'], 'name', 'id')
+            : array();
+        foreach ($fpLast as $id => $stamp) {
+            if ($id === 0 || isset($reporterIds[$id])) {
+                continue;
+            }
+            $f = $factor($id);
+            $disputes[] = $this->dispute($id, $names[$id] ?? null,
+                $stamp, $f, $standing, $staleFactor, false);
+            $last = end($disputes);
+            $benign += $last['weight'];
+            $benignOrgs += $last['weight'] > 0.0 ? 1 : 0;
+        }
+        /*
+         * Anonymised filings are one unrated voice between them: the
+         * filers cannot be told apart, so they cannot be counted as
+         * several, and one of them may be a reporter.
+         */
+        if (array_key_exists(0, $fpLast)) {
+            $disputes[] = $this->dispute(0, null, $fpLast[0],
+                $factor(0), $standing, $staleFactor, false);
+            $last = end($disputes);
+            $benign += $last['weight'];
+        }
+
+        $modules = array('threat' => 0, 'benign' => 0);
+        foreach ($this->moduleVoices($context, $profile) as $voice) {
+            if ($voice['side'] === 'threat') {
+                $threat += $voice['weight'];
+            } else {
+                $benign += $voice['weight'];
+            }
+            $modules[$voice['side']]++;
+            $disputes[] = array(
+                'kind' => 'enrichment',
+                'side' => $voice['side'],
+                'module' => $voice['module'],
+                'grade' => $voice['grade'],
+                'word' => $voice['word'],
+                'stamp' => $voice['ran_at'],
+                'weight' => $voice['weight'],
+                'stale' => false,
+                'withdrawn' => false,
+            );
+        }
+
+        $voices = $threat + $benign;
         return array(
-            'threat_orgs' => $threat,
-            'benign_orgs' => $benign,
-            'orgs' => $counted,
-            'threat_share' => $counted === 0
-                ? 0.0
-                : $threat / $counted,
+            'threat_orgs' => $threatOrgs,
+            'benign_orgs' => $benignOrgs,
+            'orgs' => $threatOrgs + $benignOrgs,
+            'reporters' => count($reporters),
+            'threat_voices' => $threat,
+            'benign_voices' => $benign,
+            'voices' => $voices,
+            'threat_modules' => $modules['threat'],
+            'benign_modules' => $modules['benign'],
+            'threat_share' => $voices <= 0.0 ? 0.0 : $threat / $voices,
             'supermajority' => self::supermajority($profile),
+            'weighted' => $graded,
+            'abstained' => array_values(array_filter($abstained,
+                'strlen')),
+            'disputes' => $disputes,
         );
+    }
+
+    /**
+     * One false-positive voice: its weight, and whether it is old.
+     *
+     * @param int $id The filer, `0` when anonymised
+     * @param string|null $name
+     * @param int|null $stamp Its newest false positive, null when the
+     *                        context does not carry one
+     * @param float $factor The filer's grade factor
+     * @param array $standing `id` and `at` of each standing assertion
+     * @param float $staleFactor
+     * @param bool $withdrawn A reporter withdrawing its own assertion
+     * @return array
+     */
+    private function dispute($id, $name, $stamp, $factor,
+        array $standing, $staleFactor, $withdrawn
+    ) {
+        $stale = false;
+        if ($stamp !== null) {
+            foreach ($standing as $assertion) {
+                if (($id === 0 || $assertion['id'] !== $id)
+                    && $assertion['at'] > $stamp
+                ) {
+                    $stale = true;
+                    break;
+                }
+            }
+        }
+        return array(
+            'kind' => 'false_positive',
+            'side' => 'benign',
+            'org_id' => $id,
+            'name' => $name,
+            'stamp' => $stamp,
+            'weight' => $factor * ($stale ? $staleFactor : 1.0),
+            'stale' => $stale,
+            'withdrawn' => $withdrawn,
+        );
+    }
+
+    /**
+     * Each filer's newest false positive, anonymised filings under `0`.
+     *
+     * A context carrying counts but no stamps — built before the
+     * stamps existed, or by hand — reads each filing as current: a
+     * date nobody recorded cannot make a dispute old, or a reporter's
+     * assertion withdrawn.
+     *
+     * @param array $sightings
+     * @return array orgId => stamp|null
+     */
+    private function falsePositiveStamps(array $sightings)
+    {
+        $stamps = isset($sightings['by_org_fp_last'])
+            && is_array($sightings['by_org_fp_last'])
+            ? $sightings['by_org_fp_last']
+            : array();
+        $out = array();
+        $byOrg = isset($sightings['by_org_fp'])
+            && is_array($sightings['by_org_fp'])
+            ? $sightings['by_org_fp']
+            : array();
+        foreach ($byOrg as $id => $count) {
+            if ((int)$count > 0 && (int)$id > 0) {
+                $out[(int)$id] = isset($stamps[$id])
+                    ? (int)$stamps[$id]
+                    : null;
+            }
+        }
+        $anonymous = (int)($sightings['anonymous_fp'] ?? 0);
+        if (empty($byOrg) && $anonymous === 0
+            && (int)($sightings['fp'] ?? 0) > 0
+        ) {
+            $anonymous = (int)$sightings['fp'];
+        }
+        if ($anonymous > 0) {
+            $out[0] = isset($sightings['anonymous_fp_last'])
+                ? (int)$sightings['anonymous_fp_last']
+                : (isset($sightings['fp_last_stamp'])
+                    ? (int)$sightings['fp_last_stamp']
+                    : null);
+        }
+        return $out;
+    }
+
+    /**
+     * The outside verdicts the profile counts, read through the signal
+     * that scores them, so the lean and the ledger cannot disagree
+     * about which verdicts count.
+     *
+     * None when the profile does not enable the signal: an analyst
+     * who switched enrichment off has switched off its voices too.
+     *
+     * @param array $context
+     * @param array|null $profile
+     * @return array
+     */
+    private function moduleVoices(array $context, $profile)
+    {
+        $entry = null;
+        foreach (self::section($profile, 'signals') as $candidate) {
+            if (is_array($candidate)
+                && ($candidate['id'] ?? null) === 'enrichment.answer'
+            ) {
+                $entry = $candidate;
+                break;
+            }
+        }
+        if ($entry === null || (array_key_exists('enabled', $entry)
+            && empty($entry['enabled']))
+        ) {
+            return array();
+        }
+        $signal = ValueSignalLoader::get('enrichment.answer');
+        if ($signal === null || !method_exists($signal, 'voices')) {
+            return array();
+        }
+        try {
+            return $signal->voices($context, $entry);
+        } catch (Throwable $e) {
+            return array();
+        }
+    }
+
+    /**
+     * What a false positive counts for once the reporters have
+     * reasserted the value after it.
+     *
+     * @param array|null $profile
+     * @return float
+     */
+    public static function disputeStaleFactor($profile)
+    {
+        $thresholds = self::section($profile, 'thresholds');
+        if (isset($thresholds['dispute_stale_factor'])
+            && is_numeric($thresholds['dispute_stale_factor'])
+        ) {
+            $given = (float)$thresholds['dispute_stale_factor'];
+            if ($given >= 0.0 && $given <= 1.0) {
+                return $given;
+            }
+        }
+        return self::DISPUTE_STALE_FACTOR;
     }
 
     /**
@@ -238,7 +564,7 @@ class ValueLeanTool
         $occurrences = isset($context['occurrences']['total'])
             ? (int)$context['occurrences']['total']
             : 0;
-        return $occurrences === 0 || $stances['orgs'] === 0;
+        return $occurrences === 0 || $stances['reporters'] === 0;
     }
 
     /**
@@ -531,7 +857,7 @@ class ValueLeanTool
     }
 
     /**
-     * The return shape, in one place so the seven exits cannot drift
+     * The return shape, in one place so the eight exits cannot drift
      * apart.
      *
      * **`decided_by` names the exit**, because the alternative is a
@@ -548,7 +874,7 @@ class ValueLeanTool
      * @param array|null $rule
      * @param array $stances
      * @param array $errors
-     * @param string $decidedBy Which of the seven exits this is
+     * @param string $decidedBy Which of the eight exits this is
      * @return array
      */
     private function answer($lean, $rule, array $stances,

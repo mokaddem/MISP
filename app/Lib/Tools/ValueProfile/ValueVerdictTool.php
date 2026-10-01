@@ -81,6 +81,8 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * scoring. One check cannot: **a lean whose anchored *lean* rows sum
  * below zero becomes contested**, because that is the record's own
  * reading of the value disputing the assertion the record itself makes.
+ * Rows from a signal whose evidence is already a voice in the stance
+ * count (`ValueSignalBase::$voice`) are left out of that sum.
  * That can only be known after the sum, so it is applied here — the
  * lean rows go back to threat-signed, the lean becomes contested, and
  * `decided_by` becomes `lean_disputed` so the band explaining the
@@ -218,7 +220,14 @@ class ValueVerdictTool
         $occurrences = isset($context['occurrences']['total'])
             ? (int)$context['occurrences']['total']
             : 0;
-        if ($lean === 'none' || $occurrences === 0) {
+        /*
+         * `no_voice` is the exception: the record is there and every
+         * voice in it abstained. What it asserts is nothing, but how
+         * thick it is still holds — grading a reporter `G` zeroes its
+         * say, not the events it published.
+         */
+        $voiceless = ($derived['decided_by'] ?? null) === 'no_voice';
+        if (($lean === 'none' && !$voiceless) || $occurrences === 0) {
             return $this->nothingToAssess($derived, $polarity,
                 $context, $profile);
         }
@@ -327,10 +336,14 @@ class ValueVerdictTool
             self::AXIS_LEAN));
 
         /*
-         * The lean-disputed check. A **lean** ledger that sums below
-         * zero against the lean it was anchored to is a record
-         * disputing its own assertion, and the honest state for that
-         * is contested.
+         * The lean-disputed check. **Lean rows that are not voices**
+         * summing below zero against the lean they were anchored to
+         * are a record disputing its own assertion, and the honest
+         * state for that is contested. A false positive or an outside
+         * verdict has already been weighed against the reporters in
+         * the stance count (D63); letting its points decide here as
+         * well is how one false positive outvoted ten organisations.
+         * On the shipped catalogue what is left is the warninglist.
          *
          * Weighing the whole ledger would let a thin record trip it:
          * on an ordinary single-source value the absence rows — no
@@ -348,7 +361,13 @@ class ValueVerdictTool
          * It cannot run twice: there is one branch, and it sets the
          * lean it would have been re-entered for.
          */
-        if ($leanWeight < 0 && $lean !== 'contested') {
+        $disputeWeight = $this->sum(array_filter(
+            $this->onAxis($rows, self::AXIS_LEAN),
+            function ($row) {
+                return empty($row['voice']);
+            }
+        ));
+        if ($disputeWeight < 0 && $lean !== 'contested') {
             $rows = $this->reanchor($rows, $polarity);
             $leanWeight = $this->sum($this->onAxis($rows,
                 self::AXIS_LEAN));
@@ -1048,6 +1067,7 @@ class ValueVerdictTool
             'tab' => isset($row['tab']) ? $row['tab'] : $signal->tab,
             'as_of' => isset($row['as_of']) ? $row['as_of'] : '',
             'id' => $signal->id,
+            'voice' => !empty($signal->voice),
         );
     }
 

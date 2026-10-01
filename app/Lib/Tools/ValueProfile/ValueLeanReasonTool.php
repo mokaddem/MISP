@@ -9,10 +9,16 @@
  * a database or a view. Staying pure is what lets a test harness reach
  * the exits no instance happens to occupy.
  *
- * **Eight exits, not seven.** `ValueLeanTool::leanFor()` has seven and
- * `ValueVerdictTool`'s lean-disputed check is the eighth — the only one
+ * **Nine exits.** `ValueLeanTool::leanFor()` has eight and
+ * `ValueVerdictTool`'s lean-disputed check is the ninth — the only one
  * decided *after* the ledger, and without its own sentence it would
  * borrow the sentence of the lean it had just overturned.
+ *
+ * **Voices get a second sentence.** Once a dispute or a grade enters
+ * the count (D63, D64) the headcounts stop adding up to the share,
+ * and *10 of 11 organisations assert this is a threat* under a
+ * contested-looking false positive says nothing about why it did not
+ * flip. `voicesSentence()` names the weights and every dispute.
  *
  * **Why every exit gets a sentence.** Of `leanFor()`'s seven exits only
  * a loaded escalation produces prose of its own. Without this, an
@@ -61,7 +67,25 @@ class ValueLeanReasonTool
         if ($decidedBy === null || $decidedBy === 'nothing_visible') {
             return null;
         }
+        $sentence = self::exitSentence($decidedBy, $verdict, $stances);
+        if ($sentence === null) {
+            return null;
+        }
+        $voices = self::voicesSentence($stances);
+        return $voices === null ? $sentence : $sentence . ' ' . $voices;
+    }
 
+    /**
+     * The sentence for the exit itself.
+     *
+     * @param string $decidedBy
+     * @param array $verdict
+     * @param array $stances
+     * @return string|null
+     */
+    private static function exitSentence($decidedBy, array $verdict,
+        array $stances
+    ) {
         $threat = (int)(isset($stances['threat_orgs'])
             ? $stances['threat_orgs'] : 0);
         $benign = (int)(isset($stances['benign_orgs'])
@@ -71,6 +95,22 @@ class ValueLeanReasonTool
         $threshold = self::thresholdLabel($stances);
 
         switch ($decidedBy) {
+            case 'no_voice':
+                $names = isset($stances['abstained'])
+                    && is_array($stances['abstained'])
+                    ? $stances['abstained']
+                    : array();
+                return empty($names)
+                    ? __('Every organisation that reported this is graded'
+                        . ' to count for nothing, so no stance is'
+                        . ' counted.')
+                    : sprintf(
+                        __('Every organisation that reported this is'
+                            . ' graded to count for nothing (%s), so no'
+                            . ' stance is counted.'),
+                        implode(', ', $names)
+                    );
+
             case 'escalation':
                 /*
                  * The one exit that already has prose, and it is
@@ -164,14 +204,14 @@ class ValueLeanReasonTool
                     : null;
                 if ($counted === 'benign') {
                     return __('The organisations report this as'
-                        . ' harmless, but the lean evidence argues'
+                        . ' harmless, but a warninglist argues'
                         . ' threat.');
                 }
                 if ($counted === 'threat') {
                     return __('The organisations call this a threat,'
-                        . ' but the lean evidence argues harmless.');
+                        . ' but a warninglist argues harmless.');
                 }
-                return __('The lean evidence disputes what the'
+                return __('A warninglist disputes what the'
                     . ' organisations reported.');
 
             case 'no_supermajority':
@@ -194,6 +234,104 @@ class ValueLeanReasonTool
         }
 
         return null;
+    }
+
+    /**
+     * How the voices were weighed, where that is not simply one per
+     * organisation.
+     *
+     * Null on the ordinary record — nobody graded, no dispute, no
+     * verdict — whose headcounts already are the share.
+     *
+     * @param array $stances
+     * @return string|null
+     */
+    private static function voicesSentence(array $stances)
+    {
+        $disputes = isset($stances['disputes'])
+            && is_array($stances['disputes'])
+            ? $stances['disputes']
+            : array();
+        if (empty($disputes) && empty($stances['weighted'])) {
+            return null;
+        }
+        $threat = (float)($stances['threat_voices'] ?? 0);
+        $benign = (float)($stances['benign_voices'] ?? 0);
+        if ($threat + $benign <= 0.0) {
+            return null;
+        }
+        $sentence = sprintf(
+            empty($stances['weighted'])
+                ? __('Counted as voices, %1$s for threat and %2$s'
+                    . ' against: %3$s%% threat.')
+                : __('Counted as voices weighted by your reliability'
+                    . ' grades, %1$s for threat and %2$s against: %3$s%%'
+                    . ' threat.'),
+            self::voiceCount($threat),
+            self::voiceCount($benign),
+            (int)round((float)($stances['threat_share'] ?? 0) * 100)
+        );
+        $named = array();
+        foreach ($disputes as $dispute) {
+            $named[] = self::disputePhrase($dispute);
+        }
+        if (!empty($named)) {
+            $sentence .= ' ' . sprintf(
+                __('Among them: %s.'),
+                implode('; ', $named)
+            );
+        }
+        return $sentence;
+    }
+
+    /**
+     * One dispute or verdict, as the voices sentence lists it.
+     *
+     * @param array $dispute
+     * @return string
+     */
+    private static function disputePhrase(array $dispute)
+    {
+        $weight = self::voiceCount((float)($dispute['weight'] ?? 0));
+        if (($dispute['kind'] ?? null) === 'enrichment') {
+            return sprintf(
+                __('%1$s said %2$s (weight %3$s)'),
+                $dispute['module'],
+                $dispute['word'],
+                $weight
+            );
+        }
+        $who = empty($dispute['name'])
+            ? __('an organisation not named to you')
+            : $dispute['name'];
+        if (!empty($dispute['withdrawn'])) {
+            $phrase = sprintf(
+                __('%s filed a false positive on its own report'),
+                $who
+            );
+        } else {
+            $phrase = sprintf(__('a false positive from %s'), $who);
+        }
+        if (!empty($dispute['stale'])) {
+            $phrase .= ' ' . __('before others reasserted it');
+        }
+        return sprintf(__('%1$s (weight %2$s)'), $phrase, $weight);
+    }
+
+    /**
+     * A voice total as a reader meets it: whole where it is whole,
+     * otherwise to two places.
+     *
+     * @param float $count
+     * @return string
+     */
+    private static function voiceCount($count)
+    {
+        $rounded = round((float)$count, 2);
+        return $rounded == floor($rounded)
+            ? (string)(int)$rounded
+            : rtrim(rtrim(number_format($rounded, 2, '.', ''), '0'),
+                '.');
     }
 
     /**

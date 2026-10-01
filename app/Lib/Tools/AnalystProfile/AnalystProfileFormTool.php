@@ -641,6 +641,27 @@ class AnalystProfileFormTool
                             'path' => array('thresholds',
                                 'lean_supermajority'),
                         ),
+                        array(
+                            'key' => 'dispute_stale_factor',
+                            'label' => __('Weight of an old dispute'),
+                            'type' => 'float',
+                            'value' => isset(
+                                $section['dispute_stale_factor']
+                            )
+                                ? $section['dispute_stale_factor']
+                                : null,
+                            'default' => 0.5,
+                            'help' => __(
+                                'A false positive is a voice against the'
+                                . ' organisations asserting the value. One'
+                                . ' filed before another organisation'
+                                . ' reasserted the value counts this much'
+                                . ' of a voice: 1 counts it in full, 0'
+                                . ' not at all.'
+                            ),
+                            'path' => array('thresholds',
+                                'dispute_stale_factor'),
+                        ),
                     ),
                 ),
                 array(
@@ -3298,6 +3319,16 @@ class AnalystProfileFormTool
                     'The lean supermajority must be above 0.5 and at'
                     . ' most 1. A share at or below half is not a'
                     . ' majority, and one above 1 can never be met.'
+                );
+            }
+        }
+
+        if (isset($thresholds['dispute_stale_factor'])) {
+            $factor = $thresholds['dispute_stale_factor'];
+            if (!is_numeric($factor) || $factor < 0 || $factor > 1) {
+                $errors[] = __(
+                    'The weight of an old dispute must be between 0'
+                    . ' and 1: it is a share of one voice.'
                 );
             }
         }

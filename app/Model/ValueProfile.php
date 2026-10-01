@@ -16803,6 +16803,9 @@ class ValueProfile extends AppModel
                 'to_ids_yes' => (int)$row[0]['to_ids_yes'],
                 'to_ids_no' => (int)$row[0]['to_ids_no'],
                 'newest' => (int)$row[0]['newest'],
+                'newest_flagged' => empty($row[0]['newest_flagged'])
+                    ? null
+                    : (int)$row[0]['newest_flagged'],
                 // When this organisation joined — the relevance clock's
                 // occurrence half (`06-staleness.md` §3.3).
                 'oldest' => (int)$row[0]['oldest'],
@@ -17234,8 +17237,10 @@ class ValueProfile extends AppModel
                 ),
                 'by_org' => $attributed['by_org'],
                 'by_org_fp' => $attributed['by_org_fp'],
+                'by_org_fp_last' => $attributed['by_org_fp_last'],
                 'anonymous' => $attributed['anonymous'],
                 'anonymous_fp' => $attributed['anonymous_fp'],
+                'anonymous_fp_last' => $attributed['anonymous_fp_last'],
                 'seen' => ValueStatsTool::seenFacts(
                     $rows,
                     $now,

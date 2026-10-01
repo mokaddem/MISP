@@ -122,7 +122,9 @@ class ValueChangersTool
     private function leanChanger(array $verdict, array $context,
         $profile
     ) {
-        if ($verdict['lean'] === 'none') {
+        if ($verdict['lean'] === 'none'
+            && ($verdict['decided_by'] ?? null) !== 'no_voice'
+        ) {
             return null;
         }
         if ($this->disputedByLedger($verdict)) {

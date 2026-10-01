@@ -2,7 +2,7 @@
     "uuid": "ec29ae9c-2551-480f-81f7-f230f6100951",
     "name": "SOC Triage",
     "description": "For an analyst working an alert queue, where a false positive costs more than a miss. It keeps the shipped default's numbers and changes what the page shows first, with a shorter shelf life for what triage acts on.",
-    "version": 3,
+    "version": 4,
     "parameters": {
         "format": 1,
         "signals": [
@@ -148,6 +148,7 @@
         ],
         "thresholds": {
             "lean_supermajority": 0.66,
+            "dispute_stale_factor": 0.5,
             "quality_bands": {
                 "high": 60,
                 "medium": 30
