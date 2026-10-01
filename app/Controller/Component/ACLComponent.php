@@ -459,6 +459,11 @@ class ACLComponent extends Component
             'restSearchExport' => array('*'),
             'runTaxonomyExclusivityCheck' => array('*'),
             'runWorkflow' => array(),
+            // The Pivot Explorer's Save of enrichment results; the event
+            // itself is checked in the action.
+            'saveEnrichment' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
             'saveFreeText' => array('perm_add'),
             'searchGalaxyClusters' => array('theming_enabled'),
             'stix' => array('*'),
@@ -1159,6 +1164,17 @@ class ACLComponent extends Component
             // Same bar as the run it is: the Overview's chips are one
             // module query each, at the same endpoint's price.
             'viewEnrichmentBadge' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
+            // The Pivot Explorer's Enrich pivot: offered only to readers
+            // who may run a module, stored answers included.
+            'enrichmentTypes' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
+            'enrichmentStored' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
+            'enrichmentRun' => array(
                 'AND' => array('perm_add', 'theming_enabled')
             ),
             'viewAnalystStanding' => array('theming_enabled'),

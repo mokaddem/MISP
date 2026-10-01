@@ -357,6 +357,25 @@
         }
     }
 
+    function hoursAgo(seconds) {
+        var h = Math.round((seconds || 0) / 3600);
+        if (h < 1) return 'just now';
+        return h < 48 ? h + ' h ago' : Math.round(h / 24) + ' days ago';
+    }
+
+    // Leads, for a result: MISP does not hold it, a module said it.
+    function enrichmentNotices(vm, N) {
+        var e = vm.enrichment;
+        if (!e) return;
+        N.push('caution', { first: true, mark: 'wand-magic-sparkles',
+                            line: 'Not in MISP: ' + e.modules.join(', ') + ' said this',
+                            why: { text: e.from_store ? 'Stored answer, ' + hoursAgo(e.age) : 'Asked just now' } });
+        if (e.untyped) {
+            N.push('caution', { mark: 'circle-question', line: 'Untyped by the module',
+                                why: e.candidate_types.length ? { text: 'Also possible: ' + e.candidate_types.join(', ') } : null });
+        }
+    }
+
     /* ── per-entity: notices ───────────────────────────────── */
     function eventNotices(vm, N) {
         recordNotice(vm, N);
@@ -383,6 +402,7 @@
     }
 
     function attributeNotices(vm, N) {
+        enrichmentNotices(vm, N);
         recordNotice(vm, N);
         var known = recordKnown(vm);
         if (known) {
@@ -402,6 +422,7 @@
     }
 
     function objectNotices(vm, N) {
+        enrichmentNotices(vm, N);
         warninglistNotices(vm, N, vm.warninglists, false, true);
         labelNotices(vm, N, vm.labels, false);
         if (vm.correlations && vm.correlations.count) {
@@ -578,7 +599,8 @@
         add(kicker, h('span', '', kindLabel(vm)));
         if (vm.provenance && vm.provenance.label) {
             var prov = add(kicker, h('span', 'pes-prov'));
-            add(prov, fa(vm.provenance.scope === 'self' ? 'location-dot' : 'arrow-up-right-from-square'));
+            add(prov, fa({ self: 'location-dot', module: 'wand-magic-sparkles' }[vm.provenance.scope]
+                         || 'arrow-up-right-from-square'));
             prov.appendChild(document.createTextNode(vm.provenance.label));
         }
 
@@ -588,7 +610,10 @@
         } else {
             var title = add(text, h('div', 'pes-title', vm.title || kindLabel(vm)));
             title.title = vm.title || '';
-            if (vm.entity === 'attribute') title.classList.add('is-value');
+            if (vm.entity === 'attribute') {
+                title.classList.add('is-value');
+                if (vm.profile) valueCard(title, vm, vm.profile.b64);
+            }
         }
         var sub = subtitle(vm);
         if (sub) add(text, h('div', 'pes-sub', sub));
@@ -680,14 +705,36 @@
         return m;
     }
 
+    // value-hover-card.js answers a hover on the value, where the instance has
+    // the card on; the native title would cover it.
+    function valueCard(el, vm, b64) {
+        if (!vm.value_card || !b64) return el;
+        el.classList.add('vp-hc-trigger');
+        el.setAttribute('data-vp-hc-value', b64);
+        el.tabIndex = 0;
+        el.removeAttribute('title');
+        return el;
+    }
+
+    // An object's attribute value, linked to its profile.
+    function attrValue(vm, k) {
+        var v = h(k.b64 ? 'a' : 'div', 'pes-attr-val', k.value);
+        v.title = k.value;
+        if (k.b64) {
+            v.href = '/values/view/' + k.b64;
+            v.target = '_blank';
+            v.rel = 'noopener';
+        }
+        return valueCard(v, vm, k.b64);
+    }
+
     function objectTop(vm) {
         var list = h('ul', 'pes-attrs');
         list.style.marginTop = '8px';
         (vm.card.top || []).forEach(function (t) {
             var li = add(list, h('li', 'pes-attr'));
             add(li, h('div', 'pes-attr-rel', t.relation));
-            var v = add(li, h('div', 'pes-attr-val', t.value));
-            v.title = t.value;
+            add(li, attrValue(vm, t));
             if (t.warninglisted) add(add(li, h('div', 'pes-attr-marks')), warnMark(t));
         });
         return list;
@@ -1067,15 +1114,13 @@
     function childrenSection(vm, list) {
         var kids = vm.children || [];
         var sec = section('children', 'Attributes', kids.length, null, vm);
-        sec.el.querySelector('.pes-sec-h').appendChild(h('span', 'pes-sec-state', 'by template priority'));
         var ul = add(sec.el, h('ul', 'pes-attrs'));
         var SHOW = 8;
         kids.forEach(function (k, i) {
             var li = add(ul, h('li', 'pes-attr'));
             if (i >= SHOW) li.hidden = true;
             add(li, h('div', 'pes-attr-rel', (k.relation || k.type) + (k.relation && k.type ? ' · ' + k.type : '')));
-            var v = add(li, h('div', 'pes-attr-val', k.value));
-            v.title = k.value;
+            add(li, attrValue(vm, k));
             var marks = add(li, h('div', 'pes-attr-marks'));
             if (k.to_ids) add(marks, h('span', 'pes-ids', 'IDS')).style.fontSize = '9px';
             if (k.warninglisted) add(marks, warnMark(k));

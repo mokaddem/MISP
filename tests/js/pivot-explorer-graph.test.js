@@ -111,6 +111,8 @@ function buildGraph(payload, options) {
         peAnalystSharing: options.analystSharing !== undefined ? options.analystSharing : '',
         peOrgUuid: options.orgUuid || '',
         peSiteAdmin: options.siteAdmin ? '1' : '0',
+        peValueCard: options.valueCard ? '1' : '0',
+        peCanEnrich: options.canEnrich ? '1' : '0',
         peLibMissing: 'lib missing',
         peLoadFailed: 'load failed',
     };
@@ -190,9 +192,16 @@ function buildGraph(payload, options) {
                     return { nodes, edges };
                 };
                 this.renderer = { updates: 0, update() { this.updates++; } };
+                this.dataUpdates = [];
+                this.updateData = nodes => { this.dataUpdates.push((nodes || []).map(n => n.id)); };
                 this.listeners = {};
                 this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
-                this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
+                // The save ledger: which ids a savable run created, which are written.
+                this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); },
+                                savable: new Set(), saved: new Set(), saves: [],
+                                isSavable(n) { return this.savable.has(n.id); },
+                                isSaved(n) { return this.saved.has(n.id); },
+                                save(target, options) { this.saves.push([target, options]); return Promise.resolve({}); } };
                 this.selected = [];
                 this.selectElement = n => { this.selected.push(n); };
                 const root = makeEl('div');
@@ -214,6 +223,7 @@ function buildGraph(payload, options) {
             opened: [],
             open(url, target, features) { this.opened.push([url, target, features]); },
             navigator: options.navigator || {},
+            crypto: require('crypto').webcrypto,
         },
         Image: function () { return { src: '' }; },
         fetch: (url, init) => {
@@ -226,7 +236,7 @@ function buildGraph(payload, options) {
         },
         console: { log() {}, error: (...a) => errors.push(a.map(String).join(' ')) },
         Promise, JSON, Object, String, Number, Array, Math, RegExp, Error,
-        encodeURIComponent, setTimeout, AbortController,
+        encodeURIComponent, setTimeout, AbortController, TextEncoder, btoa,
         MutationObserver: function () { this.observe = function () {}; },
     };
     sandbox.globalThis = sandbox;
@@ -573,7 +583,7 @@ test('the edge-kind dimension is declared for pivotick', async () => {
     eq('the implemented kinds are styled',
        Object.keys(r.edgeStyleMap),
        ['object-reference', 'in-event', 'analyst-relationship', 'correlation',
-        'feed-correlation', 'feed-event', 'server-correlation', 'tag', 'cluster-relation']);
+        'feed-correlation', 'feed-event', 'server-correlation', 'tag', 'cluster-relation', 'enrichment']);
     eq('in-event is thin grey, with no arrowhead',
        r.edgeStyleMap['in-event'], { strokeColor: '#6c737d', strokeWidth: 1, markerEnd: 'none' });
     eq('correlations are dashed grey (D1 palette)',
@@ -730,6 +740,35 @@ test('relationships the canvas cannot draw are skipped, not half-drawn', async (
     eq('only the resolvable relationship drew an edge',
        edgeKeys(g.edges), ['obj:A->obj:B:analysed-with']);
     eq('no phantom nodes for unresolvable targets', ids(g.nodes), ['obj:A', 'obj:B']);
+    eq('no console errors', g.errors, []);
+});
+
+test('a claim on a galaxy cluster lands on the cluster node', async () => {
+    const apt1 = { uuid: 'gc-1', value: 'APT1', type: 'threat-actor',
+                   tag_name: 'misp-galaxy:threat-actor="APT1"',
+                   Galaxy: { name: 'Threat Actor', type: 'threat-actor' } };
+    const toCluster = (rec, o) => arel(Object.assign({
+        related_object_type: 'GalaxyCluster', related_object_uuid: rec.uuid,
+        related_object: { GalaxyCluster: rec },
+    }, o));
+    const cid = 'cluster:' + apt1.tag_name;
+    const g = await buildGraph(ev({
+        Relationship: [toCluster(apt1, { relationship_type: 'linked-to' })],
+        Attribute: [attr({ uuid: 'a1', value: '8.8.8.8',
+            Relationship: [toCluster(apt1, { relationship_type: 'related-to' })] })],
+        Object: [obj({ uuid: 'A', Relationship: [
+            toCluster(Object.assign({}, apt1, { uuid: 'gc-2', deleted: true,
+                tag_name: 'misp-galaxy:threat-actor="gone"' })),
+        ] })],
+    }));
+    eq('one cluster node for both claims, the deleted cluster left out',
+       ids(g.nodes), ['attr:a1', cid, 'event:EV-SELF']);
+    eq('both claims end on it', edgeKeys(g.edges),
+       ['attr:a1->' + cid + ':related-to', 'event:EV-SELF->' + cid + ':linked-to']);
+    const d = byId(g.nodes, cid).data;
+    eq('drawn as the tags pivot draws it',
+       [d.type, d.value, d.galaxy_type, d.galaxy_name, d.uuid],
+       ['cluster', 'APT1', 'threat-actor', 'Threat Actor', 'gc-1']);
     eq('no console errors', g.errors, []);
 });
 
@@ -2490,14 +2529,15 @@ test('17: an edge reads by the kind of link and what it asserts', async () => {
 const menuItem = (g, text) => g.opts.UI.contextMenu.menuNode.menu.find(i => i.text === text);
 const shows = (g, text, data) => menuItem(g, text).visible(data === null ? null : pnode(data));
 
-test('18: MISP adds four entries to the node menu, after the library\'s own', async () => {
+test('18: MISP adds five entries to the node menu, after the library\'s own', async () => {
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     eq('in this order', g.opts.UI.contextMenu.menuNode.menu.map(i => [i.text, i.iconClass]), [
+        ['Save this element', 'fas fa-save'],
         ['Open its event', 'fas fa-external-link-alt'], ['Browse feed', 'fas fa-rss'],
         ['Preview in feed', 'fas fa-rss'], ['Copy value', 'fas fa-copy']]);
     ok('no topbar of ours, and the edge and note menus left alone',
        !g.opts.UI.contextMenu.menuNode.topbar
-       && JSON.stringify(Object.keys(g.opts.UI.contextMenu)) === JSON.stringify(['menuNode', 'menuCanvas']));
+       && JSON.stringify(Object.keys(g.opts.UI.contextMenu)) === JSON.stringify(['menuNode', 'menuSelection', 'menuCanvas']));
 });
 
 test('18: another event\'s page opens in a new tab, for whatever belongs to one', async () => {
@@ -3616,6 +3656,402 @@ test('more correlations: a failed request is not kept', async () => {
     ok('the failure reaches the library', threw);
     fail = false;
     eq('asked again', (await p.summarize([CARD()], {}, {})).total, 2);
+});
+
+/* ──────────────────────── enrichment (Enrich) ─────────────────── */
+
+const ENR_TYPES = {
+    types: { 'ip-dst': ['ipasn', 'mmdb_lookup', 'whois', 'shodan'], domain: ['whois'] },
+    modules: { ipasn: { format: 'misp_standard' }, mmdb_lookup: { format: 'misp_standard' },
+               whois: { format: 'simplified' }, shodan: { format: 'misp_standard' } },
+    profile: { ticked: { 'ip-dst': ['mmdb_lookup'] }, never: { 'ip-dst': ['shodan'] } },
+};
+const NOW = () => Math.floor(Date.now() / 1000);
+const ENR_STORED = body => JSON.parse(body.body).items.map(i => ({
+    value: i.value, type: i.type,
+    modules: i.value === '8.8.8.8' ? {
+        ipasn: { state: 'ok', ran_at: NOW() - 3 * 3600, total: 2, fresh: true },
+        whois: { state: 'error', ran_at: NOW() - 30 * 3600, total: 0, fresh: false },
+    } : {},
+}));
+const ASN = { name: 'asn', meta_category: 'network', description: 'An AS', attributes: [
+    { relation: 'asn', type: 'AS', value: '15169', known: false },
+    { relation: 'subnet-announced', type: 'ip-src', value: '8.8.8.0/24', known: true }] };
+const ECHO = { type: 'ip-dst', value: '8.8.8.8', category: 'Network activity', known: false };
+const answerOf = (module, o) => ({ run: Object.assign({ module, state: 'ok', attributes: [ECHO], objects: [],
+    elements: [], total: 1, shown: 1, capped: false, from_store: false, age: null }, o) });
+const ENR_RUN = init => {
+    const b = JSON.parse(init.body);
+    // A misp_standard module echoes the value it was asked about.
+    const answer = (module, o) => answerOf(module, Object.assign({ attributes: [Object.assign({}, ECHO, { value: b.value })] }, o));
+    if (b.module === 'ipasn') return answer('ipasn', { objects: [ASN], from_store: b.mode === 'stored', age: 10800 });
+    if (b.module === 'mmdb_lookup') return answer('mmdb_lookup', { objects: [ASN], elements: [] });
+    if (b.module === 'whois') return answer('whois', { state: 'error', message: 'Whois local instance address is missing',
+                                                        attributes: [] });
+    return answer(b.module, { state: 'silent', attributes: [] });
+};
+const ENR_ROUTES = [[/enrichmentTypes/, ENR_TYPES], [/enrichmentStored/, ENR_STORED], [/enrichmentRun/, ENR_RUN]];
+
+const enrNode = (id, data) => ({ id, getData: () => data });
+const IP = (value, id) => enrNode(id || 'attr:' + value, { type: 'attribute', value, 'attr-type': 'ip-dst', scope: 'self' });
+
+async function enrichGraph(options) {
+    const g = await buildGraph(ev({ Attribute: [attr({ uuid: 'A1', value: '8.8.8.8' })] }),
+                               Object.assign({ canEnrich: true, routes: ENR_ROUTES }, options));
+    await new Promise(r => setTimeout(r, 0));
+    return g;
+}
+
+test('enrich: offered only to a reader who may run modules (E11)', async () => {
+    const off = await buildGraph(ev({}), { routes: ENR_ROUTES });
+    ok('no Enrich without canEnrich', !pivot(off, 'enrich'));
+    ok('nothing asked either', !off.fetchLog.some(f => /enrichment/.test(f.url)));
+    const on = await enrichGraph();
+    ok('Enrich with canEnrich', !!pivot(on, 'enrich'));
+    eq('the catalogue is read once', on.fetchLog.filter(f => /enrichmentTypes/.test(f.url)).length, 1);
+});
+
+test('enrich: applies to attributes and values whose type a module accepts', async () => {
+    const p = pivot(await enrichGraph(), 'enrich');
+    const kept = p.appliesTo([
+        IP('8.8.8.8'),
+        enrNode('attr:x', { type: 'attribute', value: 'x', 'attr-type': 'md5' }),
+        enrNode('obj:o', { type: 'object', name: 'asn' }),
+        enrNode('event:e', { type: 'event' }),
+        enrNode('value:v', { type: 'value', value: 'a.example', types: ['domain', 'text'] }),
+        enrNode('enr:ip-src:1.1.1.1', { type: 'attribute', value: '1.1.1.1', 'attr-type': 'ip-dst', scope: 'module' }),
+    ]).map(n => n.id);
+    eq('the ip-dst attribute and the domain value', kept, ['attr:8.8.8.8', 'value:v']);
+});
+
+test('enrich: the Module facet carries stored state, pre-ticks, and hides `never`', async () => {
+    const p = pivot(await enrichGraph(), 'enrich');
+    const s = await p.summarize([IP('8.8.8.8')], {}, {});
+    const facet = s.facets[0];
+    eq('one multiselect Module facet', [facet.key, facet.type], ['module', 'multiselect']);
+    eq('never is not offered', facet.options.map(o => o.value), ['ipasn', 'mmdb_lookup', 'whois']);
+    eq('stored state in the labels', facet.options.map(o => o.label),
+       ['ipasn — 3 h ago', 'mmdb_lookup', 'whois — failed 30 h ago']);
+    eq('the stored total is the count', facet.options[0].count, 2);
+    eq('fresh and profile-ticked start ticked', facet.default.slice().sort(), ['ipasn', 'mmdb_lookup']);
+    eq('a ticked module never asked leaves the total unknown', s.total, null);
+    eq('every picked module stored: their totals, a failure counting 0',
+       (await p.summarize([IP('8.8.8.8')], { module: ['ipasn', 'whois'] }, {})).total, 2);
+    eq('nothing picked: nothing comes', (await p.summarize([IP('8.8.8.8')], { module: [] }, {})).total, 0);
+});
+
+test('enrich: fetch lands content-hashed objects, drops the echo, and toasts what failed', async () => {
+    const g = await enrichGraph();
+    const p = pivot(g, 'enrich');
+    const r = await p.fetch([IP('8.8.8.8')], { module: ['ipasn', 'mmdb_lookup', 'whois'] }, { graph: g.graph });
+    const runs = g.fetchLog.filter(f => /enrichmentRun/.test(f.url)).map(f => JSON.parse(f.init.body));
+    eq('a fresh answer is read from the store, the rest pressed',
+       runs.map(x => x.module + ':' + x.mode).sort(), ['ipasn:stored', 'mmdb_lookup:press', 'whois:press']);
+    ok('the echoed origin is not landed', !r.nodes.some(n => n.id === 'enr:ip-dst:8.8.8.8'));
+    eq('one object per module (E4)', r.nodes.map(n => n.id.split(':')[1]).sort(), ['ipasn', 'mmdb_lookup']);
+    const o = r.nodes.find(n => n.data.module === 'ipasn');
+    ok('its id is the module and a content hash', /^enr-obj:ipasn:[0-9a-f]{8}$/.test(o.id), o.id);
+    eq('the same record hashes the same', o.id.split(':')[2],
+       r.nodes.find(n => n.data.module === 'mmdb_lookup').id.split(':')[2]);
+    eq('it is a module result, from the store', [o.data.type, o.data.scope, o.data.from_store], ['object', 'module', true]);
+    eq('its attributes are its own children', o.children.map(c => c.id),
+       [o.id + ':asn:15169', o.id + ':subnet-announced:8.8.8.0/24']);
+    eq('known rides on the child', o.children.map(c => c.data.known), [false, true]);
+    eq('two enrichment edges, one per module', r.edges.map(e => [e.data.kind, e.data.label]).sort(),
+       [['enrichment', 'ipasn'], ['enrichment', 'mmdb_lookup']]);
+    eq('one toast for what did not come back', g.graph.notices.map(n => [n.level, n.msg]),
+       [['warning', 'whois: Whois local instance address is missing']]);
+});
+
+test('enrich: one module returning one record for two origins lands one node, two edges', async () => {
+    const g = await enrichGraph();
+    const r = await pivot(g, 'enrich').fetch([IP('8.8.8.8'), IP('8.8.4.4')], { module: ['mmdb_lookup'] }, { graph: g.graph });
+    eq('one node', r.nodes.length, 1);
+    eq('an edge from each origin', r.edges.map(e => e.from).sort(), ['attr:8.8.4.4', 'attr:8.8.8.8']);
+});
+
+const SOCKET = () => Object.assign(enrNode('obj:sock', { type: 'object', name: 'network-socket', scope: 'self' }), {
+    children: [
+        { getData: () => ({ type: 'attribute', value: '53', 'attr-type': 'port', object_relation: 'dst-port', ui_priority: 1 }) },
+        { getData: () => ({ type: 'attribute', value: '8.8.4.4', 'attr-type': 'ip-dst', object_relation: 'ip-dst', ui_priority: 5 }) },
+        { getData: () => ({ type: 'attribute', value: '8.8.8.8', 'attr-type': 'ip-dst', object_relation: 'ip-src', ui_priority: 2 }) },
+    ] });
+
+test('enrich: an object is enriched through its attributes, its lead one by default', async () => {
+    const g = await enrichGraph();
+    const p = pivot(g, 'enrich');
+    eq('an object with an eligible attribute is offered', p.appliesTo([SOCKET()]).map(n => n.id), ['obj:sock']);
+    const s = await p.summarize([SOCKET()], {}, {});
+    const attrs = s.facets.find(f => f.key === 'attribute');
+    eq('its eligible attributes, lead first', attrs.options.map(o => o.label), ['ip-dst: 8.8.4.4', 'ip-src: 8.8.8.8']);
+    eq('the lead one starts picked', attrs.default, ['ip-dst|8.8.4.4']);
+    const r = await p.fetch([SOCKET()], { module: ['mmdb_lookup'] }, { graph: g.graph });
+    eq('only the lead attribute is asked',
+       g.fetchLog.filter(f => /enrichmentRun/.test(f.url)).map(f => JSON.parse(f.init.body).value), ['8.8.4.4']);
+    eq('the result joins the object, the edge names the attribute',
+       r.edges.map(e => [e.from, e.data.label]), [['obj:sock', 'mmdb_lookup · ip-dst']]);
+    ok('the asked value is not echoed back as a result', !r.nodes.some(n => n.id === 'enr:ip-dst:8.8.4.4'));
+    await p.fetch([SOCKET()], { module: ['mmdb_lookup'], attribute: ['ip-dst|8.8.4.4', 'ip-dst|8.8.8.8'] }, { graph: g.graph });
+    eq('a wider pick asks each picked attribute',
+       g.fetchLog.filter(f => /enrichmentRun/.test(f.url)).map(f => JSON.parse(f.init.body).value), ['8.8.4.4', '8.8.4.4', '8.8.8.8']);
+});
+
+test('enrich: the context menu offers an object\'s attributes as choices', async () => {
+    const p = pivot(await enrichGraph(), 'enrich');
+    eq('one choice per eligible attribute', p.menuChoices([SOCKET()]),
+       [{ label: 'ip-dst: 8.8.4.4', narrowing: { attribute: ['ip-dst|8.8.4.4'] } },
+        { label: 'ip-src: 8.8.8.8', narrowing: { attribute: ['ip-dst|8.8.8.8'] } }]);
+    eq('a loose attribute has none', p.menuChoices([IP('8.8.8.8')]), []);
+});
+
+test('enrich: a run drops the cached counts of what it asked', async () => {
+    const g = await enrichGraph();
+    const node = IP('8.8.8.8');
+    await pivot(g, 'enrich').fetch([node], { module: ['ipasn'] }, { graph: g.graph });
+    ok('the Enrich summary is invalidated', g.graph.pivots.invalidated.includes('enrich'));
+    const before = g.fetchLog.filter(f => /enrichmentStored/.test(f.url)).length;
+    await pivot(g, 'enrich').summarize([node], {}, {});
+    eq('and the store is read again', g.fetchLog.filter(f => /enrichmentStored/.test(f.url)).length, before + 1);
+});
+
+test('enrich: a run where no module answered fails with their reasons', async () => {
+    const g = await enrichGraph();
+    let msg = null;
+    await pivot(g, 'enrich').fetch([IP('8.8.8.8')], { module: ['whois'] }, { graph: g.graph })
+        .catch(e => { msg = e.message; });
+    eq('the reason is the error', msg, 'whois: Whois local instance address is missing');
+});
+
+test('enrich: over 25 asked pairs is refused before any call (E10)', async () => {
+    const g = await enrichGraph();
+    const nodes = [];
+    for (let i = 0; i < 9; i++) nodes.push(IP('10.0.0.' + i));
+    let msg = null;
+    await pivot(g, 'enrich').fetch(nodes, { module: ['ipasn', 'mmdb_lookup', 'whois'] }, { graph: g.graph })
+        .catch(e => { msg = e.message; });
+    ok('refused with the count and the limit', /^27 module queries would be sent; 25 at most/.test(msg || ''), msg);
+    ok('no module was asked', !g.fetchLog.some(f => /enrichmentRun/.test(f.url)));
+});
+
+test('enrich: a legacy element lands untyped, as its first type', async () => {
+    const g = await enrichGraph({ routes: [[/enrichmentTypes/, ENR_TYPES], [/enrichmentStored/, ENR_STORED],
+        [/enrichmentRun/, () => answerOf('whois', { attributes: [], elements: [{ types: ['domain', 'hostname'], value: 'dns.google', known: false }] })]] });
+    const r = await pivot(g, 'enrich').fetch([IP('8.8.8.8')], { module: ['whois'] }, { graph: g.graph });
+    eq('one attribute node', r.nodes.map(n => n.id), ['enr:domain:dns.google']);
+    eq('flagged untyped, other types kept', [r.nodes[0].data.untyped, r.nodes[0].data.candidate_types], [true, ['hostname']]);
+});
+
+test('enrich: a result wears the mark, groups keep results apart, the legend has an entry', async () => {
+    const g = await enrichGraph();
+    const res = enrNode('enr-obj:ipasn:abc', { type: 'object', name: 'asn', scope: 'module', module: 'ipasn', modules: ['ipasn'] });
+    const mine = enrNode('obj:1', { type: 'object', name: 'asn', scope: 'self' });
+    const badges = g.opts.render.defaultNodeStyle.badges;
+    eq('a result wears one ne mark', badges(res).map(b => b.position), ['ne']);
+    ok('its title names the module', /From enrichment — ipasn/.test(badges(res)[0].title));
+    eq('a MISP node does not', badges(mine), []);
+    const typeOf = g.opts.UI.simplify.typeOf;
+    ok('a result and a MISP object of one name group apart', typeOf(res) !== typeOf(mine), typeOf(res));
+    g.graph.liveNode({ id: res.id, data: res.getData() });
+    const prov = g.opts.UI.legend.sections.find(s => s && s.id === 'provenance');
+    const entry = prov.entries(g.graph).find(e => e.id === 'module');
+    ok('From enrichment is in the Provenance legend, with the mark', entry && entry.label === 'From enrichment' && !!entry.badge);
+    ok('and it is not counted as elsewhere', !prov.entries(g.graph).some(e => e.id === 'elsewhere'));
+});
+
+/* ─────────────────────── enrichment: saving ────────────────────── */
+
+// A landed result as pivotick hands it to `save`: live nodes and edges.
+function liveResult(raw, byId) {
+    const n = { id: raw.id, data: Object.assign({}, raw.data),
+                getData() { return this.data; },
+                updateData(p) { Object.assign(this.data, p); } };
+    n.children = (raw.children || []).map(c => liveResult(c, byId));
+    byId[raw.id] = n;
+    return n;
+}
+function savePayload(result, origins) {
+    const byId = {};
+    origins.forEach(o => { byId[o.id] = o; });
+    const nodes = result.nodes.map(r => liveResult(r, byId));
+    const children = [].concat(...nodes.map(n => n.children));
+    const edges = result.edges.map(e => ({ id: e.id, from: byId[e.from], to: byId[e.to], getData: () => e.data }));
+    return { runId: 'enrich#1', pivotId: 'enrich', origin: origins, nodes, children, edges,
+             vouched: { nodes: [], edges: [] }, attempt: 1 };
+}
+// Saved under the uuid sent, unless `answer` says otherwise for that uuid.
+const saveRoute = (seen, answer) => init => {
+    const body = JSON.parse(init.body);
+    seen.push(body);
+    const results = {};
+    const all = body.Attribute.concat(body.Object, ...body.Object.map(o => o.Attribute));
+    all.forEach((rec, i) => { results[rec.uuid] = (answer && answer(rec, i)) || { state: 'saved', uuid: rec.uuid }; });
+    return { results, message: '' };
+};
+const saveGraph = (seen, answer, options) => buildGraph(ev({
+    Attribute: [attr({ uuid: 'A1', value: '8.8.8.8' })],
+    Object: [obj({ uuid: 'O1', name: 'network-socket', Attribute: [attr({ uuid: 'O1-a', value: '8.8.4.4' })] })],
+}), Object.assign({ canEnrich: true, routes: ENR_ROUTES.concat([[/saveEnrichment/, saveRoute(seen, answer)], [/objectRelationships/, RELS]]) }, options))
+    .then(g => new Promise(r => setTimeout(() => r(g), 0)));
+const RELS = [{ name: 'resolves-to' }, { name: 'related-to' }, { name: 'characterizes' }];
+// The library's save context; the prompt answers `answer` (default: as offered).
+function saveCtx(g, answer) {
+    const prompts = [];
+    return { graph: g.graph, prompts, promptData(options) {
+        prompts.push(options);
+        if (answer === null) return Promise.resolve(null);
+        const values = {};
+        options.fields.forEach(f => { values[f.key] = f.defaultValue !== undefined ? f.defaultValue : ''; });
+        return Promise.resolve(Object.assign(values, answer));
+    } };
+}
+const OWN_IP = () => enrNode('attr:A1', { type: 'attribute', uuid: 'A1', value: '8.8.8.8', 'attr-type': 'ip-dst', scope: 'self' });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+test('enrich save: declared only where the viewer may modify the event', async () => {
+    ok('savable with canEdit', typeof pivot(await saveGraph([]), 'enrich').save === 'function');
+    ok('not savable without', pivot(await saveGraph([], null, { canEdit: false }), 'enrich').save === undefined);
+});
+
+test('enrich save: an object result becomes an object referencing its origin', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
+    const out = await p.save(payload, saveCtx(g));
+    eq('one post, to this event', g.fetchLog.filter(f => /saveEnrichment/.test(f.url)).map(f => f.url),
+       ['/misp/events/saveEnrichment/1.json']);
+    const o = seen[0].Object[0];
+    ok('a fresh uuid', UUID.test(o.uuid), o.uuid);
+    eq('named, commented after the module and the value', [o.name, o.comment], ['asn', 'Enrichment: ipasn on 8.8.8.8']);
+    eq('its attributes, with their relations', o.Attribute.map(a => [a.object_relation, a.type, a.value]),
+       [['asn', 'AS', '15169'], ['subnet-announced', 'ip-src', '8.8.8.0/24']]);
+    eq('tied to the origin, related-to', o.ObjectReference, [{ referenced_uuid: 'A1', relationship_type: 'related-to' }]);
+    eq('no loose attribute, no reference from an object', [seen[0].Attribute, seen[0].ObjectReference], [[], []]);
+    const node = payload.nodes[0];
+    eq('the object and its children are saved', out.savedNodeIds.sort(),
+       [node.id].concat(node.children.map(c => c.id)).sort());
+    eq('under their MISP ids', out.canonicalIds[node.id], 'obj:' + o.uuid);
+    eq('the edge is saved', out.savedEdgeIds, payload.edges.map(e => e.id));
+    eq('it is this event\'s now', [node.data.scope, node.data.uuid, node.data.module], ['self', o.uuid, undefined]);
+    eq('its children too', node.children.map(c => c.data.scope), ['self', 'self']);
+    eq('the graph is told, so the legend recounts', g.graph.dataUpdates, [[node.id]]);
+});
+
+test('enrich save: from another event\'s origin a result goes in unattached', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = enrNode('attr:F1', { type: 'attribute', uuid: 'F1', value: '8.8.8.8', 'attr-type': 'ip-dst',
+                                        scope: 'foreign', event_id: '7' });
+    const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
+    await p.save(payload, saveCtx(g));
+    eq('no reference', seen[0].Object[0].ObjectReference, []);
+    eq('the comment names what was enriched', seen[0].Object[0].comment, 'Enrichment: ipasn on 8.8.8.8');
+});
+
+test('enrich save: a loose result of an object is referenced from that object', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const origin = enrNode('obj:O1', { type: 'object', uuid: 'O1', name: 'network-socket', scope: 'self' });
+    const result = { nodes: [{ id: 'enr:domain:dns.google', data: { type: 'attribute', scope: 'module', module: 'whois',
+                                     'attr-type': 'domain', value: 'dns.google', category: 'Network activity' } }],
+                     edges: [{ id: 'e1', from: 'obj:O1', to: 'enr:domain:dns.google',
+                               data: { kind: 'enrichment', module: 'whois', asked: '8.8.4.4' } }] };
+    const out = await pivot(g, 'enrich').save(savePayload(result, [origin]), saveCtx(g));
+    const a = seen[0].Attribute[0];
+    eq('a loose attribute', [a.type, a.value, a.comment, 'object_relation' in a],
+       ['domain', 'dns.google', 'Enrichment: whois on 8.8.4.4', false]);
+    eq('referenced by the origin object', seen[0].ObjectReference,
+       [{ object_uuid: 'O1', referenced_uuid: a.uuid, relationship_type: 'related-to' }]);
+    eq('under its MISP id', out.canonicalIds['enr:domain:dns.google'], 'attr:' + a.uuid);
+});
+
+test('enrich save: the relationship is asked, related-to offered first', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    const ctx = saveCtx(g, { relationship_type: 'resolves-to' });
+    await p.save(savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]), ctx);
+    eq('one prompt', ctx.prompts.length, 1);
+    const select = ctx.prompts[0].fields.find(f => f.key === 'relationship_type');
+    eq('the vocabulary, sorted, related-to picked', [select.options.map(o => o.value), select.defaultValue],
+       [['characterizes', 'related-to', 'resolves-to'], 'related-to']);
+    eq('the answer is written', seen[0].Object[0].ObjectReference.map(r => r.relationship_type), ['resolves-to']);
+});
+
+test('enrich save: a custom relationship wins over the list', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    await p.save(savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]),
+                 saveCtx(g, { custom: '  announced-by ' }));
+    eq('trimmed and written', seen[0].Object[0].ObjectReference[0].relationship_type, 'announced-by');
+});
+
+test('enrich save: cancelling the prompt writes nothing and says so to the library', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
+    eq('a cancel', await p.save(payload, saveCtx(g, null)), { cancelled: true });
+    eq('nothing posted', seen.length, 0);
+    eq('still a result', payload.nodes[0].data.scope, 'module');
+});
+
+test('enrich save: nothing is asked when no reference would be written', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = enrNode('attr:F1', { type: 'attribute', uuid: 'F1', value: '8.8.8.8', 'attr-type': 'ip-dst',
+                                        scope: 'foreign', event_id: '7' });
+    const ctx = saveCtx(g);
+    await p.save(savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]), ctx);
+    eq('no prompt', ctx.prompts.length, 0);
+    eq('saved all the same', seen.length, 1);
+});
+
+test('enrich save: offered from the node menu and the selection menu', async () => {
+    const g = await buildGraph(ev({}));
+    eq('never from the pivot panel or a triage pane', g.opts.pivotSaveControls, false);
+    const one = menuItem(g, 'Save this element');
+    const many = g.opts.UI.contextMenu.menuSelection.menu.find(i => i.text === 'Save selection');
+    eq('the selection menu holds only that', g.opts.UI.contextMenu.menuSelection.menu.map(i => [i.text, i.iconClass]),
+       [['Save selection', 'fas fa-save']]);
+    const n = id => ({ id, getData: () => ({ type: 'object', scope: 'module' }) });
+    const ledger = g.graph.pivots;
+    ['r1', 'r2', 'r3'].forEach(id => ledger.savable.add(id));
+    ledger.saved.add('r3');
+    eq('an unsaved result offers it', one.visible(n('r1')), true);
+    eq('a saved one, or one no save covers, does not', [one.visible(n('r3')), one.visible(n('x'))], [false, false]);
+    eq('a selection with something to write offers it', [many.visible([n('r1'), n('x')]), many.visible([n('r3'), n('x')])],
+       [true, false]);
+    many.onclick({}, [n('r1'), n('r2'), n('r3'), n('x')]);
+    eq('only what waits is named, and the analyst is asked',
+       [ledger.saves[0][0].elements.map(e => e.id), ledger.saves[0][1]], [['r1', 'r2'], { interactive: true }]);
+    one.onclick({}, n('r2'));
+    eq('the element alone', ledger.saves[1][0].elements.map(e => e.id), ['r2']);
+});
+
+test('enrich save: a duplicate aliases to what the event holds, a failure stays unsaved', async () => {
+    const seen = [];
+    const g = await saveGraph(seen, rec => rec.value === 'dup.example' ? { state: 'existing', uuid: 'HELD' }
+                                         : rec.value === 'bad' ? { state: 'failed' } : null);
+    const origin = OWN_IP();
+    const loose = (value, id) => ({ id, data: { type: 'attribute', scope: 'module', module: 'm', 'attr-type': 'domain', value } });
+    const result = { nodes: [loose('dup.example', 'enr:domain:dup.example'), loose('bad', 'enr:domain:bad')],
+                     edges: [{ id: 'e1', from: 'attr:A1', to: 'enr:domain:dup.example', data: { kind: 'enrichment', module: 'm' } },
+                             { id: 'e2', from: 'attr:A1', to: 'enr:domain:bad', data: { kind: 'enrichment', module: 'm' } }] };
+    const payload = savePayload(result, [origin]);
+    const out = await pivot(g, 'enrich').save(payload, saveCtx(g));
+    eq('only the duplicate is saved', out.savedNodeIds, ['enr:domain:dup.example']);
+    eq('as the attribute already there', out.canonicalIds, { 'enr:domain:dup.example': 'attr:HELD' });
+    eq('the failed one\'s edge stays unsaved', out.savedEdgeIds, ['e1']);
+    ok('and the toast says so', /could not be saved/.test(out.message || ''), out.message);
+    eq('the failed one is still a result', payload.nodes[1].data.scope, 'module');
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

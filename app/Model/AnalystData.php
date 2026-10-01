@@ -23,7 +23,8 @@ class AnalystData extends AppModel
         'Opinion',
         'Relationship',
         'Organisation',
-        'SharingGroup'
+        'SharingGroup',
+        'Collection'
     ];
 
     const NOTE = 0,

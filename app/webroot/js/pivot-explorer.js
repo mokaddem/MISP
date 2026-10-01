@@ -8,6 +8,8 @@
 //   [data-pe-event-id]     event fetched as /events/view/{id}/includeServerCorrelations:1.json
 //   [data-pe-baseurl]      MISP $baseurl, prefixed onto every request
 //   [data-pe-can-edit]     "1" when the viewer may add object references
+//   [data-pe-value-card]   "1" when MISP.value_hover_card is on
+//   [data-pe-can-enrich]   "1" when the viewer may run enrichment modules
 //   [data-pe-lib-missing]  translated error: pivotick failed to load
 //   [data-pe-load-failed]  translated error: the event fetch failed
 //
@@ -51,6 +53,10 @@
         // and which of its pinned taxonomies and galaxies the instance enables.
         var labelPlan = cfg.labelPlan || null;
         var permitted = cfg.permitted || null;
+        // MISP.value_hover_card: a value in the sidebar opens its hover card.
+        var valueCard = !!cfg.valueCard;
+        // perm_add: the Enrich pivot is offered at all (E11).
+        var canEnrich = !!cfg.canEnrich;
         // "This event" against "elsewhere": only a graph of one event has a self.
         var hasProvenance = host.provenance !== false;
 
@@ -166,9 +172,10 @@
 
         // Node id an analyst relationship's target maps to, or null when it has no
         // node on this canvas. AnalystData::valid_targets is far wider than the
-        // canvas — EventReport, GalaxyCluster, Organisation, SharingGroup and the
-        // analyst-data types are all legal targets. An 'Event' target is drawn as
-        // an event node, from the record the payload attaches (relationshipFarEnd).
+        // canvas — EventReport, Organisation, SharingGroup and the analyst-data
+        // types are all legal targets. An 'Event' target is drawn as an event node,
+        // from the record the payload attaches (relationshipFarEnd); a
+        // GalaxyCluster is mapped by relationshipEndId.
         function analystNodeId(type, uuid) {
             var t = String(type || '');
             if (t === 'Attribute') return 'attr:'  + uuid;
@@ -177,8 +184,17 @@
             return null;
         }
 
+        // A galaxy cluster lands on the node the tags pivot draws for it, which is
+        // keyed by tag name, so only a far end MISP resolved can name it.
+        function relationshipEndId(rel, type, uuid) {
+            if (String(type || '') !== 'GalaxyCluster') return analystNodeId(type, uuid);
+            var c = (rel.related_object || {}).GalaxyCluster;
+            if (!c || String(c.uuid) !== String(uuid) || !c.tag_name || isDeleted(c)) return null;
+            return clusterNodeId(c);
+        }
+
         function analystTargetId(rel) {
-            return analystNodeId(rel.related_object_type, rel.related_object_uuid);
+            return relationshipEndId(rel, rel.related_object_type, rel.related_object_uuid);
         }
 
         // The far end of a relationship — its target when outbound, its source
@@ -188,6 +204,10 @@
         // that event's creator org (Relationship::rearrangeData).
         function relationshipFarEnd(rel, farId) {
             var ro = rel.related_object || {};
+            if (farId.indexOf('cluster:') === 0) {
+                return ro.GalaxyCluster && clusterNodeId(ro.GalaxyCluster) === farId
+                    ? { type: 'cluster', record: ro.GalaxyCluster } : null;
+            }
             var uuid = farId.slice(farId.indexOf(':') + 1);
             var key = { event: 'Event', attr: 'Attribute', obj: 'Object' }[farId.slice(0, farId.indexOf(':'))];
             var rec = ro[key];
@@ -217,7 +237,7 @@
                 });
                 (rec.RelationshipInbound || []).forEach(function (rel) {
                     if (isDeleted(rel)) return;
-                    var from = analystNodeId(rel.object_type, rel.object_uuid);
+                    var from = relationshipEndId(rel, rel.object_type, rel.object_uuid);
                     cb(rel, from, selfId, from);
                 });
             }
@@ -245,6 +265,8 @@
             var liveEvent         = {};   // event node id -> record; others join per relationship
             var liveForeign       = {};   // another event's attr/obj node id -> relationshipFarEnd
             var foreignTouched    = {};
+            var liveCluster       = {};   // cluster node id -> relationshipFarEnd's record
+            var clusterTouched    = {};
 
             if (ev.uuid) liveEvent['event:' + ev.uuid] = ev;
 
@@ -269,6 +291,7 @@
             function exists(id) {
                 if (!id) return false;
                 if (id.indexOf('event:') === 0) return !!liveEvent[id];
+                if (id.indexOf('cluster:') === 0) return !!liveCluster[id];
                 if (liveForeign[id]) return true;
                 return id.indexOf('obj:') === 0
                     ? !!liveObj[id.slice(4)]
@@ -281,6 +304,10 @@
                 if (!id) return;
                 if (id.indexOf('event:') === 0) {
                     eventTouched[id] = liveEvent[id];
+                    return;
+                }
+                if (liveCluster[id]) {
+                    clusterTouched[id] = liveCluster[id];
                     return;
                 }
                 if (liveForeign[id]) {
@@ -315,6 +342,7 @@
                 if (!exists(farId)) {
                     var far = relationshipFarEnd(rel, farId);
                     if (far && far.type === 'event') liveEvent[farId] = far.record;
+                    else if (far && far.type === 'cluster') liveCluster[farId] = far.record;
                     else if (far && String(far.event.uuid) !== String(ev.uuid)) liveForeign[farId] = far;
                 }
                 if (!exists(fromId) || !exists(toId)) return;
@@ -326,7 +354,8 @@
                 linkedAttrUuids:   linkedAttrUuids,
                 connectedObjUuids: connectedObjUuids,
                 eventTouched:      eventTouched,
-                foreignTouched:    foreignTouched
+                foreignTouched:    foreignTouched,
+                clusterTouched:    clusterTouched
             };
         }
 
@@ -387,7 +416,12 @@
                 if (!conn.eventTouched[cardId]) cards[cardId] = true;
             });
 
-            var l1 = eventNodes.length + foreignNodes.length + Object.keys(cards).length;
+            var clusterNodes = Object.keys(conn.clusterTouched).map(function (id) {
+                return { id: id, record: conn.clusterTouched[id] };
+            });
+
+            var l1 = eventNodes.length + foreignNodes.length + Object.keys(cards).length
+                     + clusterNodes.length;
             (ev.Attribute || []).forEach(function (a) {
                 if (!isDeleted(a) && conn.linkedAttrUuids[a.uuid]) l1++;
             });
@@ -415,6 +449,7 @@
                 connectedObjUuids: conn.connectedObjUuids,
                 eventNodes:        eventNodes,
                 foreignNodes:      foreignNodes,
+                clusterNodes:      clusterNodes,
                 // What L2 actually draws — empty when the level did not fit, so
                 // "is this on the canvas?" is one lookup for every caller.
                 l2Uuids:           l2Fits ? l2Uuids : {},
@@ -603,7 +638,19 @@
         // graph is still being constructed and cannot be asked.
         var _ruleLabels = {};
 
+        // A module's results never share a group with MISP's own records.
+        var RESULT_KEY = '|module';
+
         function mispTypeOf(node) {
+            var key = mispKindOf(node);
+            return key && isEnrichmentResult(node) ? key + RESULT_KEY : key;
+        }
+
+        function baseKey(key) {
+            return key && key.slice(-RESULT_KEY.length) === RESULT_KEY ? key.slice(0, -RESULT_KEY.length) : key;
+        }
+
+        function mispKindOf(node) {
             var e = elementOf(node);
             if (!e) return undefined;
             var d = node.getData();
@@ -618,6 +665,7 @@
         }
 
         function groupTypeName(key) {
+            key = baseKey(key);
             if (!key) return 'node';
             var i = key.indexOf(':');
             if (i < 0) return ELEMENT_LABELS[key] || key;
@@ -642,7 +690,7 @@
         // What misp-pivot-nodes' group chip draws, from the library's GroupInfo.
         function groupView(info) {
             var parts = Object.keys(info.typeCounts).map(function (key) {
-                var head = key.split(':')[0];
+                var head = baseKey(key).split(':')[0];
                 return { key: key, entity: KEY_ELEMENT[head] || head,
                          name: groupTypeName(key), count: info.typeCounts[key] };
             }).sort(function (a, b) { return b.count - a.count; });
@@ -662,8 +710,10 @@
         // engages at the same zoom.
         function groupStyle(info, base) {
             var view = groupView(info);
+            var marks = groupEnrichmentBadges(info);
             return {
                 layoutSize: LAYOUT_SIZE,
+                badges: marks.length ? function () { return groupEnrichmentBadges(info); } : undefined,
                 tiers: ((base && base.tiers) || []).concat([{
                     width: CHIP.width, height: CHIP.height,
                     minRenderedSize: 2 * LAYOUT_SIZE * CHIP_FROM_ZOOM,
@@ -763,15 +813,46 @@
             return (d.type === 'tag' || d.type === 'cluster') && !!ownLabels()[node.id];
         }
 
+        function provenanceOf(node) {
+            if (isEnrichmentResult(node)) return 'module';
+            return inThisEvent(node) ? 'self' : 'elsewhere';
+        }
+
+        function enrichmentLegendEntry() {
+            var ink = ENRICH_INK[mispTheme()];
+            return { id: 'module', label: 'From enrichment', color: ink,
+                     badge: { color: ink, svgIcon: ENRICH_MARK },
+                     predicate: isEnrichmentResult };
+        }
+
         function provenanceLegendEntries(graph) {
             var seen = {};
-            graph.getMutableNodes().forEach(function (n) { seen[inThisEvent(n) ? 'self' : 'elsewhere'] = true; });
+            graph.getMutableNodes().forEach(function (n) { seen[provenanceOf(n)] = true; });
             return [
                 { id: 'self', label: 'This event', color: window.MispPivotNodes.palette().event.core,
-                  predicate: inThisEvent },
+                  predicate: function (node) { return provenanceOf(node) === 'self'; } },
                 { id: 'elsewhere', label: 'Elsewhere', color: '#888',
-                  predicate: function (node) { return !inThisEvent(node); } }
+                  predicate: function (node) { return provenanceOf(node) === 'elsewhere'; } },
+                enrichmentLegendEntry()
             ].filter(function (e) { return seen[e.id]; });
+        }
+
+        // A host with no "this event" still separates what a module said (E5).
+        // Keyed on `module`, which only results carry, the section is not drawn
+        // until one lands.
+        function enrichmentLegendEntries(graph) {
+            if (!graph.getMutableNodes().some(isEnrichmentResult)) return [];
+            return [
+                { id: 'misp', label: 'In MISP', color: ENRICH_PLAIN[mispTheme()],
+                  predicate: function (node) { return !isEnrichmentResult(node); } },
+                enrichmentLegendEntry()
+            ];
+        }
+
+        function provenanceSection() {
+            if (hasProvenance) return { id: 'provenance', title: 'Provenance', entries: provenanceLegendEntries };
+            if (canEnrich) return { id: 'provenance', title: 'Provenance', key: 'module', entries: enrichmentLegendEntries };
+            return null;
         }
 
         // Labels are not drawn by default — render data.label above each node.
@@ -903,6 +984,12 @@
                     ? attributeNodeData(f.record, owner) : objectNodeData(f.record, owner) });
                 addNode(cardId, { id: cardId, data: eventNodeData(f.event) });
                 addEdge(f.id, cardId, '', 'in-event');
+            });
+
+            /* L1 — a galaxy cluster an analyst relationship points at, as the
+               node the tags pivot would draw for it. */
+            seed.clusterNodes.forEach(function (c) {
+                addNode(c.id, clusterNode(c.id, c.record));
             });
 
             /* Event-level attributes, surfaced only when an authored relationship
@@ -1042,7 +1129,7 @@
         var FEED_COLOR = '#5bc0de';
 
         function nodeBadges(node) {
-            return analystBadges(node).concat(feedHitBadges(node), tagBadges(node));
+            return analystBadges(node).concat(feedHitBadges(node), tagBadges(node), enrichmentBadges(node));
         }
 
         function clusterName(c) {
@@ -1698,6 +1785,13 @@
             return { id: id, data: { type: 'cluster', label: c.value, value: c.value,
                                      galaxy_type: c.galaxy_type, galaxy_name: c.galaxy_name,
                                      tag_name: c.tag_name, uuid: c.uuid } };
+        }
+
+        // A cluster as Relationship::getRelatedElement resolves it.
+        function clusterNode(id, rec) {
+            var g = rec.Galaxy || {};
+            return labelNode(id, { cluster: { tag_name: rec.tag_name, value: rec.value,
+                galaxy_type: rec.type || g.type, galaxy_name: g.name, uuid: rec.uuid } });
         }
 
         function tagEdge(from, to, rel) {
@@ -2457,7 +2551,8 @@
             'feed-event':           'Event in a feed',
             'server-correlation':   'Seen on a server',
             'tag':                  'Tagged',
-            'cluster-relation':     'Galaxy relation'
+            'cluster-relation':     'Galaxy relation',
+            'enrichment':           'Enrichment'
         };
 
         function field(name, value) {
@@ -2519,7 +2614,7 @@
             return {
                 event: _event, eventId: eventId, plan: labelPlan, permitted: permitted,
                 uiPriorities: uiPriorities, matchedLabels: matchedLabels,
-                correlations: knownCorrelations, lazy: {}
+                correlations: knownCorrelations, valueCard: valueCard, lazy: {}
             };
         }
 
@@ -2712,8 +2807,35 @@
             });
         }
 
+        // Of what a right-click names, the results still waiting to be written.
+        function unsavedOf(element) {
+            var nodes = Array.isArray(element) ? element : [element];
+            return nodes.filter(function (n) {
+                return n && _graph.pivots.isSavable(n) && !_graph.pivots.isSaved(n);
+            });
+        }
+
+        function saveElements(element) {
+            _graph.pivots.save({ elements: unsavedOf(element) }, { interactive: true });
+        }
+
+        function saveEntry(text) {
+            return {
+                text:      text,
+                iconClass: 'fas fa-save',
+                visible:   function (el) { return unsavedOf(el).length > 0; },
+                onclick:   function (e, el) { saveElements(el); }
+            };
+        }
+
+        // The library's own menu for several selected nodes.
+        function selectionMenu() {
+            return [saveEntry('Save selection')];
+        }
+
         function nodeMenu() {
             return [
+                saveEntry('Save this element'),
                 {
                     text:      'Open its event',
                     iconClass: 'fas fa-external-link-alt',
@@ -2793,7 +2915,7 @@
             var provenanceFacet = { key: 'scope', label: 'Provenance', type: 'multiselect', options: [
                 { label: 'This event',   value: 'self' },
                 { label: 'Other events', value: 'foreign' }
-            ] };
+            ].concat(canEnrich ? [{ label: 'From enrichment', value: 'module' }] : []) };
             return (hasProvenance ? [provenanceFacet] : []).concat([
                 { key: 'type',      label: 'Element',        type: 'multiselect', options: distinctOptions('type') },
                 { key: 'category',  label: 'Category',       type: 'multiselect', options: distinctOptions('category') },
@@ -2805,11 +2927,550 @@
             ]);
         }
 
+        /* ── pivot: enrichment modules (enrichment PRD) ─────────── */
+        // What an expansion module says about a value, landed beside the node it
+        // was asked about. Nothing is written into MISP; the answer is kept by
+        // the organisation's store, which the Value Profile reads too.
+        var ENRICH_PIVOT = 'enrich';
+        // Asked pairs (node × module) per run; stored answers do not count (E10).
+        var ENRICH_ASK_CAP = 25;
+        var ENRICH_IN_FLIGHT = 5;
+        // MISP's --bs-enrichment, lifted to read on the canvas.
+        var ENRICH_INK = { light: '#6A6396', dark: '#8C84B5' };
+        var ENRICH_PLAIN = { light: '#CED4DA', dark: '#495057' };
+        // fa-wand-magic-sparkles reduced to what survives at a badge's size.
+        var ENRICH_MARK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+            + '<path fill="#fff" d="M9.5 0c.7 5.6 3.4 8.8 9.5 9.5-6.1.7-8.8 3.9-9.5 9.5'
+            + '-.7-5.6-3.4-8.8-9.5-9.5 6.1-.7 8.8-3.9 9.5-9.5z"/>'
+            + '<path fill="#fff" d="M19 13.5c.4 3.1 1.9 4.6 5 5-3.1.4-4.6 1.9-5 5'
+            + '-.4-3.1-1.9-4.6-5-5 3.1-.4 4.6-1.9 5-5z"/></svg>';
+
+        function isEnrichmentResult(node) {
+            var d = node && node.getData ? node.getData() : node;
+            return !!d && d.scope === 'module';
+        }
+
+        function ago(seconds) {
+            var h = Math.round((seconds || 0) / 3600);
+            if (h < 1) return 'just now';
+            return h < 48 ? h + ' h ago' : Math.round(h / 24) + ' days ago';
+        }
+
+        function enrichmentMark(d) {
+            var mods = (d.modules && d.modules.length ? d.modules : [d.module]).filter(Boolean);
+            var lines = ['From enrichment — ' + mods.join(', '), 'Not in MISP: a module said this'];
+            if (d.untyped) lines.push('Untyped: the module gave no type');
+            if (d.from_store) lines.push('Stored answer, ' + ago(d.age));
+            return { position: 'ne', color: ENRICH_INK[mispTheme()], svgIcon: ENRICH_MARK,
+                     title: lines.join('\n') };
+        }
+
+        function enrichmentBadges(node) {
+            return isEnrichmentResult(node) ? [enrichmentMark(node.getData())] : [];
+        }
+
+        // A group speaks for its members, so only an all-results group is marked.
+        function groupEnrichmentBadges(info) {
+            var members = info.members || [];
+            if (!members.length || !members.every(isEnrichmentResult)) return [];
+            var modules = [];
+            members.forEach(function (n) {
+                var d = n.getData() || {};
+                (d.modules || [d.module]).forEach(function (m) {
+                    if (m && modules.indexOf(m) === -1) modules.push(m);
+                });
+            });
+            return [enrichmentMark({ modules: modules })];
+        }
+
+        // FNV-1a over the object's name and sorted (relation, type, value)
+        // triples: one record, one node, whichever origin or run returned it (E4).
+        function contentHash(s) {
+            var h = 0x811c9dc5;
+            for (var i = 0; i < s.length; i++) {
+                h ^= s.charCodeAt(i);
+                h = Math.imul(h, 0x01000193) >>> 0;
+            }
+            return ('0000000' + h.toString(16)).slice(-8);
+        }
+
+        function resultObjectId(module, o) {
+            var triples = (o.attributes || []).map(function (a) {
+                return [a.relation || '', a.type || '', String(a.value)].join('\u0001');
+            }).sort();
+            return 'enr-obj:' + module + ':' + contentHash(o.name + '\u0002' + triples.join('\u0002'));
+        }
+
+        // The enrichment catalogue, once per page: which modules each type is offered.
+        var _enrichTypes = null, _enrichTypesAsked = false;
+        function loadEnrichTypes() {
+            if (_enrichTypesAsked || !canEnrich) return;
+            _enrichTypesAsked = true;
+            fetch(baseurl + '/values/enrichmentTypes.json', {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            }).then(function (t) {
+                _enrichTypes = t;
+                if (_graph && _graph.pivots) _graph.pivots.invalidate(ENRICH_PIVOT);
+            }).catch(function (err) {
+                console.error('[pivot-explorer] enrichment catalogue failed:', err);
+            });
+        }
+
+        // What a node can be enriched as: [{ value, type }], one per type any
+        // module accepts. A result only when MISP holds it, since the engine
+        // enriches a value the reader can see.
+        function offered(type) {
+            return !!type && (_enrichTypes.types[type] || []).length > 0;
+        }
+
+        // An object is enriched through its attributes, each an item of its own
+        // carrying its relation; `lead` marks the one the object leads with.
+        function objectItems(node) {
+            var seen = {};
+            var kids = (node.children || []).map(function (k) { return k.getData ? k.getData() : k.data; })
+                .filter(function (c) {
+                    if (!c || c.value == null || !offered(c['attr-type'])) return false;
+                    var key = c['attr-type'] + '|' + c.value;
+                    return seen[key] ? false : (seen[key] = true);
+                })
+                .sort(function (a, b) {
+                    return (b.ui_priority || 0) - (a.ui_priority || 0) || (b.to_ids ? 1 : 0) - (a.to_ids ? 1 : 0);
+                });
+            return kids.map(function (c, i) {
+                return { value: String(c.value), type: c['attr-type'], relation: c.object_relation || '', lead: i === 0 };
+            });
+        }
+
+        // What a node can be enriched as: [{ value, type }], one per type any
+        // module accepts. A result only when MISP holds it, since the engine
+        // enriches a value the reader can see.
+        function enrichItems(node) {
+            var d = node.getData() || {};
+            if (!_enrichTypes) return [];
+            if (d.type === 'object') return isEnrichmentResult(d) ? [] : objectItems(node);
+            if (d.value == null) return [];
+            var types = d.type === 'value' ? (d.types || [])
+                : (d.type === 'attribute' && (!isEnrichmentResult(d) || d.known)) ? [d['attr-type']] : [];
+            return types.filter(offered).map(function (t) { return { value: String(d.value), type: t }; });
+        }
+
+        function itemKey(item) { return item.type + '|' + item.value; }
+
+        // An object's attributes to enrich: the analyst's pick, else each object's lead.
+        function pickedItems(node, narrowing) {
+            var items = enrichItems(node);
+            if (!items.length || items[0].relation === undefined) return items;
+            var picked = narrowing && Array.isArray(narrowing.attribute) ? narrowing.attribute : null;
+            return items.filter(function (i) { return picked ? picked.indexOf(itemKey(i)) !== -1 : i.lead; });
+        }
+
+        function attributeFacet(nodes) {
+            var options = [], dflt = [], seen = {};
+            nodes.forEach(function (node) {
+                enrichItems(node).forEach(function (i) {
+                    if (i.relation === undefined || seen[itemKey(i)]) return;
+                    seen[itemKey(i)] = true;
+                    options.push({ label: (i.relation ? i.relation + ': ' : '') + truncate(i.value, 40), value: itemKey(i) });
+                    if (i.lead) dflt.push(itemKey(i));
+                });
+            });
+            return options.length ? { key: 'attribute', label: 'Attribute', type: 'multiselect',
+                                      options: options, default: dflt } : null;
+        }
+
+        // Per item, the modules to ask: each once per value, under the first of
+        // its types that module accepts, and never the profile's `never`.
+        function enrichPairs(nodes, narrowing) {
+            var pairs = [], seen = {};
+            nodes.forEach(function (node) {
+                pickedItems(node, narrowing).forEach(function (item) {
+                    var never = _enrichTypes.profile.never[item.type] || [];
+                    _enrichTypes.types[item.type].forEach(function (module) {
+                        var key = module + '|' + item.value;
+                        if (never.indexOf(module) !== -1 || seen[key]) return;
+                        seen[key] = true;
+                        pairs.push({ node: node, item: item, module: module });
+                    });
+                });
+            });
+            return pairs;
+        }
+
+        var _enrichStored = {};
+        function loadStored(items, signal) {
+            var missing = items.filter(function (i) { return !_enrichStored[itemKey(i)]; });
+            if (!missing.length) return Promise.resolve();
+            return postJson('/values/enrichmentStored.json', { items: missing }, signal).then(function (rows) {
+                (rows || []).forEach(function (r) { _enrichStored[itemKey(r)] = r.modules || {}; });
+            });
+        }
+
+        function storedFor(pair) {
+            return (_enrichStored[itemKey(pair.item)] || {})[pair.module] || null;
+        }
+
+        function storedLabel(module, rows) {
+            if (rows.length !== 1) {
+                var held = rows.filter(Boolean).length;
+                return held ? module + ' — stored for ' + held : module;
+            }
+            var s = rows[0];
+            if (!s) return module;
+            var when = ago(Math.floor(Date.now() / 1000) - s.ran_at);
+            if (s.state === 'ok') return module + ' — ' + when;
+            if (s.state === 'silent') return module + ' — nothing, ' + when;
+            return module + ' — ' + (s.state === 'timeout' ? 'timed out' : 'failed') + ' ' + when;
+        }
+
+        function enrichModuleFacet(pairs) {
+            var byModule = {}, order = [];
+            pairs.forEach(function (p) {
+                if (!byModule[p.module]) { byModule[p.module] = []; order.push(p.module); }
+                byModule[p.module].push(p);
+            });
+            var ticked = {};
+            pairs.forEach(function (p) {
+                (_enrichTypes.profile.ticked[p.item.type] || []).forEach(function (m) { ticked[m] = true; });
+                var s = storedFor(p);
+                if (s && s.fresh) ticked[p.module] = true;
+            });
+            order.sort();
+            return {
+                options: order.map(function (m) {
+                    var rows = byModule[m].map(storedFor);
+                    var total = rows.reduce(function (t, s) { return t + (s && s.state === 'ok' ? s.total : 0); }, 0);
+                    return { label: storedLabel(m, rows), value: m, count: total || undefined };
+                }),
+                default: order.filter(function (m) { return ticked[m]; })
+            };
+        }
+
+        function pickedModules(narrowing, facet) {
+            return narrowing && Array.isArray(narrowing.module) ? narrowing.module : facet.default;
+        }
+
+        // Up to ENRICH_IN_FLIGHT at once; each resolves to { pair, run } or { pair, error }.
+        function runPairs(pairs, signal) {
+            var out = new Array(pairs.length), next = 0;
+            function worker() {
+                if (next >= pairs.length) return Promise.resolve();
+                var i = next++, p = pairs[i], s = storedFor(p);
+                return postJson('/values/enrichmentRun.json', {
+                    value: p.item.value, type: p.item.type, module: p.module,
+                    mode: s && s.fresh ? 'stored' : 'press'
+                }, signal).then(function (r) {
+                    out[i] = { pair: p, run: (r && r.run) || {} };
+                }, function (err) {
+                    if (signal && signal.aborted) throw err;
+                    out[i] = { pair: p, error: String(err && err.message || err) };
+                }).then(worker);
+            }
+            var workers = [];
+            for (var w = 0; w < Math.min(ENRICH_IN_FLIGHT, pairs.length); w++) workers.push(worker());
+            return Promise.all(workers).then(function () { return out; });
+        }
+
+        var MISSED_WORDS = {
+            silent:      'answered with nothing',
+            timeout:     'timed out',
+            unreachable: 'the module server did not answer',
+            refused:     "MISP's enrichment workflow declined the query",
+            ineligible:  'not offered for this value'
+        };
+
+        function resultOwner(module, run) {
+            return { scope: 'module', module: module, modules: [module],
+                     from_store: !!run.from_store, age: run.age };
+        }
+
+        function resultAttributeData(a, module, run) {
+            return Object.assign(attributeNodeData({
+                type: a.type, value: a.value, category: a.category, comment: a.comment,
+                to_ids: a.to_ids, object_relation: a.relation
+            }, resultOwner(module, run)), { known: !!a.known });
+        }
+
+        // §5.3: objects closed with their attributes, attributes and legacy
+        // elements loose, each joined to its origin by an `enrichment` edge.
+        function landEnrichment(answers) {
+            var land = landing(), missed = [], answered = 0;
+            answers.forEach(function (a) {
+                var p = a.pair, module = p.module, origin = p.node.id, run = a.run || {};
+                if (a.error || run.state !== 'ok') {
+                    missed.push(module + ': ' + (a.error || run.message || MISSED_WORDS[run.state] || run.state));
+                    return;
+                }
+                answered++;
+                if (run.capped) missed.push(module + ': ' + run.shown + ' of ' + Number(run.total).toLocaleString() + ' shown');
+                function add(n) {
+                    var had = land.get(n.id);
+                    if (had && had.data.modules.indexOf(module) === -1) had.data.modules.push(module);
+                    land.node(n);
+                    // From an object, the edge names the attribute that was asked.
+                    var label = p.item.relation ? module + ' · ' + p.item.relation : module;
+                    land.edge({ id: 'enr:' + origin + '>' + n.id + ':' + module, from: origin, to: n.id,
+                                data: { kind: 'enrichment', label: label, module: module, asked: p.item.value } });
+                }
+                (run.attributes || []).forEach(function (attr) {
+                    // A misp_standard module echoes the attribute it was asked about.
+                    if (String(attr.value) === p.item.value && attr.type === p.item.type) return;
+                    add({ id: 'enr:' + attr.type + ':' + attr.value, data: resultAttributeData(attr, module, run) });
+                });
+                (run.elements || []).forEach(function (e) {
+                    var type = (e.types || [])[0] || 'text';
+                    var data = resultAttributeData({ type: type, value: e.value, known: e.known }, module, run);
+                    data.untyped = true;
+                    data.candidate_types = (e.types || []).slice(1);
+                    add({ id: 'enr:' + type + ':' + e.value, data: data });
+                });
+                (run.objects || []).forEach(function (o) {
+                    var id = resultObjectId(module, o);
+                    add({
+                        id: id,
+                        data: Object.assign(objectNodeData({ name: o.name, 'meta-category': o.meta_category },
+                                                           resultOwner(module, run)),
+                                            { description: o.description }),
+                        children: (o.attributes || []).map(function (attr) {
+                            return { id: id + ':' + attr.relation + ':' + attr.value,
+                                     data: resultAttributeData(attr, module, run) };
+                        })
+                    });
+                });
+            });
+            return { result: land.result(), missed: missed, answered: answered };
+        }
+
+        // RFC 4122 v4; randomUUID needs a secure context, getRandomValues does not.
+        function newUuid() {
+            var b = window.crypto.getRandomValues(new Uint8Array(16));
+            b[6] = (b[6] & 0x0f) | 0x40;
+            b[8] = (b[8] & 0x3f) | 0x80;
+            var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+            return [h.slice(0, 8), h.slice(8, 12), h.slice(12, 16), h.slice(16, 20), h.slice(20)].join('-');
+        }
+
+        var ENRICH_RELATIONSHIP = 'related-to';
+
+        function resultAttributeRecord(d, uuid, comment) {
+            return { uuid: uuid, type: d['attr-type'], category: d.category, value: d.value,
+                     to_ids: !!d.to_ids, comment: comment || '', object_relation: d.object_relation };
+        }
+
+        // A result is tied back to an origin this event holds, as far as
+        // a reference can say it; from another event's origin it goes in
+        // unattached, its comment naming what was enriched.
+        function saveBody(payload) {
+            var body = { Attribute: [], Object: [], ObjectReference: [] }, sent = [];
+            var pendingChildren = {};
+            (payload.children || []).forEach(function (c) { pendingChildren[c.id] = true; });
+            payload.nodes.forEach(function (node) {
+                var d = node.getData() || {};
+                if (!isEnrichmentResult(d)) return;
+                var edges = payload.edges.filter(function (e) {
+                    return e.to && e.to.id === node.id && (e.getData() || {}).kind === 'enrichment';
+                });
+                var own = edges.map(function (e) { return e.from; }).filter(function (o) {
+                    return o && isOwnElement(o.getData());
+                });
+                var first = edges.length ? edges[0].getData() : {};
+                var comment = d.comment || ('Enrichment: ' + (first.module || d.module)
+                                            + (first.asked ? ' on ' + first.asked : ''));
+                var uuid = newUuid(), entry = { node: node, uuid: uuid, children: [] };
+                if (d.type === 'object') {
+                    body.Object.push({
+                        uuid: uuid, name: d.name, comment: comment,
+                        Attribute: (node.children || []).filter(function (c) { return pendingChildren[c.id]; })
+                            .map(function (c) {
+                                var cu = newUuid();
+                                entry.children.push({ node: c, uuid: cu });
+                                return resultAttributeRecord(c.getData() || {}, cu, (c.getData() || {}).comment);
+                            }),
+                        ObjectReference: own.map(function (o) {
+                            return { referenced_uuid: o.getData().uuid, relationship_type: ENRICH_RELATIONSHIP };
+                        })
+                    });
+                } else {
+                    var rec = resultAttributeRecord(d, uuid, comment);
+                    delete rec.object_relation;
+                    body.Attribute.push(rec);
+                    own.forEach(function (o) {
+                        if (o.getData().type !== 'object') return;
+                        body.ObjectReference.push({ object_uuid: o.getData().uuid, referenced_uuid: uuid,
+                                                    relationship_type: ENRICH_RELATIONSHIP });
+                    });
+                }
+                sent.push(entry);
+            });
+            return { body: body, sent: sent };
+        }
+
+        // A saved result is this event's own from then on — a plain MISP
+        // node, which the reference editor can start from.
+        function adoptSaved(entry, uuid, childrenSaved) {
+            var ev = (_event && _event.Event) || {};
+            var own = Object.assign(provenance(eventId, ev.uuid),
+                { module: undefined, modules: undefined, from_store: undefined, age: undefined,
+                  untyped: undefined, candidate_types: undefined, known: undefined });
+            entry.node.updateData(Object.assign({ uuid: uuid }, own));
+            if (entry.node.getData().type === 'object') {
+                var kids = childrenSaved ? entry.children : [];
+                kids.forEach(function (c) { c.node.updateData(Object.assign({ uuid: c.uuid }, own)); });
+                ev.Object = (ev.Object || []).concat([{ uuid: uuid, Attribute: kids.map(function (c) { return { uuid: c.uuid }; }) }]);
+            } else {
+                ev.Attribute = (ev.Attribute || []).concat([{ uuid: uuid }]);
+            }
+            _ownIndex = null;
+        }
+
+        // The relationship the references are written with, or null when the
+        // analyst backs out.
+        function askRelationship(ctx) {
+            return loadVocabulary().then(function (names) {
+                return ctx.promptData({
+                    title:       'Save to this event',
+                    submitLabel: 'Save',
+                    fields:      relationshipFields(names, [])
+                });
+            }).then(function (values) {
+                if (!values) return null;
+                return String(values.custom || '').trim()
+                    || String(values.relationship_type || '').trim() || ENRICH_RELATIONSHIP;
+            });
+        }
+
+        function enrichSave(payload, ctx) {
+            var built = saveBody(payload);
+            if (!built.sent.length) return true;
+            var refs = built.body.ObjectReference.slice();
+            built.body.Object.forEach(function (o) { refs = refs.concat(o.ObjectReference); });
+            var asked = refs.length ? askRelationship(ctx) : Promise.resolve(ENRICH_RELATIONSHIP);
+            return asked.then(function (rel) {
+                if (rel === null) return { cancelled: true };
+                refs.forEach(function (ref) { ref.relationship_type = rel; });
+                return writeEnrichment(payload, built, ctx);
+            });
+        }
+
+        function writeEnrichment(payload, built, ctx) {
+            return postJson('/events/saveEnrichment/' + encodeURIComponent(eventId) + '.json',
+                            built.body, ctx && ctx.signal).then(function (r) {
+                var results = (r && r.results) || {};
+                var savedNodeIds = [], canonicalIds = {}, lost = {}, failed = 0;
+                built.sent.forEach(function (entry) {
+                    var res = results[entry.uuid] || {};
+                    var node = entry.node;
+                    if (res.state !== 'saved' && res.state !== 'existing') {
+                        failed++;
+                        lost[node.id] = true;
+                        return;
+                    }
+                    var prefix = node.getData().type === 'object' ? 'obj:' : 'attr:';
+                    // An object the event already held keeps its own attributes.
+                    var fresh = res.state === 'saved';
+                    savedNodeIds.push(node.id);
+                    canonicalIds[node.id] = prefix + res.uuid;
+                    entry.children.forEach(function (c) {
+                        savedNodeIds.push(c.node.id);
+                        if (fresh) canonicalIds[c.node.id] = 'attr:' + c.uuid;
+                    });
+                    adoptSaved(entry, res.uuid, fresh);
+                });
+                var savedEdgeIds = payload.edges.filter(function (e) { return !(e.to && lost[e.to.id]); })
+                    .map(function (e) { return e.id; });
+                // Handing the graph its own nodes back is a re-render and a data
+                // event, which is what the legend counts on.
+                var g = ctx && ctx.graph;
+                var adopted = built.sent.filter(function (entry) { return !lost[entry.node.id]; })
+                    .map(function (entry) { return entry.node; });
+                if (g && adopted.length) g.updateData(adopted);
+                refreshSidebar();
+                return {
+                    savedNodeIds: savedNodeIds,
+                    savedEdgeIds: savedEdgeIds,
+                    canonicalIds: canonicalIds,
+                    message: failed ? (r && r.message) || (failed + ' could not be saved') : undefined
+                };
+            });
+        }
+
+        function enrichPivot() {
+            loadEnrichTypes();
+            function facetFor(nodes, narrowing) {
+                return enrichModuleFacet(enrichPairs(nodes, narrowing));
+            }
+            return {
+                id:            ENRICH_PIVOT,
+                label:         'Enrich',
+                maxCandidates: NODE_BUDGET,
+                // Only a host with an event the viewer may modify can keep them.
+                save:          eventId && canEdit ? enrichSave : undefined,
+                appliesTo: function (nodes) {
+                    return nodes.filter(function (n) { return enrichItems(n).length > 0; });
+                },
+                // Pivot ▸ Enrich ▸ one row per attribute of an object (pivotick
+                // prd/misp/pivot-menu-choices.md).
+                menuChoices: function (nodes) {
+                    var facet = attributeFacet(nodes);
+                    return facet ? facet.options.map(function (o) {
+                        return { label: o.label, narrowing: { attribute: [o.value] } };
+                    }) : [];
+                },
+                summarize: function (nodes, narrowing, ctx) {
+                    var items = [];
+                    nodes.forEach(function (n) { items = items.concat(enrichItems(n)); });
+                    return loadStored(items, ctx && ctx.signal).then(function () {
+                        var facet = facetFor(nodes, narrowing);
+                        var picked = pickedModules(narrowing, facet);
+                        // Known only when every picked module has answered this value
+                        // before; a module never asked has no count, not a zero.
+                        var total = enrichPairs(nodes, narrowing).reduce(function (t, p) {
+                            if (t === null || picked.indexOf(p.module) === -1) return t;
+                            var s = storedFor(p);
+                            return s ? t + (s.state === 'ok' ? s.total : 0) : null;
+                        }, 0);
+                        var facets = [Object.assign({ key: 'module', label: 'Module', type: 'multiselect' }, facet)];
+                        var attributes = attributeFacet(nodes);
+                        return { total: total, facets: attributes ? [attributes].concat(facets) : facets };
+                    });
+                },
+                fetch: function (nodes, narrowing, ctx) {
+                    var signal = ctx && ctx.signal;
+                    var items = [];
+                    nodes.forEach(function (n) { items = items.concat(enrichItems(n)); });
+                    // A one-click run has no summarize before it: what is fresh is read here too.
+                    var pairs;
+                    return loadStored(items, signal).then(function () {
+                        var picked = pickedModules(narrowing, facetFor(nodes, narrowing));
+                        pairs = enrichPairs(nodes, narrowing).filter(function (p) { return picked.indexOf(p.module) !== -1; });
+                        var asked = pairs.filter(function (p) { var s = storedFor(p); return !(s && s.fresh); }).length;
+                        if (asked > ENRICH_ASK_CAP) {
+                            throw new Error(asked + ' module queries would be sent; ' + ENRICH_ASK_CAP
+                                + ' at most per run — untick modules or select fewer nodes.');
+                        }
+                        return runPairs(pairs, signal);
+                    }).then(function (answers) {
+                        var landed = landEnrichment(answers);
+                        if (!landed.answered && landed.missed.length) throw new Error(landed.missed.join(' · '));
+                        var g = ctx && ctx.graph;
+                        if (landed.missed.length && g && g.notifier) g.notifier.warning('Enrichment', landed.missed.join(' · '));
+                        // The store now holds what was just asked, so the counts are re-read.
+                        pairs.forEach(function (p) { delete _enrichStored[itemKey(p.item)]; });
+                        if (g && g.pivots) g.pivots.invalidate(ENRICH_PIVOT, nodes);
+                        return landed.result;
+                    });
+                }
+            };
+        }
+
         function eventPivots() {
             return [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
                     taggedEventsPivot(), relatedClustersPivot(), surroundingsPivot(),
                     cardElementsPivot('all'), cardElementsPivot('ids'), cardElementsPivot('network'),
-                    moreCorrelationsPivot()];
+                    moreCorrelationsPivot()].concat(canEnrich ? [enrichPivot()] : []);
         }
 
         /* ── pivotick options ──────────────────────────────────── */
@@ -2845,7 +3506,9 @@
                         'feed-event':           { strokeColor: window.MispPivotNodes.palette().feed.core },
                         'server-correlation':   { strokeColor: window.MispPivotNodes.palette().server.core, dashed: true },
                         'tag':                  { strokeColor: '#8a8f98', dashed: true },
-                        'cluster-relation':     { strokeColor: window.MispPivotNodes.palette().galaxy.core }
+                        'cluster-relation':     { strokeColor: window.MispPivotNodes.palette().galaxy.core },
+                        // Solid: a dash already means a derived link.
+                        'enrichment':           { strokeColor: ENRICH_INK[mispTheme()], strokeWidth: 1.25 }
                     },
                     // Draw the relationship_type on every edge (referenced + newly created).
                     defaultLabelStyle: {
@@ -2867,6 +3530,9 @@
                 // Every landing arrives folded, one group per kind; Review offers
                 // Ingest loose.
                 pivotIngestGrouped: true,
+                // Results are saved from the context menu, a node or a selection at
+                // a time; the panel's and pane's Save would write a whole run.
+                pivotSaveControls: false,
                 // No `save`: correlations are derived, never counted unsaved.
                 pivots: (host.pivots ? host.pivots(kit) : eventPivots()).map(joiningDrawnTags),
                 callbacks: {
@@ -2899,8 +3565,9 @@
                         edgePropertiesMap: edgeProperties
                     },
                     contextMenu: {
-                        menuNode:   { menu: nodeMenu() },
-                        menuCanvas: { menu: canvasMenu() }
+                        menuNode:      { menu: nodeMenu() },
+                        menuSelection: { menu: selectionMenu() },
+                        menuCanvas:    { menu: canvasMenu() }
                     },
                     // Only drawing or deleting a relationship reaches MISP, so
                     // creating or editing a node or an edge's data is offered to
@@ -2919,7 +3586,7 @@
                     legend: {
                         sections: [
                             { title: 'Element', entries: elementLegendEntries },
-                            hasProvenance ? { id: 'provenance', title: 'Provenance', entries: provenanceLegendEntries } : null,
+                            provenanceSection(),
                             { title: 'Relationship', scope: 'edge', key: 'kind' }
                         ].filter(Boolean)
                     },
@@ -3076,6 +3743,65 @@
         // Canvas node type → AnalystData::valid_targets name.
         var ANALYST_TYPES = { attribute: 'Attribute', object: 'Object', event: 'Event' };
 
+        // The object_relationships vocabulary, fetched once on first use. A
+        // failed fetch leaves only the free-text field, which the server
+        // accepts anyway.
+        var _vocabulary = null;
+        function loadVocabulary() {
+            if (_vocabulary) return _vocabulary;
+            _vocabulary = fetch(baseurl + '/objectRelationships/index.json', {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (rows) {
+                return (Array.isArray(rows) ? rows : [])
+                    .map(function (r) { return r && r.name; })
+                    .filter(function (n) { return typeof n === 'string' && n !== ''; })
+                    .sort();
+            })
+            .catch(function (err) {
+                console.error('[pivot-explorer] relationship list failed:', err);
+                _vocabulary = null;   // ask again next time
+                return [];
+            });
+            return _vocabulary;
+        }
+
+        // Both kinds take the same answer: an analyst relationship's type is
+        // free text, so a name from the reference vocabulary is as good there.
+        function relationshipFields(names, kinds) {
+            var fields = [];
+            if (kinds.length > 1) {
+                fields.push({
+                    key:          'kind',
+                    label:        'Link type',
+                    type:         'select',
+                    options:      kinds.map(function (k) { return { label: KIND_LABELS[k], value: k }; }),
+                    defaultValue: kinds[0]
+                });
+            }
+            if (names.length) {
+                fields.push({
+                    key:          'relationship_type',
+                    label:        'Relationship type',
+                    type:         'select',
+                    options:      names.map(function (n) { return { label: n, value: n }; }),
+                    defaultValue: names.indexOf('related-to') !== -1 ? 'related-to' : names[0]
+                });
+            }
+            fields.push({
+                key:         'custom',
+                label:       names.length ? 'Or a custom one' : 'Relationship type',
+                type:        'text',
+                placeholder: 'custom relationship'
+            });
+            return fields;
+        }
+
         function createEditor() {
             var graph = null;
 
@@ -3118,64 +3844,6 @@
                 return possibleKinds(source, target).length > 0;
             }
 
-            // The object_relationships vocabulary, fetched once on first use. A
-            // failed fetch leaves only the free-text field, which the server
-            // accepts anyway.
-            var _vocabulary = null;
-            function loadVocabulary() {
-                if (_vocabulary) return _vocabulary;
-                _vocabulary = fetch(baseurl + '/objectRelationships/index.json', {
-                    credentials: 'same-origin',
-                    headers: { 'Accept': 'application/json' }
-                })
-                .then(function (r) {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    return r.json();
-                })
-                .then(function (rows) {
-                    return (Array.isArray(rows) ? rows : [])
-                        .map(function (r) { return r && r.name; })
-                        .filter(function (n) { return typeof n === 'string' && n !== ''; })
-                        .sort();
-                })
-                .catch(function (err) {
-                    console.error('[pivot-explorer] relationship list failed:', err);
-                    _vocabulary = null;   // ask again next time
-                    return [];
-                });
-                return _vocabulary;
-            }
-
-            // Both kinds take the same answer: an analyst relationship's type is
-            // free text, so a name from the reference vocabulary is as good there.
-            function relationshipFields(names, kinds) {
-                var fields = [];
-                if (kinds.length > 1) {
-                    fields.push({
-                        key:          'kind',
-                        label:        'Link type',
-                        type:         'select',
-                        options:      kinds.map(function (k) { return { label: KIND_LABELS[k], value: k }; }),
-                        defaultValue: kinds[0]
-                    });
-                }
-                if (names.length) {
-                    fields.push({
-                        key:          'relationship_type',
-                        label:        'Relationship type',
-                        type:         'select',
-                        options:      names.map(function (n) { return { label: n, value: n }; }),
-                        defaultValue: names.indexOf('related-to') !== -1 ? 'related-to' : names[0]
-                    });
-                }
-                fields.push({
-                    key:         'custom',
-                    label:       names.length ? 'Or a custom one' : 'Relationship type',
-                    type:        'text',
-                    placeholder: 'custom relationship'
-                });
-                return fields;
-            }
 
             // What analystData/add asks of a relationship beyond its type, as its
             // own form does. Pivotick's form has no field that depends on another,
@@ -3425,6 +4093,7 @@
             eventNodeData:    eventNodeData,
             eventCardNode:    eventCardNode,
             foreignObjectNode: foreignObjectNode,
+            clusterNode:      clusterNode,
             inEventEdge:      inEventEdge,
             sourceMap:        sourceMap,
             sourceNodeData:   sourceNodeData,
@@ -3444,7 +4113,9 @@
                 taggedEvents:    taggedEventsPivot,
                 relatedClusters: relatedClustersPivot,
                 surroundings:    surroundingsPivot,
-                cardElements:    cardElementsPivot
+                cardElements:    cardElementsPivot,
+                // Null for a reader who may not run modules.
+                enrich:          function () { return canEnrich ? enrichPivot() : null; }
             }
         };
 
@@ -3482,6 +4153,8 @@
                 uiPriorities:   readJson(d.peUiPriorities, '{}', 'object template priorities'),
                 labelPlan:      readJson(d.peLabelPlan, 'null', 'analyst profile priorities'),
                 permitted:      readJson(d.pePermitted, 'null', 'analyst profile priorities'),
+                valueCard:      d.peValueCard === '1',
+                canEnrich:      d.peCanEnrich === '1',
                 orgUuid:        d.peOrgUuid || '',
                 siteAdmin:      d.peSiteAdmin === '1',
                 text: {

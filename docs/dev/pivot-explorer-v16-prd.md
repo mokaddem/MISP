@@ -1,8 +1,10 @@
 # PRD: Pivot Explorer — leveraging Pivotick on `/events/view2`
 
-**Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then
-revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). **Every §9 task is built**
-(2026-09-23); what is still owed is §8's unchecked items and §11's open questions. State lives in
+**Status:** **COMPLETE** (2026-10-01) — the Pivotick integration is feature-complete. Decisions
+settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then revised for v2 on 2026-09-23 (§5,
+*Rulings after the v2 bump*). **Every §9 task is built** (2026-09-23). §8's still-owed checks were
+closed by a live pass on 2026-10-01; §11's open questions are parked until analyst or community
+feedback asks for them; what is left is polish, listed in §12. State lives in
 [`pivot-explorer-v16-progress.md`](pivot-explorer-v16-progress.md).
 
 **Owner:** Sami Mokaddem (Claude-assisted)
@@ -1487,6 +1489,9 @@ progress file's §2 ledger has the detail — or what is **still owed**. The tra
 that items 1 and 9 first described were retired by task 9's element pivot (§11.7); the items now
 test what replaced them.
 
+**2026-10-01:** the owner exercised the explorer live and found nothing broken or odd. That pass
+closes the **still owed** items below; they stay listed as what it covered.
+
 1. ✅ **Upgrade regression** — graph renders, objects expand, the element pivot puts an element on
    the canvas, an edge can be created and persists across a reload (1b, 9).
 2. Event 1195 (2,362 refs): ✅ seeds with the authored spine (1b); ✅ layers toggle independently
@@ -1604,6 +1609,10 @@ of D13.
 
 ## 11. Open Questions / Phase 2
 
+**Parked 2026-10-01.** The explorer works as wanted today; the open items below (1, 2, 3, 5, 8
+and 13's two-Undo remainder) wait for feedback from analysts or the community rather than being
+decided ahead of it.
+
 1. **Object aggregation** (backend). The one dimension with no existing roll-up: "28,410 objects
    → 12,000 file, 8,000 url" as aggregate nodes, so a behemoth's L2 degrades to a summary instead
    of being skipped. Correlations already have their aggregate for free (`RelatedEvent`, D12);
@@ -1621,8 +1630,8 @@ of D13.
 5. **The pivot entry point** — a route seeding the same component from one indicator, defaulting
    to Explore. §4 keeps it out of scope; the seed/mode parameterisation is designed for it.
 6. **Analyst-data and enrichment write paths.** ✅ Analyst relationships are written and deleted
-   from the graph (10b). Notes and opinions stay read-only (§4). **Open:** enrichment, deferred
-   to its own pass as pivots (R3).
+   from the graph (10b). Notes and opinions stay read-only (§4). ✅ Enrichment shipped as its own
+   pass (R3): [`pivot-explorer-enrichment-prd.md`](pivot-explorer-enrichment-prd.md).
 7. ✅ **Dock paging** — answered by task 9 as proposed here. Under P0, the answer: the unlinked-element
    list becomes an **origin-less pivot** (`origin: 'none'`) whose Review tab *is* the searchable,
    filterable, paged table, and whose ingest *is* putting elements on the canvas — which retires
@@ -1643,3 +1652,20 @@ of D13.
     left and who vouched for it, and the notice says so. **Open:** one removal is two entries, one
     per correlation pivot, because `removeBySource` takes a single source and `history.group`
     coalesces only visibility changes — so a full restore takes two Undos.
+
+## 12. Backlog (after completion, 2026-10-01)
+
+Polish that does not hold the feature open. None of it blocks shipping; each item is picked up
+when the library change lands or someone asks for it.
+
+| Item | Waits on | Source |
+|---|---|---|
+| **Tag pivots past 200.** The summary says at most 200; the endpoint's `total` already carries the real number. | pivotick `prd/pivot-summary-window.md` (Proposed) | tag-pivots PRD, T8 |
+| **Select by id.** `selectElement(s)` take Node/Edge objects; selecting by id, reveal and the resolution result are not built. | pivotick `prd/misp/selection-api-by-identity.md` §4.1–4.4 | upstream |
+| **Sidebar panel order.** MISP's extra panels render below pivotick's neighbours panel. Cosmetic. | MISP or pivotick | sidebar PRD §5.4 |
+| **Groups do not mix origins.** A group can hold both MISP elements and enrichment results; a `scope` key on groups would keep them apart. No code. | MISP | enrichment PRD; `prd/pivot-enrichment/candidates/b-mark/NOTES.md` |
+
+Not in this backlog, because they are separate projects: the `/events/graph/{id}.json` endpoint
+([`pivot-explorer-graph-endpoint`](../../prd/pivot-explorer-graph-endpoint-prd.md), parked
+2026-09-29) and the intelligence graph (`prd/intelligence-graph/`, stopped after phase 0). §11's
+parked questions stay in §11.

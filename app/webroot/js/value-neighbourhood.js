@@ -18,7 +18,7 @@
 // relationship reaching out of it — is a lead, and never folds.
 //
 // config: { value, b64, baseurl, containerEl, loaderEl, labelPlan, permitted,
-//           orgUuid, siteAdmin, text, seed? }
+//           orgUuid, siteAdmin, valueCard, text, seed? }
 
 (function () {
     'use strict';
@@ -156,6 +156,8 @@
                 if (!f) return;
                 if (f.type === 'event') {
                     land.node({ id: farId, data: kit.eventNodeData(f.record) });
+                } else if (f.type === 'cluster') {
+                    land.node(kit.clusterNode(farId, f.record));
                 } else {
                     var owner = kit.provenance(f.event.id, f.event.uuid);
                     land.node({ id: farId, data: f.type === 'attribute'
@@ -307,6 +309,9 @@
                 if (!f) return;
                 note(unit, farId, 'claim', type, dir, f.type === 'event'
                     ? { type: 'event', name: 'event', label: f.record.info, event: f.record }
+                    : f.type === 'cluster'
+                    ? { type: 'cluster', name: (f.record.Galaxy || {}).name || f.record.type,
+                        label: String(f.record.value), galaxy_type: f.record.type }
                     : { type: f.type, name: f.type === 'object' ? f.record.name : f.record.type,
                         label: f.type === 'object' ? leadValue(f.record, seed.ui_priorities) : String(f.record.value),
                         to_ids: !!f.record.to_ids, event: f.event });
@@ -614,7 +619,8 @@
         });
         var p = kit.pivots;
         return [more, where, p.feedEvents(), p.tags(), p.taggedEvents(), p.relatedClusters(),
-                p.surroundings(), p.cardElements('ids'), p.cardElements('network'), p.cardElements('all')];
+                p.surroundings(), p.cardElements('ids'), p.cardElements('network'), p.cardElements('all'),
+                p.enrich()].filter(Boolean);
     }
 
     /* ── options ───────────────────────────────────────────── */
@@ -735,6 +741,8 @@
                 permitted: config.permitted,
                 orgUuid:   config.orgUuid,
                 siteAdmin: config.siteAdmin,
+                valueCard: config.valueCard,
+                canEnrich: config.canEnrich,
                 text:      config.text
             },
             load:       loadSeed(config),

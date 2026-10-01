@@ -316,6 +316,36 @@ suite('an attribute another event\'s card brought says which of its slices match
        .facts.filter(f => f.key === 'matched'), []);
 });
 
+suite('a value in the sidebar: keyed as ValueUrlTool::encode(), opening its card where the instance has it on', () => {
+    eq('url-safe alphabet, bytes not characters', ['\u00ff>?/', '\u00e9vil.example', 'http://x.y/?q=~~'].map(M.valueKey),
+       ['w78-Py8=', 'w6l2aWwuZXhhbXBsZQ==', 'aHR0cDovL3gueS8_cT1-fg==']);
+    const attr = node({ type: 'attribute', uuid: 'a-ip', scope: 'self', event_id: '5' });
+    eq('an attribute: its own value', M.build(attr, env()).profile, { value: '8.8.8.8', b64: 'OC44LjguOA==' });
+    eq('an attribute with no value: none', M.build(node({ type: 'attribute', uuid: 'nope' }), env()).profile, null);
+    const sock = node({ type: 'object', uuid: 'o-sock', name: 'network-socket', scope: 'self', event_id: '5' });
+    eq('each object attribute keyed', M.build(sock, env()).children.map(c => c.b64), ['OC44LjQuNA==', 'NTM=']);
+    eq('the card follows the instance', [M.build(attr, env()).value_card, M.build(attr, env({ valueCard: true })).value_card,
+        M.build(sock, env({ valueCard: true })).value_card], [false, true, true]);
+});
+
+suite('an enrichment result: said by a module, linked only where MISP holds it', () => {
+    const res = { kind: 'node', id: 'enr-obj:ipasn:abc', data: { type: 'object', name: 'asn', scope: 'module',
+        module: 'ipasn', modules: ['ipasn', 'mmdb_lookup'], from_store: true, age: 7200 },
+        children: [{ type: 'AS', value: '15169', object_relation: 'asn', scope: 'module', known: false },
+                   { type: 'ip-src', value: '8.8.8.0/24', object_relation: 'subnet-announced', scope: 'module', known: true }] };
+    const vm = M.build(res, env());
+    eq('its provenance', vm.provenance, { scope: 'module', event_id: null, label: 'From enrichment' });
+    eq('what the modules said', vm.enrichment,
+       { modules: ['ipasn', 'mmdb_lookup'], from_store: true, age: 7200, untyped: false, candidate_types: [] });
+    eq('only the known value is keyed', vm.children.filter(c => c.b64).map(c => c.value), ['8.8.8.0/24']);
+    const loose = node({ type: 'attribute', uuid: undefined, value: 'dns.google', 'attr-type': 'domain',
+                         scope: 'module', module: 'whois', untyped: true, candidate_types: ['hostname'] });
+    eq('an unknown loose result has no profile', M.build(loose, env()).profile, null);
+    eq('untyped, with its other types', [M.build(loose, env()).enrichment.untyped, M.build(loose, env()).enrichment.candidate_types],
+       [true, ['hostname']]);
+    eq('a MISP element has none', M.build(node({ type: 'attribute', uuid: 'a-ip', scope: 'self' }), env()).enrichment, null);
+});
+
 /* ── runner ────────────────────────────────────────────────── */
 
 (async () => {
