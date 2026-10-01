@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
 **Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
-added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30 (§10); two parts wait on pivotick.
+added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt 2026-10-01 (§10); the selection action waits on pivotick.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -47,7 +47,7 @@ canvas like any other pivot's.
 | Sidebar: provenance, notice, known-only links (E13) | ✅ | `5cccb6836` |
 | Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); two pivotick asks shipped (`e2537f0`, vendored `b9ff699ec`), one declined |
 | Unit tests, acceptance (§7) | ✅ | explorer 765/0, sidebar model 87/0, neighbourhood 29/0; §7 below |
-| Save into the event (§10) | 🟡 | panel Save wired and accepted (§10.7); the prompt and the selection action wait on pivotick (§10.4); S9 open |
+| Save into the event (§10) | 🟡 | panel Save and the relationship prompt wired and accepted (§10.7); the selection action waits on pivotick (§10.4); S9 open |
 
 ## 2. What the analyst sees
 
@@ -406,8 +406,15 @@ Both in `~/git/pivotick/prd/misp/`, proposed 2026-09-30:
   waits on it**: writing a selection outside the ledger would leave it counted unsaved and
   written twice.
 - `save-context-prompt.md` — `PivotSaveContext.promptData`, the modal edge creation already
-  has, and a cancel outcome that is not a failure. **S4's prompt uses it when present**; until
-  it ships, a save writes `related-to` without asking.
+  has, and a cancel outcome that is not a failure. **Shipped in `73f7673`** (2026-10-01): a save
+  nobody clicked gets `null` at once, so `graph.pivots.save()` from the console needs
+  `{ interactive: true }` to be asked.
+
+**S4 as built.** The prompt — *Save to this event*, the editor's own relationship fields
+(`relationshipFields`, now shared with it), `related-to` preselected, a custom one winning —
+opens only when the save would write a reference; an unattached save (S3, loose → loose) asks
+nothing. An empty answer is `related-to`. Cancel returns `{ cancelled: true }`: nothing is
+posted, the run stays pending, no toast.
 
 ### 10.5 Phases
 
@@ -415,7 +422,7 @@ Both in `~/git/pivotick/prd/misp/`, proposed 2026-09-30:
 |---|---|---|
 | D1 — endpoint `saveEnrichment` + ACL (S1) | ✅ | `perm_add` + `theming_enabled`, `canModifyEvent` in the action, CSRF by header |
 | D2 — `save` on the Enrich pivot, panel Save (S2–S6, S8) | ✅ | |
-| D3 — relationship prompt (S4) | ⏳ | waits on `save-context-prompt.md`; `related-to` meanwhile |
+| D3 — relationship prompt (S4) | ✅ | 2026-10-01, on pivotick `73f7673` (vendored) |
 | D4 — *Save to this event* on the selection (S7) | ⏳ | waits on `save-a-selection.md` |
 | D5 — tests, acceptance | ✅ | explorer 802/0 (5 new); §10.7 |
 
@@ -454,6 +461,7 @@ On event 46 (`ip-dst 8.8.8.8`, its own), dev server on this worktree, `ipasn` fr
 | 4 | A second save from a fresh page answers `existing` for both, aliases to the first uuids, writes no object and no reference | ✅ (after the fix above) |
 | 5 | Not savable without `canEdit`, nor on the value page (no event) | ✅ unit |
 | 6 | Foreign origin unattached; origin object → loose result reference; a failure stays unsaved | ✅ unit |
+| 7 | 2026-10-01: Save opens *Save to this event* with `related-to` preselected; Cancel posts nothing and leaves 8 nodes, 2 edges pending; a custom `announced-by` is written on both references | ✅ live; unit 811/0 |
 
 The objects were removed afterwards; the event stays unpublished, as a save leaves it.
 
