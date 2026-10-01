@@ -18,7 +18,48 @@ class AnalystGraphsController extends AppController
         parent::beforeFilter();
         // Posted as hand-built JSON by the graph host, with the CSRF token
         // in the X-CSRF-Token header.
-        $this->_csrfTokenHeaderOnly(['save', 'addNodes', 'removeNodes', 'fork']);
+        $this->_csrfTokenHeaderOnly(['save', 'addNodes', 'removeNodes', 'fork', 'active']);
+    }
+
+    /**
+     * The graph "Add to graph" feeds. POST `{graph_uuid}` sets it to a graph
+     * the user may edit, or clears it with null.
+     */
+    public function active()
+    {
+        $this->request->allowMethod(['get', 'post']);
+        $user = $this->Auth->user();
+        if ($this->request->is('get')) {
+            return $this->RestResponse->viewData(['Graph' => $this->Graph->activeFor($user)], 'json');
+        }
+        $input = $this->__input();
+        if (!array_key_exists('graph_uuid', $input) || ($input['graph_uuid'] !== null && !is_string($input['graph_uuid']))) {
+            throw new BadRequestException(__('Name the graph to add to, or null for none.'));
+        }
+        $graph = null;
+        if ($input['graph_uuid'] !== null) {
+            $graph = $this->__fetchEditableGraph($input['graph_uuid']);
+            $graph = $this->Graph->summaries($user, ['Graph.id' => $graph['Graph']['id']])[0];
+        }
+        if (!$this->Graph->storeActive($user, $graph ? $graph['uuid'] : null)) {
+            throw new InternalErrorException(__('The active graph could not be saved.'));
+        }
+        return $this->RestResponse->viewData(['Graph' => $graph], 'json');
+    }
+
+    /**
+     * The organisation's graphs the user may edit, newest first, without
+     * their documents.
+     */
+    public function editable()
+    {
+        $this->request->allowMethod(['get']);
+        $user = $this->Auth->user();
+        $active = $this->Graph->activeFor($user, false);
+        return $this->RestResponse->viewData([
+            'Graph' => $this->Graph->editableBy($user),
+            'active' => $active ? $active['uuid'] : null,
+        ], 'json');
     }
 
     /**
@@ -34,7 +75,7 @@ class AnalystGraphsController extends AppController
         $document = json_decode($graph['Graph']['content'], true) ?: AnalystGraphDocumentTool::emptyDocument();
         unset($graph['Graph']['content']);
         $payload = $this->AnalystGraphData->resolve($this->Auth->user(), $document);
-        return $this->RestResponse->viewData(['Graph' => $graph['Graph']] + $payload, 'json');
+        return $this->RestResponse->viewData(['Graph' => $this->Graph->typed($graph['Graph'])] + $payload, 'json');
     }
 
     /**

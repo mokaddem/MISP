@@ -62,6 +62,7 @@
 
         /* ── state ─────────────────────────────────────────────── */
         var _initialized = false;
+        var _ready       = null;
         var _graph       = null;
         var _event       = null;
 
@@ -3671,8 +3672,9 @@
             }
         }
 
+        // Resolves true once the graph is drawn, false when it could not be.
         function initGraph() {
-            if (_initialized) return;
+            if (_initialized) return _ready;
             _initialized = true;
 
             var loaderEl    = host.loaderEl;
@@ -3680,10 +3682,11 @@
 
             if (typeof window.Pivotick !== 'function' || !window.MispPivotNodes) {
                 showError(loaderEl, text.libMissing);
-                return;
+                _ready = Promise.resolve(false);
+                return _ready;
             }
 
-            (host.load ? host.load(kit) : loadEvent())
+            _ready = (host.load ? host.load(kit) : loadEvent())
                 .then(function (seed) {
                     _event   = seed.event || null;
                     var data = seed.data;
@@ -3725,12 +3728,15 @@
                         declareAllFeedPotential(_graph);
                         loadCorrelationCounts(_graph);
                     }
+                    return true;
                 })
                 .catch(function (err) {
                     console.error('[pivot-explorer] graph build failed:', err);
                     _initialized = false;   // allow a retry on the next tab activation
                     showError(loaderEl, text.loadFailed);
+                    return false;
                 });
+            return _ready;
         }
 
         /* ══════════════════════════════════════════════════════════

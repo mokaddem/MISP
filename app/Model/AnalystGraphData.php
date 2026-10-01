@@ -102,6 +102,79 @@ class AnalystGraphData extends AppModel
         }));
     }
 
+    /**
+     * Give each graph a `target`: its type and uuid, and the id and label of
+     * the record when the user can read it. An unreadable target keeps only
+     * what the graph itself says.
+     *
+     * @param array $user
+     * @param array $graphs Graph rows, unwrapped
+     * @return array
+     */
+    public function labelTargets(array $user, array $graphs)
+    {
+        $uuidsByType = [];
+        foreach ($graphs as $graph) {
+            $uuidsByType[$graph['object_type']][] = strtolower($graph['object_uuid']);
+        }
+        $found = [];
+        foreach ($uuidsByType as $type => $uuids) {
+            $found[$type] = $this->targetRecords($user, $type, array_values(array_unique($uuids)));
+        }
+        foreach ($graphs as &$graph) {
+            $type = $graph['object_type'];
+            $uuid = strtolower($graph['object_uuid']);
+            $graph['target'] = [
+                'type' => $type,
+                'uuid' => $uuid,
+                'id' => $found[$type][$uuid]['id'] ?? null,
+                'label' => $found[$type][$uuid]['label'] ?? null,
+            ];
+        }
+        unset($graph);
+        return $graphs;
+    }
+
+    /**
+     * @return array lowercase uuid => {id, label}
+     */
+    private function targetRecords(array $user, $type, array $uuids)
+    {
+        $out = [];
+        switch ($type) {
+            case 'Event':
+                $rows = $this->model('Event')->fetchSimpleEvents($user, [
+                    'conditions' => ['Event.uuid' => $uuids],
+                ]);
+                foreach ($rows as $row) {
+                    $out[strtolower($row['Event']['uuid'])] = ['id' => (int)$row['Event']['id'], 'label' => $row['Event']['info']];
+                }
+                break;
+            case 'GalaxyCluster':
+                $rows = $this->model('GalaxyCluster')->fetchGalaxyClusters($user, [
+                    'conditions' => ['GalaxyCluster.uuid' => $uuids],
+                    'fields' => ['GalaxyCluster.id', 'GalaxyCluster.uuid', 'GalaxyCluster.value'],
+                    'contain' => [],
+                ]);
+                foreach ($rows as $row) {
+                    $out[strtolower($row['GalaxyCluster']['uuid'])] = ['id' => (int)$row['GalaxyCluster']['id'], 'label' => $row['GalaxyCluster']['value']];
+                }
+                break;
+            case 'Collection':
+                $Collection = $this->model('Collection');
+                $rows = $Collection->find('all', [
+                    'conditions' => ['AND' => [['Collection.uuid' => $uuids], $Collection->buildConditions($user['id'])]],
+                    'fields' => ['Collection.id', 'Collection.uuid', 'Collection.name'],
+                    'recursive' => -1,
+                ]);
+                foreach ($rows as $row) {
+                    $out[strtolower($row['Collection']['uuid'])] = ['id' => (int)$row['Collection']['id'], 'label' => $row['Collection']['name']];
+                }
+                break;
+        }
+        return $out;
+    }
+
     private function uuidsByType(array $nodes)
     {
         $uuids = array_fill_keys(AnalystGraphDocumentTool::NODE_TYPES, []);

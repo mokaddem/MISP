@@ -107,6 +107,7 @@ class NavbarHelper extends AppHelper {
 
         // --- RIGHT ---
         $right = [];
+        $right[] = $this->buildIntelGraphItem($context);
         $right[] = $this->buildBookmarksMenu($context, $baseurl);
         $right[] = $this->buildAccountMenu($context, $baseurl);
 
@@ -956,6 +957,24 @@ class NavbarHelper extends AppHelper {
         }
 
         return $items;
+    }
+
+    /**
+     * The analyst graph "Add to graph" feeds, when the controller says this
+     * user may have one (AppController::beforeRender sets `intelGraph`).
+     */
+    private function buildIntelGraphItem(array $context)
+    {
+        $graph = $context['intelGraph']['active'] ?? null;
+        return [
+            'type' => 'intelGraph',
+            'id' => 'intel-graph',
+            'requirement' => !empty($context['intelGraph']),
+            'label' => $graph ? $graph['name'] : __('No graph'),
+            'count' => $graph ? (int)$graph['node_count'] : null,
+            'title' => __('Analyst graph'),
+            'icon' => 'fas fa-diagram-project',
+        ];
     }
 
     private function buildBookmarksMenu(array $context, $baseurl)

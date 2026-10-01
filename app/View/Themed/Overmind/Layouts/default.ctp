@@ -154,6 +154,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                         'themes' => $themes ?? [],
                         'theme' => $theme ?? null,
                         'themesEnabled' => $themesEnabled ?? false,
+                        'intelGraph' => $intelGraph ?? null,
                     ];
                     echo $this->element('navbar', [
                         'menus' => $this->Navbar->build($context),
@@ -263,6 +264,9 @@ if (substr($currentAction, 0, 6) === 'admin_') {
             echo $this->element('genericElements/assetLoader', [
                 'js' => $bs5Js,
             ]);
+            if (!$isAuthPage && !empty($intelGraph)) {
+                echo $this->element('intel_graph_boot');
+            }
         } else {
             // Bootstrap 2 JS
             echo $this->element('genericElements/assetLoader', [

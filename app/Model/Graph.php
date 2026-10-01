@@ -38,6 +38,17 @@ class Graph extends AnalystData
         'description',
     ];
 
+    const ACTIVE_SETTING = 'intelligence_graph_active';
+
+    /** What a list of graphs reads of each: everything but the document. */
+    const SUMMARY_FIELDS = [
+        'id', 'uuid', 'name', 'description', 'object_uuid', 'object_type',
+        'distribution', 'sharing_group_id', 'org_uuid', 'orgc_uuid', 'locked',
+        'created', 'modified', 'revision', 'node_count', 'forked_from_uuid',
+    ];
+
+    const EDITABLE_LIMIT = 200;
+
     public $childValidate = [
         'name' => [
             'notBlank' => [
@@ -249,6 +260,119 @@ class Graph extends AnalystData
             return false;
         }
         return !empty($user['Role']['perm_site_admin']) || !empty($user['Role']['perm_analyst_data']);
+    }
+
+    /**
+     * Graphs as a list shows them: no document, newest first.
+     *
+     * @param array $user
+     * @param array $conditions
+     * @param array $options `limit`; `targets` (default true) labels each
+     *                       target as the user sees it
+     * @return array Graph rows, unwrapped
+     */
+    public function summaries(array $user, array $conditions, array $options = [])
+    {
+        $this->current_user = $user;
+        $rows = $this->find('all', [
+            'conditions' => ['AND' => [$conditions, $this->buildConditions($user)]],
+            'fields' => array_map(function ($field) {
+                return $this->alias . '.' . $field;
+            }, self::SUMMARY_FIELDS),
+            'contain' => ['Org', 'Orgc'],
+            'order' => [$this->alias . '.modified' => 'DESC', $this->alias . '.id' => 'DESC'],
+            'limit' => $options['limit'] ?? null,
+        ]);
+        $graphs = array_map([$this, 'typed'], Hash::extract($rows, '{n}.' . $this->alias));
+        if ($options['targets'] ?? true) {
+            $graphs = ClassRegistry::init('AnalystGraphData')->labelTargets($user, $graphs);
+        }
+        return $graphs;
+    }
+
+    /**
+     * A graph row with its numbers and flags as JSON types, as the graph
+     * host does arithmetic on `revision`.
+     *
+     * @param array $graph Unwrapped
+     * @return array
+     */
+    public function typed(array $graph)
+    {
+        foreach (['id', 'distribution', 'revision', 'node_count', 'content_size'] as $field) {
+            if (isset($graph[$field])) {
+                $graph[$field] = (int)$graph[$field];
+            }
+        }
+        if (array_key_exists('sharing_group_id', $graph)) {
+            $graph['sharing_group_id'] = $graph['sharing_group_id'] === null ? null : (int)$graph['sharing_group_id'];
+        }
+        if (isset($graph['locked'])) {
+            $graph['locked'] = (bool)$graph['locked'];
+        }
+        return $graph;
+    }
+
+    /**
+     * The graphs the user may edit that their organisation created.
+     *
+     * @param array $user
+     * @return array
+     */
+    public function editableBy(array $user)
+    {
+        if (empty($user['Role']['perm_site_admin']) && empty($user['Role']['perm_analyst_data'])) {
+            return [];
+        }
+        $graphs = $this->summaries(
+            $user,
+            [$this->alias . '.orgc_uuid' => $user['Organisation']['uuid']],
+            ['limit' => self::EDITABLE_LIMIT]
+        );
+        return array_values(array_filter($graphs, function ($graph) {
+            return !empty($graph['_canEdit']);
+        }));
+    }
+
+    /**
+     * The graph "Add to graph" feeds: the one the user chose, while it is
+     * still one they may edit.
+     *
+     * @param array $user
+     * @param bool $targets Label its target
+     * @return array|null
+     */
+    public function activeFor(array $user, $targets = true)
+    {
+        $stored = ClassRegistry::init('UserSetting')->getValueForUser($user['id'], self::ACTIVE_SETTING);
+        $uuid = is_array($stored) ? ($stored['graph_uuid'] ?? null) : null;
+        if (!is_string($uuid) || !Validation::uuid($uuid)) {
+            return null;
+        }
+        $graphs = $this->summaries($user, [$this->alias . '.uuid' => strtolower($uuid)], ['targets' => $targets]);
+        return !empty($graphs[0]['_canEdit']) ? $graphs[0] : null;
+    }
+
+    /**
+     * Remember the graph "Add to graph" feeds, or forget it with null. The
+     * legacy log is suppressed: its full-change entry would record the choice.
+     *
+     * @param array $user
+     * @param string|null $uuid A graph the user may edit
+     * @return bool
+     */
+    public function storeActive(array $user, $uuid)
+    {
+        $UserSetting = ClassRegistry::init('UserSetting');
+        $logged = $UserSetting->Behaviors->enabled('SysLogLogable.SysLogLogable');
+        $UserSetting->Behaviors->disable('SysLogLogable.SysLogLogable');
+        try {
+            return (bool)$UserSetting->setSettingInternal($user['id'], self::ACTIVE_SETTING, ['graph_uuid' => $uuid]);
+        } finally {
+            if ($logged) {
+                $UserSetting->Behaviors->enable('SysLogLogable.SysLogLogable');
+            }
+        }
     }
 
     /**

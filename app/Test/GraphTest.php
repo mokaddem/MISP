@@ -92,6 +92,16 @@ if (!class_exists('ModelBehavior', false)) {
     }
 }
 
+if (!class_exists('Validation', false)) {
+    class Validation
+    {
+        public static function uuid($check)
+        {
+            return is_string($check) && (bool)preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[0-5][a-f0-9]{3}-[089ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $check);
+        }
+    }
+}
+
 if (!class_exists('AuditLog', false)) {
     class AuditLog
     {
@@ -242,6 +252,44 @@ class GraphTestWritableGraph extends GraphTestGraph
     }
 }
 
+class GraphTestActiveGraph extends GraphTestGraph
+{
+    public $summaryCalls = array();
+    public $summaryRows = array();
+
+    public function summaries(array $user, array $conditions, array $options = array())
+    {
+        $this->summaryCalls[] = array($conditions, $options);
+        return $this->summaryRows;
+    }
+}
+
+class GraphTestBehaviors
+{
+    public $log = array();
+    private $on;
+
+    public function __construct($on)
+    {
+        $this->on = $on;
+    }
+
+    public function enabled($name)
+    {
+        return $this->on;
+    }
+
+    public function disable($name)
+    {
+        $this->log[] = array('disable', $name);
+    }
+
+    public function enable($name)
+    {
+        $this->log[] = array('enable', $name);
+    }
+}
+
 /**
  * A model fake answering whatever the test registers for each method.
  */
@@ -264,6 +312,11 @@ class GraphTestFake
         }
         return call_user_func_array($this->handlers[$method], $args);
     }
+}
+
+class GraphTestUserSetting extends GraphTestFake
+{
+    public $Behaviors;
 }
 
 class GraphTest extends TestCase
@@ -1020,5 +1073,183 @@ class GraphTest extends TestCase
         $this->assertSame(array('Value:' . Value::uuidFor('v' . AnalystGraphData::NODE_BUDGET)), $resolved['meta']['skipped']);
         $this->assertCount(AnalystGraphData::NODE_BUDGET, $resolved['Value']);
         $this->assertCount(AnalystGraphData::NODE_BUDGET + 1, $resolved['document']['nodes']);
+    }
+
+    // ------------------------------------------------------------ active graph
+
+    const G1 = '9a000000-0000-4000-8000-000000000061';
+
+    private static function analyst(array $role = array('perm_analyst_data' => 1))
+    {
+        return array(
+            'id' => 3,
+            'Role' => $role + array('perm_site_admin' => 0, 'perm_analyst_data' => 0),
+            'Organisation' => array('uuid' => 'org-1'),
+        );
+    }
+
+    private function storedActive($stored)
+    {
+        $this->fake('UserSetting')->on('getValueForUser', function ($userId, $setting) use ($stored) {
+            return $setting === Graph::ACTIVE_SETTING ? $stored : null;
+        });
+    }
+
+    private function settingWriter($loggedBefore, $fail = false)
+    {
+        $behaviors = new GraphTestBehaviors($loggedBefore);
+        $setting = new GraphTestUserSetting();
+        $setting->Behaviors = $behaviors;
+        $setting->on('setSettingInternal', function ($userId, $name, $value) use ($behaviors, $fail) {
+            $behaviors->log[] = array('save', $userId, $name, $value);
+            if ($fail) {
+                throw new RuntimeException('database gone');
+            }
+            return array('UserSetting' => array('id' => 1));
+        });
+        ClassRegistry::$instances['UserSetting'] = $setting;
+        $this->registered[] = 'UserSetting';
+        return $behaviors;
+    }
+
+    public function unusableStoredValues()
+    {
+        return array(
+            'never set' => array(null),
+            'empty' => array(array()),
+            'cleared' => array(array('graph_uuid' => null)),
+            'not a uuid' => array(array('graph_uuid' => 'zz')),
+            'not a string' => array(array('graph_uuid' => 5)),
+            'not an object' => array('9a000000-0000-4000-8000-000000000061'),
+        );
+    }
+
+    /**
+     * @dataProvider unusableStoredValues
+     */
+    public function testNoActiveGraphWithoutAUsableStoredUuid($stored)
+    {
+        $this->storedActive($stored);
+        $graph = new GraphTestActiveGraph();
+        $this->assertNull($graph->activeFor(self::analyst()));
+        $this->assertSame(array(), $graph->summaryCalls);
+    }
+
+    public function testActiveGraphIsLookedUpByItsLowercaseUuid()
+    {
+        $this->storedActive(array('graph_uuid' => strtoupper(self::G1)));
+        $graph = new GraphTestActiveGraph();
+        $graph->summaryRows = array(array('uuid' => self::G1, '_canEdit' => true));
+
+        $this->assertSame(self::G1, $graph->activeFor(self::analyst(), false)['uuid']);
+        $this->assertSame(array(array(array('Graph.uuid' => self::G1), array('targets' => false))), $graph->summaryCalls);
+    }
+
+    public function testAnActiveGraphTheUserCanNoLongerEditIsNone()
+    {
+        $this->storedActive(array('graph_uuid' => self::G1));
+        $graph = new GraphTestActiveGraph();
+        $graph->summaryRows = array(array('uuid' => self::G1, '_canEdit' => false));
+        $this->assertNull($graph->activeFor(self::analyst()));
+
+        $graph->summaryRows = array();
+        $this->assertNull($graph->activeFor(self::analyst()));
+    }
+
+    public function testStoringTheActiveGraphKeepsItOutOfTheLegacyLog()
+    {
+        $behaviors = $this->settingWriter(true);
+        $this->assertTrue((new GraphTestActiveGraph())->storeActive(self::analyst(), self::G1));
+        $this->assertSame(array(
+            array('disable', 'SysLogLogable.SysLogLogable'),
+            array('save', 3, Graph::ACTIVE_SETTING, array('graph_uuid' => self::G1)),
+            array('enable', 'SysLogLogable.SysLogLogable'),
+        ), $behaviors->log);
+    }
+
+    public function testClearingStoresNoGraphAndALogAlreadyOffStaysOff()
+    {
+        $behaviors = $this->settingWriter(false);
+        $this->assertTrue((new GraphTestActiveGraph())->storeActive(self::analyst(), null));
+        $this->assertSame(array(
+            array('disable', 'SysLogLogable.SysLogLogable'),
+            array('save', 3, Graph::ACTIVE_SETTING, array('graph_uuid' => null)),
+        ), $behaviors->log);
+    }
+
+    public function testTheLegacyLogComesBackAfterAFailedWrite()
+    {
+        $behaviors = $this->settingWriter(true, true);
+        try {
+            (new GraphTestActiveGraph())->storeActive(self::analyst(), self::G1);
+            $this->fail('The write failure was swallowed.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('database gone', $e->getMessage());
+        }
+        $this->assertSame(array('enable', 'SysLogLogable.SysLogLogable'), end($behaviors->log));
+    }
+
+    public function testOnlyAnalystsAndSiteAdminsHaveEditableGraphs()
+    {
+        $graph = new GraphTestActiveGraph();
+        $this->assertSame(array(), $graph->editableBy(self::analyst(array())));
+        $this->assertSame(array(), $graph->summaryCalls);
+
+        $graph->editableBy(self::analyst(array('perm_site_admin' => 1)));
+        $this->assertCount(1, $graph->summaryCalls);
+    }
+
+    public function testEditableGraphsAreTheOrganisationsOwnThatTheUserCanEdit()
+    {
+        $graph = new GraphTestActiveGraph();
+        $graph->summaryRows = array(
+            array('uuid' => 'a', '_canEdit' => true),
+            array('uuid' => 'b', '_canEdit' => false),
+            array('uuid' => 'c', '_canEdit' => true),
+        );
+
+        $editable = $graph->editableBy(self::analyst());
+
+        $this->assertSame(array('a', 'c'), array_column($editable, 'uuid'));
+        $this->assertSame(array(array(
+            array('Graph.orgc_uuid' => 'org-1'),
+            array('limit' => Graph::EDITABLE_LIMIT),
+        )), $graph->summaryCalls);
+    }
+
+    public function testTargetsAreLabelledOnlyWhereTheUserCanReadThem()
+    {
+        $collection = 'c0000000-0000-4000-8000-000000000071';
+        $hiddenEvent = 'e9000000-0000-4000-8000-000000000079';
+        $this->fake('Event')->on('fetchSimpleEvents', function ($user, $params) {
+            $this->assertSame(array(self::E1, 'e9000000-0000-4000-8000-000000000079'), $params['conditions']['Event.uuid']);
+            return array(array('Event' => array('id' => '11', 'uuid' => strtoupper(self::E1), 'info' => 'Phishing wave')));
+        });
+        $this->fake('GalaxyCluster')->on('fetchGalaxyClusters', function ($user, $options) {
+            return array(array('GalaxyCluster' => array('id' => '51', 'uuid' => self::C1, 'value' => 'APT29')));
+        });
+        $this->fake('Collection')
+            ->on('buildConditions', function ($userId) {
+                return array('Collection.org_id' => 1);
+            })
+            ->on('find', function ($type, $query) use ($collection) {
+                $this->assertSame(array('Collection.org_id' => 1), $query['conditions']['AND'][1]);
+                return array(array('Collection' => array('id' => '7', 'uuid' => $collection, 'name' => 'Campaign')));
+            });
+        $graphs = array(
+            array('uuid' => 'g1', 'object_type' => 'Event', 'object_uuid' => self::E1),
+            array('uuid' => 'g2', 'object_type' => 'Event', 'object_uuid' => strtoupper($hiddenEvent)),
+            array('uuid' => 'g3', 'object_type' => 'GalaxyCluster', 'object_uuid' => self::C1),
+            array('uuid' => 'g4', 'object_type' => 'Collection', 'object_uuid' => $collection),
+            array('uuid' => 'g5', 'object_type' => 'Event', 'object_uuid' => self::E1),
+        );
+
+        $labelled = (new AnalystGraphData())->labelTargets(array('id' => 3), $graphs);
+
+        $this->assertSame(array('type' => 'Event', 'uuid' => self::E1, 'id' => 11, 'label' => 'Phishing wave'), $labelled[0]['target']);
+        $this->assertSame(array('type' => 'Event', 'uuid' => $hiddenEvent, 'id' => null, 'label' => null), $labelled[1]['target']);
+        $this->assertSame(array('type' => 'GalaxyCluster', 'uuid' => self::C1, 'id' => 51, 'label' => 'APT29'), $labelled[2]['target']);
+        $this->assertSame(array('type' => 'Collection', 'uuid' => $collection, 'id' => 7, 'label' => 'Campaign'), $labelled[3]['target']);
+        $this->assertSame($labelled[0]['target'], $labelled[4]['target']);
     }
 }

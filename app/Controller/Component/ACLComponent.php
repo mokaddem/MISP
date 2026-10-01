@@ -42,8 +42,10 @@ class ACLComponent extends Component
             'massDelete' => array(),
         ),
         'analystGraphs' => [
+            'active' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'addNodes' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'data' => ['*'],
+            'editable' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'fork' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'removeNodes' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'save' => ['AND' => ['perm_add', 'perm_analyst_data']],

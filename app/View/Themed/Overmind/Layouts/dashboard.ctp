@@ -101,6 +101,7 @@
                     'themes' => $themes,
                     'theme' => $theme,
                     'themesEnabled' => $themesEnabled,
+                    'intelGraph' => $intelGraph ?? null,
                 ];
                 $menus = $this->Navbar->build($context);
                 echo $this->element('navbar', [
@@ -137,6 +138,9 @@
             'mispOvermind',
         ],
     ]);
+    if (!empty($intelGraph)) {
+        echo $this->element('intel_graph_boot');
+    }
     ?>
 
     <script>
