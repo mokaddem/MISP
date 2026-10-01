@@ -3488,6 +3488,9 @@
                 // Every landing arrives folded, one group per kind; Review offers
                 // Ingest loose.
                 pivotIngestGrouped: true,
+                // Results are saved from the context menu, a node or a selection at
+                // a time; the panel's and pane's Save would write a whole run.
+                pivotSaveControls: false,
                 // No `save`: correlations are derived, never counted unsaved.
                 pivots: (host.pivots ? host.pivots(kit) : eventPivots()).map(joiningDrawnTags),
                 callbacks: {

@@ -3987,6 +3987,7 @@ test('enrich save: nothing is asked when no reference would be written', async (
 
 test('enrich save: offered from the node menu and the selection menu', async () => {
     const g = await buildGraph(ev({}));
+    eq('never from the pivot panel or a triage pane', g.opts.pivotSaveControls, false);
     const one = menuItem(g, 'Save this element');
     const many = g.opts.UI.contextMenu.menuSelection.menu.find(i => i.text === 'Save selection');
     eq('the selection menu holds only that', g.opts.UI.contextMenu.menuSelection.menu.map(i => [i.text, i.iconClass]),
