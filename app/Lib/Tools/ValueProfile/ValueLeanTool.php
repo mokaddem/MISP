@@ -46,9 +46,8 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * value's history legible. The day an address lands on the
  * public-resolver warninglist, its lean flips from a rule-6 muddle to
  * rule-3 benign on exactly the same evidence — the profile's knowledge
- * changed, not the rows. Under a score that flip would have needed a
- * hundred-point swing out of a signal worth forty-four, which is to say
- * it would not have happened at all.
+ * changed, not the rows. A summed score could not have flipped on one
+ * new list hit; a rule ahead of the stance count can.
  *
  * Rule 2 sits before rule 3 because precedence needs a guard: a
  * `false_positive` list against nearly unanimous threat stances is a

@@ -45,9 +45,10 @@
  * );
  * ```
  *
- * `kind`, `direction` and `weight` are the engine's: the group comes
- * from the profile or from `$this->group`, the direction is the sign of
- * the anchored row, and the weight is the profile's editorial band.
+ * `kind`, `axis` and `direction` are the engine's: the group comes
+ * from the profile or from `$this->group`, the axis from `$this->axis`
+ * unless the row names one, and the direction is the sign of the
+ * anchored row.
  * `contribution` **must** be an integer — the engine rejects a float, a
  * string or an array, because the ledger summing exactly to its total
  * is the one thing that may not fail quietly.
@@ -129,10 +130,10 @@ abstract class ValueSignalBase
      * `ValueVerdictTool` weighs when it asks whether a record disputes
      * its own assertion.
      *
-     * Two sources, and only those: the warninglist category and
-     * false-positive sightings. (`to_ids` stance is the third lean
-     * source and it is not a ledger row at all — it feeds the lean
-     * derivation directly.)
+     * Three shipped signals declare it: the warninglist's hits,
+     * false-positive sightings and enrichment verdicts. The `to_ids`
+     * stance also reads the value, but it feeds the lean derivation
+     * directly and is not a ledger row.
      */
     const AXIS_LEAN = 'lean';
 

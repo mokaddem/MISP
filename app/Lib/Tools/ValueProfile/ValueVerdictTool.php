@@ -44,10 +44,10 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * says* and *how much record there is* are different axes, and
  * anchoring every row to the lean would fuse them again. A signal
  * declares which axis it is on and the polarity reaches only the
- * lean's; a signal with poles on both declares per row. Only two
- * shipped signals read the value — the warninglist's hits and
- * false-positive sightings; the `to_ids` stance reads it too, but that
- * one is not a ledger row at all.
+ * lean's; a signal with poles on both declares per row. Three
+ * shipped signals read the value — the warninglist's hits,
+ * false-positive sightings and enrichment verdicts; the `to_ids`
+ * stance reads it too, but that one is not a ledger row at all.
  *
  * **The sum is the quality by construction rather than by
  * convention.** There is no second code path
@@ -87,10 +87,10 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * reading stops naming the lean this check discarded.
  *
  * **It weighs the lean rows and not the whole ledger**, because
- * against the whole ledger a thin record would trip it — `−23` of
- * absence penalties on a single-source value with no galaxy, no
- * first-seen, no sighting, nothing recent and no feed — and ordinary
- * thin records would read as contradictions. A thin record is a lean
+ * against the whole ledger a thin record would trip it — the absence
+ * rows of a single-source value with no galaxy, no first-seen, no
+ * sighting, nothing recent and no feed can outweigh its one report —
+ * and ordinary thin records would read as contradictions. A thin record is a lean
  * with a low quality band and a full ledger.
  *
  * ## What is still an input
@@ -210,9 +210,9 @@ class ValueVerdictTool
          * no occurrence this viewer can see**, whatever lean the caller
          * forced — the lean's own first rule, stated here as a fact
          * about the context, because the absence keys would otherwise
-         * fire on emptiness: no warninglist hit (+6), no galaxy (−7),
-         * nobody sighted it (−4) are all true of a value that does not
-         * exist for this reader, and scoring them is the engine reading
+         * fire on emptiness: no warninglist hit, no galaxy, nobody
+         * sighted it are all true of a value that does not exist for
+         * this reader, and scoring them is the engine reading
          * its own blindness as evidence.
          */
         $occurrences = isset($context['occurrences']['total'])
@@ -324,9 +324,9 @@ class ValueVerdictTool
          * is contested.
          *
          * Weighing the whole ledger would let a thin record trip it:
-         * no galaxy, no first-seen, no sighting, nothing recent and no
-         * feed is `−23` of absence, and on an ordinary single-source
-         * value that outweighs the record it has. That is not a
+         * on an ordinary single-source value the absence rows — no
+         * galaxy, no first-seen, no sighting, nothing recent, no feed
+         * — can outweigh the record it has. That is not a
          * contradiction; it should read as *a lean with low quality
          * and a full ledger*.
          *
@@ -990,8 +990,8 @@ class ValueVerdictTool
     }
 
     /**
-     * Turn a fired row into a ledger row: the group and the band come
-     * from the profile, the anchoring and the direction from the lean
+     * Turn a fired row into a ledger row: the group comes from the
+     * profile, the anchoring and the direction from the lean
      * — and the anchoring only where the row has a side to take.
      *
      * **The polarity reaches lean rows and nothing else.** A quality
