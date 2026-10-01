@@ -45,6 +45,7 @@
             ['bootstrap5-custom.min', ['preload' => true]],
             ['tom-select.bootstrap5.min', ['preload' => true]],
             ['mainOvermind', ['preload' => true]],
+            ['overmind-navbar', ['preload' => true]],
             ['fontawesome7.min', ['preload' => true]],
             ['dashboard/dashboard.default', ['preload' => true]],
             ['dashboard/dashboard.midnight'],
@@ -136,6 +137,7 @@
         'js' => [
             'bootstrap.bundle.min',
             'mispOvermind',
+            'overmind-navbar',
         ],
     ]);
     if (!empty($intelGraph)) {

@@ -62,12 +62,6 @@ body[data-controller="users"][data-action="change_pw"] {
 
 
 
-.navbar-logo {
-  height: 30px;
-  width: auto;
-  object-fit: contain;
-}
-
 
 .main-logo {
     max-height: 200px;
@@ -201,119 +195,32 @@ body[data-controller="users"][data-action="change_pw"] {
 
 
 /* =======================================================
-   NAVBAR Custom CSS
+   Dropdowns (site-wide; the top navbar has its own styles
+   in overmind-navbar.css)
 ======================================================= */
 
-/* Remove default boostrap arrow */
-.navbar .dropdown-toggle::after {
-    display: none !important;
-}
-
-/* Positioning of dropdowns */
-.navbar .dropdown,
 .dropdown-submenu {
     position: relative;
 }
 
-/* Flex alignment (navbar links + dropdown items) */
-.navbar .nav-link,
 .dropdown-item {
     display: flex;
     align-items: center;
 }
 
-/* Hover dropdown item */
 .dropdown-item:hover {
     background-color: var(--primary);
     color: #fff;
 }
 
-/* Open main dropdown when hovering */
-.navbar .dropdown:hover > .dropdown-menu {
-    display: block;
-}
-
-/* Positioning of submenu */
 .dropdown-submenu > .dropdown-menu {
     top: calc(-2 * var(--bs-dropdown-item-padding-y));
     left: 100%;
     margin-top: -1px;
 }
 
-/* Align correctly dropdown of the right side */
-.navbar .dropdown-menu-end {
-    right: 20px;
-    left: auto;
-}
-
-
 .dropdown-filters .dropdown-toggle::after {
     display: none !important;
-}
-
-
-.dropdown-item.setTheme {
-    min-width: 500px;
-    white-space: normal;
-}
-
-/* =======================================================
-   DESKTOP ONLY (>= 1200px)
-======================================================= */
-
-@media (min-width: 1200px) {
-
-    /* Display and positioning of the small white arrow above the dropdowns */
-    .navbar .navbar-nav > .dropdown > .dropdown-menu::before {
-        content: "";
-        position: absolute;
-        top: -6px;
-        left: 20px;
-
-        width: 0;
-        height: 0;
-
-        border-left: 6px solid transparent;
-        border-right: 6px solid transparent;
-        border-bottom: 6px solid #fff;
-    }
-
-    /* Display and positioning of the small white arrow above the dropdowns (right side) */
-    .navbar .navbar-nav > .dropdown > .dropdown-menu-end::before {
-        content: "";
-        position: absolute;
-        top: -6px;
-        right: 20px;
-        left: auto;
-
-        width: 0;
-        height: 0;
-
-        border-left: 6px solid transparent;
-        border-right: 6px solid transparent;
-        border-bottom: 6px solid #fff;
-    }
-
-
-    /* Open a submenu when hovering */
-    .navbar .dropdown-submenu:hover > .dropdown-menu {
-        display: block;
-    }
-}
-
-
-/* =======================================================
-   MOBILE ONLY (< 1200px)
-======================================================= */
-
-@media (max-width: 1199.98px) {
-
-    /* Display dropdown arrow  */
-    .navbar .menu-arrow::before {
-        font-family: "Font Awesome 7 Free";
-        font-weight: 900;
-        content: "\f078";
-    }
 }
 
 
@@ -750,12 +657,6 @@ th .sort-icon::before {
 
 .dropdown-filters .dropdown-toggle::after {
     display: none !important;
-}
-
-
-.dropdown-item.setTheme {
-    min-width: 500px;
-    white-space: normal;
 }
 
 .default-color {

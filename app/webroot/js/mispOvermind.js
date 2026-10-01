@@ -20,6 +20,9 @@ function updateDarkModeUI(isDark) {
         badge.textContent = isDark ? 'ON' : 'OFF';
         badge.className = 'badge ms-2 dark-mode-badge ' + (isDark ? 'bg-success' : 'bg-secondary');
     });
+    document.querySelectorAll('.toggle-dark-mode[role="switch"]').forEach(function(toggle) {
+        toggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
