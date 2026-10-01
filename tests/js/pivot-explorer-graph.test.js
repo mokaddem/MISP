@@ -743,6 +743,35 @@ test('relationships the canvas cannot draw are skipped, not half-drawn', async (
     eq('no console errors', g.errors, []);
 });
 
+test('a claim on a galaxy cluster lands on the cluster node', async () => {
+    const apt1 = { uuid: 'gc-1', value: 'APT1', type: 'threat-actor',
+                   tag_name: 'misp-galaxy:threat-actor="APT1"',
+                   Galaxy: { name: 'Threat Actor', type: 'threat-actor' } };
+    const toCluster = (rec, o) => arel(Object.assign({
+        related_object_type: 'GalaxyCluster', related_object_uuid: rec.uuid,
+        related_object: { GalaxyCluster: rec },
+    }, o));
+    const cid = 'cluster:' + apt1.tag_name;
+    const g = await buildGraph(ev({
+        Relationship: [toCluster(apt1, { relationship_type: 'linked-to' })],
+        Attribute: [attr({ uuid: 'a1', value: '8.8.8.8',
+            Relationship: [toCluster(apt1, { relationship_type: 'related-to' })] })],
+        Object: [obj({ uuid: 'A', Relationship: [
+            toCluster(Object.assign({}, apt1, { uuid: 'gc-2', deleted: true,
+                tag_name: 'misp-galaxy:threat-actor="gone"' })),
+        ] })],
+    }));
+    eq('one cluster node for both claims, the deleted cluster left out',
+       ids(g.nodes), ['attr:a1', cid, 'event:EV-SELF']);
+    eq('both claims end on it', edgeKeys(g.edges),
+       ['attr:a1->' + cid + ':related-to', 'event:EV-SELF->' + cid + ':linked-to']);
+    const d = byId(g.nodes, cid).data;
+    eq('drawn as the tags pivot draws it',
+       [d.type, d.value, d.galaxy_type, d.galaxy_name, d.uuid],
+       ['cluster', 'APT1', 'threat-actor', 'Threat Actor', 'gc-1']);
+    eq('no console errors', g.errors, []);
+});
+
 test('an object whose only reference dangles is not seeded by it', async () => {
     // Task 3 fixed the source being seeded before the target was checked. L2
     // draws only an object a feed or server hits, so the dangler is not drawn

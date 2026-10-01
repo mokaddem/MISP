@@ -145,6 +145,7 @@
     function endMark(end) {
         if (end.type === 'object') return mark('object', { name: end.name });
         if (end.type === 'attribute') return mark('attribute', { name: end.name, to_ids: end.to_ids });
+        if (end.type === 'cluster') return mark('cluster', { galaxy_type: end.galaxy_type, value: end.label });
         return mark('event', { _provenance: 'local', uuid: 'event' });
     }
 
@@ -215,6 +216,9 @@
                     end.label ? { text: end.label, cls: 'vn-mono', grow: true, title: end.label } : null];
         }
         if (end.type === 'attribute') return [{ text: end.label, cls: 'vn-mono', grow: true, title: end.label }];
+        if (end.type === 'cluster') {
+            return [{ text: end.name, cls: 'vn-kicker' }, { text: end.label, grow: true, title: end.label }];
+        }
         return [{ text: end.label || 'event', grow: true }];
     }
 

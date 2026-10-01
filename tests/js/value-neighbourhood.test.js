@@ -201,6 +201,34 @@ test('an analyst relationship draws its far end', () => build(seed()).then(b => 
     assert.ok(byId(b, 'event:ev-9'));
 }));
 
+const clusterSeed = () => {
+    const s = seed();
+    s.Attribute[0].Relationship = [{
+        uuid: 'rel-2', relationship_type: 'related-to', related_object_type: 'GalaxyCluster',
+        related_object_uuid: 'gc-1', authors: 'a@b', orgc_uuid: 'org-1',
+        related_object: { GalaxyCluster: { uuid: 'gc-1', value: 'APT1', type: 'threat-actor',
+            tag_name: 'misp-galaxy:threat-actor="APT1"', Galaxy: { name: 'Threat Actor' } } },
+    }];
+    return s;
+};
+const APT1 = 'cluster:misp-galaxy:threat-actor="APT1"';
+
+test('a claim on a galaxy cluster draws the cluster', () => build(clusterSeed()).then(b => {
+    const rel = edgesOf(b, 'analyst-relationship').find(e => e.to === APT1);
+    assert.strictEqual(rel.from, 'attr:a-plain');
+    const c = byId(b, APT1);
+    assert.strictEqual(c.data.type, 'cluster');
+    assert.strictEqual(c.data.value, 'APT1');
+}));
+
+test('a claimed cluster is a lead, named by its galaxy', () => build(clusterSeed()).then(b => {
+    const L = b.sandbox.window.MispValueNeighbourhood.leads(clusterSeed(), b.explorer.kit);
+    const end = L.ends.find(e => e.id === APT1);
+    assert.strictEqual(end.type, 'cluster');
+    assert.strictEqual(end.name, 'Threat Actor');
+    assert.strictEqual(end.label, 'APT1');
+}));
+
 test('feeds and servers that know the value point at it', () => build(seed()).then(b => {
     assert.strictEqual(edgesOf(b, 'feed-correlation')[0].from, 'feed:5');
     assert.strictEqual(edgesOf(b, 'feed-correlation')[0].to, 'value:OC44LjguOA==');

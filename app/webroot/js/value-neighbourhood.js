@@ -156,6 +156,8 @@
                 if (!f) return;
                 if (f.type === 'event') {
                     land.node({ id: farId, data: kit.eventNodeData(f.record) });
+                } else if (f.type === 'cluster') {
+                    land.node(kit.clusterNode(farId, f.record));
                 } else {
                     var owner = kit.provenance(f.event.id, f.event.uuid);
                     land.node({ id: farId, data: f.type === 'attribute'
@@ -307,6 +309,9 @@
                 if (!f) return;
                 note(unit, farId, 'claim', type, dir, f.type === 'event'
                     ? { type: 'event', name: 'event', label: f.record.info, event: f.record }
+                    : f.type === 'cluster'
+                    ? { type: 'cluster', name: (f.record.Galaxy || {}).name || f.record.type,
+                        label: String(f.record.value), galaxy_type: f.record.type }
                     : { type: f.type, name: f.type === 'object' ? f.record.name : f.record.type,
                         label: f.type === 'object' ? leadValue(f.record, seed.ui_priorities) : String(f.record.value),
                         to_ids: !!f.record.to_ids, event: f.event });

@@ -7611,12 +7611,10 @@ class ValueProfile extends AppModel
     /**
      * The galaxy clusters this section's claims point at, in one fetch.
      *
-     * `Relationship::getRelatedElement` handles Event, Attribute,
-     * Object, Note, Opinion and Relationship and stops there, while
-     * `AnalystData::valid_targets` allows six more — so a cluster
-     * target used to render as a bare UUID with nowhere to go, and the
-     * one such claim on the verification instance still does, because
-     * the cluster it names is not stored here.
+     * `Relationship::getRelatedElement` resolves a cluster one row at
+     * a time and without the fields `claimTarget` reads, so this
+     * section reads them itself. A claim naming a cluster that is not
+     * stored here still renders as a bare UUID.
      *
      * `fetchGalaxyClusters` is the reader the galaxy pages themselves
      * use, so a cluster the viewer may not see stays unresolved rather

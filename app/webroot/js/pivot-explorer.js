@@ -172,9 +172,10 @@
 
         // Node id an analyst relationship's target maps to, or null when it has no
         // node on this canvas. AnalystData::valid_targets is far wider than the
-        // canvas — EventReport, GalaxyCluster, Organisation, SharingGroup and the
-        // analyst-data types are all legal targets. An 'Event' target is drawn as
-        // an event node, from the record the payload attaches (relationshipFarEnd).
+        // canvas — EventReport, Organisation, SharingGroup and the analyst-data
+        // types are all legal targets. An 'Event' target is drawn as an event node,
+        // from the record the payload attaches (relationshipFarEnd); a
+        // GalaxyCluster is mapped by relationshipEndId.
         function analystNodeId(type, uuid) {
             var t = String(type || '');
             if (t === 'Attribute') return 'attr:'  + uuid;
@@ -183,8 +184,17 @@
             return null;
         }
 
+        // A galaxy cluster lands on the node the tags pivot draws for it, which is
+        // keyed by tag name, so only a far end MISP resolved can name it.
+        function relationshipEndId(rel, type, uuid) {
+            if (String(type || '') !== 'GalaxyCluster') return analystNodeId(type, uuid);
+            var c = (rel.related_object || {}).GalaxyCluster;
+            if (!c || String(c.uuid) !== String(uuid) || !c.tag_name || isDeleted(c)) return null;
+            return clusterNodeId(c);
+        }
+
         function analystTargetId(rel) {
-            return analystNodeId(rel.related_object_type, rel.related_object_uuid);
+            return relationshipEndId(rel, rel.related_object_type, rel.related_object_uuid);
         }
 
         // The far end of a relationship — its target when outbound, its source
@@ -194,6 +204,10 @@
         // that event's creator org (Relationship::rearrangeData).
         function relationshipFarEnd(rel, farId) {
             var ro = rel.related_object || {};
+            if (farId.indexOf('cluster:') === 0) {
+                return ro.GalaxyCluster && clusterNodeId(ro.GalaxyCluster) === farId
+                    ? { type: 'cluster', record: ro.GalaxyCluster } : null;
+            }
             var uuid = farId.slice(farId.indexOf(':') + 1);
             var key = { event: 'Event', attr: 'Attribute', obj: 'Object' }[farId.slice(0, farId.indexOf(':'))];
             var rec = ro[key];
@@ -223,7 +237,7 @@
                 });
                 (rec.RelationshipInbound || []).forEach(function (rel) {
                     if (isDeleted(rel)) return;
-                    var from = analystNodeId(rel.object_type, rel.object_uuid);
+                    var from = relationshipEndId(rel, rel.object_type, rel.object_uuid);
                     cb(rel, from, selfId, from);
                 });
             }
@@ -251,6 +265,8 @@
             var liveEvent         = {};   // event node id -> record; others join per relationship
             var liveForeign       = {};   // another event's attr/obj node id -> relationshipFarEnd
             var foreignTouched    = {};
+            var liveCluster       = {};   // cluster node id -> relationshipFarEnd's record
+            var clusterTouched    = {};
 
             if (ev.uuid) liveEvent['event:' + ev.uuid] = ev;
 
@@ -275,6 +291,7 @@
             function exists(id) {
                 if (!id) return false;
                 if (id.indexOf('event:') === 0) return !!liveEvent[id];
+                if (id.indexOf('cluster:') === 0) return !!liveCluster[id];
                 if (liveForeign[id]) return true;
                 return id.indexOf('obj:') === 0
                     ? !!liveObj[id.slice(4)]
@@ -287,6 +304,10 @@
                 if (!id) return;
                 if (id.indexOf('event:') === 0) {
                     eventTouched[id] = liveEvent[id];
+                    return;
+                }
+                if (liveCluster[id]) {
+                    clusterTouched[id] = liveCluster[id];
                     return;
                 }
                 if (liveForeign[id]) {
@@ -321,6 +342,7 @@
                 if (!exists(farId)) {
                     var far = relationshipFarEnd(rel, farId);
                     if (far && far.type === 'event') liveEvent[farId] = far.record;
+                    else if (far && far.type === 'cluster') liveCluster[farId] = far.record;
                     else if (far && String(far.event.uuid) !== String(ev.uuid)) liveForeign[farId] = far;
                 }
                 if (!exists(fromId) || !exists(toId)) return;
@@ -332,7 +354,8 @@
                 linkedAttrUuids:   linkedAttrUuids,
                 connectedObjUuids: connectedObjUuids,
                 eventTouched:      eventTouched,
-                foreignTouched:    foreignTouched
+                foreignTouched:    foreignTouched,
+                clusterTouched:    clusterTouched
             };
         }
 
@@ -393,7 +416,12 @@
                 if (!conn.eventTouched[cardId]) cards[cardId] = true;
             });
 
-            var l1 = eventNodes.length + foreignNodes.length + Object.keys(cards).length;
+            var clusterNodes = Object.keys(conn.clusterTouched).map(function (id) {
+                return { id: id, record: conn.clusterTouched[id] };
+            });
+
+            var l1 = eventNodes.length + foreignNodes.length + Object.keys(cards).length
+                     + clusterNodes.length;
             (ev.Attribute || []).forEach(function (a) {
                 if (!isDeleted(a) && conn.linkedAttrUuids[a.uuid]) l1++;
             });
@@ -421,6 +449,7 @@
                 connectedObjUuids: conn.connectedObjUuids,
                 eventNodes:        eventNodes,
                 foreignNodes:      foreignNodes,
+                clusterNodes:      clusterNodes,
                 // What L2 actually draws — empty when the level did not fit, so
                 // "is this on the canvas?" is one lookup for every caller.
                 l2Uuids:           l2Fits ? l2Uuids : {},
@@ -955,6 +984,12 @@
                     ? attributeNodeData(f.record, owner) : objectNodeData(f.record, owner) });
                 addNode(cardId, { id: cardId, data: eventNodeData(f.event) });
                 addEdge(f.id, cardId, '', 'in-event');
+            });
+
+            /* L1 — a galaxy cluster an analyst relationship points at, as the
+               node the tags pivot would draw for it. */
+            seed.clusterNodes.forEach(function (c) {
+                addNode(c.id, clusterNode(c.id, c.record));
             });
 
             /* Event-level attributes, surfaced only when an authored relationship
@@ -1750,6 +1785,13 @@
             return { id: id, data: { type: 'cluster', label: c.value, value: c.value,
                                      galaxy_type: c.galaxy_type, galaxy_name: c.galaxy_name,
                                      tag_name: c.tag_name, uuid: c.uuid } };
+        }
+
+        // A cluster as Relationship::getRelatedElement resolves it.
+        function clusterNode(id, rec) {
+            var g = rec.Galaxy || {};
+            return labelNode(id, { cluster: { tag_name: rec.tag_name, value: rec.value,
+                galaxy_type: rec.type || g.type, galaxy_name: g.name, uuid: rec.uuid } });
         }
 
         function tagEdge(from, to, rel) {
@@ -4051,6 +4093,7 @@
             eventNodeData:    eventNodeData,
             eventCardNode:    eventCardNode,
             foreignObjectNode: foreignObjectNode,
+            clusterNode:      clusterNode,
             inEventEdge:      inEventEdge,
             sourceMap:        sourceMap,
             sourceNodeData:   sourceNodeData,
