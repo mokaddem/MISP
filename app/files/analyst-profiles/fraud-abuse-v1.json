@@ -2,7 +2,7 @@
     "uuid": "201b6b4a-b8cd-4ca1-9fe2-827a424665ec",
     "name": "Fraud & Abuse",
     "description": "For an analyst who blocks quickly and pays visibly for blocking the wrong thing. It keeps the shipped default's numbers and changes what the page shows first, with the shortest shelf life of the five.",
-    "version": 7,
+    "version": 8,
     "parameters": {
         "format": 1,
         "signals": [
@@ -194,7 +194,8 @@
                 "enabled": true,
                 "emits": "contested",
                 "when": {
-                    "warninglist_category": "false_positive"
+                    "warninglist_category": "false_positive",
+                    "min_threat_orgs": 2
                 }
             }
         ],

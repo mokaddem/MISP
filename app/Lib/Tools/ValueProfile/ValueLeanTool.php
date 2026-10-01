@@ -213,11 +213,21 @@ class ValueLeanTool
         $share = $stances['threat_share'];
 
         // Rule 3.
-        if ($this->falsePositiveListed($context)
-            && !self::atLeast($share, $supermajority)
-        ) {
-            return $this->answer('benign', null, $stances, $errors,
-                'false_positive_listed');
+        if ($this->falsePositiveListed($context)) {
+            if (!self::atLeast($share, $supermajority)) {
+                return $this->answer('benign', null, $stances, $errors,
+                    'false_positive_listed');
+            }
+            /*
+             * A supermajority too few to fire the conflict rule: the
+             * list still decides, or one flagger beside it would read
+             * as a threat.
+             */
+            $floor = $stances['listed_floor'];
+            if ($floor !== null && $stances['threat_orgs'] < $floor) {
+                return $this->answer('benign', null, $stances, $errors,
+                    'false_positive_floor');
+            }
         }
         /*
          * Nobody flagged it for detection and nobody said it is
@@ -485,6 +495,7 @@ class ValueLeanTool
             'benign_modules' => $modules['benign'],
             'threat_share' => $voices <= 0.0 ? 0.0 : $threat / $voices,
             'supermajority' => self::supermajority($profile),
+            'listed_floor' => $this->listedFloor($profile),
             'weighted' => $graded,
             'abstained' => array_values(array_filter($abstained,
                 'strlen')),
@@ -704,6 +715,30 @@ class ValueLeanTool
             }
         }
         return false;
+    }
+
+    /**
+     * The listed rule's headcount floor, when the profile has that rule
+     * enabled over a false-positive list.
+     *
+     * @param array|null $profile
+     * @return int|null
+     */
+    private function listedFloor($profile)
+    {
+        foreach ($this->ruleEntries($profile) as $entry) {
+            if ($entry['id'] !== 'conflict:listed-vs-asserted') {
+                continue;
+            }
+            $rule = ValueSignalLoader::get(
+                $entry['id'],
+                ValueSignalLoader::SUBJECT_ESCALATION
+            );
+            return $rule !== null && method_exists($rule, 'floor')
+                ? $rule->floor($entry)
+                : null;
+        }
+        return null;
     }
 
     /**
@@ -990,7 +1025,7 @@ class ValueLeanTool
      * @param array|null $rule
      * @param array $stances
      * @param array $errors
-     * @param string $decidedBy Which of the eight exits this is
+     * @param string $decidedBy Which of the nine exits this is
      * @return array
      */
     private function answer($lean, $rule, array $stances,

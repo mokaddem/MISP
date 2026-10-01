@@ -204,6 +204,23 @@ class ValueLeanReasonTool
                     $threshold
                 );
 
+            case 'false_positive_floor':
+                return sprintf(
+                    __n(
+                        'A warninglist marks this a false positive, and'
+                            . ' only %1$s organisation calls it a threat;'
+                            . ' this profile wants %2$s before that'
+                            . ' contradicts the list.',
+                        'A warninglist marks this a false positive, and'
+                            . ' only %1$s organisations call it a threat;'
+                            . ' this profile wants %2$s before that'
+                            . ' contradicts the list.',
+                        $threat
+                    ),
+                    $threat,
+                    (int)($stances['listed_floor'] ?? 0)
+                );
+
             case 'threat_supermajority':
                 return sprintf(
                     __n(

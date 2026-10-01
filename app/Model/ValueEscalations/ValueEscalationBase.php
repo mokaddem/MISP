@@ -75,7 +75,8 @@
  *           'unflagged_orgs','flagging_orgs',
  *           'threat_voices','benign_voices','voices',
  *           'threat_modules','benign_modules','threat_share',
- *           'supermajority','weighted','abstained','disputes']
+ *           'supermajority','listed_floor','weighted','abstained',
+ *           'disputes']
  * ```
  *
  * `threat_share` is the threat side's share of the voices: one per
