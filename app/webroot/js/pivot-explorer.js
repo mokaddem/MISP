@@ -2765,8 +2765,35 @@
             });
         }
 
+        // Of what a right-click names, the results still waiting to be written.
+        function unsavedOf(element) {
+            var nodes = Array.isArray(element) ? element : [element];
+            return nodes.filter(function (n) {
+                return n && _graph.pivots.isSavable(n) && !_graph.pivots.isSaved(n);
+            });
+        }
+
+        function saveElements(element) {
+            _graph.pivots.save({ elements: unsavedOf(element) }, { interactive: true });
+        }
+
+        function saveEntry(text) {
+            return {
+                text:      text,
+                iconClass: 'fas fa-save',
+                visible:   function (el) { return unsavedOf(el).length > 0; },
+                onclick:   function (e, el) { saveElements(el); }
+            };
+        }
+
+        // The library's own menu for several selected nodes.
+        function selectionMenu() {
+            return [saveEntry('Save selection')];
+        }
+
         function nodeMenu() {
             return [
+                saveEntry('Save this element'),
                 {
                     text:      'Open its event',
                     iconClass: 'fas fa-external-link-alt',
@@ -3493,8 +3520,9 @@
                         edgePropertiesMap: edgeProperties
                     },
                     contextMenu: {
-                        menuNode:   { menu: nodeMenu() },
-                        menuCanvas: { menu: canvasMenu() }
+                        menuNode:      { menu: nodeMenu() },
+                        menuSelection: { menu: selectionMenu() },
+                        menuCanvas:    { menu: canvasMenu() }
                     },
                     // Only drawing or deleting a relationship reaches MISP, so
                     // creating or editing a node or an edge's data is offered to

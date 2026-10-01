@@ -196,7 +196,12 @@ function buildGraph(payload, options) {
                 this.updateData = nodes => { this.dataUpdates.push((nodes || []).map(n => n.id)); };
                 this.listeners = {};
                 this.on = (evt, f) => { (this.listeners[evt] = this.listeners[evt] || []).push(f); };
-                this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); } };
+                // The save ledger: which ids a savable run created, which are written.
+                this.pivots = { invalidated: [], invalidate(id) { this.invalidated.push(id); },
+                                savable: new Set(), saved: new Set(), saves: [],
+                                isSavable(n) { return this.savable.has(n.id); },
+                                isSaved(n) { return this.saved.has(n.id); },
+                                save(target, options) { this.saves.push([target, options]); return Promise.resolve({}); } };
                 this.selected = [];
                 this.selectElement = n => { this.selected.push(n); };
                 const root = makeEl('div');
@@ -2495,14 +2500,15 @@ test('17: an edge reads by the kind of link and what it asserts', async () => {
 const menuItem = (g, text) => g.opts.UI.contextMenu.menuNode.menu.find(i => i.text === text);
 const shows = (g, text, data) => menuItem(g, text).visible(data === null ? null : pnode(data));
 
-test('18: MISP adds four entries to the node menu, after the library\'s own', async () => {
+test('18: MISP adds five entries to the node menu, after the library\'s own', async () => {
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     eq('in this order', g.opts.UI.contextMenu.menuNode.menu.map(i => [i.text, i.iconClass]), [
+        ['Save this element', 'fas fa-save'],
         ['Open its event', 'fas fa-external-link-alt'], ['Browse feed', 'fas fa-rss'],
         ['Preview in feed', 'fas fa-rss'], ['Copy value', 'fas fa-copy']]);
     ok('no topbar of ours, and the edge and note menus left alone',
        !g.opts.UI.contextMenu.menuNode.topbar
-       && JSON.stringify(Object.keys(g.opts.UI.contextMenu)) === JSON.stringify(['menuNode', 'menuCanvas']));
+       && JSON.stringify(Object.keys(g.opts.UI.contextMenu)) === JSON.stringify(['menuNode', 'menuSelection', 'menuCanvas']));
 });
 
 test('18: another event\'s page opens in a new tab, for whatever belongs to one', async () => {
@@ -3977,6 +3983,27 @@ test('enrich save: nothing is asked when no reference would be written', async (
     await p.save(savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]), ctx);
     eq('no prompt', ctx.prompts.length, 0);
     eq('saved all the same', seen.length, 1);
+});
+
+test('enrich save: offered from the node menu and the selection menu', async () => {
+    const g = await buildGraph(ev({}));
+    const one = menuItem(g, 'Save this element');
+    const many = g.opts.UI.contextMenu.menuSelection.menu.find(i => i.text === 'Save selection');
+    eq('the selection menu holds only that', g.opts.UI.contextMenu.menuSelection.menu.map(i => [i.text, i.iconClass]),
+       [['Save selection', 'fas fa-save']]);
+    const n = id => ({ id, getData: () => ({ type: 'object', scope: 'module' }) });
+    const ledger = g.graph.pivots;
+    ['r1', 'r2', 'r3'].forEach(id => ledger.savable.add(id));
+    ledger.saved.add('r3');
+    eq('an unsaved result offers it', one.visible(n('r1')), true);
+    eq('a saved one, or one no save covers, does not', [one.visible(n('r3')), one.visible(n('x'))], [false, false]);
+    eq('a selection with something to write offers it', [many.visible([n('r1'), n('x')]), many.visible([n('r3'), n('x')])],
+       [true, false]);
+    many.onclick({}, [n('r1'), n('r2'), n('r3'), n('x')]);
+    eq('only what waits is named, and the analyst is asked',
+       [ledger.saves[0][0].elements.map(e => e.id), ledger.saves[0][1]], [['r1', 'r2'], { interactive: true }]);
+    one.onclick({}, n('r2'));
+    eq('the element alone', ledger.saves[1][0].elements.map(e => e.id), ['r2']);
 });
 
 test('enrich save: a duplicate aliases to what the event holds, a failure stays unsaved', async () => {
