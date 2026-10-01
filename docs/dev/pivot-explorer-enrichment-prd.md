@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
 **Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
-added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt and context menu 2026-10-01 (§10); S9 open.
+added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt and context menu 2026-10-01 (§10); S9 left as is for now (§10.8).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -47,7 +47,7 @@ canvas like any other pivot's.
 | Sidebar: provenance, notice, known-only links (E13) | ✅ | `5cccb6836` |
 | Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); two pivotick asks shipped (`e2537f0`, vendored `b9ff699ec`), one declined |
 | Unit tests, acceptance (§7) | ✅ | explorer 765/0, sidebar model 87/0, neighbourhood 29/0; §7 below |
-| Save into the event (§10) | 🟡 | context-menu saves, the relationship prompt, no panel Save — wired and accepted (§10.7); S9 open |
+| Save into the event (§10) | ✅ | context-menu saves, the relationship prompt, no panel Save — wired and accepted (§10.7); S9 left as is (§10.8) |
 
 ## 2. What the analyst sees
 
@@ -472,10 +472,11 @@ On event 46 (`ip-dst 8.8.8.8`, its own), dev server on this worktree, `ipasn` fr
 
 The objects were removed afterwards; the event stays unpublished, as a save leaves it.
 
-### 10.8 Open
+### 10.8 Left as is
 
 - **S9 — a saved result and the event's own copy of it.** On a fresh page the event's own copy of a
   saved object is drawn from the event, and Enrich lands its result beside it (E4: a result is
   never merged into a MISP node). A save then answers `existing`, and the canvas holds two nodes
   for one MISP object. Either a result the event already holds lands as that MISP node, or it is
-  left out of the fetch. Not ruled.
+  left out of the fetch. **Ruled 2026-10-01: left as is for now** — two nodes for one object
+  is acceptable; revisit if analysts report it.

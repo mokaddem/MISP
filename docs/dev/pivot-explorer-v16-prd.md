@@ -2,7 +2,8 @@
 
 **Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then
 revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). **Every §9 task is built**
-(2026-09-23); what is still owed is §8's unchecked items and §11's open questions. State lives in
+(2026-09-23). §8's still-owed checks were closed by a live pass on 2026-10-01; §11's open
+questions are parked until analyst or community feedback asks for them. State lives in
 [`pivot-explorer-v16-progress.md`](pivot-explorer-v16-progress.md).
 
 **Owner:** Sami Mokaddem (Claude-assisted)
@@ -1487,6 +1488,9 @@ progress file's §2 ledger has the detail — or what is **still owed**. The tra
 that items 1 and 9 first described were retired by task 9's element pivot (§11.7); the items now
 test what replaced them.
 
+**2026-10-01:** the owner exercised the explorer live and found nothing broken or odd. That pass
+closes the **still owed** items below; they stay listed as what it covered.
+
 1. ✅ **Upgrade regression** — graph renders, objects expand, the element pivot puts an element on
    the canvas, an edge can be created and persists across a reload (1b, 9).
 2. Event 1195 (2,362 refs): ✅ seeds with the authored spine (1b); ✅ layers toggle independently
@@ -1604,6 +1608,10 @@ of D13.
 
 ## 11. Open Questions / Phase 2
 
+**Parked 2026-10-01.** The explorer works as wanted today; the open items below (1, 2, 3, 5, 8
+and 13's two-Undo remainder) wait for feedback from analysts or the community rather than being
+decided ahead of it.
+
 1. **Object aggregation** (backend). The one dimension with no existing roll-up: "28,410 objects
    → 12,000 file, 8,000 url" as aggregate nodes, so a behemoth's L2 degrades to a summary instead
    of being skipped. Correlations already have their aggregate for free (`RelatedEvent`, D12);
@@ -1621,8 +1629,8 @@ of D13.
 5. **The pivot entry point** — a route seeding the same component from one indicator, defaulting
    to Explore. §4 keeps it out of scope; the seed/mode parameterisation is designed for it.
 6. **Analyst-data and enrichment write paths.** ✅ Analyst relationships are written and deleted
-   from the graph (10b). Notes and opinions stay read-only (§4). **Open:** enrichment, deferred
-   to its own pass as pivots (R3).
+   from the graph (10b). Notes and opinions stay read-only (§4). ✅ Enrichment shipped as its own
+   pass (R3): [`pivot-explorer-enrichment-prd.md`](pivot-explorer-enrichment-prd.md).
 7. ✅ **Dock paging** — answered by task 9 as proposed here. Under P0, the answer: the unlinked-element
    list becomes an **origin-less pivot** (`origin: 'none'`) whose Review tab *is* the searchable,
    filterable, paged table, and whose ingest *is* putting elements on the canvas — which retires
