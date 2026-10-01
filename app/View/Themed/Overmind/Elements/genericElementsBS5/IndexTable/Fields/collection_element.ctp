@@ -76,7 +76,7 @@ $isCard = isset($viewMode) && $viewMode === 'card';
                         h($isAttribute ? $target['value'] : $target['meta-category'])
                     );
                     printf(
-                        '<span class="text-muted small text-truncate">%s</span>',
+                        '<span class="text-muted small text-truncate flex-grow-1" style="flex-basis:0;min-width:0;">%s</span>',
                         h(__('in #%s %s', $target['event_id'], $target['Event']['info'] ?? ''))
                     );
                 } else {
@@ -85,12 +85,10 @@ $isCard = isset($viewMode) && $viewMode === 'card';
             }
             else if ($element['element_type'] === 'Value') {
                 printf(
-                    '<a class="text-decoration-none d-inline-flex align-items-baseline gap-1 text-break" href="%s">'
-                        . '<span class="badge bg-secondary">%s</span>'
+                    '<a class="text-decoration-none text-break" href="%s">'
                         . '<span class="text-body font-monospace">%s</span>'
                     . '</a>',
                     h($baseurl . '/values/view/' . ValueUrlTool::encode($element['value'])),
-                    h(__('Value')),
                     h($element['value'])
                 );
             }

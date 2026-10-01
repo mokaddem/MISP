@@ -4,36 +4,10 @@ $collectionId = $this->request->params['pass'][0] ?? null;
 $types = $dropdownData['types'] ?? [];
 
 
-$typeStyles = [
-    'Event' => [
-        'icon'  => 'misp-icon misp-icon-event misp-simple',
-        'color' => 'var(--bs-event)',
-        'bg'    => 'rgba(24,146,177,.12)',
-    ],
-    'GalaxyCluster' => [
-        'icon'  => 'misp-icon misp-icon-galaxy misp-simple',
-        'color' => 'var(--bs-galaxy)',
-        'bg'    => 'rgba(139,92,246,.12)',
-    ],
-    'Attribute' => [
-        'icon'  => 'misp-icon misp-icon-attribute misp-simple',
-        'color' => 'var(--bs-attribute)',
-        'bg'    => 'rgba(var(--bs-secondary-rgb),.12)',
-    ],
-    'Object' => [
-        'icon'  => 'misp-icon misp-icon-object misp-simple',
-        'color' => 'var(--bs-object)',
-        'bg'    => 'rgba(var(--bs-secondary-rgb),.12)',
-    ],
-    'Value' => [
-        'icon'  => 'fas fa-quote-right',
-        'color' => 'var(--bs-secondary)',
-        'bg'    => 'rgba(var(--bs-secondary-rgb),.12)',
-    ],
-];
+$typeStyles = $this->ElementType->styles();
 $typeOptions = [];
 foreach ($types as $value => $label) {
-    $typeOptions[$value] = ucfirst(preg_replace('/(?<!^)[A-Z]/', ' $0', (string)$label));
+    $typeOptions[$value] = $this->ElementType->label($value);
 }
 
 echo $this->Form->create('CollectionElement', [
@@ -156,14 +130,13 @@ echo $this->Form->create('CollectionElement', [
                 + escape(data.text) + '</div>';
         }
         var s = TYPE_STYLES[data.value]
-            || { icon: 'fas fa-cube', color: 'var(--primary)', bg: 'rgba(24,146,177,.12)' };
+            || { icon: 'fas fa-cube', color: 'var(--bs-secondary)', ink: '#fff' };
         return '<div class="d-flex align-items-center gap-2' + (compact ? '' : ' py-1') + '">'
             + '<span class="badge d-inline-flex align-items-center'
                 + (compact ? ' px-1' : ' px-2 py-1') + '" style="'
-                + 'background:' + s.bg + ';color:' + s.color + ';'
-                + 'border:1px solid ' + s.bg + ';'
+                + 'background:' + s.color + ';color:' + s.ink + ';'
                 + (compact ? 'font-size:.65rem;' : '') + '">'
-            + '<i class="' + s.icon + '"></i>'
+            + '<i class="' + escape(s.icon) + '"></i>'
             + '</span>'
             + '<span>' + escape(data.text) + '</span>'
             + '</div>';
