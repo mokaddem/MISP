@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
 **Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
-added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt 2026-10-01 (§10); the selection action waits on pivotick.
+added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt and context menu 2026-10-01 (§10); hiding the panel's Save waits on pivotick.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -47,7 +47,7 @@ canvas like any other pivot's.
 | Sidebar: provenance, notice, known-only links (E13) | ✅ | `5cccb6836` |
 | Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); two pivotick asks shipped (`e2537f0`, vendored `b9ff699ec`), one declined |
 | Unit tests, acceptance (§7) | ✅ | explorer 765/0, sidebar model 87/0, neighbourhood 29/0; §7 below |
-| Save into the event (§10) | 🟡 | panel Save and the relationship prompt wired and accepted (§10.7); the selection action waits on pivotick (§10.4); S9 open |
+| Save into the event (§10) | 🟡 | context-menu saves and the relationship prompt wired and accepted (§10.7); hiding the panel's Save waits on pivotick (§10.4); S9 open |
 
 ## 2. What the analyst sees
 
@@ -352,8 +352,8 @@ Against the dev instance, logged in, dev server on this worktree:
 ### 10.1 What the analyst sees (proposed)
 
 On the event page, for a viewer who may modify the event, the Enrich pivot's results can be
-saved. Once some are ingested, the Pivot panel says how many are unsaved and offers **Save**;
-the triage pane says the same for its own provider. Save writes them into this event: an object
+saved. Right-click one and pick **Save this element**, or select several and pick **Save
+selection**; the pivot panel offers no Save (S7). Save writes them into this event: an object
 result becomes a MISP object, a loose result a MISP attribute, each tied back to what it was run
 on where MISP can say so. A toast reports *Saved 12* or *Saved 9 of 12 — Retry*, and why.
 
@@ -394,17 +394,21 @@ S3, S4, S6 and S7 were put to the owner; S1, S2, S5 and S8 stand as proposed.
 | S4 | **The link to the origin.** | **Asked on Save, `related-to` picked by default** — one prompt per save, the relationship list the reference editor offers. Result object → origin (attribute or object): an object reference on the result object. Origin object → loose result: a reference on the origin object. Loose origin → loose result: none is possible; the comment carries it. The `enrichment` edge is reported saved in every case. Cancelling the prompt writes nothing. |
 | S5 | **Fields.** | Distribution: the instance's attribute default, as module results get today. `to_ids`, category and comment from the module; an empty comment becomes `Enrichment: <module> on <origin value>`. No prompt. |
 | S6 | **After a save.** | `canonicalIds`: `enr:*` → `attr:<uuid>`, `enr-obj:*` → `obj:<uuid>`; a duplicate aliases to the attribute already there. **A saved result becomes a plain MISP node**: its data gains the uuid and this event's scope, and loses `module` scope, so the *From enrichment* mark, the Provenance entry and the sidebar's enrichment block no longer apply. The `enrichment` edge keeps its label. The event index learns the new uuids, so the reference editor can start from a saved object. |
-| S7 | **The affordance.** | **Pivotick's panel/pane count and Save, plus *Save to this event* on selected results** in the node menu, offered when a selected node is savable and unsaved. `pivotMarkUnsaved` off — the enrichment mark already sets results apart. |
+| S7 | **The affordance.** | **The context menu only** (re-ruled 2026-10-01): *Save this element* in the node menu, *Save selection* in the library's selection menu, each offered when what it names holds a savable, unsaved result. **Not the pivot interface**: the panel's and the triage pane's Save write a whole run or provider with no way to pick, so they are not offered (library ask `save-controls-off.md`). `pivotMarkUnsaved` off — the enrichment mark already sets results apart. |
 | S8 | **Undo.** | Canvas-only after a save (pivotick P13); nothing is deleted from the event. |
 
 ### 10.4 Library asks
 
-Both in `~/git/pivotick/prd/misp/`, proposed 2026-09-30:
+In `~/git/pivotick/prd/misp/`:
 
 - `save-a-selection.md` — `graph.pivots.save({ elements })` writes only the named elements
-  (their children and edges with them) and leaves the rest of each run pending. **S7's menu entry
-  waits on it**: writing a selection outside the ledger would leave it counted unsaved and
-  written twice.
+  (their children and edges with them) and leaves the rest of each run pending. **Shipped in
+  `a1e22d0`** (2026-10-01). Both menu entries call it with only the unsaved results they name,
+  `{ interactive: true }`, so the relationship prompt opens. Several selected nodes get the
+  library's own selection menu, not the node menu, so *Save selection* is a `menuSelection` entry.
+- `save-controls-off.md` (2026-10-01) — `pivotSaveControls: false`, so the panel and the pane
+  draw no unsaved count and no Save while the ledger and `save(...)` keep working. Until it
+  ships, the panel still shows *N unsaved · Save*.
 - `save-context-prompt.md` — `PivotSaveContext.promptData`, the modal edge creation already
   has, and a cancel outcome that is not a failure. **Shipped in `73f7673`** (2026-10-01): a save
   nobody clicked gets `null` at once, so `graph.pivots.save()` from the console needs
@@ -423,7 +427,8 @@ posted, the run stays pending, no toast.
 | D1 — endpoint `saveEnrichment` + ACL (S1) | ✅ | `perm_add` + `theming_enabled`, `canModifyEvent` in the action, CSRF by header |
 | D2 — `save` on the Enrich pivot, panel Save (S2–S6, S8) | ✅ | |
 | D3 — relationship prompt (S4) | ✅ | 2026-10-01, on pivotick `73f7673` (vendored) |
-| D4 — *Save to this event* on the selection (S7) | ⏳ | waits on `save-a-selection.md` |
+| D4 — *Save this element* / *Save selection* in the context menu (S7) | ✅ | 2026-10-01, on pivotick `a1e22d0` (vendored) |
+| D6 — no Save on the pivot panel or triage pane (S7) | ⏳ | waits on `save-controls-off.md`; then `pivotSaveControls: false` |
 | D5 — tests, acceptance | ✅ | explorer 802/0 (5 new); §10.7 |
 
 ### 10.6 As built
@@ -461,6 +466,7 @@ On event 46 (`ip-dst 8.8.8.8`, its own), dev server on this worktree, `ipasn` fr
 | 4 | A second save from a fresh page answers `existing` for both, aliases to the first uuids, writes no object and no reference | ✅ (after the fix above) |
 | 5 | Not savable without `canEdit`, nor on the value page (no event) | ✅ unit |
 | 6 | Foreign origin unattached; origin object → loose result reference; a failure stays unsaved | ✅ unit |
+| 8 | 2026-10-01: of 5 results (ipasn + mmdb_lookup), *Save this element* writes one object; *Save selection* on two others writes those two; 9 nodes, 2 edges stay pending; each reference `related-to` | ✅ live; unit 817/0 |
 | 7 | 2026-10-01: Save opens *Save to this event* with `related-to` preselected; Cancel posts nothing and leaves 8 nodes, 2 edges pending; a custom `announced-by` is written on both references | ✅ live; unit 811/0 |
 
 The objects were removed afterwards; the event stays unpublished, as a save leaves it.
