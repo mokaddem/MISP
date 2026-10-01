@@ -174,6 +174,102 @@ class AnalystGraphDocumentTool
     }
 
     /**
+     * Append nodes to a stored document. A node already in it is reported
+     * present, one that is malformed or that the document has no room for is
+     * refused.
+     *
+     * @param array $document A stored document, decoded
+     * @param array $items Nodes, as the document holds them
+     * @return array [array $document, array $report]
+     */
+    public static function addNodes(array $document, array $items)
+    {
+        $report = ['added' => [], 'present' => [], 'refused' => []];
+        $nodes = isset($document['nodes']) && is_array($document['nodes']) ? $document['nodes'] : [];
+        $seen = array_flip(self::nodeKeysOf($nodes));
+        foreach (array_values($items) as $i => $item) {
+            $errors = [];
+            $node = self::normaliseNode($item, $errors);
+            if ($node === null) {
+                $report['refused'][] = ['index' => $i, 'error' => implode(' ', $errors)];
+                continue;
+            }
+            $key = self::nodeKey($node);
+            if (isset($seen[$key])) {
+                $report['present'][] = $key;
+                continue;
+            }
+            if (count($nodes) >= self::MAX_NODES) {
+                $report['refused'][] = ['index' => $i, 'error' => __('A graph holds at most %s nodes.', self::MAX_NODES)];
+                continue;
+            }
+            $seen[$key] = true;
+            $nodes[] = $node;
+            $report['added'][] = $key;
+        }
+        $document['nodes'] = $nodes;
+        return [$document, $report];
+    }
+
+    /**
+     * Remove nodes from a stored document, named as nodes or as the
+     * `Type:uuid` keys addNodes() reports.
+     *
+     * @param array $document A stored document, decoded
+     * @param array $items
+     * @return array [array $document, array $report]
+     */
+    public static function removeNodes(array $document, array $items)
+    {
+        $report = ['removed' => [], 'absent' => [], 'refused' => []];
+        $wanted = [];
+        foreach (array_values($items) as $i => $item) {
+            $key = self::keyOf($item);
+            if ($key === null) {
+                $report['refused'][] = ['index' => $i, 'error' => __('not a node.')];
+                continue;
+            }
+            $wanted[$key] = true;
+        }
+        $kept = [];
+        foreach ($document['nodes'] ?? [] as $node) {
+            $key = self::nodeKeysOf([$node])[0] ?? null;
+            if ($key !== null && isset($wanted[$key])) {
+                $report['removed'][] = $key;
+                unset($wanted[$key]);
+                continue;
+            }
+            $kept[] = $node;
+        }
+        $report['absent'] = array_keys($wanted);
+        $document['nodes'] = $kept;
+        return [$document, $report];
+    }
+
+    /**
+     * @param mixed $item A node, or a `Type:uuid` key
+     * @return string|null
+     */
+    private static function keyOf($item)
+    {
+        if (is_string($item)) {
+            $parts = explode(':', $item, 2);
+            $item = count($parts) === 2 ? ['type' => $parts[0], 'uuid' => $parts[1]] : null;
+        }
+        if (!is_array($item) || !isset($item['type']) || !in_array($item['type'], self::NODE_TYPES, true)) {
+            return null;
+        }
+        if ($item['type'] === 'Value' && isset($item['value']) && is_scalar($item['value'])) {
+            $value = trim((string)$item['value']);
+            return $value === '' ? null : 'Value:' . Value::uuidFor($value);
+        }
+        if (!isset($item['uuid']) || !is_string($item['uuid']) || !preg_match(self::UUID_PATTERN, $item['uuid'])) {
+            return null;
+        }
+        return $item['type'] . ':' . strtolower($item['uuid']);
+    }
+
+    /**
      * What the audit log records for a content change in place of the
      * document: node counts, and which nodes came and went.
      *
@@ -212,8 +308,17 @@ class AnalystGraphDocumentTool
         if (!is_array($document) || !isset($document['nodes']) || !is_array($document['nodes'])) {
             return [];
         }
+        return self::nodeKeysOf($document['nodes']);
+    }
+
+    /**
+     * @param array $nodes
+     * @return string[]
+     */
+    private static function nodeKeysOf(array $nodes)
+    {
         $keys = [];
-        foreach ($document['nodes'] as $node) {
+        foreach ($nodes as $node) {
             if (isset($node['type'], $node['uuid'])) {
                 $keys[] = $node['type'] . ':' . $node['uuid'];
             }

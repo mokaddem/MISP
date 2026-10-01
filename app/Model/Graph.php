@@ -125,10 +125,12 @@ class Graph extends AnalystData
      * saved since that revision is left untouched and the result is a conflict.
      *
      * @param int $id
-     * @param callable $change Given the stored document, returns the new one
+     * @param callable $change Given the stored document, returns the new one,
+     *                         or null to leave it as it is
      * @param int|null $baseRevision
-     * @return array status (saved, conflict, invalid or missing), revision,
-     *               errors; once saved also node_count, content_size, modified
+     * @return array status (saved, unchanged, conflict, invalid or missing),
+     *               revision, errors; once saved also node_count,
+     *               content_size, modified
      * @throws Exception
      */
     public function writeContent($id, callable $change, $baseRevision = null)
@@ -158,7 +160,17 @@ class Graph extends AnalystData
                 return ['status' => 'conflict', 'revision' => $revision, 'errors' => []];
             }
             $document = json_decode($stored['content'], true);
-            $content = $change(is_array($document) ? $document : AnalystGraphDocumentTool::emptyDocument());
+            $document = is_array($document) ? $document : AnalystGraphDocumentTool::emptyDocument();
+            $content = $change($document);
+            if ($content === null) {
+                $db->commit();
+                return [
+                    'status' => 'unchanged',
+                    'revision' => $revision,
+                    'node_count' => count($document['nodes'] ?? []),
+                    'errors' => [],
+                ];
+            }
             $this->create(false);
             $saved = $this->save(
                 [$this->alias => [

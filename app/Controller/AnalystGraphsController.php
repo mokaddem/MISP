@@ -18,7 +18,7 @@ class AnalystGraphsController extends AppController
         parent::beforeFilter();
         // Posted as hand-built JSON by the graph host, with the CSRF token
         // in the X-CSRF-Token header.
-        $this->_csrfTokenHeaderOnly(['save', 'fork']);
+        $this->_csrfTokenHeaderOnly(['save', 'addNodes', 'removeNodes', 'fork']);
     }
 
     /**
@@ -63,8 +63,44 @@ class AnalystGraphsController extends AppController
     }
 
     /**
+     * Add records to the stored document, without the client loading it.
+     *
+     * @param string $uuid
+     */
+    public function addNodes($uuid)
+    {
+        $this->request->allowMethod(['post']);
+        $graph = $this->__fetchEditableGraph($uuid);
+        $items = $this->__items();
+        $report = null;
+        $result = $this->Graph->writeContent($graph['Graph']['id'], function (array $document) use ($items, &$report) {
+            list($document, $report) = AnalystGraphDocumentTool::addNodes($document, $items);
+            return empty($report['added']) ? null : $document;
+        });
+        return $this->__writeResponse($graph, $result, $report);
+    }
+
+    /**
+     * Remove records from the stored document, as the undo of addNodes().
+     *
+     * @param string $uuid
+     */
+    public function removeNodes($uuid)
+    {
+        $this->request->allowMethod(['post']);
+        $graph = $this->__fetchEditableGraph($uuid);
+        $items = $this->__items();
+        $report = null;
+        $result = $this->Graph->writeContent($graph['Graph']['id'], function (array $document) use ($items, &$report) {
+            list($document, $report) = AnalystGraphDocumentTool::removeNodes($document, $items);
+            return empty($report['removed']) ? null : $document;
+        });
+        return $this->__writeResponse($graph, $result, $report);
+    }
+
+    /**
      * A copy of the graph owned by the user's organisation, holding the nodes
-     * they can see.
+     * they can see. Its distribution is the analyst-data default.
      *
      * @param string $uuid
      */
@@ -82,7 +118,6 @@ class AnalystGraphsController extends AppController
             'description' => $original['Graph']['description'],
             'object_uuid' => $target['uuid'] ?? $original['Graph']['object_uuid'],
             'object_type' => $target['type'] ?? $original['Graph']['object_type'],
-            'distribution' => 0,
             'content' => $document,
             'forked_from_uuid' => $original['Graph']['uuid'],
         ]];
@@ -153,11 +188,28 @@ class AnalystGraphsController extends AppController
     }
 
     /**
+     * @return array
+     * @throws BadRequestException
+     */
+    private function __items()
+    {
+        $items = $this->__input()['items'] ?? null;
+        if (!is_array($items) || empty($items) || array_keys($items) !== range(0, count($items) - 1)) {
+            throw new BadRequestException(__('A list of items is required.'));
+        }
+        if (count($items) > AnalystGraphDocumentTool::MAX_NODES) {
+            throw new BadRequestException(__('At most %s items at once.', AnalystGraphDocumentTool::MAX_NODES));
+        }
+        return $items;
+    }
+
+    /**
      * @param array $graph
      * @param array $result Graph::writeContent()'s
+     * @param array|null $report What addNodes() or removeNodes() did
      * @return CakeResponse
      */
-    private function __writeResponse(array $graph, array $result)
+    private function __writeResponse(array $graph, array $result, $report = null)
     {
         switch ($result['status']) {
             case 'missing':
@@ -176,13 +228,17 @@ class AnalystGraphsController extends AppController
             case 'invalid':
                 return $this->RestResponse->saveFailResponse('AnalystGraphs', $this->request->params['action'], $graph['Graph']['id'], $result['errors'], 'json');
         }
-        return $this->RestResponse->viewData([
+        $response = [
             'saved' => true,
+            'changed' => $result['status'] === 'saved',
             'uuid' => $graph['Graph']['uuid'],
             'revision' => $result['revision'],
             'node_count' => $result['node_count'],
-            'content_size' => $result['content_size'],
-            'modified' => $result['modified'],
-        ], 'json');
+        ];
+        if ($result['status'] === 'saved') {
+            $response['content_size'] = $result['content_size'];
+            $response['modified'] = $result['modified'];
+        }
+        return $this->RestResponse->viewData($response + (array)$report, 'json');
     }
 }

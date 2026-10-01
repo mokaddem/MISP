@@ -711,6 +711,81 @@ class GraphTest extends TestCase
         $this->assertNotContains('commit', $graph->db->log);
     }
 
+    public function testWriteThatChangesNothingSavesNothing()
+    {
+        $graph = $this->writableGraph(5);
+
+        $result = $graph->writeContent(7, function () {
+            return null;
+        });
+
+        $this->assertSame('unchanged', $result['status']);
+        $this->assertSame(5, $result['revision']);
+        $this->assertSame(1, $result['node_count']);
+        $this->assertSame(array(), $graph->saves);
+        $this->assertSame('commit', end($graph->db->log));
+    }
+
+    // ------------------------------------------------- add / remove nodes
+
+    public function testAddNodesAppendsAndReportsEachItem()
+    {
+        $document = json_decode(self::stored(array(self::node('Event', self::EVENT))), true);
+
+        list($document, $report) = AnalystGraphDocumentTool::addNodes($document, array(
+            self::node('Event', self::EVENT),
+            self::node('Attribute', self::ATTRIBUTE),
+            self::valueNode(' 8.8.8.8 '),
+            self::valueNode('8.8.8.8'),
+            array('type' => 'Tag', 'uuid' => self::EVENT),
+            self::node('Attribute', strtolower(self::ATTRIBUTE)),
+        ));
+
+        $attribute = 'Attribute:' . strtolower(self::ATTRIBUTE);
+        $value = 'Value:' . Value::uuidFor('8.8.8.8');
+        $this->assertSame(array($attribute, $value), $report['added']);
+        $this->assertSame(array('Event:' . self::EVENT, $value, $attribute), $report['present']);
+        $this->assertSame(array(array('index' => 4, 'error' => 'unknown node type.')), $report['refused']);
+        $this->assertSame(array('Event:' . self::EVENT, $attribute, $value), array_map(array('AnalystGraphDocumentTool', 'nodeKey'), $document['nodes']));
+        $this->assertSame('8.8.8.8', $document['nodes'][2]['value']);
+    }
+
+    public function testAddNodesStopsAtTheNodeCap()
+    {
+        $document = self::documentWithNodes(AnalystGraphDocumentTool::MAX_NODES - 1);
+
+        list($document, $report) = AnalystGraphDocumentTool::addNodes($document, array(
+            self::valueNode('a'),
+            self::valueNode('b'),
+        ));
+
+        $this->assertCount(1, $report['added']);
+        $this->assertSame(1, $report['refused'][0]['index']);
+        $this->assertCount(AnalystGraphDocumentTool::MAX_NODES, $document['nodes']);
+    }
+
+    public function testRemoveNodesByNodeOrByKey()
+    {
+        $document = json_decode(self::stored(array(
+            self::node('Event', self::EVENT),
+            self::node('Attribute', self::ATTRIBUTE),
+            self::valueNode('8.8.8.8'),
+        )), true);
+
+        list($document, $report) = AnalystGraphDocumentTool::removeNodes($document, array(
+            'Attribute:' . self::ATTRIBUTE,
+            self::valueNode(' 8.8.8.8 '),
+            'Event:' . self::uuid(9),
+            'nonsense',
+            array('type' => 'Object'),
+        ));
+
+        $this->assertSame(array('Attribute:' . strtolower(self::ATTRIBUTE), 'Value:' . Value::uuidFor('8.8.8.8')), $report['removed']);
+        $this->assertSame(array('Event:' . self::uuid(9)), $report['absent']);
+        $this->assertSame(array(3, 4), array_column($report['refused'], 'index'));
+        $this->assertSame(array('Event:' . self::EVENT), array_map(array('AnalystGraphDocumentTool', 'nodeKey'), $document['nodes']));
+    }
+
     public function testWriteToAMissingGraph()
     {
         $graph = $this->writableGraph(null);
