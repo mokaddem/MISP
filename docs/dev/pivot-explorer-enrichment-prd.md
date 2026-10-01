@@ -1,7 +1,7 @@
 # PRD: Enrichment from the graph
 
 **Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
-added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt and context menu 2026-10-01 (§10); hiding the panel's Save waits on pivotick.
+added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt and context menu 2026-10-01 (§10); S9 open.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30
 **Parent:** [`pivot-explorer-v16-prd.md`](pivot-explorer-v16-prd.md), which ruled enrichment its own
@@ -47,7 +47,7 @@ canvas like any other pivot's.
 | Sidebar: provenance, notice, known-only links (E13) | ✅ | `5cccb6836` |
 | Prototypes: result node look + edge (§8, phase B) | ✅ | B picked (§5.4); two pivotick asks shipped (`e2537f0`, vendored `b9ff699ec`), one declined |
 | Unit tests, acceptance (§7) | ✅ | explorer 765/0, sidebar model 87/0, neighbourhood 29/0; §7 below |
-| Save into the event (§10) | 🟡 | context-menu saves and the relationship prompt wired and accepted (§10.7); hiding the panel's Save waits on pivotick (§10.4); S9 open |
+| Save into the event (§10) | 🟡 | context-menu saves, the relationship prompt, no panel Save — wired and accepted (§10.7); S9 open |
 
 ## 2. What the analyst sees
 
@@ -407,8 +407,8 @@ In `~/git/pivotick/prd/misp/`:
   `{ interactive: true }`, so the relationship prompt opens. Several selected nodes get the
   library's own selection menu, not the node menu, so *Save selection* is a `menuSelection` entry.
 - `save-controls-off.md` (2026-10-01) — `pivotSaveControls: false`, so the panel and the pane
-  draw no unsaved count and no Save while the ledger and `save(...)` keep working. Until it
-  ships, the panel still shows *N unsaved · Save*.
+  draw no unsaved count and no Save while the ledger and `save(...)` keep working. **Shipped in
+  `592a357`** and set by the explorer.
 - `save-context-prompt.md` — `PivotSaveContext.promptData`, the modal edge creation already
   has, and a cancel outcome that is not a failure. **Shipped in `73f7673`** (2026-10-01): a save
   nobody clicked gets `null` at once, so `graph.pivots.save()` from the console needs
@@ -428,7 +428,7 @@ posted, the run stays pending, no toast.
 | D2 — `save` on the Enrich pivot, panel Save (S2–S6, S8) | ✅ | |
 | D3 — relationship prompt (S4) | ✅ | 2026-10-01, on pivotick `73f7673` (vendored) |
 | D4 — *Save this element* / *Save selection* in the context menu (S7) | ✅ | 2026-10-01, on pivotick `a1e22d0` (vendored) |
-| D6 — no Save on the pivot panel or triage pane (S7) | ⏳ | waits on `save-controls-off.md`; then `pivotSaveControls: false` |
+| D6 — no Save on the pivot panel or triage pane (S7) | ✅ | 2026-10-01, `pivotSaveControls: false` on pivotick `592a357` (develop, vendored) |
 | D5 — tests, acceptance | ✅ | explorer 802/0 (5 new); §10.7 |
 
 ### 10.6 As built
@@ -466,6 +466,7 @@ On event 46 (`ip-dst 8.8.8.8`, its own), dev server on this worktree, `ipasn` fr
 | 4 | A second save from a fresh page answers `existing` for both, aliases to the first uuids, writes no object and no reference | ✅ (after the fix above) |
 | 5 | Not savable without `canEdit`, nor on the value page (no event) | ✅ unit |
 | 6 | Foreign origin unattached; origin object → loose result reference; a failure stays unsaved | ✅ unit |
+| 9 | 2026-10-01: after ingesting ipasn's results the panel shows no unsaved line and no Save, the pane only *2 ingested*; the ledger still counts 8 nodes, 2 edges, and *Save this element* is offered | ✅ live; unit 818/0 |
 | 8 | 2026-10-01: of 5 results (ipasn + mmdb_lookup), *Save this element* writes one object; *Save selection* on two others writes those two; 9 nodes, 2 edges stay pending; each reference `related-to` | ✅ live; unit 817/0 |
 | 7 | 2026-10-01: Save opens *Save to this event* with `related-to` preselected; Cancel posts nothing and leaves 8 nodes, 2 edges pending; a custom `announced-by` is written on both references | ✅ live; unit 811/0 |
 
