@@ -11,8 +11,11 @@
 //   MispAnalystGraph.graphData(payload, kit)
 //
 // config: { graph (uuid), containerEl, loaderEl?, payload?, request, baseurl,
-//           labelPlan?, permitted?, orgUuid?, siteAdmin?, valueCard?, canEnrich?, text? }
+//           labelPlan?, permitted?, orgUuid?, siteAdmin?, valueCard?, canEnrich?, text?,
+//           ui? }
 // request(method, path, body) → Promise<data> is IntelGraph's.
+// ui: Pivotick UI options laid over the explorer's, key by key — a container
+// smaller than a page asks for less chrome ({ mode: 'light' }, { legend: false }).
 //
 // Loaded by IntelGraph.load(), after pivotick.iife, misp-pivot-nodes, the
 // sidebar and pivot-explorer.
@@ -236,6 +239,7 @@
                 opts.simulation.d3Alpha = 0.05;
             }
             opts.UI.extraPanels = [kit.sharedPanel()];
+            if (config.ui) Object.assign(opts.UI, config.ui);
             var dbclick = opts.callbacks.onNodeDbclick;
             opts.callbacks.onNodeDbclick = function (e, node) {
                 var d = node && node.getData ? node.getData() : null;
