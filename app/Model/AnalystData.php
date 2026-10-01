@@ -118,7 +118,7 @@ class AnalystData extends AppModel
         'distribution' => [
             'rule' => ['inList', ['0', '1', '2', '3', '4']],
             'message' => 'Options: Your organisation only, This community only, Connected communities, All communities, Sharing group',
-            'required' => true
+            'required' => 'create'
         ],
     ];
 

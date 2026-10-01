@@ -366,6 +366,11 @@ class GraphTest extends TestCase
         $this->assertNotContains('language', (new GraphTestGraph())->getEditableFields());
     }
 
+    public function testDistributionIsRequiredOnCreateOnly()
+    {
+        $this->assertSame('create', (new GraphTestGraph())->validate['distribution']['required']);
+    }
+
     // ---------------------------------------------------------- edit rights
 
     private static function user($orgUuid, $siteAdmin = false, $permAnalystData = true)
