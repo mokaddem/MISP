@@ -3855,8 +3855,20 @@ const saveRoute = (seen, answer) => init => {
 const saveGraph = (seen, answer, options) => buildGraph(ev({
     Attribute: [attr({ uuid: 'A1', value: '8.8.8.8' })],
     Object: [obj({ uuid: 'O1', name: 'network-socket', Attribute: [attr({ uuid: 'O1-a', value: '8.8.4.4' })] })],
-}), Object.assign({ canEnrich: true, routes: ENR_ROUTES.concat([[/saveEnrichment/, saveRoute(seen, answer)]]) }, options))
+}), Object.assign({ canEnrich: true, routes: ENR_ROUTES.concat([[/saveEnrichment/, saveRoute(seen, answer)], [/objectRelationships/, RELS]]) }, options))
     .then(g => new Promise(r => setTimeout(() => r(g), 0)));
+const RELS = [{ name: 'resolves-to' }, { name: 'related-to' }, { name: 'characterizes' }];
+// The library's save context; the prompt answers `answer` (default: as offered).
+function saveCtx(g, answer) {
+    const prompts = [];
+    return { graph: g.graph, prompts, promptData(options) {
+        prompts.push(options);
+        if (answer === null) return Promise.resolve(null);
+        const values = {};
+        options.fields.forEach(f => { values[f.key] = f.defaultValue !== undefined ? f.defaultValue : ''; });
+        return Promise.resolve(Object.assign(values, answer));
+    } };
+}
 const OWN_IP = () => enrNode('attr:A1', { type: 'attribute', uuid: 'A1', value: '8.8.8.8', 'attr-type': 'ip-dst', scope: 'self' });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -3871,7 +3883,7 @@ test('enrich save: an object result becomes an object referencing its origin', a
     const p = pivot(g, 'enrich');
     const origin = OWN_IP();
     const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
-    const out = await p.save(payload, { graph: g.graph });
+    const out = await p.save(payload, saveCtx(g));
     eq('one post, to this event', g.fetchLog.filter(f => /saveEnrichment/.test(f.url)).map(f => f.url),
        ['/misp/events/saveEnrichment/1.json']);
     const o = seen[0].Object[0];
@@ -3898,7 +3910,7 @@ test('enrich save: from another event\'s origin a result goes in unattached', as
     const origin = enrNode('attr:F1', { type: 'attribute', uuid: 'F1', value: '8.8.8.8', 'attr-type': 'ip-dst',
                                         scope: 'foreign', event_id: '7' });
     const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
-    await p.save(payload, { graph: g.graph });
+    await p.save(payload, saveCtx(g));
     eq('no reference', seen[0].Object[0].ObjectReference, []);
     eq('the comment names what was enriched', seen[0].Object[0].comment, 'Enrichment: ipasn on 8.8.8.8');
 });
@@ -3911,13 +3923,60 @@ test('enrich save: a loose result of an object is referenced from that object', 
                                      'attr-type': 'domain', value: 'dns.google', category: 'Network activity' } }],
                      edges: [{ id: 'e1', from: 'obj:O1', to: 'enr:domain:dns.google',
                                data: { kind: 'enrichment', module: 'whois', asked: '8.8.4.4' } }] };
-    const out = await pivot(g, 'enrich').save(savePayload(result, [origin]), { graph: g.graph });
+    const out = await pivot(g, 'enrich').save(savePayload(result, [origin]), saveCtx(g));
     const a = seen[0].Attribute[0];
     eq('a loose attribute', [a.type, a.value, a.comment, 'object_relation' in a],
        ['domain', 'dns.google', 'Enrichment: whois on 8.8.4.4', false]);
     eq('referenced by the origin object', seen[0].ObjectReference,
        [{ object_uuid: 'O1', referenced_uuid: a.uuid, relationship_type: 'related-to' }]);
     eq('under its MISP id', out.canonicalIds['enr:domain:dns.google'], 'attr:' + a.uuid);
+});
+
+test('enrich save: the relationship is asked, related-to offered first', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    const ctx = saveCtx(g, { relationship_type: 'resolves-to' });
+    await p.save(savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]), ctx);
+    eq('one prompt', ctx.prompts.length, 1);
+    const select = ctx.prompts[0].fields.find(f => f.key === 'relationship_type');
+    eq('the vocabulary, sorted, related-to picked', [select.options.map(o => o.value), select.defaultValue],
+       [['characterizes', 'related-to', 'resolves-to'], 'related-to']);
+    eq('the answer is written', seen[0].Object[0].ObjectReference.map(r => r.relationship_type), ['resolves-to']);
+});
+
+test('enrich save: a custom relationship wins over the list', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    await p.save(savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]),
+                 saveCtx(g, { custom: '  announced-by ' }));
+    eq('trimmed and written', seen[0].Object[0].ObjectReference[0].relationship_type, 'announced-by');
+});
+
+test('enrich save: cancelling the prompt writes nothing and says so to the library', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = OWN_IP();
+    const payload = savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]);
+    eq('a cancel', await p.save(payload, saveCtx(g, null)), { cancelled: true });
+    eq('nothing posted', seen.length, 0);
+    eq('still a result', payload.nodes[0].data.scope, 'module');
+});
+
+test('enrich save: nothing is asked when no reference would be written', async () => {
+    const seen = [];
+    const g = await saveGraph(seen);
+    const p = pivot(g, 'enrich');
+    const origin = enrNode('attr:F1', { type: 'attribute', uuid: 'F1', value: '8.8.8.8', 'attr-type': 'ip-dst',
+                                        scope: 'foreign', event_id: '7' });
+    const ctx = saveCtx(g);
+    await p.save(savePayload(await p.fetch([origin], { module: ['ipasn'] }, { graph: g.graph }), [origin]), ctx);
+    eq('no prompt', ctx.prompts.length, 0);
+    eq('saved all the same', seen.length, 1);
 });
 
 test('enrich save: a duplicate aliases to what the event holds, a failure stays unsaved', async () => {
@@ -3930,7 +3989,7 @@ test('enrich save: a duplicate aliases to what the event holds, a failure stays 
                      edges: [{ id: 'e1', from: 'attr:A1', to: 'enr:domain:dup.example', data: { kind: 'enrichment', module: 'm' } },
                              { id: 'e2', from: 'attr:A1', to: 'enr:domain:bad', data: { kind: 'enrichment', module: 'm' } }] };
     const payload = savePayload(result, [origin]);
-    const out = await pivot(g, 'enrich').save(payload, { graph: g.graph });
+    const out = await pivot(g, 'enrich').save(payload, saveCtx(g));
     eq('only the duplicate is saved', out.savedNodeIds, ['enr:domain:dup.example']);
     eq('as the attribute already there', out.canonicalIds, { 'enr:domain:dup.example': 'attr:HELD' });
     eq('the failed one\'s edge stays unsaved', out.savedEdgeIds, ['e1']);

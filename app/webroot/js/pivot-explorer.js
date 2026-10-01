@@ -3257,9 +3257,36 @@
             _ownIndex = null;
         }
 
+        // The relationship the references are written with, or null when the
+        // analyst backs out.
+        function askRelationship(ctx) {
+            return loadVocabulary().then(function (names) {
+                return ctx.promptData({
+                    title:       'Save to this event',
+                    submitLabel: 'Save',
+                    fields:      relationshipFields(names, [])
+                });
+            }).then(function (values) {
+                if (!values) return null;
+                return String(values.custom || '').trim()
+                    || String(values.relationship_type || '').trim() || ENRICH_RELATIONSHIP;
+            });
+        }
+
         function enrichSave(payload, ctx) {
             var built = saveBody(payload);
             if (!built.sent.length) return true;
+            var refs = built.body.ObjectReference.slice();
+            built.body.Object.forEach(function (o) { refs = refs.concat(o.ObjectReference); });
+            var asked = refs.length ? askRelationship(ctx) : Promise.resolve(ENRICH_RELATIONSHIP);
+            return asked.then(function (rel) {
+                if (rel === null) return { cancelled: true };
+                refs.forEach(function (ref) { ref.relationship_type = rel; });
+                return writeEnrichment(payload, built, ctx);
+            });
+        }
+
+        function writeEnrichment(payload, built, ctx) {
             return postJson('/events/saveEnrichment/' + encodeURIComponent(eventId) + '.json',
                             built.body, ctx && ctx.signal).then(function (r) {
                 var results = (r && r.results) || {};
@@ -3643,6 +3670,65 @@
         // Canvas node type → AnalystData::valid_targets name.
         var ANALYST_TYPES = { attribute: 'Attribute', object: 'Object', event: 'Event' };
 
+        // The object_relationships vocabulary, fetched once on first use. A
+        // failed fetch leaves only the free-text field, which the server
+        // accepts anyway.
+        var _vocabulary = null;
+        function loadVocabulary() {
+            if (_vocabulary) return _vocabulary;
+            _vocabulary = fetch(baseurl + '/objectRelationships/index.json', {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (rows) {
+                return (Array.isArray(rows) ? rows : [])
+                    .map(function (r) { return r && r.name; })
+                    .filter(function (n) { return typeof n === 'string' && n !== ''; })
+                    .sort();
+            })
+            .catch(function (err) {
+                console.error('[pivot-explorer] relationship list failed:', err);
+                _vocabulary = null;   // ask again next time
+                return [];
+            });
+            return _vocabulary;
+        }
+
+        // Both kinds take the same answer: an analyst relationship's type is
+        // free text, so a name from the reference vocabulary is as good there.
+        function relationshipFields(names, kinds) {
+            var fields = [];
+            if (kinds.length > 1) {
+                fields.push({
+                    key:          'kind',
+                    label:        'Link type',
+                    type:         'select',
+                    options:      kinds.map(function (k) { return { label: KIND_LABELS[k], value: k }; }),
+                    defaultValue: kinds[0]
+                });
+            }
+            if (names.length) {
+                fields.push({
+                    key:          'relationship_type',
+                    label:        'Relationship type',
+                    type:         'select',
+                    options:      names.map(function (n) { return { label: n, value: n }; }),
+                    defaultValue: names.indexOf('related-to') !== -1 ? 'related-to' : names[0]
+                });
+            }
+            fields.push({
+                key:         'custom',
+                label:       names.length ? 'Or a custom one' : 'Relationship type',
+                type:        'text',
+                placeholder: 'custom relationship'
+            });
+            return fields;
+        }
+
         function createEditor() {
             var graph = null;
 
@@ -3685,64 +3771,6 @@
                 return possibleKinds(source, target).length > 0;
             }
 
-            // The object_relationships vocabulary, fetched once on first use. A
-            // failed fetch leaves only the free-text field, which the server
-            // accepts anyway.
-            var _vocabulary = null;
-            function loadVocabulary() {
-                if (_vocabulary) return _vocabulary;
-                _vocabulary = fetch(baseurl + '/objectRelationships/index.json', {
-                    credentials: 'same-origin',
-                    headers: { 'Accept': 'application/json' }
-                })
-                .then(function (r) {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    return r.json();
-                })
-                .then(function (rows) {
-                    return (Array.isArray(rows) ? rows : [])
-                        .map(function (r) { return r && r.name; })
-                        .filter(function (n) { return typeof n === 'string' && n !== ''; })
-                        .sort();
-                })
-                .catch(function (err) {
-                    console.error('[pivot-explorer] relationship list failed:', err);
-                    _vocabulary = null;   // ask again next time
-                    return [];
-                });
-                return _vocabulary;
-            }
-
-            // Both kinds take the same answer: an analyst relationship's type is
-            // free text, so a name from the reference vocabulary is as good there.
-            function relationshipFields(names, kinds) {
-                var fields = [];
-                if (kinds.length > 1) {
-                    fields.push({
-                        key:          'kind',
-                        label:        'Link type',
-                        type:         'select',
-                        options:      kinds.map(function (k) { return { label: KIND_LABELS[k], value: k }; }),
-                        defaultValue: kinds[0]
-                    });
-                }
-                if (names.length) {
-                    fields.push({
-                        key:          'relationship_type',
-                        label:        'Relationship type',
-                        type:         'select',
-                        options:      names.map(function (n) { return { label: n, value: n }; }),
-                        defaultValue: names.indexOf('related-to') !== -1 ? 'related-to' : names[0]
-                    });
-                }
-                fields.push({
-                    key:         'custom',
-                    label:       names.length ? 'Or a custom one' : 'Relationship type',
-                    type:        'text',
-                    placeholder: 'custom relationship'
-                });
-                return fields;
-            }
 
             // What analystData/add asks of a relationship beyond its type, as its
             // own form does. Pivotick's form has no field that depends on another,
