@@ -1092,7 +1092,7 @@ class ValueVerdictTool
                 : self::AXIS_QUALITY);
         $contribution = (int)$row['contribution']
             * ($axis === self::AXIS_LEAN ? $polarity : 1);
-        return array(
+        $anchored = array(
             'kind' => !empty($entry['group'])
                 ? $entry['group']
                 : $signal->group,
@@ -1108,6 +1108,11 @@ class ValueVerdictTool
             'id' => $signal->id,
             'voice' => !empty($signal->voice),
         );
+        // A row outside the signal's declared `$unit` (D65's event row).
+        if (isset($row['unit']) && $row['unit'] === false) {
+            $anchored['unit'] = false;
+        }
+        return $anchored;
     }
 
     /**

@@ -3123,11 +3123,12 @@ class AnalystProfileFormTool
      * that number was arrived at.
      *
      * **The rule: the largest positive value in a signal's `points`
-     * map.** A `cap` is always the largest positive value where one is
-     * declared, so the rule needs no knowledge of which key is the cap
-     * — checked against all eleven shipped signals, where it gives the
-     * cap for the six that have one and the single positive term for the
-     * five that do not.
+     * map, or the sum of its positive caps where that is larger.** A
+     * signal paying two capped rows — `attribution.galaxy`'s occurrence
+     * and event clusters (`cap`, `event_cap`), `enrichment.answer`'s
+     * verdicts and agreement (`cap`, `agreeing_cap`) — can reach both
+     * caps at once, and the largest term alone would under-report it.
+     * A cap is a key named `cap` or ending in `_cap`.
      *
      * **What it is: an upper bound, and only for a signal whose points
      * bound it.** A custom signal paying `per_x` with no cap is not
@@ -3169,8 +3170,9 @@ class AnalystProfileFormTool
                 ? $entry['points']
                 : array();
             $best = 0;
+            $caps = 0;
             $positive = false;
-            foreach ($points as $value) {
+            foreach ($points as $key => $value) {
                 if (!is_int($value) && !is_float($value)) {
                     continue;
                 }
@@ -3178,7 +3180,13 @@ class AnalystProfileFormTool
                     $best = $value;
                     $positive = true;
                 }
+                if ($value > 0 && ($key === 'cap'
+                    || substr((string)$key, -4) === '_cap')
+                ) {
+                    $caps += $value;
+                }
             }
+            $best = max($best, $caps);
             $perSignal[$id] = (int)$best;
             $bound += (int)$best;
             /*

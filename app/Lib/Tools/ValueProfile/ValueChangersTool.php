@@ -794,6 +794,9 @@ class ValueChangersTool
         $held = array();
         foreach ($verdict['ledger'] as $group) {
             foreach ($group['signals'] as $row) {
+                if (isset($row['unit']) && $row['unit'] === false) {
+                    continue;
+                }
                 $held[$row['id']] = (int)$row['contribution'];
             }
         }

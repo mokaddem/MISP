@@ -2,7 +2,7 @@
     "uuid": "201b6b4a-b8cd-4ca1-9fe2-827a424665ec",
     "name": "Fraud & Abuse",
     "description": "For an analyst who blocks quickly and pays visibly for blocking the wrong thing. It keeps the shipped default's numbers and changes what the page shows first, with the shortest shelf life of the five.",
-    "version": 5,
+    "version": 6,
     "parameters": {
         "format": 1,
         "signals": [
@@ -73,6 +73,8 @@
                 "points": {
                     "per_cluster": 7,
                     "cap": 21,
+                    "per_event_cluster": 3,
+                    "event_cap": 9,
                     "absent": -1
                 }
             },
@@ -90,7 +92,7 @@
                 "group": "Lifecycle",
                 "enabled": true,
                 "points": {
-                    "no_hit": 6,
+                    "no_hit": 1,
                     "false_positive_hit": -38,
                     "known_hit": 0
                 }
@@ -187,6 +189,10 @@
                 "id": "sightings.self",
                 "enabled": true,
                 "within_hours": 1
+            },
+            {
+                "id": "feeds.reporters",
+                "enabled": true
             },
             {
                 "id": "feeds.mirrored",

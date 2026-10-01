@@ -2,7 +2,7 @@
     "uuid": "ec29ae9c-2551-480f-81f7-f230f6100951",
     "name": "SOC Triage",
     "description": "For an analyst working an alert queue, where a false positive costs more than a miss. It keeps the shipped default's numbers and changes what the page shows first, with a shorter shelf life for what triage acts on.",
-    "version": 5,
+    "version": 6,
     "parameters": {
         "format": 1,
         "signals": [
@@ -73,6 +73,8 @@
                 "points": {
                     "per_cluster": 7,
                     "cap": 21,
+                    "per_event_cluster": 3,
+                    "event_cap": 9,
                     "absent": -1
                 }
             },
@@ -90,7 +92,7 @@
                 "group": "Lifecycle",
                 "enabled": true,
                 "points": {
-                    "no_hit": 6,
+                    "no_hit": 1,
                     "false_positive_hit": -38,
                     "known_hit": 0
                 }
@@ -187,6 +189,10 @@
                 "id": "sightings.self",
                 "enabled": true,
                 "within_hours": 1
+            },
+            {
+                "id": "feeds.reporters",
+                "enabled": true
             },
             {
                 "id": "feeds.mirrored",

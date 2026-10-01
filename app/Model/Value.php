@@ -2170,10 +2170,15 @@ class Value extends AppModel
      * and "the events where this value was seen most recently" is the
      * one a person asking about an indicator today would pick.
      *
+     * `flagged` counts the occurrences with `to_ids = 1`: an event in
+     * which the reporter marked this value for detection, which is what
+     * lets the event's own attribution reach it (D65).
+     *
      * @param array $user
      * @param string $value
      * @param array $options As conditionsFor, plus `limit`
-     * @return array event id => ['occurrences' => int, 'last' => int]
+     * @return array event id => ['occurrences' => int, 'last' => int,
+     *               'flagged' => int]
      */
     public function occurrenceEventsFor(array $user, $value,
         array $options = array()
@@ -2187,6 +2192,7 @@ class Value extends AppModel
                 'Attribute.event_id',
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
                 'MAX(Attribute.timestamp) AS last_seen',
+                'SUM(Attribute.to_ids) AS flagged',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -2202,6 +2208,7 @@ class Value extends AppModel
             $events[(int)$row['Attribute']['event_id']] = array(
                 'occurrences' => (int)$row[0]['occurrences'],
                 'last' => (int)$row[0]['last_seen'],
+                'flagged' => (int)$row[0]['flagged'],
             );
         }
         return $events;
