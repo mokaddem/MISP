@@ -15,13 +15,15 @@ class AnalystDataController extends AppController
     public $uses = [
         'Opinion',
         'Note',
-        'Relationship'
+        'Relationship',
+        'Graph'
     ];
 
     private $__valid_types = [
         'Opinion',
         'Note',
-        'Relationship'
+        'Relationship',
+        'Graph'
     ];
 
     // public $modelSelection = 'Note';
@@ -74,11 +76,18 @@ class AnalystDataController extends AppController
                         throw new MethodNotAllowedException($canSGBeUsed);
                     }
                 }
+                if ($this->modelSelection === 'Graph') {
+                    // Only a fork records what it was forked from
+                    unset($analystData['Graph']['forked_from_uuid']);
+                }
                 return $analystData;
             },
             'afterSave' => function (array $analystData) use ($currentUser) {
                 $this->Event->captureAnalystData($currentUser, $this->request->data[$this->modelSelection], $this->modelSelection, $analystData[$this->modelSelection]['uuid']);
-            }
+            },
+            'afterFind' => function (array $analystData) {
+                return $this->__decodeGraphContent($analystData);
+            },
         ];
         $this->CRUD->add($params);
         if ($this->restResponsePayload) {
@@ -134,6 +143,11 @@ class AnalystDataController extends AppController
                     }
                 }
                 $analystData[$this->modelSelection]['modified'] = date('Y-m-d H:i:s');
+                if ($this->modelSelection === 'Graph') {
+                    // The document is written by a revision-checked save only:
+                    // writing back the copy loaded here would undo one made since
+                    unset($analystData['Graph']['content'], $analystData['Graph']['content_size'], $analystData['Graph']['node_count']);
+                }
                 return $analystData;
             },
             'afterSave' => function (array $analystData) use ($currentUser) {
@@ -277,6 +291,8 @@ class AnalystDataController extends AppController
             $info = sprintf('%s/100 :: %s', $deletedAnalystData[$type]['opinion'], $deletedAnalystData[$type]['comment']);
         } else if ($type === 'Relationship') {
             $info = sprintf('-- %s --> %s :: %s', $deletedAnalystData[$type]['relationship_type'] ?? '[undefined]', $deletedAnalystData[$type]['related_object_type'], $deletedAnalystData[$type]['related_object_uuid']);
+        } else if ($type === 'Graph') {
+            $info = $deletedAnalystData[$type]['name'];
         }
         $blocklist = ClassRegistry::init('AnalystDataBlocklist');
         $blocklist->create();
@@ -317,6 +333,7 @@ class AnalystDataController extends AppController
                     unset($analystData[$this->modelSelection]['_canEdit']);
                 }
                 if ($this->_isRest()) {
+                    $analystData = $this->__decodeGraphContent($analystData);
                     $children = $this->AnalystData->fetchChildNotesAndOpinions($this->Auth->user(), $analystData[$this->modelSelection], true, 5);
                     if (!empty($children)) {
                         foreach ($children as $child) {
@@ -369,6 +386,9 @@ class AnalystDataController extends AppController
                 foreach ($data as $i => $analystData) {
                     if (!$this->request->is('ajax')) {
                         unset($analystData[$this->modelSelection]['_canEdit']);
+                    }
+                    if ($this->_isRest()) {
+                        $data[$i] = $this->__decodeGraphContent($analystData);
                     }
                 }
                 return $data;
@@ -547,6 +567,18 @@ class AnalystDataController extends AppController
                 return $this->RestResponse->saveFailResponse('AnalystData', 'pushAnalystData', false, $message);
             }
         }
+    }
+
+    /**
+     * A graph's document is stored as JSON text; REST returns it as an object.
+     */
+    private function __decodeGraphContent(array $analystData): array
+    {
+        if ($this->modelSelection === 'Graph' && isset($analystData['Graph']['content'])) {
+            App::uses('AnalystGraphDocumentTool', 'Tools');
+            $analystData['Graph']['content'] = AnalystGraphDocumentTool::decode($analystData['Graph']['content']);
+        }
+        return $analystData;
     }
 
     private function __typeSelector($type) {

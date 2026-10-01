@@ -135,6 +135,22 @@ class AnalystGraphDocumentTool
     }
 
     /**
+     * Stored content as the API returns it, `view` kept an object when empty.
+     *
+     * @param string $content
+     * @return array|null
+     */
+    public static function decode($content)
+    {
+        $document = is_string($content) ? json_decode($content, true) : null;
+        if (!is_array($document)) {
+            return null;
+        }
+        $document['view'] = (object)($document['view'] ?? []);
+        return $document;
+    }
+
+    /**
      * The columns derived from stored content.
      *
      * @param string $content

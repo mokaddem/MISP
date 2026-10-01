@@ -523,32 +523,10 @@ class ValueGraph extends AppModel
         if (empty($ids)) {
             return array();
         }
-        $rows = $this->model('MispAttribute')->fetchAttributesSimple($user, array(
-            'conditions' => array(
-                'Attribute.id' => array_map('strval', $ids),
-                'Attribute.deleted' => 0,
-            ),
-            'contain' => array(
-                'Event' => array('fields' => array('Event.id', 'Event.org_id')),
-                'Object' => array('fields' => array('Object.id')),
-                'AttributeTag' => array('Tag'),
-            ),
+        $out = $this->model('MispAttribute')->fetchGraphAttributes($user, array(
+            'Attribute.id' => array_map('strval', $ids),
         ));
         $order = array_flip(array_map('intval', $ids));
-        $out = array();
-        $objectModel = $this->model('MispObject');
-        foreach ($rows as $row) {
-            $attribute = $row['Attribute'];
-            $attribute['AttributeTag'] = isset($row['AttributeTag'])
-                ? $row['AttributeTag']
-                : array();
-            $shaped = $objectModel->graphAttributes(
-                $user,
-                array($attribute),
-                isset($row['Event']['org_id']) ? $row['Event']['org_id'] : null
-            );
-            $out[] = $shaped[0];
-        }
         usort($out, function ($a, $b) use ($order) {
             return $order[(int)$a['id']] - $order[(int)$b['id']];
         });

@@ -109,6 +109,8 @@ require_once __DIR__ . '/../Model/AnalystData.php';
 require_once __DIR__ . '/../Model/Graph.php';
 require_once __DIR__ . '/../Model/Behavior/AnalystDataParentBehavior.php';
 require_once __DIR__ . '/../Model/Behavior/AuditLogBehavior.php';
+require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueUrlTool.php';
+require_once __DIR__ . '/../Model/AnalystGraphData.php';
 
 class GraphTestGraph extends Graph
 {
@@ -168,6 +170,99 @@ class GraphTestRecorder
     public function insert(array $row)
     {
         $this->calls[] = $row;
+    }
+}
+
+class GraphTestDataSource
+{
+    public $log = array();
+    public $rows = array();
+
+    public function begin()
+    {
+        $this->log[] = 'begin';
+        return true;
+    }
+
+    public function commit()
+    {
+        $this->log[] = 'commit';
+        return true;
+    }
+
+    public function rollback()
+    {
+        $this->log[] = 'rollback';
+        return true;
+    }
+
+    public function name($field)
+    {
+        return '`' . $field . '`';
+    }
+
+    public function fullTableName($model)
+    {
+        return '`analyst_graphs`';
+    }
+
+    public function fetchAll($sql, $params = array(), $options = array())
+    {
+        $this->log[] = array($sql, $params, $options);
+        return $this->rows;
+    }
+}
+
+class GraphTestWritableGraph extends GraphTestGraph
+{
+    public $db;
+    public $saves = array();
+    public $refuse = false;
+
+    public function getDataSource()
+    {
+        return $this->db;
+    }
+
+    public function create($data = array())
+    {
+        $this->id = false;
+        $this->data = array();
+    }
+
+    public function save($data = null, $validate = true, $fieldList = array())
+    {
+        $this->saves[] = array($data, $validate);
+        if ($this->refuse) {
+            $this->validationErrors = array('content' => array('nodes[0]: unknown node type.'));
+            return false;
+        }
+        $this->db->log[] = 'save';
+        return array('Graph' => $data['Graph'] + array('revision' => 6, 'node_count' => 1, 'content_size' => 99));
+    }
+}
+
+/**
+ * A model fake answering whatever the test registers for each method.
+ */
+class GraphTestFake
+{
+    public $calls = array();
+    private $handlers = array();
+
+    public function on($method, callable $handler)
+    {
+        $this->handlers[$method] = $handler;
+        return $this;
+    }
+
+    public function __call($method, $args)
+    {
+        $this->calls[] = array($method, $args);
+        if (!isset($this->handlers[$method])) {
+            throw new RuntimeException("No handler for $method.");
+        }
+        return call_user_func_array($this->handlers[$method], $args);
     }
 }
 
@@ -509,5 +604,346 @@ class GraphTest extends TestCase
 
         $this->assertCount(1, $fakes['Opinion']->calls);
         $this->assertSame(array(), $fakes['Graph']->calls);
+    }
+
+    // ------------------------------------------------------------ API output
+
+    public function testDecodeKeepsAnEmptyViewAnObject()
+    {
+        $decoded = AnalystGraphDocumentTool::decode('{"version":1,"nodes":[],"hidden_edges":[],"view":[]}');
+
+        $this->assertStringContainsString('"view":{}', json_encode($decoded));
+        $this->assertNull(AnalystGraphDocumentTool::decode('not json'));
+    }
+
+    // ------------------------------------------------------- locked write
+
+    private function writableGraph($storedRevision)
+    {
+        $graph = new GraphTestWritableGraph();
+        $graph->db = new GraphTestDataSource();
+        if ($storedRevision !== null) {
+            $graph->db->rows = array(array('analyst_graphs' => array(
+                'revision' => (string)$storedRevision,
+                'content' => self::stored(array(self::node('Event', self::EVENT))),
+            )));
+        }
+        return $graph;
+    }
+
+    public function testWriteLocksTheRowBeforeReadingTheRevision()
+    {
+        $graph = $this->writableGraph(5);
+
+        $graph->writeContent(7, function (array $stored) {
+            return $stored;
+        }, 5);
+
+        $this->assertSame('begin', $graph->db->log[0]);
+        list($sql, $params, $options) = $graph->db->log[1];
+        $this->assertStringEndsWith('FOR UPDATE', $sql);
+        $this->assertSame(array(7), $params);
+        $this->assertSame(array('cache' => false), $options);
+    }
+
+    public function testStaleWriteIsAConflictAndSavesNothing()
+    {
+        $graph = $this->writableGraph(5);
+        $called = false;
+
+        $result = $graph->writeContent(7, function () use (&$called) {
+            $called = true;
+            return array();
+        }, 4);
+
+        $this->assertSame('conflict', $result['status']);
+        $this->assertSame(5, $result['revision']);
+        $this->assertFalse($called);
+        $this->assertSame(array(), $graph->saves);
+        $this->assertSame('rollback', end($graph->db->log));
+    }
+
+    public function testCurrentWriteSavesTheChangedDocumentAndCommits()
+    {
+        $graph = $this->writableGraph(5);
+        $seen = null;
+
+        $result = $graph->writeContent(7, function (array $stored) use (&$seen) {
+            $seen = $stored;
+            $stored['nodes'][] = array('type' => 'Value', 'value' => '8.8.8.8');
+            return $stored;
+        }, '5');
+
+        $this->assertSame('Event', $seen['nodes'][0]['type']);
+        $this->assertSame('saved', $result['status']);
+        $this->assertSame(6, $result['revision']);
+        $this->assertSame(1, $result['node_count']);
+        list($data, $options) = $graph->saves[0];
+        $this->assertSame(7, $data['Graph']['id']);
+        $this->assertCount(2, $data['Graph']['content']['nodes']);
+        $this->assertSame(array('fieldList' => array('content', 'modified')), $options);
+        $this->assertSame(array('save', 'commit'), array_slice($graph->db->log, -2));
+    }
+
+    public function testWriteWithoutABaseRevisionAppliesToTheStoredOne()
+    {
+        $graph = $this->writableGraph(5);
+
+        $result = $graph->writeContent(7, function (array $stored) {
+            return $stored;
+        });
+
+        $this->assertSame('saved', $result['status']);
+    }
+
+    public function testInvalidWriteRollsBack()
+    {
+        $graph = $this->writableGraph(5);
+        $graph->refuse = true;
+
+        $result = $graph->writeContent(7, function () {
+            return array('nodes' => array(array('type' => 'Tag')));
+        }, 5);
+
+        $this->assertSame('invalid', $result['status']);
+        $this->assertArrayHasKey('content', $result['errors']);
+        $this->assertSame('rollback', end($graph->db->log));
+        $this->assertNotContains('commit', $graph->db->log);
+    }
+
+    public function testWriteToAMissingGraph()
+    {
+        $graph = $this->writableGraph(null);
+
+        $result = $graph->writeContent(7, function () {
+            return array();
+        }, 1);
+
+        $this->assertSame('missing', $result['status']);
+        $this->assertSame('rollback', end($graph->db->log));
+    }
+
+    // ------------------------------------------------------------ resolve
+
+    const E1 = 'e1000000-0000-4000-8000-000000000001';
+    const E2 = 'e2000000-0000-4000-8000-000000000002';
+    const O1 = 'b1000000-0000-4000-8000-000000000021';
+    const O2 = 'b2000000-0000-4000-8000-000000000022';
+    const A1 = 'a1000000-0000-4000-8000-000000000031';
+    const A_CHILD1 = 'ac100000-0000-4000-8000-000000000041';
+    const A_CHILD2 = 'ac200000-0000-4000-8000-000000000042';
+    const A3 = 'a3000000-0000-4000-8000-000000000033';
+    const A_HIDDEN = 'aa000000-0000-4000-8000-000000000099';
+    const A_UNDRAWN = 'ad000000-0000-4000-8000-000000000098';
+    const C1 = 'c1000000-0000-4000-8000-000000000051';
+    const C2 = 'c2000000-0000-4000-8000-000000000052';
+    const C1_TAG = 'misp-galaxy:threat-actor="X"';
+
+    private $registered = array();
+
+    protected function tearDown(): void
+    {
+        foreach ($this->registered as $name) {
+            unset(ClassRegistry::$instances[$name]);
+        }
+        $this->registered = array();
+    }
+
+    private function fake($name)
+    {
+        $fake = new GraphTestFake();
+        ClassRegistry::$instances[$name] = $fake;
+        $this->registered[] = $name;
+        return $fake;
+    }
+
+    private static function inList($uuid, array $uuids)
+    {
+        return in_array(strtolower($uuid), array_map('strtolower', $uuids), true);
+    }
+
+    private function registerResolveFakes(array $readable)
+    {
+        $childAttributes = array(
+            array('id' => 41, 'uuid' => self::A_CHILD1, 'object_id' => 21, 'event_id' => 11, 'type' => 'ip-dst', 'value' => '8.8.8.8', 'value1' => '8.8.8.8', 'value2' => '', 'Tag' => array()),
+            array('id' => 42, 'uuid' => self::A_CHILD2, 'object_id' => 21, 'event_id' => 11, 'type' => 'domain', 'value' => 'example.org', 'value1' => 'example.org', 'value2' => '',
+                'Tag' => array(array('name' => self::C1_TAG, 'relationship_type' => 'attributed-to'))),
+        );
+        $objects = array(
+            strtoupper(self::O1) => array('id' => 21, 'uuid' => strtoupper(self::O1), 'event_id' => 11, 'template_uuid' => null, 'Attribute' => $childAttributes),
+            self::O2 => array('id' => 22, 'uuid' => self::O2, 'event_id' => 11, 'template_uuid' => null, 'Attribute' => array()),
+        );
+        $attributes = array(
+            array('id' => 31, 'uuid' => self::A1, 'object_id' => 0, 'event_id' => 11, 'type' => 'attachment', 'value' => 'a.png', 'Tag' => array()),
+            $childAttributes[0],
+            array('id' => 33, 'uuid' => self::A3, 'object_id' => 0, 'event_id' => 12, 'type' => 'ip-dst|port', 'value' => '1.2.3.4|80', 'value1' => '1.2.3.4', 'value2' => '80', 'Tag' => array()),
+        );
+        $this->fake('CollectionElement')->on('readableUuids', function ($user, $type, $uuids) use ($readable) {
+            return array_values(array_filter($uuids, function ($uuid) use ($readable) {
+                return self::inList($uuid, $readable);
+            }));
+        });
+        $this->fake('MispObject')->on('fetchGraphObjects', function ($user, $conditions) use ($objects) {
+            $found = array();
+            foreach (array_reverse($objects, true) as $uuid => $object) {
+                if (self::inList($uuid, $conditions['Object.uuid'])) {
+                    $found[$uuid] = $object;
+                }
+            }
+            return $found;
+        });
+        $this->fake('MispAttribute')->on('fetchGraphAttributes', function ($user, $conditions) use ($attributes) {
+            return array_values(array_filter($attributes, function ($a) use ($conditions) {
+                return self::inList($a['uuid'], $conditions['Attribute.uuid']);
+            }));
+        });
+        $this->fake('GalaxyCluster')->on('fetchGalaxyClusters', function ($user, $options) {
+            $rows = array();
+            foreach (array(self::C1 => self::C1_TAG, self::C2 => 'misp-galaxy:tool="Y"') as $uuid => $tag) {
+                if (self::inList($uuid, $options['conditions']['GalaxyCluster.uuid'])) {
+                    $rows[] = array('GalaxyCluster' => array('uuid' => $uuid, 'tag_name' => $tag), 'Galaxy' => array('type' => 'threat-actor'));
+                }
+            }
+            return $rows;
+        });
+        $this->fake('Event')
+            ->on('find', function ($type, $query) {
+                return self::inList(self::E1, $query['conditions']['Event.uuid']) ? array(self::E1 => '11') : array();
+            })
+            ->on('correlatedEventCards', function ($user, $ids) {
+                $cards = array(
+                    '11' => array('id' => '11', 'uuid' => self::E1, 'Galaxy' => array(array('type' => 'threat-actor', 'GalaxyCluster' => array(array('uuid' => self::C1, 'tag_name' => self::C1_TAG))))),
+                    '12' => array('id' => '12', 'uuid' => self::E2, 'Galaxy' => array()),
+                );
+                return array_intersect_key($cards, array_flip($ids));
+            });
+        $this->fake('ObjectTemplate')->on('uiPrioritiesFor', function () {
+            return array();
+        });
+        $this->fake('ObjectReference')->on('find', function () {
+            return array(
+                array('ObjectReference' => array('uuid' => 'r1', 'object_id' => 22, 'referenced_uuid' => strtoupper(self::O1), 'referenced_type' => '1', 'relationship_type' => 'co-worker')),
+                array('ObjectReference' => array('uuid' => 'r2', 'object_id' => 21, 'referenced_uuid' => self::A1, 'referenced_type' => '0', 'relationship_type' => 'child')),
+                array('ObjectReference' => array('uuid' => 'r3', 'object_id' => 22, 'referenced_uuid' => self::A_UNDRAWN, 'referenced_type' => '0', 'relationship_type' => 'child')),
+            );
+        });
+        $this->fake('Relationship')
+            ->on('buildConditions', function () {
+                return array();
+            })
+            ->on('find', function () {
+                $row = function ($uuid, $fromType, $from, $toType, $to) {
+                    return array('Relationship' => array(
+                        'uuid' => $uuid, 'object_type' => $fromType, 'object_uuid' => $from,
+                        'related_object_type' => $toType, 'related_object_uuid' => $to,
+                        'relationship_type' => 'related-to', 'authors' => 'a@b', 'orgc_uuid' => 'o', 'distribution' => '1',
+                    ));
+                };
+                return array(
+                    $row('rel1', 'Attribute', self::A1, 'Value', Value::uuidFor('8.8.8.8')),
+                    $row('rel2', 'Attribute', self::A1, 'Event', self::E2),
+                );
+            });
+        $this->fake('GalaxyClusterRelation')->on('fetchRelations', function () {
+            return array(array('GalaxyClusterRelation' => array(
+                'galaxy_cluster_uuid' => self::C1, 'referenced_galaxy_cluster_uuid' => self::C2, 'referenced_galaxy_cluster_type' => 'uses',
+            )));
+        });
+    }
+
+    private function resolveFixture()
+    {
+        $this->registerResolveFakes(array(self::E1, self::O1, self::O2, self::A1, self::A_CHILD1, self::A3, self::C1, self::C2));
+        list($document) = AnalystGraphDocumentTool::normalise(array('nodes' => array(
+            self::node('Event', self::E1),
+            self::node('Object', self::O1),
+            self::node('Object', self::O2),
+            self::node('Attribute', self::A1),
+            self::node('Attribute', self::A_HIDDEN),
+            self::node('Attribute', self::A_CHILD1),
+            self::node('Attribute', self::A3),
+            self::node('GalaxyCluster', self::C1),
+            self::node('GalaxyCluster', self::C2),
+            self::valueNode(' 8.8.8.8 '),
+            self::valueNode('1.2.3.4'),
+            self::valueNode('EXAMPLE.ORG'),
+        )));
+        $data = new AnalystGraphData();
+        return $data->resolve(array('id' => 1), $document);
+    }
+
+    public function testResolveLeavesOutWhatTheUserCannotRead()
+    {
+        $resolved = $this->resolveFixture();
+
+        $keys = array_map(array('AnalystGraphDocumentTool', 'nodeKey'), $resolved['document']['nodes']);
+        $this->assertNotContains('Attribute:' . self::A_HIDDEN, $keys);
+        $this->assertCount(11, $keys);
+        $this->assertSame(11, $resolved['meta']['nodes']);
+        $this->assertSame(11, $resolved['meta']['drawn']);
+        $this->assertSame(array(), $resolved['meta']['skipped']);
+        $this->assertStringContainsString('"view":{}', json_encode($resolved['document']));
+    }
+
+    public function testResolvedRecordsFollowTheDocumentOrder()
+    {
+        $resolved = $this->resolveFixture();
+
+        $this->assertSame(array(21, 22), array_column($resolved['Object'], 'id'));
+        $this->assertSame(array(31, 41, 33), array_column($resolved['Attribute'], 'id'));
+        $this->assertSame(array(self::C1, self::C2), array_column($resolved['GalaxyCluster'], 'uuid'));
+        $this->assertSame(array('8.8.8.8', '1.2.3.4', 'EXAMPLE.ORG'), array_column($resolved['Value'], 'value'));
+        $this->assertSame(base64_encode('8.8.8.8'), $resolved['Value'][0]['b64']);
+        $this->assertSame(array(11, 12), array_keys($resolved['events']));
+    }
+
+    public function testResolvedEdges()
+    {
+        $resolved = $this->resolveFixture();
+
+        $edges = array();
+        foreach ($resolved['edges'] as $edge) {
+            $edges[$edge['id']] = array($edge['kind'], $edge['from'], $edge['to']);
+        }
+        ksort($edges);
+        $value = function ($v) {
+            return Value::uuidFor($v);
+        };
+        $expected = array(
+            'object-reference:r1' => array('object-reference', 'Object:' . self::O2, 'Object:' . self::O1),
+            'object-reference:r2' => array('object-reference', 'Object:' . self::O1, 'Attribute:' . self::A1),
+            'relationship:rel1' => array('relationship', 'Attribute:' . self::A1, 'Value:' . $value('8.8.8.8')),
+            'contains:' . self::A_CHILD1 => array('contains', 'Object:' . self::O1, 'Attribute:' . self::A_CHILD1),
+            'in-event:' . self::O1 => array('in-event', 'Object:' . self::O1, 'Event:' . self::E1),
+            'in-event:' . self::O2 => array('in-event', 'Object:' . self::O2, 'Event:' . self::E1),
+            'in-event:' . self::A1 => array('in-event', 'Attribute:' . self::A1, 'Event:' . self::E1),
+            'tagged:' . self::E1 . '>' . self::C1 => array('tag', 'Event:' . self::E1, 'GalaxyCluster:' . self::C1),
+            'tagged:' . self::A_CHILD2 . '>' . self::C1 => array('tag', 'Attribute:' . self::A_CHILD2, 'GalaxyCluster:' . self::C1),
+            'cluster-relation:' . self::C1 . '>' . self::C2 . ':uses' => array('cluster-relation', 'GalaxyCluster:' . self::C1, 'GalaxyCluster:' . self::C2),
+            'value:' . $value('8.8.8.8') . '>' . self::A_CHILD1 => array('value', 'Value:' . $value('8.8.8.8'), 'Attribute:' . self::A_CHILD1),
+            'value:' . $value('1.2.3.4') . '>' . self::A3 => array('value', 'Value:' . $value('1.2.3.4'), 'Attribute:' . self::A3),
+            'value:' . $value('EXAMPLE.ORG') . '>' . self::A_CHILD2 => array('value', 'Value:' . $value('EXAMPLE.ORG'), 'Attribute:' . self::A_CHILD2),
+        );
+        ksort($expected);
+        $this->assertSame($expected, $edges);
+    }
+
+    public function testResolveDrawsTheBudgetAndListsTheRest()
+    {
+        $this->registerResolveFakes(array());
+        $nodes = array();
+        for ($i = 0; $i <= AnalystGraphData::NODE_BUDGET; $i++) {
+            $nodes[] = self::valueNode('v' . $i);
+        }
+        list($document) = AnalystGraphDocumentTool::normalise(array('nodes' => $nodes));
+        $data = new AnalystGraphData();
+
+        $resolved = $data->resolve(array('id' => 1), $document);
+
+        $this->assertSame(AnalystGraphData::NODE_BUDGET + 1, $resolved['meta']['nodes']);
+        $this->assertSame(AnalystGraphData::NODE_BUDGET, $resolved['meta']['drawn']);
+        $this->assertSame(array('Value:' . Value::uuidFor('v' . AnalystGraphData::NODE_BUDGET)), $resolved['meta']['skipped']);
+        $this->assertCount(AnalystGraphData::NODE_BUDGET, $resolved['Value']);
+        $this->assertCount(AnalystGraphData::NODE_BUDGET + 1, $resolved['document']['nodes']);
     }
 }

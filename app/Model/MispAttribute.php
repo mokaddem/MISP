@@ -2080,6 +2080,36 @@ class MispAttribute extends AppModel
     }
 
     /**
+     * Live attributes the user may read, shaped as
+     * MispObject::fetchGraphObjects() shapes an object's.
+     *
+     * @param array $user
+     * @param array $conditions
+     * @return array
+     */
+    public function fetchGraphAttributes(array $user, array $conditions)
+    {
+        $conditions['Attribute.deleted'] = 0;
+        $rows = $this->fetchAttributesSimple($user, [
+            'conditions' => $conditions,
+            'contain' => [
+                'Event' => ['fields' => ['Event.id', 'Event.org_id']],
+                'Object' => ['fields' => ['Object.id']],
+                'AttributeTag' => ['Tag'],
+            ],
+        ]);
+        $objectModel = ClassRegistry::init('MispObject');
+        $out = [];
+        foreach ($rows as $row) {
+            $attribute = $row['Attribute'];
+            $attribute['AttributeTag'] = $row['AttributeTag'] ?? [];
+            $shaped = $objectModel->graphAttributes($user, [$attribute], $row['Event']['org_id'] ?? null);
+            $out[] = $shaped[0];
+        }
+        return $out;
+    }
+
+    /**
      * Method that fetches all attributes for the various exports
      * very flexible, it's basically a replacement for find, with the addition that it restricts access based on user
      * options:

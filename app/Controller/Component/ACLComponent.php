@@ -41,6 +41,11 @@ class ACLComponent extends Component
             'index' => array(),
             'massDelete' => array(),
         ),
+        'analystGraphs' => [
+            'data' => ['*'],
+            'fork' => ['AND' => ['perm_add', 'perm_analyst_data']],
+            'save' => ['AND' => ['perm_add', 'perm_analyst_data']],
+        ],
         'api' => [
             'rest' => ['perm_auth'],
             'viewDeprecatedFunctionUse' => [],

@@ -121,6 +121,74 @@ class Graph extends AnalystData
     }
 
     /**
+     * Replace a graph's document under a row lock. With $baseRevision, a graph
+     * saved since that revision is left untouched and the result is a conflict.
+     *
+     * @param int $id
+     * @param callable $change Given the stored document, returns the new one
+     * @param int|null $baseRevision
+     * @return array status (saved, conflict, invalid or missing), revision,
+     *               errors; once saved also node_count, content_size, modified
+     * @throws Exception
+     */
+    public function writeContent($id, callable $change, $baseRevision = null)
+    {
+        $db = $this->getDataSource();
+        $db->begin();
+        try {
+            $rows = $db->fetchAll(
+                sprintf(
+                    'SELECT %s, %s FROM %s WHERE %s = ? FOR UPDATE',
+                    $db->name('revision'),
+                    $db->name('content'),
+                    $db->fullTableName($this),
+                    $db->name('id')
+                ),
+                [(int)$id],
+                ['cache' => false]
+            );
+            if (empty($rows)) {
+                $db->rollback();
+                return ['status' => 'missing', 'revision' => null, 'errors' => []];
+            }
+            $stored = array_merge(...array_values($rows[0]));
+            $revision = (int)$stored['revision'];
+            if ($baseRevision !== null && (int)$baseRevision !== $revision) {
+                $db->rollback();
+                return ['status' => 'conflict', 'revision' => $revision, 'errors' => []];
+            }
+            $document = json_decode($stored['content'], true);
+            $content = $change(is_array($document) ? $document : AnalystGraphDocumentTool::emptyDocument());
+            $this->create(false);
+            $saved = $this->save(
+                [$this->alias => [
+                    'id' => (int)$id,
+                    'content' => $content,
+                    'modified' => date('Y-m-d H:i:s'),
+                ]],
+                ['fieldList' => ['content', 'modified']]
+            );
+            if (!$saved) {
+                $db->rollback();
+                return ['status' => 'invalid', 'revision' => $revision, 'errors' => $this->validationErrors];
+            }
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollback();
+            throw $e;
+        }
+        $saved = $saved[$this->alias];
+        return [
+            'status' => 'saved',
+            'revision' => (int)$saved['revision'],
+            'node_count' => (int)$saved['node_count'],
+            'content_size' => (int)$saved['content_size'],
+            'modified' => $saved['modified'],
+            'errors' => [],
+        ];
+    }
+
+    /**
      * Editing also needs the analyst-data permission, so `_canEdit` tells a
      * client whether to offer saving or forking.
      */
