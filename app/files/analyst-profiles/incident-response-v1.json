@@ -2,7 +2,7 @@
     "uuid": "a556ee9d-eb23-43df-8cdc-4b4995135797",
     "name": "Incident Response & Investigation",
     "description": "For an analyst who arrives from a case rather than from a queue, and for whom an old indicator is evidence rather than noise. It keeps the shipped default's numbers and changes what the page shows first, with a longer shelf life at the far end.",
-    "version": 4,
+    "version": 5,
     "parameters": {
         "format": 1,
         "signals": [
@@ -136,7 +136,9 @@
                 "enabled": true,
                 "points": {
                     "per_verdict": 12,
-                    "cap": 24
+                    "cap": 24,
+                    "per_agreeing": 6,
+                    "agreeing_cap": 12
                 },
                 "config": {
                     "window_hours": 168,
@@ -155,9 +157,10 @@
             },
             "quality_high_min_signals": 4,
             "thin_record_clamp": {
-                "max_orgs": 1,
+                "max_voices": 1,
                 "max_sightings": 0,
-                "max_band": "low"
+                "max_band": "low",
+                "max_band_by_grade": {}
             }
         },
         "escalations": [

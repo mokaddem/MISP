@@ -740,21 +740,26 @@ class AnalystProfileFormTool
                     ),
                     'fields' => array(
                         array(
-                            'key' => 'max_orgs',
+                            'key' => 'max_voices',
                             'label' => __('Reported by at most'),
-                            'type' => 'int',
-                            'unit' => __('organisations'),
-                            'value' => isset($clamp['max_orgs'])
-                                ? $clamp['max_orgs']
-                                : null,
+                            'type' => 'float',
+                            'unit' => __('sources'),
+                            'value' => isset($clamp['max_voices'])
+                                ? $clamp['max_voices']
+                                : (isset($clamp['max_orgs'])
+                                    ? $clamp['max_orgs']
+                                    : null),
                             'default' => 1,
                             'help' => __(
-                                'More reporting organisations than this'
-                                . ' and the record is not thin, so it'
-                                . ' keeps the band its points earned.'
+                                'Each reporting organisation is one'
+                                . ' source, or less once you grade it:'
+                                . ' G counts for none and E for a'
+                                . ' quarter. A full source more than'
+                                . ' this and the record is not thin, so'
+                                . ' it keeps the band its points earned.'
                             ),
                             'path' => array('thresholds',
-                                'thin_record_clamp', 'max_orgs'),
+                                'thin_record_clamp', 'max_voices'),
                         ),
                         array(
                             'key' => 'max_sightings',
@@ -767,7 +772,9 @@ class AnalystProfileFormTool
                             'default' => 0,
                             'help' => __(
                                 'Sightings from organisations that did not'
-                                . ' report the value. More than this and'
+                                . ' report the value, and graded'
+                                . ' enrichment verdicts agreeing with'
+                                . ' the reporters. More than this and'
                                 . ' it is not thin either — both'
                                 . ' conditions have to hold before the'
                                 . ' cap bites.'
@@ -808,8 +815,55 @@ class AnalystProfileFormTool
                         ),
                     ),
                 ),
+                array(
+                    'kind' => 'fields',
+                    'id' => 'thin_record_clamp_by_grade',
+                    'title' => __('The cap, by the reporter\'s grade'),
+                    'blurb' => __(
+                        'A thin record whose source you graded can be'
+                        . ' capped at a band of its own: one source'
+                        . ' graded A, uncorroborated, may be allowed to'
+                        . ' reach medium and no further. A grade left'
+                        . ' on the general cap takes the one above.'
+                    ),
+                    'fields' => $this->clampGradeFields($clamp),
+                ),
             ),
         );
+    }
+
+    /**
+     * One select per grade for `max_band_by_grade`.
+     *
+     * @param array $clamp The stored `thin_record_clamp`
+     * @return array
+     */
+    private function clampGradeFields(array $clamp)
+    {
+        $byGrade = isset($clamp['max_band_by_grade'])
+            && is_array($clamp['max_band_by_grade'])
+            ? $clamp['max_band_by_grade']
+            : array();
+        $fields = array();
+        foreach (ValueTrustTool::GRADES as $grade) {
+            $fields[] = array(
+                'key' => 'max_band_by_grade_' . $grade,
+                'label' => sprintf(__('Graded %1$s (%2$s)'), $grade,
+                    $this->gradeLabel($grade)),
+                'type' => 'select',
+                'options' => array_merge(
+                    array(array(
+                        'value' => '',
+                        'label' => __('the general cap'),
+                    )),
+                    ValueVerdictTool::BANDS
+                ),
+                'value' => isset($byGrade[$grade]) ? $byGrade[$grade] : null,
+                'path' => array('thresholds', 'thin_record_clamp',
+                    'max_band_by_grade', $grade),
+            );
+        }
+        return $fields;
     }
 
     /**
@@ -3323,6 +3377,31 @@ class AnalystProfileFormTool
             }
         }
 
+        $clampSection = isset($thresholds['thin_record_clamp'])
+            && is_array($thresholds['thin_record_clamp'])
+            ? $thresholds['thin_record_clamp']
+            : array();
+        if (isset($clampSection['max_voices'])
+            && (!is_numeric($clampSection['max_voices'])
+                || $clampSection['max_voices'] < 0)
+        ) {
+            $errors[] = __('The thin-record clamp\'s source count must be'
+                . ' a number of zero or more.');
+        }
+        foreach ($clampSection['max_band_by_grade'] ?? array()
+            as $grade => $band
+        ) {
+            if (!in_array($grade, ValueTrustTool::GRADES, true)
+                || !in_array($band, ValueVerdictTool::BANDS, true)
+            ) {
+                $errors[] = sprintf(
+                    __('The clamp by grade names `%1$s` → `%2$s`; it'
+                        . ' takes a grade A to G and a band.'),
+                    (string)$grade,
+                    is_scalar($band) ? (string)$band : gettype($band)
+                );
+            }
+        }
         if (isset($thresholds['dispute_stale_factor'])) {
             $factor = $thresholds['dispute_stale_factor'];
             if (!is_numeric($factor) || $factor < 0 || $factor > 1) {
@@ -4221,6 +4300,10 @@ class AnalystProfileFormTool
                 $merged['enrichment']['locality_posture'],
                 $merged['enrichment']['cost_posture']
             );
+        }
+        // `max_voices` replaced `max_orgs` (D64); a save drops the old key.
+        if (isset($merged['thresholds']['thin_record_clamp']['max_voices'])) {
+            unset($merged['thresholds']['thin_record_clamp']['max_orgs']);
         }
         $merged = $this->transposeModules($merged, $posted);
         $merged = $this->transposeTiers($merged, $posted);

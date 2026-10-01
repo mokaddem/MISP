@@ -231,6 +231,12 @@ class ValueVerdictTool
             return $this->nothingToAssess($derived, $polarity,
                 $context, $profile);
         }
+        /*
+         * The lean the rows are anchored to, for the one signal that
+         * pays for agreeing with it: an outside verdict confirming
+         * what the reporters assert is corroboration (D66).
+         */
+        $context['lean'] = $lean;
         $entries = $this->signalEntries($profile);
 
         $rows = array();
@@ -384,6 +390,10 @@ class ValueVerdictTool
         }
         $ledger = $this->group($this->onAxis($rows,
             self::AXIS_QUALITY));
+        $context['outside_agreement'] = self::outsideAgreement(
+            $derived['stances'],
+            $lean
+        );
 
         return $this->verdict(array(
             'lean' => $lean,
@@ -481,6 +491,32 @@ class ValueVerdictTool
             'context' => $context,
             'profile' => $profile,
         ));
+    }
+
+    /**
+     * The weight of the graded outside verdicts agreeing with the
+     * lean, each at most one source — what the clamp counts beside
+     * independent sightings (D66). A contested lean has no side to
+     * agree with.
+     *
+     * @param array $stances
+     * @param string $lean
+     * @return float
+     */
+    private static function outsideAgreement(array $stances, $lean)
+    {
+        if ($lean !== 'threat' && $lean !== 'benign') {
+            return 0.0;
+        }
+        $total = 0.0;
+        foreach ($stances['disputes'] ?? array() as $voice) {
+            if (($voice['kind'] ?? null) === 'enrichment'
+                && ($voice['side'] ?? null) === $lean
+            ) {
+                $total += min(1.0, (float)$voice['weight']);
+            }
+        }
+        return $total;
     }
 
     /**
@@ -665,6 +701,9 @@ class ValueVerdictTool
             'composition' => ValueStatsTool::verdictComposition($ledger),
             'not_counted' => $parts['not_counted'],
             'signals' => $parts['counts'],
+            // Graded outside verdicts agreeing with the lean (D66).
+            'outside_agreement' => (float)($context['outside_agreement']
+                ?? 0.0),
             'profile' => $this->profileName($profile),
             'profile_id' => $profile === null
                 ? null
@@ -1250,9 +1289,11 @@ class ValueVerdictTool
             'clamp_band' => isset($clamp['max_band'])
                 ? $clamp['max_band']
                 : null,
-            'clamp_orgs' => isset($clamp['max_orgs'])
-                ? (int)$clamp['max_orgs']
-                : null,
+            'clamp_voices' => isset($clamp['max_voices'])
+                ? (float)$clamp['max_voices']
+                : (isset($clamp['max_orgs'])
+                    ? (float)$clamp['max_orgs']
+                    : null),
             'clamp_sightings' => isset($clamp['max_sightings'])
                 ? (int)$clamp['max_sightings']
                 : null,
@@ -1266,6 +1307,10 @@ class ValueVerdictTool
         $unclamped = self::qualityBand($quality, $signals, $profile);
         if ($withContext !== $unclamped) {
             $floors['would_be'] = $unclamped;
+            $ceiling = self::clampCeiling($thresholds, $context);
+            $floors['clamp_grade'] = $ceiling === null
+                ? null
+                : $ceiling['grade'];
             return array('reason' => 'clamped', 'floors' => $floors);
         }
         if ($quality >= $floors['high']
@@ -1316,34 +1361,150 @@ class ValueVerdictTool
         if (empty($context)) {
             return $band;
         }
+        $ceiling = self::clampCeiling($thresholds, $context);
+        if ($ceiling === null) {
+            return $band;
+        }
+        $limit = array_search($ceiling['band'], self::BANDS, true);
+        $reached = array_search($band, self::BANDS, true);
+        if ($limit === false || $reached === false
+            || $reached <= $limit
+        ) {
+            return $band;
+        }
+        return $ceiling['band'];
+    }
+
+    /**
+     * The ceiling the clamp puts on this record, or null when the
+     * record is not thin.
+     *
+     * **Sources are voices** (D64): each reporting organisation at its
+     * grade factor once the profile grades anybody, and **at most one
+     * each** — the question is how many sources there are, not how
+     * reliable they are, so an `A` is one source and a `G` none. The
+     * record is thin while it has less than `max_voices + 1` sources'
+     * worth: on whole numbers that is the old `orgs ≤ max_orgs`
+     * exactly, and it is what keeps a quarter-voice second source from
+     * lifting the clamp alone.
+     *
+     * **Corroboration is weighed the same way**, and has two kinds:
+     * type-0 sightings from organisations that did not report the
+     * value, and a graded outside verdict agreeing with the lean
+     * (D66), which `assess()` leaves in `outside_agreement`.
+     *
+     * **The ceiling can depend on the grade.** `max_band_by_grade`
+     * names a band per grade, read for the heaviest reporter; a grade
+     * it does not name takes `max_band`.
+     *
+     * @param array $thresholds
+     * @param array $context
+     * @return array|null `band`, and `grade` when a grade set it
+     */
+    public static function clampCeiling(array $thresholds, array $context)
+    {
         $clamp = isset($thresholds['thin_record_clamp'])
             && is_array($thresholds['thin_record_clamp'])
             ? $thresholds['thin_record_clamp']
             : array();
         if (empty($clamp['max_band'])) {
-            return $band;
+            return null;
         }
-        $ceiling = array_search($clamp['max_band'], self::BANDS, true);
-        $reached = array_search($band, self::BANDS, true);
-        if ($ceiling === false || $reached === false
-            || $reached <= $ceiling
-        ) {
-            return $band;
-        }
-        $orgs = isset($context['occurrences']['orgs'])
-            ? (int)$context['occurrences']['orgs']
-            : 0;
-        $sightings = self::corroboratingSightings($context);
-        $maxOrgs = isset($clamp['max_orgs'])
-            ? (int)$clamp['max_orgs']
-            : 1;
+        $maxVoices = isset($clamp['max_voices'])
+            && is_numeric($clamp['max_voices'])
+            ? (float)$clamp['max_voices']
+            : (isset($clamp['max_orgs']) && is_numeric($clamp['max_orgs'])
+                ? (float)$clamp['max_orgs']
+                : 1.0);
         $maxSightings = isset($clamp['max_sightings'])
-            ? (int)$clamp['max_sightings']
-            : 0;
-        if ($orgs <= $maxOrgs && $sightings <= $maxSightings) {
-            return $clamp['max_band'];
+            ? (float)$clamp['max_sightings']
+            : 0.0;
+        $sources = self::sourceVoices($context);
+        if (ValueLeanTool::atLeast($sources['voices'], $maxVoices + 1)) {
+            return null;
         }
-        return $band;
+        $corroboration = self::weightedCorroboration($context)
+            + (float)($context['outside_agreement'] ?? 0);
+        if (ValueLeanTool::atLeast($corroboration, $maxSightings + 1)) {
+            return null;
+        }
+        $byGrade = isset($clamp['max_band_by_grade'])
+            && is_array($clamp['max_band_by_grade'])
+            ? $clamp['max_band_by_grade']
+            : array();
+        $grade = $sources['grade'];
+        if ($grade !== null && isset($byGrade[$grade])
+            && in_array($byGrade[$grade], self::BANDS, true)
+        ) {
+            return array('band' => $byGrade[$grade], 'grade' => $grade);
+        }
+        return array('band' => $clamp['max_band'], 'grade' => null);
+    }
+
+    /**
+     * How many sources the record has, each counted at most once, and
+     * the grade of the heaviest.
+     *
+     * @param array $context
+     * @return array `voices` (float) and `grade` (string|null)
+     */
+    private static function sourceVoices(array $context)
+    {
+        $orgs = isset($context['orgs']) && is_array($context['orgs'])
+            ? $context['orgs']
+            : array();
+        if (empty($orgs)) {
+            return array(
+                'voices' => (float)($context['occurrences']['orgs'] ?? 0),
+                'grade' => null,
+            );
+        }
+        $weighted = !empty(ValueTrustTool::blockFrom($context)['in_force']);
+        $voices = 0.0;
+        $heaviest = -1.0;
+        $grade = null;
+        foreach ($orgs as $org) {
+            $id = (int)($org['id'] ?? 0);
+            $factor = $weighted ? ValueTrustTool::factor($context, $id) : 1.0;
+            $voices += min(1.0, $factor);
+            if ($weighted && $factor > $heaviest) {
+                $heaviest = $factor;
+                $grade = ValueTrustTool::gradeFor($context, $id);
+            }
+        }
+        return array('voices' => $voices, 'grade' => $grade);
+    }
+
+    /**
+     * `corroboratingSightings()`, each filer's sightings at its grade
+     * factor (at most one each) once the profile grades anybody.
+     *
+     * @param array $context
+     * @return float
+     */
+    private static function weightedCorroboration(array $context)
+    {
+        $byOrg = isset($context['sightings']['seen']['by_org'])
+            && is_array($context['sightings']['seen']['by_org'])
+            ? $context['sightings']['seen']['by_org']
+            : array();
+        $reporters = array();
+        foreach ($context['orgs'] ?? array() as $org) {
+            if (isset($org['id'])) {
+                $reporters[(int)$org['id']] = true;
+            }
+        }
+        $weighted = !empty(ValueTrustTool::blockFrom($context)['in_force']);
+        $total = 0.0;
+        foreach ($byOrg as $id => $n) {
+            if (isset($reporters[(int)$id])) {
+                continue;
+            }
+            $total += (int)$n * ($weighted
+                ? min(1.0, ValueTrustTool::factor($context, $id))
+                : 1.0);
+        }
+        return $total;
     }
 
     /**

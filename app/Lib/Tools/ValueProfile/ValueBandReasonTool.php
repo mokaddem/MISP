@@ -72,10 +72,22 @@ class ValueBandReasonTool
                  * rather than as a fact about the value — an analyst
                  * who disagrees edits three numbers.
                  */
+                if (!empty($floors['clamp_grade'])) {
+                    return sprintf(
+                        __('The points alone would make this %1$s. This'
+                            . ' profile holds a single-source record'
+                            . ' graded %2$s that nothing independent'
+                            . ' confirms at %3$s.'),
+                        self::bandWord(isset($floors['would_be'])
+                            ? $floors['would_be'] : 'medium'),
+                        $floors['clamp_grade'],
+                        self::bandWord($band)
+                    );
+                }
                 return sprintf(
                     __('The points alone would make this %1$s. This'
-                        . ' profile holds a single-source record that no'
-                        . ' other organisation has sighted at %2$s.'),
+                        . ' profile holds a single-source record that'
+                        . ' nothing independent confirms at %2$s.'),
                     self::bandWord(isset($floors['would_be'])
                         ? $floors['would_be'] : 'medium'),
                     self::bandWord($band)

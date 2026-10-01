@@ -126,6 +126,18 @@ class EnrichmentAnswer extends ValueSignalBase
                 'label' => __('Most this signal may contribute, across'
                     . ' every module'),
             ),
+            'per_agreeing' => array(
+                'type' => 'int',
+                'default' => 6,
+                'label' => __('Quality points per verdict agreeing with'
+                    . ' the reporters, before the module\'s grade'),
+            ),
+            'agreeing_cap' => array(
+                'type' => 'int',
+                'default' => 12,
+                'label' => __('Most the agreeing verdicts may add to the'
+                    . ' quality'),
+            ),
         );
         $this->config_schema = array(
             'window_hours' => array(
@@ -215,6 +227,10 @@ class EnrichmentAnswer extends ValueSignalBase
          * number disagree.
          */
         $rows = $this->applyCap($rows, $this->points($config, 'cap'));
+        $rows = array_merge($rows, $this->applyCap(
+            $this->agreeing($read['counted'], $config, $context),
+            $this->points($config, 'agreeing_cap')
+        ));
 
         if (empty($rows) && empty($notes)) {
             return null;
@@ -316,6 +332,51 @@ class EnrichmentAnswer extends ValueSignalBase
             );
         }
         return array('counted' => $counted, 'not_counted' => $notes);
+    }
+
+    /**
+     * A quality row for each counted verdict agreeing with the lean
+     * (D66): an outside source confirming what the reporters assert is
+     * the one corroboration a single-source record can get from
+     * outside MISP. A verdict disagreeing adds no quality — it is a
+     * voice against the lean, and that is weighed in the stance count.
+     *
+     * @param array $counted From `counted()`
+     * @param array $config
+     * @param array $context Carrying the `lean` the engine anchored to
+     * @return array
+     */
+    private function agreeing(array $counted, array $config,
+        array $context
+    ) {
+        $lean = isset($context['lean']) ? $context['lean'] : null;
+        if ($lean !== 'threat' && $lean !== 'benign') {
+            return array();
+        }
+        $per = $this->points($config, 'per_agreeing');
+        $rows = array();
+        foreach ($counted as $verdict) {
+            if ($verdict['reading'] !== $lean) {
+                continue;
+            }
+            $rows[] = $this->row(
+                $per * $verdict['weight'],
+                sprintf(
+                    __('%1$s agrees · %2$s'),
+                    $verdict['module'],
+                    $verdict['word']
+                ),
+                sprintf(
+                    __('an outside source confirming the reporters ·'
+                        . ' graded %s'),
+                    $verdict['grade'] === null ? '?' : $verdict['grade']
+                ),
+                $context,
+                $this->stampAsOf((int)$verdict['ran_at'], $context),
+                self::AXIS_QUALITY
+            );
+        }
+        return $rows;
     }
 
     /**

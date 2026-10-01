@@ -368,6 +368,13 @@ class ValueChangersTool
         if ($reachable === $target) {
             return null;
         }
+        $ceiling = ValueVerdictTool::clampCeiling(
+            $this->section($profile, 'thresholds'),
+            $context
+        );
+        if ($ceiling !== null) {
+            $clamp = $ceiling['band'];
+        }
         /*
          * The sighting half is offered only where a sighting could be
          * read. On an over-correlating value the sightings signals are
@@ -376,6 +383,20 @@ class ValueChangersTool
          * not* would name an act that moves nothing, with the reason it
          * moves nothing printed directly above it.
          */
+        if ($this->gradesAModule($context)) {
+            return array(
+                'axis' => 'quality',
+                'direction' => 'up',
+                'text' => sprintf(
+                    __('A second source: one more organisation'
+                        . ' reporting it, a sighting from an organisation'
+                        . ' that did not, or a graded enrichment module'
+                        . ' agreeing. More from the same source cannot'
+                        . ' lift it past %s.'),
+                    $clamp
+                ),
+            );
+        }
         return array(
             'axis' => 'quality',
             'direction' => 'up',
@@ -391,6 +412,25 @@ class ValueChangersTool
                 $clamp
             ),
         );
+    }
+
+    /**
+     * Whether the profile grades any enrichment module, so that an
+     * agreeing verdict would count as outside corroboration (D66).
+     *
+     * @param array $context
+     * @return bool
+     */
+    private function gradesAModule(array $context)
+    {
+        foreach ($context['enrichment']['trust']['factors'] ?? array()
+            as $factor
+        ) {
+            if ((float)$factor > 0.0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
