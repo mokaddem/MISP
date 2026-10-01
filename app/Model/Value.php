@@ -2365,6 +2365,62 @@ class Value extends AppModel
     }
 
     /**
+     * Which of a few known tags this value's own occurrences carry, per
+     * event — the occurrence half of what a reporter stated about its
+     * claim.
+     *
+     * `ownTagsFor`'s join narrowed to the tag ids asked about, and to
+     * global tags only: a local tag is the host instance's note on
+     * somebody else's report, not the reporter's statement.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $eventIds Events the caller has already resolved
+     * @param array $tagIds
+     * @param array $options As conditionsFor
+     * @return array event id => [tag id, …]
+     */
+    public function statementTagsFor(array $user, $value,
+        array $eventIds, array $tagIds, array $options = array()
+    ) {
+        if (empty($eventIds) || empty($tagIds)) {
+            return array();
+        }
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array(
+            'Attribute.event_id' => array_values($eventIds),
+            'Attribute.deleted' => 0,
+            'AttributeTag.tag_id' => array_values($tagIds),
+            'AttributeTag.local' => 0,
+        );
+        $rows = $attributes->find('all', array(
+            'fields' => array('Attribute.event_id', 'AttributeTag.tag_id'),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'joins' => array(
+                array(
+                    'table' => 'attribute_tags',
+                    'alias' => 'AttributeTag',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'AttributeTag.attribute_id = Attribute.id',
+                    ),
+                ),
+            ),
+            'group' => array('Attribute.event_id', 'AttributeTag.tag_id'),
+        ));
+        $found = array();
+        foreach ($rows as $row) {
+            $found[(int)$row['Attribute']['event_id']][] =
+                (int)$row['AttributeTag']['tag_id'];
+        }
+        return $found;
+    }
+
+    /**
      * The objects this value sits in, newest occurrence first.
      *
      * The sibling section's input. Grouped for the same reason as

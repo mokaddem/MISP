@@ -2,7 +2,7 @@
     "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
     "name": "default-v1",
     "description": "The Analyst Profile MISP ships with, and the one every value page is scored by until somebody enables another. Take a copy rather than editing it - the profile nearest the reader wins.",
-    "version": 18,
+    "version": 19,
     "parameters": {
         "format": 1,
         "signals": [
@@ -26,6 +26,20 @@
                 "group": "Lifecycle",
                 "enabled": true,
                 "points": { "dated": 4, "undated": -1 }
+            },
+            {
+                "id": "record.stated_confidence",
+                "group": "Reporting",
+                "enabled": true,
+                "trust_weighted": true,
+                "points": { "scale": 9 }
+            },
+            {
+                "id": "reporting.false_positive_risk",
+                "group": "Reporting",
+                "enabled": true,
+                "trust_weighted": true,
+                "points": { "per_voice": -6, "cap": -12 }
             },
             {
                 "id": "sightings.volume_recency",

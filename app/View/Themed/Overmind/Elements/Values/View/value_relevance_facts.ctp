@@ -365,10 +365,18 @@ $state = $relevance['state'];
         </div>
 
         <div class="vp-shelf-prov">
-            <?= h(sprintf(
-                __('Expires %s'),
-                date('Y-m-d', $relevance['expires_at'])
-            )) ?>
+            <?php if (!empty($relevance['expired_by'])): ?>
+                <?= h(sprintf(
+                    __('Filed as expired by %1$s on %2$s'),
+                    $relevance['expired_by']['name'],
+                    date('Y-m-d', (int)$relevance['expired_by']['at'])
+                )) ?>
+            <?php else: ?>
+                <?= h(sprintf(
+                    __('Expires %s'),
+                    date('Y-m-d', $relevance['expires_at'])
+                )) ?>
+            <?php endif; ?>
         </div>
 
         <?php if (empty($clock['rows_read'])): ?>

@@ -2,6 +2,7 @@
 
 App::uses('ValueSignalLoader', 'Tools/ValueProfile');
 App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueStatementTool', 'Tools/ValueProfile');
 App::uses('ValueEscalationBase', 'Model/ValueEscalations');
 
 /**
@@ -40,6 +41,10 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  *                + Σ weight of graded verdicts arguing benign
  * threat_share   threat / (threat + benign)
  * ```
+ *
+ * A reporter that asserts the value and also tags its own report with
+ * a false-positive warning keeps one voice, split: `high` or a
+ * confirmation moves all of it to benign, `medium` half.
  *
  * The factor is the organisation's reliability grade once the
  * profile grades anybody, and `1` until then (D64): `G` abstains, `E`
@@ -310,11 +315,37 @@ class ValueLeanTool
             return ValueTrustTool::factor($context, $id);
         };
 
+        $warnings = $this->warnings($context, $profile);
         foreach ($reporters as $index => $org) {
             $id = (int)($org['id'] ?? 0);
             $f = $factor($id);
             if ($f <= 0.0) {
                 $abstained[] = (string)($org['name'] ?? '');
+            }
+            $warn = $id > 0 && isset($warnings[$id])
+                ? $warnings[$id]['weight']
+                : 0.0;
+            if (isset($standing[$index]) && $warn > 0.0) {
+                // Its own warning splits its one voice.
+                $threat += $f * (1.0 - $warn);
+                $benign += $f * $warn;
+                if ($warn >= 1.0) {
+                    $benignOrgs += $f > 0.0 ? 1 : 0;
+                } else {
+                    $threatOrgs += $f > 0.0 ? 1 : 0;
+                }
+                $disputes[] = array(
+                    'kind' => 'warning',
+                    'side' => 'benign',
+                    'org_id' => $id,
+                    'name' => $org['name'] ?? null,
+                    'tag' => $warnings[$id]['tag'],
+                    'stamp' => $warnings[$id]['at'],
+                    'weight' => $f * $warn,
+                    'stale' => false,
+                    'withdrawn' => false,
+                );
+                continue;
             }
             if (isset($standing[$index])) {
                 $threat += $f;
@@ -523,6 +554,32 @@ class ValueLeanTool
         } catch (Throwable $e) {
             return array();
         }
+    }
+
+    /**
+     * Each reporter's own false-positive warning, when the profile
+     * counts them — the same switch as the ledger row that draws them.
+     *
+     * @param array $context
+     * @param array|null $profile
+     * @return array org id => `weight`, `tag`, `at`
+     */
+    private function warnings(array $context, $profile)
+    {
+        foreach (self::section($profile, 'signals') as $entry) {
+            if (!is_array($entry) || ($entry['id'] ?? null)
+                !== 'reporting.false_positive_risk'
+            ) {
+                continue;
+            }
+            if (array_key_exists('enabled', $entry)
+                && empty($entry['enabled'])
+            ) {
+                return array();
+            }
+            return ValueStatementTool::warningsByOrg($context);
+        }
+        return array();
     }
 
     /**

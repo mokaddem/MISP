@@ -8,6 +8,7 @@ App::uses('ValueRelationTool', 'Tools/ValueProfile');
 App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools/ValueProfile');
 App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueStatementTool', 'Tools/ValueProfile');
 App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
 App::uses('ValueRendererTool', 'Tools/ValueProfile');
 App::uses('ValueSignalLoader', 'Tools/ValueProfile');
@@ -3206,6 +3207,7 @@ class ValueProfile extends AppModel
                 'with_first_seen' => $summary['dated'],
             ),
             'orgs' => $this->verdictOrgs($user, $value, $options),
+            'trust' => $this->verdictTrust($profile),
             'corroboration' => ValueRelevanceTool::corroborationFrom(
                 $rows['rows'],
                 $context['sighted']
@@ -16609,6 +16611,7 @@ class ValueProfile extends AppModel
                 'on_flagged_events' => array(),
                 'event_types' => array(),
             ),
+            'statements' => array('events' => array()),
             'budget' => $budget,
             /*
              * What outside sources have said, and how far this profile
@@ -16703,14 +16706,19 @@ class ValueProfile extends AppModel
                     ($context['excluded']['sightings'] ?? 0)
                     + $sightings['windowed'];
             }
+            $events = $this->verdictEvents($user, $value, $options,
+                $budget, $now);
             $context['galaxies'] = $this->verdictGalaxies(
                 $user,
                 $value,
                 $options,
                 $budget,
                 $now,
-                $profile
+                $profile,
+                $events
             );
+            $context['statements'] = $this->verdictStatements($user,
+                $value, $options, $events);
         }
 
         /*
@@ -17437,21 +17445,18 @@ class ValueProfile extends AppModel
      * @param int $now
      * @param array|null $profile The profile in force, for the
      *                            eligibility list alone
+     * @param array|null $events From verdictEvents(), when the caller
+     *                           already has them
      * @return array
      */
     private function verdictGalaxies(array $user, $value,
-        array $options, array $budget, $now, $profile = null
+        array $options, array $budget, $now, $profile = null,
+        $events = null
     ) {
         $eligible = ValueLabelPriority::attribution($profile);
-        $events = $this->model('Value')
-            ->occurrenceEventsFor($user, $value, $options);
-        if (!empty($budget['window_days'])) {
-            $cut = $now - (int)$budget['window_days'] * 86400;
-            foreach ($events as $id => $event) {
-                if ((int)$event['last'] < $cut) {
-                    unset($events[$id]);
-                }
-            }
+        if ($events === null) {
+            $events = $this->verdictEvents($user, $value, $options,
+                $budget, $now);
         }
         $clusters = array();
         $techniques = array();
@@ -17536,6 +17541,205 @@ class ValueProfile extends AppModel
             'on_flagged_events' => $onEvents['flagged'],
             'event_types' => $onEvents['types'],
         );
+    }
+
+    /**
+     * The events this value occurs in, cut to the evidence window.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @param array $budget
+     * @param int $now
+     * @return array As Value::occurrenceEventsFor
+     */
+    private function verdictEvents(array $user, $value, array $options,
+        array $budget, $now
+    ) {
+        $events = $this->model('Value')
+            ->occurrenceEventsFor($user, $value, $options);
+        if (!empty($budget['window_days'])) {
+            $cut = $now - (int)$budget['window_days'] * 86400;
+            foreach ($events as $id => $event) {
+                if ((int)$event['last'] < $cut) {
+                    unset($events[$id]);
+                }
+            }
+        }
+        return $events;
+    }
+
+    /**
+     * What each reporter stated about its own claim: the confidence and
+     * false-positive tags on the value's occurrences and on the events
+     * carrying them, read by `ValueStatementTool`.
+     *
+     * The statement belongs to the event's creator, which is who put a
+     * global tag on it. Local tags are left out at both levels — they
+     * are this instance's notes on somebody else's report.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @param array $events From verdictEvents()
+     * @return array `events`: event id => `org`, `last`, `flagged`,
+     *               `attribute` and `event` (each `name`, `number`)
+     */
+    private function verdictStatements(array $user, $value,
+        array $options, array $events
+    ) {
+        $empty = array('events' => array());
+        if (empty($events)) {
+            return $empty;
+        }
+        $tags = $this->statementTags();
+        if (empty($tags)) {
+            return $empty;
+        }
+        $eventIds = array_keys($events);
+        $onOccurrences = $this->model('Value')->statementTagsFor($user,
+            $value, $eventIds, array_keys($tags), $options);
+        $onEvents = array();
+        $rows = ClassRegistry::init('EventTag')->find('all', array(
+            'fields' => array('EventTag.event_id', 'EventTag.tag_id'),
+            'conditions' => array(
+                'EventTag.event_id' => $eventIds,
+                'EventTag.tag_id' => array_keys($tags),
+                'EventTag.local' => 0,
+            ),
+            'recursive' => -1,
+        ));
+        foreach ($rows as $row) {
+            $onEvents[(int)$row['EventTag']['event_id']][] =
+                (int)$row['EventTag']['tag_id'];
+        }
+        $stated = array_values(array_unique(array_merge(
+            array_keys($onOccurrences),
+            array_keys($onEvents)
+        )));
+        if (empty($stated)) {
+            return $empty;
+        }
+        $creators = ClassRegistry::init('Event')->find('list', array(
+            'recursive' => -1,
+            'fields' => array('Event.id', 'Event.orgc_id'),
+            'conditions' => array('Event.id' => $stated),
+        ));
+        $resolve = function (array $ids) use ($tags) {
+            $out = array();
+            foreach (array_unique($ids) as $id) {
+                if (isset($tags[$id])) {
+                    $out[] = $tags[$id];
+                }
+            }
+            return $out;
+        };
+        $out = array();
+        foreach ($stated as $id) {
+            $out[(int)$id] = array(
+                'org' => (int)($creators[$id] ?? 0),
+                'last' => (int)$events[$id]['last'],
+                'flagged' => !empty($events[$id]['flagged']),
+                'attribute' => $resolve($onOccurrences[$id] ?? array()),
+                'event' => $resolve($onEvents[$id] ?? array()),
+            );
+        }
+        return array('events' => $out);
+    }
+
+    /**
+     * The statement tags this instance holds, with their numbers.
+     *
+     * The tag's own `numerical_value` where it overrides its taxonomy,
+     * as MISP lets it, and the taxonomy entry's otherwise — the tag
+     * rows' copy is not kept filled.
+     *
+     * @return array tag id => `name`, `number`
+     */
+    private function statementTags()
+    {
+        $or = array();
+        foreach (ValueStatementTool::predicates() as $predicate) {
+            $or[] = array('Tag.name LIKE' => $predicate . '=%');
+        }
+        $rows = ClassRegistry::init('Tag')->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Tag.id', 'Tag.name', 'Tag.numerical_value'),
+            'conditions' => array('OR' => $or),
+        ));
+        if (empty($rows)) {
+            return array();
+        }
+        $numbers = $this->taxonomyNumbers();
+        $tags = array();
+        foreach ($rows as $row) {
+            $name = $row['Tag']['name'];
+            $parsed = ValueStatementTool::parse($name);
+            $number = $row['Tag']['numerical_value'];
+            if ($number === null && $parsed !== null) {
+                $number = $numbers[$parsed['tag']] ?? null;
+            }
+            $tags[(int)$row['Tag']['id']] = array(
+                'name' => $name,
+                'number' => $number === null ? null : (int)$number,
+            );
+        }
+        return $tags;
+    }
+
+    /**
+     * The statement taxonomies' entry numbers, keyed the way
+     * `ValueStatementTool::parse()` writes a tag.
+     *
+     * @return array
+     */
+    private function taxonomyNumbers()
+    {
+        $namespaces = array();
+        foreach (ValueStatementTool::predicates() as $predicate) {
+            $namespaces[] = explode(':', $predicate, 2)[0];
+        }
+        $rows = ClassRegistry::init('TaxonomyEntry')->find('all', array(
+            'recursive' => -1,
+            'fields' => array(
+                'Taxonomy.namespace',
+                'TaxonomyPredicate.value',
+                'TaxonomyEntry.value',
+                'TaxonomyEntry.numerical_value',
+            ),
+            'joins' => array(
+                array(
+                    'table' => 'taxonomy_predicates',
+                    'alias' => 'TaxonomyPredicate',
+                    'type' => 'INNER',
+                    'conditions' => array('TaxonomyPredicate.id'
+                        . ' = TaxonomyEntry.taxonomy_predicate_id'),
+                ),
+                array(
+                    'table' => 'taxonomies',
+                    'alias' => 'Taxonomy',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'Taxonomy.id = TaxonomyPredicate.taxonomy_id',
+                    ),
+                ),
+            ),
+            'conditions' => array(
+                'Taxonomy.namespace' => array_values(
+                    array_unique($namespaces)
+                ),
+                'TaxonomyEntry.numerical_value IS NOT NULL',
+            ),
+        ));
+        $numbers = array();
+        foreach ($rows as $row) {
+            $key = $row['Taxonomy']['namespace'] . ':'
+                . $row['TaxonomyPredicate']['value'] . '="'
+                . $row['TaxonomyEntry']['value'] . '"';
+            $numbers[$key] =
+                (int)$row['TaxonomyEntry']['numerical_value'];
+        }
+        return $numbers;
     }
 
     /**

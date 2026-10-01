@@ -1,5 +1,7 @@
 <?php
 
+App::uses('ValueStatementTool', 'Tools/ValueProfile');
+
 /**
  * Why the lean is the lean, in one sentence.
  *
@@ -304,6 +306,14 @@ class ValueLeanReasonTool
         $who = empty($dispute['name'])
             ? __('an organisation not named to you')
             : $dispute['name'];
+        if (($dispute['kind'] ?? null) === 'warning') {
+            return sprintf(
+                __('%1$s warns of %2$s on its own report (weight %3$s)'),
+                $who,
+                ValueStatementTool::warningLabel($dispute['tag'] ?? ''),
+                $weight
+            );
+        }
         if (!empty($dispute['withdrawn'])) {
             $phrase = sprintf(
                 __('%s filed a false positive on its own report'),
