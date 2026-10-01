@@ -302,6 +302,10 @@ class CollectionsController extends AppController
         }
         $this->set('menuData', array('menuList' => 'collections', 'menuItem' => 'view'));
         $user = $this->Auth->user();
+        if ($this->IndexFilter->isRest()) {
+            $this->Collection->includeAnalystData = true;
+            $this->Collection->includeAnalystDataRecursive = true;
+        }
         $params = [
             'contain' => [
                 'Orgc',
