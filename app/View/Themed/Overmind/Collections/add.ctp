@@ -138,7 +138,7 @@ echo $this->Form->create('Collection', [
                     </div>
                     <div class="text-muted" style="font-size:.75rem; margin-top:.15rem;">
                         <?= h($attachElementType) ?> ·
-                        <code><?= h(implode(', ', $attachElementUuids)) ?></code>
+                        <code class="text-break"><?= h(implode(', ', $attachElementLabels ?? $attachElementUuids)) ?></code>
                     </div>
                 </div>
             </div>

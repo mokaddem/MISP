@@ -15,6 +15,21 @@ $typeStyles = [
         'color' => 'var(--bs-galaxy)',
         'bg'    => 'rgba(139,92,246,.12)',
     ],
+    'Attribute' => [
+        'icon'  => 'misp-icon misp-icon-attribute misp-simple',
+        'color' => 'var(--bs-attribute)',
+        'bg'    => 'rgba(var(--bs-secondary-rgb),.12)',
+    ],
+    'Object' => [
+        'icon'  => 'misp-icon misp-icon-object misp-simple',
+        'color' => 'var(--bs-object)',
+        'bg'    => 'rgba(var(--bs-secondary-rgb),.12)',
+    ],
+    'Value' => [
+        'icon'  => 'fas fa-quote-right',
+        'color' => 'var(--bs-secondary)',
+        'bg'    => 'rgba(var(--bs-secondary-rgb),.12)',
+    ],
 ];
 $typeOptions = [];
 foreach ($types as $value => $label) {
@@ -30,7 +45,7 @@ echo $this->Form->create('CollectionElement', [
 <?= $this->element('genericElementsBS5/Forms/modal_header', [
     'eyebrow' => __('Collections'),
     'title' => __('Add Element to Collection'),
-    'description' => __('Attach an existing event or galaxy cluster to this collection by its UUID.'),
+    'description' => __('Attach an event, galaxy cluster, attribute or object by its UUID, or add a value.'),
     'icon' => 'fas fa-link',
 ]) ?>
 
@@ -40,7 +55,7 @@ echo $this->Form->create('CollectionElement', [
     <div class="d-flex flex-column gap-4">
 
         <!-- ── ELEMENT UUID ────────────────────────────────────── -->
-        <div class="w-100 px-2">
+        <div class="w-100 px-2" id="collectionElementUuidBox">
             <div class="d-flex align-items-center gap-2 text-primary fw-bold
                         text-uppercase mb-2"
                  style="font-size:.65rem; letter-spacing:.1em;">
@@ -60,7 +75,26 @@ echo $this->Form->create('CollectionElement', [
                 'autocomplete' => 'off',
             ]) ?>
             <?= $this->element('genericElementsBS5/Forms/field_hint', [
-                'text' => __('The RFC 4122 UUID of the event or galaxy cluster to attach.'),
+                'text' => __('The RFC 4122 UUID of the event, galaxy cluster, attribute or object to attach.'),
+            ]) ?>
+        </div>
+
+        <!-- ── VALUE ───────────────────────────────────────────── -->
+        <div class="w-100 px-2 d-none" id="collectionElementValueBox">
+            <?= $this->element('genericElementsBS5/Forms/section_label', [
+                'accent' => 'primary',
+                'label' => __('Value'),
+                'required' => true,
+                'for' => 'CollectionElementValue',
+            ]) ?>
+            <?= $this->Form->text('value', [
+                'id' => 'CollectionElementValue',
+                'class' => 'form-control font-monospace',
+                'maxlength' => CollectionElement::VALUE_MAX_BYTES,
+                'autocomplete' => 'off',
+            ]) ?>
+            <?= $this->element('genericElementsBS5/Forms/field_hint', [
+                'text' => __('An IP address, a domain, a hash — any value, whether or not an attribute carries it yet.'),
             ]) ?>
         </div>
 
@@ -112,6 +146,7 @@ echo $this->Form->create('CollectionElement', [
     var UUID_REQUIRED = <?= json_encode(__('Please provide the UUID of the element to attach.')) ?>;
     var UUID_INVALID = <?= json_encode(__('This is not a valid UUID.')) ?>;
     var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    var VALUE_REQUIRED = <?= json_encode(__('Please provide the value to add.')) ?>;
 
     /* Element type — the badge shape the distribution and collection type
      * selects use, tinted with the entity's own colour. */
@@ -147,7 +182,19 @@ echo $this->Form->create('CollectionElement', [
     }
 
     var uuidEl = document.getElementById('CollectionElementElementUuid');
+    var valueEl = document.getElementById('CollectionElementValue');
     var form = document.getElementById('collectionElementForm');
+    var isValue = function () { return typeEl && typeEl.value === 'Value'; };
+    /* Hidden, never disabled: a disabled input is not posted, which breaks
+       the form's field hash. The model ignores whichever does not apply. */
+    var applyType = function () {
+        document.getElementById('collectionElementUuidBox').classList.toggle('d-none', isValue());
+        document.getElementById('collectionElementValueBox').classList.toggle('d-none', !isValue());
+    };
+    if (typeEl && uuidEl && valueEl) {
+        typeEl.addEventListener('change', applyType);
+        applyType();
+    }
     if (form && uuidEl) {
         var errorId = 'collectionElementUuidError';
 
@@ -176,6 +223,15 @@ echo $this->Form->create('CollectionElement', [
         };
 
         form.addEventListener('submit', function (e) {
+            if (isValue()) {
+                if (valueEl.value.trim()) { return; }
+                e.preventDefault();
+                e.stopPropagation();
+                valueEl.classList.add('is-invalid');
+                valueEl.setAttribute('title', VALUE_REQUIRED);
+                valueEl.focus();
+                return;
+            }
             var value = uuidEl.value.trim();
             if (value && UUID_RE.test(value)) { return; }
             e.preventDefault();

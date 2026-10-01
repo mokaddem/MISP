@@ -1,6 +1,7 @@
 <?php
 /*
- * Attach one element — an event, a galaxy cluster — to a collection.
+ * Attach one element — an event, a cluster, an attribute, an object, a value —
+ * to a collection.
  *
  * "Add it to a collection" and "add it to a collection I do not have yet" are
  * the same intent, so they are one control: the picker's first entry is
@@ -14,7 +15,10 @@
  *   $dropdownData['collections']  id => name, the collections of the user's org
  *   $alreadyInCollectionIds       ids among those that already hold the element
  *   $elementType, $elementUuid    what is being attached
+ *   $elementValue                 the literal, for a Value element
  */
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
+$elementValue = $elementValue ?? null;
 
 $collections = $dropdownData['collections'] ?? [];
 $alreadyIn = array_map('strval', $alreadyInCollectionIds ?? []);
@@ -23,7 +27,8 @@ $alreadyIn = array_map('strval', $alreadyInCollectionIds ?? []);
 $newValue = '__new__';
 
 $newCollectionUrl = $baseurl . '/collections/add?embedded=1&attach_element_type='
-    . rawurlencode($elementType) . '&attach_element_uuid=' . rawurlencode($elementUuid);
+    . rawurlencode($elementType) . '&attach_element_uuid='
+    . rawurlencode($elementValue !== null ? ValueUrlTool::encode($elementValue) : $elementUuid);
 
 /* A collection that already holds the element stays in the list, suffixed and
  * disabled: the user recognises it, and cannot pick a no-op. */
@@ -91,7 +96,7 @@ echo $this->Form->create('CollectionElement', [
                     <?= __('This %s will be attached', h($elementType)) ?>
                 </div>
                 <div class="text-muted" style="font-size:.75rem; margin-top:.15rem;">
-                    <code><?= h($elementUuid) ?></code>
+                    <code class="text-break"><?= h($elementValue ?? $elementUuid) ?></code>
                 </div>
             </div>
         </div>

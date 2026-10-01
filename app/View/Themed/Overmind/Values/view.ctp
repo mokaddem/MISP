@@ -120,13 +120,22 @@ $headerActions = array(
      * said. A disabled control for something the page does is not a
      * promise, it is a wrong answer.
      */
-    array(
-        'type' => 'navigate',
-        'label' => __('Add to collection'),
-        'icon' => 'folder-plus',
-        'class' => 'btn btn-outline-dark disabled',
-        'title' => $noWrites,
-    ),
+    $this->Acl->canAccess('collectionElements', 'addElementToCollection')
+        ? array(
+            'type' => 'modal',
+            'label' => __('Add to collection'),
+            'icon' => 'folder-plus',
+            'class' => 'btn btn-outline-dark',
+            'url' => $baseurl . '/collectionElements/addElementToCollection/Value/' . $valueB64,
+            'size' => 'xl',
+        )
+        : array(
+            'type' => 'navigate',
+            'label' => __('Add to collection'),
+            'icon' => 'folder-plus',
+            'class' => 'btn btn-outline-dark disabled',
+            'title' => $noWrites,
+        ),
     array(
         'type' => 'navigate',
         'label' => __('Watch'),
