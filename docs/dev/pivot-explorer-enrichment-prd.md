@@ -1,6 +1,7 @@
 # PRD: Enrichment from the graph
 
-**Status:** CONTRACT 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
+**Status:** **COMPLETE** (2026-10-01); leftover polish is in the parent PRD's backlog
+([§12](pivot-explorer-v16-prd.md#12-backlog-after-completion-2026-10-01)). Contract 2026-09-30 — §4 grilled and ruled (E1–E13, plus H1–H3 the grilling
 added); phase B done, look B picked (§5.4); phase C wired and accepted (§7). Saving (E8): ruled and wired 2026-09-30, prompt and context menu 2026-10-01 (§10); S9 left as is for now (§10.8).
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-09-30

@@ -1,9 +1,10 @@
 # PRD: Pivot Explorer — leveraging Pivotick on `/events/view2`
 
-**Status:** DRAFT — decisions settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then
-revised for v2 on 2026-09-23 (§5, *Rulings after the v2 bump*). **Every §9 task is built**
-(2026-09-23). §8's still-owed checks were closed by a live pass on 2026-10-01; §11's open
-questions are parked until analyst or community feedback asks for them. State lives in
+**Status:** **COMPLETE** (2026-10-01) — the Pivotick integration is feature-complete. Decisions
+settled against v1.6.0 (D1–D4, D5′, D6–D13; D5 withdrawn), then revised for v2 on 2026-09-23 (§5,
+*Rulings after the v2 bump*). **Every §9 task is built** (2026-09-23). §8's still-owed checks were
+closed by a live pass on 2026-10-01; §11's open questions are parked until analyst or community
+feedback asks for them; what is left is polish, listed in §12. State lives in
 [`pivot-explorer-v16-progress.md`](pivot-explorer-v16-progress.md).
 
 **Owner:** Sami Mokaddem (Claude-assisted)
@@ -1651,3 +1652,20 @@ decided ahead of it.
     left and who vouched for it, and the notice says so. **Open:** one removal is two entries, one
     per correlation pivot, because `removeBySource` takes a single source and `history.group`
     coalesces only visibility changes — so a full restore takes two Undos.
+
+## 12. Backlog (after completion, 2026-10-01)
+
+Polish that does not hold the feature open. None of it blocks shipping; each item is picked up
+when the library change lands or someone asks for it.
+
+| Item | Waits on | Source |
+|---|---|---|
+| **Tag pivots past 200.** The summary says at most 200; the endpoint's `total` already carries the real number. | pivotick `prd/pivot-summary-window.md` (Proposed) | tag-pivots PRD, T8 |
+| **Select by id.** `selectElement(s)` take Node/Edge objects; selecting by id, reveal and the resolution result are not built. | pivotick `prd/misp/selection-api-by-identity.md` §4.1–4.4 | upstream |
+| **Sidebar panel order.** MISP's extra panels render below pivotick's neighbours panel. Cosmetic. | MISP or pivotick | sidebar PRD §5.4 |
+| **Groups do not mix origins.** A group can hold both MISP elements and enrichment results; a `scope` key on groups would keep them apart. No code. | MISP | enrichment PRD; `prd/pivot-enrichment/candidates/b-mark/NOTES.md` |
+
+Not in this backlog, because they are separate projects: the `/events/graph/{id}.json` endpoint
+([`pivot-explorer-graph-endpoint`](../../prd/pivot-explorer-graph-endpoint-prd.md), parked
+2026-09-29) and the intelligence graph (`prd/intelligence-graph/`, stopped after phase 0). §11's
+parked questions stay in §11.
