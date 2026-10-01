@@ -388,7 +388,7 @@ class ValueExclusionTool
 
     /**
      * `feeds.reporters` — a feed is not a second voice for its own
-     * publisher (D68).
+     * publisher.
      *
      * A feed both cached and fetched into local events would count
      * once as a reporting organisation, through the events' creator,

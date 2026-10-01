@@ -17182,7 +17182,7 @@ class ValueProfile extends AppModel
 
     /**
      * The organisations each cached feed hit publishes as, for
-     * `feeds.reporters` (D68).
+     * `feeds.reporters`.
      *
      * Three routes, because MISP records a feed's publisher three ways:
      * a freetext or CSV feed's `orgc_id`, the creator of its fixed
@@ -17517,7 +17517,7 @@ class ValueProfile extends AppModel
         /*
          * Read when the occurrences carry nothing, for the absence
          * wording, or when the reporter flagged the value in any of
-         * its events, for D65's discounted attribution. One `IN`
+         * its events, for the event's discounted attribution. One `IN`
          * against `event_tags`' own index over the ids resolved above.
          */
         $flagged = array();
@@ -17764,8 +17764,9 @@ class ValueProfile extends AppModel
      * resolver an actor's asset.
      *
      * So the event tag alone pays nothing; it lets the ledger *say* the
-     * events are labelled. **The one exception is D65**: an event in
-     * which the reporter flagged this value `to_ids = 1` — this value,
+     * events are labelled. **The one exception is the event's
+     * attribution**: an event in which the reporter flagged this
+     * value `to_ids = 1` — this value,
      * in this report, is an indicator of the report's threat — and
      * `flagged` counts those events per cluster for
      * `attribution.galaxy` to pay at its own discount. `8.8.8.8` in an

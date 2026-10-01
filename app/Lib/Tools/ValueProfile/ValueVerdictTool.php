@@ -235,7 +235,7 @@ class ValueVerdictTool
         /*
          * The lean the rows are anchored to, for the one signal that
          * pays for agreeing with it: an outside verdict confirming
-         * what the reporters assert is corroboration (D66).
+         * what the reporters assert is corroboration.
          */
         $context['lean'] = $lean;
         $entries = $this->signalEntries($profile);
@@ -348,7 +348,7 @@ class ValueVerdictTool
          * are a record disputing its own assertion, and the honest
          * state for that is contested. A false positive or an outside
          * verdict has already been weighed against the reporters in
-         * the stance count (D63); letting its points decide here as
+         * the stance count; letting its points decide here as
          * well is how one false positive outvoted ten organisations.
          * On the shipped catalogue what is left is the warninglist.
          *
@@ -365,7 +365,7 @@ class ValueVerdictTool
          * value's shape; this check firing over the top of it would
          * replace `decided_by` and lose the rule's own sentence.
          *
-         * **And `unflagged` has no assertion to dispute** (D69): a
+         * **And `unflagged` has no assertion to dispute**: a
          * record that only holds the value as context is not
          * contradicting itself when a list calls it infrastructure.
          *
@@ -503,7 +503,7 @@ class ValueVerdictTool
     /**
      * The weight of the graded outside verdicts agreeing with the
      * lean, each at most one source — what the clamp counts beside
-     * independent sightings (D66). A contested lean has no side to
+     * independent sightings. A contested lean has no side to
      * agree with.
      *
      * @param array $stances
@@ -708,7 +708,7 @@ class ValueVerdictTool
             'composition' => ValueStatsTool::verdictComposition($ledger),
             'not_counted' => $parts['not_counted'],
             'signals' => $parts['counts'],
-            // Graded outside verdicts agreeing with the lean (D66).
+            // Graded outside verdicts agreeing with the lean.
             'outside_agreement' => (float)($context['outside_agreement']
                 ?? 0.0),
             'profile' => $this->profileName($profile),
@@ -1115,7 +1115,7 @@ class ValueVerdictTool
             'id' => $signal->id,
             'voice' => !empty($signal->voice),
         );
-        // A row outside the signal's declared `$unit` (D65's event row).
+        // A row outside the signal's declared `$unit` (an event row).
         if (isset($row['unit']) && $row['unit'] === false) {
             $anchored['unit'] = false;
         }
@@ -1391,7 +1391,7 @@ class ValueVerdictTool
      * The ceiling the clamp puts on this record, or null when the
      * record is not thin.
      *
-     * **Sources are voices** (D64): each reporting organisation at its
+     * **Sources are voices**: each reporting organisation at its
      * grade factor once the profile grades anybody, and **at most one
      * each** — the question is how many sources there are, not how
      * reliable they are, so an `A` is one source and a `G` none. The
@@ -1402,8 +1402,8 @@ class ValueVerdictTool
      *
      * **Corroboration is weighed the same way**, and has two kinds:
      * type-0 sightings from organisations that did not report the
-     * value, and a graded outside verdict agreeing with the lean
-     * (D66), which `assess()` leaves in `outside_agreement`.
+     * value, and a graded outside verdict agreeing with the lean,
+     * which `assess()` leaves in `outside_agreement`.
      *
      * **The ceiling can depend on the grade.** `max_band_by_grade`
      * names a band per grade, read for the heaviest reporter; a grade

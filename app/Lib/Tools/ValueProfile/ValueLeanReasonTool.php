@@ -17,7 +17,7 @@ App::uses('ValueStatementTool', 'Tools/ValueProfile');
  * borrow the sentence of the lean it had just overturned.
  *
  * **Voices get a second sentence.** Once a dispute or a grade enters
- * the count (D63, D64) the headcounts stop adding up to the share,
+ * the count the headcounts stop adding up to the share,
  * and *10 of 11 organisations assert this is a threat* under a
  * contested-looking false positive says nothing about why it did not
  * flip. `voicesSentence()` names the weights and every dispute.
@@ -85,7 +85,7 @@ class ValueLeanReasonTool
 
     /**
      * The reporters that recorded the value as context only, which the
-     * counts above leave out (D69): three organisations flagging it
+     * counts above leave out: three organisations flagging it
      * and five recording it with `to_ids` off reads 3 of 3, and the
      * five are named here rather than vanishing.
      *

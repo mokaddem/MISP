@@ -35,7 +35,7 @@
  * Absence fires as `no_hit`: *"no warninglist hit, 84 lists checked"*
  * — and the lists checked is half of it: a hit against nothing is only
  * meaningful beside how much was looked at. It is worth `+1`, as the
- * other absence rows are worth `−1` (D67): it fires on nearly every
+ * other absence rows are worth `−1`: it fires on nearly every
  * value, so a larger weight is an offset on the quality rather than
  * evidence that tells two values apart.
  */

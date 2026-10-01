@@ -1243,7 +1243,7 @@ class Value extends AppModel
                  * date and not the observed date, because a false
                  * positive filed after it is weighed against the
                  * statement, not against the sighting the statement
-                 * was about (`16-signal-corrections.md` D63).
+                 * was about.
                  */
                 'MAX(CASE WHEN Attribute.to_ids = 1'
                     . ' THEN Attribute.timestamp END) AS newest_flagged',
@@ -2172,7 +2172,7 @@ class Value extends AppModel
      *
      * `flagged` counts the occurrences with `to_ids = 1`: an event in
      * which the reporter marked this value for detection, which is what
-     * lets the event's own attribution reach it (D65).
+     * lets the event's own attribution reach it.
      *
      * @param array $user
      * @param string $value

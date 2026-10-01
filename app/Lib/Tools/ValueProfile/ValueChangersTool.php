@@ -284,7 +284,7 @@ class ValueChangersTool
                     (int)$context['occurrences']['orgs'] + $added;
             } else {
                 /*
-                 * `to_ids = 0` is no voice (D69), so the benign side
+                 * `to_ids = 0` is no voice, so the benign side
                  * moves only when somebody says so: an organisation
                  * outside the record filing a false positive. Its id
                  * is past any real one, so it reads as unrated.
@@ -434,7 +434,7 @@ class ValueChangersTool
 
     /**
      * Whether the profile grades any enrichment module, so that an
-     * agreeing verdict would count as outside corroboration (D66).
+     * agreeing verdict would count as outside corroboration.
      *
      * @param array $context
      * @return bool

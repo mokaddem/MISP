@@ -112,7 +112,7 @@ class ValueSummaryTool
             case 'benign':
                 return __('What is recorded here reads as benign.');
             case 'unflagged':
-                // D69's wording: never *benign*, never *unknown*.
+                // Never *benign*, never *unknown*.
                 return __('Recorded as context — nobody flagged it for'
                     . ' detection.');
         }

@@ -2736,7 +2736,7 @@ tr.vp-occ-deleted td {
     color: var(--vp-ben);
 }
 
-/* Context-only reporters (D69): no vote, so no hue and lighter ink. */
+/* Context-only reporters: no vote, so no hue and lighter ink. */
 .vp-vc-lean-context {
     color: var(--vp-context-ink);
     font-weight: 500;

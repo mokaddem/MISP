@@ -82,11 +82,11 @@
  * `threat_share` is the threat side's share of the voices: one per
  * organisation rather than per occurrence — one org spamming forty
  * events is one vote — at its reliability grade, with false positives
- * and graded outside verdicts counted as voices too
- * (`16-signal-corrections.md` D63). `threat_orgs` and `benign_orgs`
+ * and graded outside verdicts counted as voices too.
+ * `threat_orgs` and `benign_orgs`
  * are headcounts of the organisations whose voice carries weight, for
  * prose; `unflagged_orgs` counts the reporters that only recorded it
- * as context (`to_ids = 0`), which is no voice (D69). `supermajority`
+ * as context (`to_ids = 0`), which is no voice. `supermajority`
  * is the profile's own threshold, resolved, so a rule written against
  * *"a supermajority"* means whatever the profile in force means by it.
  */

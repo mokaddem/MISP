@@ -4313,7 +4313,7 @@ class AnalystProfileFormTool
                 $merged['enrichment']['cost_posture']
             );
         }
-        // `max_voices` replaced `max_orgs` (D64); a save drops the old key.
+        // `max_voices` replaced `max_orgs`; a save drops the old key.
         if (isset($merged['thresholds']['thin_record_clamp']['max_voices'])) {
             unset($merged['thresholds']['thin_record_clamp']['max_orgs']);
         }

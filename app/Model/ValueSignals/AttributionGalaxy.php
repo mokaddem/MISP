@@ -43,7 +43,7 @@
  * written before the section existed needs.
  *
  * **The event's attribution reaches a flagged occurrence, at a
- * discount (D65).** Nearly every reporter attributes on the event
+ * discount.** Nearly every reporter attributes on the event
  * rather than on each attribute, so the clusters on an event in which
  * the reporter flagged this value `to_ids = 1` pay on a second row at
  * `per_event_cluster`, capped by `event_cap`. Flagged is what keeps
@@ -241,7 +241,7 @@ class AttributionGalaxy extends ValueSignalBase
     }
 
     /**
-     * The clusters on events that flag the value for detection (D65).
+     * The clusters on events that flag the value for detection.
      *
      * `unit` is false because `$unit` describes a cluster on an
      * occurrence: the falsifier's arithmetic reads the occurrence row

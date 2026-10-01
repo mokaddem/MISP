@@ -26,11 +26,10 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * the same independence argument the reporting signal already makes
  * about corroboration.
  *
- * **A dispute is a voice too, and never a veto** (D63,
- * `16-signal-corrections.md` §3.1). A false positive or an outside
- * verdict used to decide the lean alone through the lean-disputed
- * check, so one false positive outvoted ten reporters. It is now
- * weighed in the same count:
+ * **A dispute is a voice too, and never a veto.** A false positive
+ * or an outside verdict used to decide the lean alone through the
+ * lean-disputed check, so one false positive outvoted ten
+ * reporters. It is now weighed in the same count:
  *
  * ```
  * threat voices  Σ factor of orgs asserting it (to_ids = 1)
@@ -43,7 +42,7 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * threat_share   threat / (threat + benign)
  * ```
  *
- * **`to_ids = 0` is no voice** (D69, `16-signal-corrections.md` §4).
+ * **`to_ids = 0` is no voice.**
  * MISP defines the flag as *use this for detection*; leaving it off
  * says the value is context, noisy, a victim's or simply the type's
  * default — never that it is harmless. Benign comes only from
@@ -56,7 +55,7 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * warning and nothing else.
  *
  * The factor is the organisation's reliability grade once the
- * profile grades anybody, and `1` until then (D64): `G` abstains, `E`
+ * profile grades anybody, and `1` until then: `G` abstains, `E`
  * is a quarter voice. A verdict weighs its module's grade, halved
  * where it hedges — the same weight its ledger row is paid.
  *
@@ -231,7 +230,7 @@ class ValueLeanTool
         }
         /*
          * Nobody flagged it for detection and nobody said it is
-         * harmless (D69): the record holds it as context.
+         * harmless: the record holds it as context.
          */
         if ($stances['voices'] <= 0.0) {
             return $this->answer('unflagged', null, $stances, $errors,
@@ -401,7 +400,7 @@ class ValueLeanTool
             }
             /*
              * Recorded with `to_ids = 0` only: context, not a claim
-             * that the value is harmless (D69). Its own false-positive
+             * that the value is harmless. Its own false-positive
              * warning or its own false positive is the way it gets a
              * voice; the filing, the stronger statement, wins.
              */

@@ -11,8 +11,8 @@
  * corroboration, not three.
  *
  * That dedupe is the `feeds.mirrored` exclusion's job, and a feed
- * published by one of the value's own reporters is `feeds.reporters`'
- * (D68); this signal reads whatever survives both. What it owns is the cap: two
+ * published by one of the value's own reporters is `feeds.reporters`';
+ * this signal reads whatever survives both. What it owns is the cap: two
  * feeds is corroboration, twelve feeds is a popular blocklist entry,
  * and the difference between those two is not five times as much
  * evidence.

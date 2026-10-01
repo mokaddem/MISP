@@ -26,7 +26,7 @@
  * absence of one and are drawn quietly, because a loud chip reading
  * *Contested* claims a certainty the record does not have.
  *
- * `unflagged` (D69) is a record that holds the value as context and
+ * `unflagged` is a record that holds the value as context and
  * nobody flagged for detection. It must never read as `benign` or as
  * `none`: it has its own glyph and label, and its own token.
  *

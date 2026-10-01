@@ -100,7 +100,7 @@ class EnrichmentAnswer extends ValueSignalBase
      */
     public $axis = self::AXIS_LEAN;
 
-    // Each counted verdict is a voice in the stance count (D63).
+    // Each counted verdict is a voice in the stance count.
     public $voice = true;
 
     public $reads = array('enrichment');
@@ -335,8 +335,8 @@ class EnrichmentAnswer extends ValueSignalBase
     }
 
     /**
-     * A quality row for each counted verdict agreeing with the lean
-     * (D66): an outside source confirming what the reporters assert is
+     * A quality row for each counted verdict agreeing with the lean:
+     * an outside source confirming what the reporters assert is
      * the one corroboration a single-source record can get from
      * outside MISP. A verdict disagreeing adds no quality — it is a
      * voice against the lean, and that is weighed in the stance count.
@@ -380,7 +380,7 @@ class EnrichmentAnswer extends ValueSignalBase
     }
 
     /**
-     * The verdicts the lean counts as voices (D63): each graded,
+     * The verdicts the lean counts as voices: each graded,
      * in-window verdict at its module's weight, on the side it argues.
      *
      * Public because the lean is decided before any signal scores,

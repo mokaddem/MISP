@@ -12,7 +12,7 @@
  * that into three cases. `scale` is what full publication is worth and
  * the contribution is the ratio of it.
  *
- * **No floor (D67).** At the shipped scale the ratio rounds to zero
+ * **No floor.** At the shipped scale the ratio rounds to zero
  * only below one published event in eighteen, which no value on the
  * dev instance reaches (2026-10-01); a value with one published event
  * among many drafts reads `0`, between *none published* and the rest.

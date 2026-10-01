@@ -46,7 +46,7 @@
     --vp-unknown-ink: var(--bs-secondary-color);
 
     /*
-     * `unflagged` (D69): recorded as context, nobody flagged it for
+     * `unflagged`: recorded as context, nobody flagged it for
      * detection. Quiet like `none`, and told apart from it by glyph
      * and label rather than by a sixth hue; its own name so the two
      * can part later without touching every surface.

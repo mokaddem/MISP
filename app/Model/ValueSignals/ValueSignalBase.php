@@ -254,7 +254,7 @@ abstract class ValueSignalBase
 
     /**
      * Whether this signal's evidence is already counted as voices in
-     * the lean's stance count (`16-signal-corrections.md` D63).
+     * the lean's stance count.
      *
      * Its lean rows are still drawn, but they do not decide the
      * lean-disputed check: a voice weighed against the reporters once
