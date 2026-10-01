@@ -150,11 +150,7 @@ $signals = $card['signals'];
  * reading *Contested* claims a certainty the record does not have.
  */
 $leanChip = '<span class="vi-lean vi-lean--' . h($treatment['slug'])
-    . '">'
-    . ($treatment['definite'] ? '' : '<svg class="vi-leanmark" width="8"'
-        . ' height="8" viewBox="0 0 8 8" aria-hidden="true"><rect x="1"'
-        . ' y="1" width="6" height="6" rx="1" fill="none"'
-        . ' stroke="currentColor" stroke-width="1.3"/></svg>')
+    . '">' . ValueLean::quietMark($card['lean'])
     . h($treatment['label']) . '</span>';
 
 $relevanceCell = '<span class="vi-relword vi-rel--'

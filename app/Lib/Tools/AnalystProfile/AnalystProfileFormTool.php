@@ -637,6 +637,10 @@ class AnalystProfileFormTool
                                 . ' the organisations must be on the'
                                 . ' same side, and anything short of'
                                 . ' that either way reads as contested.'
+                                . ' An organisation that only recorded'
+                                . ' it with to_ids unset is on neither'
+                                . ' side; a value nobody flagged reads'
+                                . ' as unflagged.'
                             ),
                             'path' => array('thresholds',
                                 'lean_supermajority'),

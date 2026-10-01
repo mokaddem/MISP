@@ -140,6 +140,10 @@
     --vp-hc-lean: var(--vp-hc-conflict);
     --vp-hc-lean-ink: var(--vp-hc-conflict-ink);
 }
+.vp-hc-lean-unflagged {
+    --vp-hc-lean: var(--vp-context, var(--vp-hc-unknown));
+    --vp-hc-lean-ink: var(--vp-context, var(--vp-hc-unknown));
+}
 .vp-hc-lean-none { --vp-hc-lean: var(--vp-hc-unknown); --vp-hc-lean-ink: var(--vp-hc-unknown); }
 .vp-hc-lean-skel { --vp-hc-lean: var(--vp-hc-line); --vp-hc-lean-ink: var(--vp-hc-mute); }
 [data-bs-theme="dark"] .vp-hc {
@@ -208,9 +212,9 @@
     color: var(--vp-hc-lean-ink);
 }
 /*
- * `contested` and `none` are the absence of an answer. Same channel,
- * lower voltage: the label drops to secondary ink, the glyph is mixed
- * back toward grey, the rail is diluted.
+ * `contested`, `unflagged` and `none` are the absence of an answer.
+ * Same channel, lower voltage: the label drops to secondary ink, the
+ * glyph is mixed back toward grey, the rail is diluted.
  */
 .vp-hc-quiet .vp-hc-lean { font-weight: 600; color: var(--vp-hc-mute); }
 .vp-hc-quiet .vp-hc-ico {

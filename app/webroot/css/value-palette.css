@@ -46,6 +46,15 @@
     --vp-unknown-ink: var(--bs-secondary-color);
 
     /*
+     * `unflagged` (D69): recorded as context, nobody flagged it for
+     * detection. Quiet like `none`, and told apart from it by glyph
+     * and label rather than by a sixth hue; its own name so the two
+     * can part later without touching every surface.
+     */
+    --vp-context: var(--vp-unknown);
+    --vp-context-ink: var(--vp-unknown-ink);
+
+    /*
      * Which way a signal points, as opposed to which hue that is. A ▲
      * row supports the disposition the card states, so on a BENIGN
      * value `with` is the green and `against` is the red. The default

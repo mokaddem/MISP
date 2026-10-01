@@ -35,16 +35,25 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * ```
  * threat voices  Σ factor of orgs asserting it (to_ids = 1)
  *                + Σ weight of graded verdicts arguing threat
- * benign voices  Σ factor of orgs whose every occurrence has to_ids = 0
- *                + Σ factor of orgs that filed a false positive and
+ * benign voices  Σ factor of orgs that filed a false positive and
  *                  do not themselves assert it
+ *                + Σ factor × weight of reporters' own
+ *                  false-positive warnings
  *                + Σ weight of graded verdicts arguing benign
  * threat_share   threat / (threat + benign)
  * ```
  *
+ * **`to_ids = 0` is no voice** (D69, `16-signal-corrections.md` §4).
+ * MISP defines the flag as *use this for detection*; leaving it off
+ * says the value is context, noisy, a victim's or simply the type's
+ * default — never that it is harmless. Benign comes only from
+ * somebody saying so.
+ *
  * A reporter that asserts the value and also tags its own report with
  * a false-positive warning keeps one voice, split: `high` or a
- * confirmation moves all of it to benign, `medium` half.
+ * confirmation moves all of it to benign, `medium` half. A reporter
+ * that only recorded it as context gets a benign voice from its
+ * warning and nothing else.
  *
  * The factor is the organisation's reliability grade once the
  * profile grades anybody, and `1` until then (D64): `G` abstains, `E`
@@ -67,10 +76,15 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * 2. an enabled conflict rule fires                   → contested, named
  * 3. a false_positive list matched and the stances
  *    are not a supermajority the other way            → benign
+ *    no voice either way                              → unflagged
  * 4. threat_share ≥ lean_supermajority                → threat
  * 5. threat_share ≤ 1 − lean_supermajority            → benign
  * 6. otherwise                                        → contested
  * ```
+ *
+ * `unflagged` sits after rules 2 and 3 so a conflict rule still names
+ * a contradiction and a resolver address still reads benign through
+ * its list.
  *
  * **Rule 3 sits before rule 4 on purpose**, and it is what makes a
  * value's history legible. The day an address lands on the
@@ -84,9 +98,9 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * collision of two deliberate judgements, and the conflict rule that
  * names it has to get there before either one wins quietly.
  *
- * A record whose every voice abstains — reported only by
- * organisations graded to count for nothing — has nothing to lean on
- * either, and answers `none` with `decided_by = 'no_voice'`.
+ * A record flagged only by organisations graded to count for nothing
+ * has nothing to lean on either, and answers `none` with
+ * `decided_by = 'no_voice'`.
  *
  * There is a seventh rule, and it lives with the ledger rather than
  * here: a lean whose anchored lean rows **that are not voices** sum
@@ -113,8 +127,9 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  */
 class ValueLeanTool
 {
-    /** The four states a lean can take. */
-    const LEANS = array('threat', 'benign', 'contested', 'none');
+    /** The five states a lean can take. */
+    const LEANS = array('threat', 'benign', 'contested', 'unflagged',
+        'none');
 
     /**
      * How close to a share threshold counts as reaching it.
@@ -172,12 +187,12 @@ class ValueLeanTool
                 'nothing_visible');
         }
         /*
-         * Something visible and nobody counted: every reporter is
-         * graded to count for nothing and no dispute or verdict has
-         * weight either. Not a share of zero, which rule 5 would read
-         * as a benign supermajority.
+         * Something visible, flagged, and nobody counted: every
+         * organisation flagging it is graded to count for nothing and
+         * no dispute or verdict has weight either. Not a share of zero,
+         * which rule 5 would read as a benign supermajority.
          */
-        if ($stances['voices'] <= 0.0) {
+        if ($stances['voices'] <= 0.0 && $stances['flagging_orgs'] > 0) {
             return $this->answer('none', null, $stances, $errors,
                 'no_voice');
         }
@@ -203,6 +218,14 @@ class ValueLeanTool
         ) {
             return $this->answer('benign', null, $stances, $errors,
                 'false_positive_listed');
+        }
+        /*
+         * Nobody flagged it for detection and nobody said it is
+         * harmless (D69): the record holds it as context.
+         */
+        if ($stances['voices'] <= 0.0) {
+            return $this->answer('unflagged', null, $stances, $errors,
+                'unflagged');
         }
         /*
          * Rules 4 and 5. Stated as *a supermajority on either side*
@@ -302,6 +325,8 @@ class ValueLeanTool
         $benign = 0.0;
         $threatOrgs = 0;
         $benignOrgs = 0;
+        $unflaggedOrgs = 0;
+        $flaggingOrgs = 0;
         $abstained = array();
         $disputes = array();
         $graded = false;
@@ -321,6 +346,9 @@ class ValueLeanTool
             $f = $factor($id);
             if ($f <= 0.0) {
                 $abstained[] = (string)($org['name'] ?? '');
+            }
+            if (!empty($org['to_ids_yes'])) {
+                $flaggingOrgs++;
             }
             $warn = $id > 0 && isset($warnings[$id])
                 ? $warnings[$id]['weight']
@@ -361,8 +389,37 @@ class ValueLeanTool
                 $benignOrgs += $last['weight'] > 0.0 ? 1 : 0;
                 continue;
             }
-            $benign += $f;
-            $benignOrgs += $f > 0.0 ? 1 : 0;
+            /*
+             * Recorded with `to_ids = 0` only: context, not a claim
+             * that the value is harmless (D69). Its own false-positive
+             * warning or its own false positive is the way it gets a
+             * voice; the filing, the stronger statement, wins.
+             */
+            if ($id > 0 && array_key_exists($id, $fpLast)) {
+                $disputes[] = $this->dispute($id, $org['name'] ?? null,
+                    $fpLast[$id], $f, $standing, $staleFactor, false);
+                $last = end($disputes);
+                $benign += $last['weight'];
+                $benignOrgs += $last['weight'] > 0.0 ? 1 : 0;
+                continue;
+            }
+            if ($warn > 0.0) {
+                $benign += $f * $warn;
+                $benignOrgs += $f > 0.0 ? 1 : 0;
+                $disputes[] = array(
+                    'kind' => 'warning',
+                    'side' => 'benign',
+                    'org_id' => $id,
+                    'name' => $org['name'] ?? null,
+                    'tag' => $warnings[$id]['tag'],
+                    'stamp' => $warnings[$id]['at'],
+                    'weight' => $f * $warn,
+                    'stale' => false,
+                    'withdrawn' => false,
+                );
+                continue;
+            }
+            $unflaggedOrgs++;
         }
 
         $names = isset($sightings['fp_org_list'])
@@ -419,6 +476,8 @@ class ValueLeanTool
             'benign_orgs' => $benignOrgs,
             'orgs' => $threatOrgs + $benignOrgs,
             'reporters' => count($reporters),
+            'unflagged_orgs' => $unflaggedOrgs,
+            'flagging_orgs' => $flaggingOrgs,
             'threat_voices' => $threat,
             'benign_voices' => $benign,
             'voices' => $voices,

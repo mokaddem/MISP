@@ -72,6 +72,7 @@
  *
  * ```
  * stances  ['threat_orgs','benign_orgs','orgs','reporters',
+ *           'unflagged_orgs','flagging_orgs',
  *           'threat_voices','benign_voices','voices',
  *           'threat_modules','benign_modules','threat_share',
  *           'supermajority','weighted','abstained','disputes']
@@ -83,7 +84,8 @@
  * and graded outside verdicts counted as voices too
  * (`16-signal-corrections.md` D63). `threat_orgs` and `benign_orgs`
  * are headcounts of the organisations whose voice carries weight, for
- * prose. `supermajority`
+ * prose; `unflagged_orgs` counts the reporters that only recorded it
+ * as context (`to_ids = 0`), which is no voice (D69). `supermajority`
  * is the profile's own threshold, resolved, so a rule written against
  * *"a supermajority"* means whatever the profile in force means by it.
  */

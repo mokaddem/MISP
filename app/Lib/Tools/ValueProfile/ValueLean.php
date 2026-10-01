@@ -3,7 +3,7 @@
 /**
  * What each lean looks like.
  *
- * A lean is drawn in four places that cannot afford to disagree: the
+ * A lean is drawn in several places that cannot afford to disagree: the
  * Assessment tab's hero, the tab bar's state pill, the Overview rail
  * card's pill, and the card border. Each needs the mapping in a
  * slightly different form — a raw colour for a CSS variable, a glyph
@@ -22,9 +22,13 @@
  *
  * `definite` is the one non-obvious column: it says whether the lean
  * names a state or refuses to. `threat` and `benign` are answers and
- * are drawn as solid chips; `contested` and `none` are the absence of
- * one and are drawn quietly, because a loud chip reading *Contested*
- * claims a certainty the record does not have.
+ * are drawn as solid chips; `contested`, `unflagged` and `none` are the
+ * absence of one and are drawn quietly, because a loud chip reading
+ * *Contested* claims a certainty the record does not have.
+ *
+ * `unflagged` (D69) is a record that holds the value as context and
+ * nobody flagged for detection. It must never read as `benign` or as
+ * `none`: it has its own glyph and label, and its own token.
  *
  * `ink` is `colour`'s reading tone, and the two are not interchangeable
  * (`value-palette.css`): `colour` is a fill, held to a fill's 3:1, and
@@ -59,6 +63,14 @@ class ValueLean
             'slug' => 'contested',
             'definite' => false,
         ),
+        'unflagged' => array(
+            'label' => 'Unflagged',
+            'colour' => 'var(--vp-context)',
+            'ink' => 'var(--vp-context-ink)',
+            'icon' => 'fas fa-circle-minus',
+            'slug' => 'unflagged',
+            'definite' => false,
+        ),
         'none' => array(
             'label' => 'Nothing asserted',
             'colour' => 'var(--vp-unknown)',
@@ -90,7 +102,7 @@ class ValueLean
     /**
      * The words the page says for a lean.
      *
-     * *Asserted* is doing the work in two of the four, and it is the
+     * *Asserted* is doing the work in two of the five, and it is the
      * word the axis exists for: the page is reporting what the record
      * claims, not agreeing with it. A reader who disagrees with
      * *Asserted threat* is disagreeing with the organisations that
@@ -150,6 +162,32 @@ class ValueLean
     public static function isDefinite($lean)
     {
         return self::treatment($lean)['definite'];
+    }
+
+    /**
+     * The small mark a quiet lean is drawn with where a Font Awesome
+     * glyph is too heavy — the index rows and their legend.
+     *
+     * A hollow square; `unflagged` carries a dash through it, so a
+     * reader can tell it from `none` without reading the word.
+     *
+     * @param string|null $lean
+     * @return string Markup, empty for a definite lean
+     */
+    public static function quietMark($lean)
+    {
+        if (self::isDefinite($lean)) {
+            return '';
+        }
+        $dash = self::slug($lean) === 'unflagged'
+            ? '<path d="M2.5 4h3" stroke="currentColor"'
+                . ' stroke-width="1.3"/>'
+            : '';
+        return '<svg class="vi-leanmark" width="8" height="8"'
+            . ' viewBox="0 0 8 8" aria-hidden="true"><rect x="1" y="1"'
+            . ' width="6" height="6" rx="1" fill="none"'
+            . ' stroke="currentColor" stroke-width="1.3"/>' . $dash
+            . '</svg>';
     }
 
     /**

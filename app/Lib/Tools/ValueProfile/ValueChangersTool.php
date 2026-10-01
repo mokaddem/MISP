@@ -46,6 +46,9 @@ class ValueChangersTool
      */
     const MAX_ORGS = 25;
 
+    /** Above any real organisation id: a probe's made-up filer. */
+    const PROBE_ORG_ID = 2000000000;
+
     /**
      * How many of a signal's own units the quality probe will imagine.
      *
@@ -264,21 +267,36 @@ class ValueChangersTool
         $stance
     ) {
         $probe = $context;
+        $now = isset($context['now']) ? (int)$context['now'] : time();
         for ($added = 1; $added <= self::MAX_ORGS; $added++) {
-            $probe['orgs'][] = array(
-                'id' => 0,
-                'name' => __('Another organisation'),
-                'occurrences' => 1,
-                'to_ids_yes' => $stance === 'threat' ? 1 : 0,
-                'to_ids_no' => $stance === 'threat' ? 0 : 1,
-                'newest' => isset($context['now'])
-                    ? (int)$context['now']
-                    : time(),
-            );
-            $probe['occurrences']['total'] =
-                (int)$context['occurrences']['total'] + $added;
-            $probe['occurrences']['orgs'] =
-                (int)$context['occurrences']['orgs'] + $added;
+            if ($stance === 'threat') {
+                $probe['orgs'][] = array(
+                    'id' => 0,
+                    'name' => __('Another organisation'),
+                    'occurrences' => 1,
+                    'to_ids_yes' => 1,
+                    'to_ids_no' => 0,
+                    'newest' => $now,
+                );
+                $probe['occurrences']['total'] =
+                    (int)$context['occurrences']['total'] + $added;
+                $probe['occurrences']['orgs'] =
+                    (int)$context['occurrences']['orgs'] + $added;
+            } else {
+                /*
+                 * `to_ids = 0` is no voice (D69), so the benign side
+                 * moves only when somebody says so: an organisation
+                 * outside the record filing a false positive. Its id
+                 * is past any real one, so it reads as unrated.
+                 */
+                $id = self::PROBE_ORG_ID + $added;
+                $probe['sightings']['by_org_fp'][$id] = 1;
+                $probe['sightings']['by_org_fp_last'][$id] = $now;
+                $probe['sightings']['fp_org_list'][] = array(
+                    'id' => $id,
+                    'name' => __('Another organisation'),
+                );
+            }
             $derived = $this->lean->leanFor($probe, $profile);
             if ($derived['lean'] !== $lean) {
                 return array(
@@ -861,19 +879,17 @@ class ValueChangersTool
     {
         if ($stance === 'threat') {
             return $orgs === 1
-                ? __('One more organisation reporting it with to_ids'
-                    . ' set')
+                ? __('One more organisation flagging it for detection')
                 : sprintf(
-                    __('%d more organisations reporting it with to_ids'
-                        . ' set'),
+                    __('%d more organisations flagging it for'
+                        . ' detection'),
                     $orgs
                 );
         }
         return $orgs === 1
-            ? __('One more organisation holding it with to_ids unset')
+            ? __('One organisation filing it as a false positive')
             : sprintf(
-                __('%d more organisations holding it with to_ids'
-                    . ' unset'),
+                __('%d organisations filing it as a false positive'),
                 $orgs
             );
     }
@@ -891,6 +907,8 @@ class ValueChangersTool
                 return __('it would read as benign.');
             case 'contested':
                 return __('it would become contested.');
+            case 'unflagged':
+                return __('it would read as recorded for context only.');
         }
         return __('it would no longer lean either way.');
     }

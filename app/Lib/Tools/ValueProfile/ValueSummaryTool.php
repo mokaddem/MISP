@@ -111,6 +111,10 @@ class ValueSummaryTool
                 return __('What is recorded here reads as a threat.');
             case 'benign':
                 return __('What is recorded here reads as benign.');
+            case 'unflagged':
+                // D69's wording: never *benign*, never *unknown*.
+                return __('Recorded as context — nobody flagged it for'
+                    . ' detection.');
         }
         switch ($decidedBy) {
             case 'no_voice':

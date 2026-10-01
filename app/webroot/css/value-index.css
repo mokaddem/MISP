@@ -1310,7 +1310,7 @@
 }
 
 /*
- * The two states that name no state are drawn quietly — the rule the
+ * The three states that name no state are drawn quietly — the rule the
  * hover card, the tab pill and the Assessment hero all hold. A solid
  * chip reading *Contested* claims a certainty the record does not
  * have.
@@ -1318,6 +1318,12 @@
 .vi-lean--contested {
     padding-left: 0;
     color: var(--vp-conflict-ink);
+}
+
+.vi-lean--unflagged {
+    padding-left: 0;
+    color: var(--vp-context-ink);
+    font-weight: 500;
 }
 
 .vi-lean--none {
@@ -1715,6 +1721,7 @@
 }
 
 .vi-c-lean .vi-lean--contested,
+.vi-c-lean .vi-lean--unflagged,
 .vi-c-lean .vi-lean--none {
     padding-left: 0;
 }

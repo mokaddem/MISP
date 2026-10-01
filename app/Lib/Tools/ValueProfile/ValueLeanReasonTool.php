@@ -73,8 +73,41 @@ class ValueLeanReasonTool
         if ($sentence === null) {
             return null;
         }
+        $context = $decidedBy === 'unflagged'
+            ? null
+            : self::contextSentence($stances);
+        if ($context !== null) {
+            $sentence .= ' ' . $context;
+        }
         $voices = self::voicesSentence($stances);
         return $voices === null ? $sentence : $sentence . ' ' . $voices;
+    }
+
+    /**
+     * The reporters that recorded the value as context only, which the
+     * counts above leave out (D69): three organisations flagging it
+     * and five recording it with `to_ids` off reads 3 of 3, and the
+     * five are named here rather than vanishing.
+     *
+     * @param array $stances
+     * @return string|null
+     */
+    private static function contextSentence(array $stances)
+    {
+        $count = (int)($stances['unflagged_orgs'] ?? 0);
+        if ($count <= 0) {
+            return null;
+        }
+        return sprintf(
+            __n(
+                '%d more organisation recorded it as context, not for'
+                    . ' detection, and casts no vote.',
+                '%d more organisations recorded it as context, not for'
+                    . ' detection, and cast no vote.',
+                $count
+            ),
+            $count
+        );
     }
 
     /**
@@ -112,6 +145,23 @@ class ValueLeanReasonTool
                             . ' stance is counted.'),
                         implode(', ', $names)
                     );
+
+            case 'unflagged':
+                $count = (int)($stances['unflagged_orgs'] ?? 0);
+                return sprintf(
+                    __n(
+                        'The %d organisation that reported this recorded'
+                            . ' it as context: nobody flagged it for'
+                            . ' detection, and nobody said it is'
+                            . ' harmless.',
+                        'The %d organisations that reported this all'
+                            . ' recorded it as context: nobody flagged'
+                            . ' it for detection, and nobody said it is'
+                            . ' harmless.',
+                        $count
+                    ),
+                    $count
+                );
 
             case 'escalation':
                 /*

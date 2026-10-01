@@ -131,6 +131,7 @@ class ValueVerdictTool
         'threat' => 1,
         'benign' => -1,
         'contested' => 1,
+        'unflagged' => 1,
         'none' => 1,
     );
 
@@ -364,6 +365,10 @@ class ValueVerdictTool
          * value's shape; this check firing over the top of it would
          * replace `decided_by` and lose the rule's own sentence.
          *
+         * **And `unflagged` has no assertion to dispute** (D69): a
+         * record that only holds the value as context is not
+         * contradicting itself when a list calls it infrastructure.
+         *
          * It cannot run twice: there is one branch, and it sets the
          * lean it would have been re-entered for.
          */
@@ -373,7 +378,9 @@ class ValueVerdictTool
                 return empty($row['voice']);
             }
         ));
-        if ($disputeWeight < 0 && $lean !== 'contested') {
+        if ($disputeWeight < 0 && $lean !== 'contested'
+            && $lean !== 'unflagged'
+        ) {
             $rows = $this->reanchor($rows, $polarity);
             $leanWeight = $this->sum($this->onAxis($rows,
                 self::AXIS_LEAN));
