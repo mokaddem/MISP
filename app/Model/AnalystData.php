@@ -24,17 +24,28 @@ class AnalystData extends AppModel
         'Relationship',
         'Organisation',
         'SharingGroup',
-        'Collection'
+        'Collection',
+        'Graph',
+        'Value',
     ];
 
     const NOTE = 0,
         OPINION = 1,
-        RELATIONSHIP = 2;
+        RELATIONSHIP = 2,
+        GRAPH = 3;
 
+    // The types embedded in the records they are attached to
     const ANALYST_DATA_TYPES = [
         'Note',
         'Opinion',
         'Relationship',
+    ];
+
+    const TYPES = [
+        'Note',
+        'Opinion',
+        'Relationship',
+        'Graph',
     ];
 
     protected const BASE_EDITABLE_FIELDS = [
@@ -149,7 +160,7 @@ class AnalystData extends AppModel
             ]
         ]);
         $this->Org = $this->Orgc = ClassRegistry::init('Organisation');
-        if (in_array($this->alias, self::ANALYST_DATA_TYPES)) {
+        if (in_array($this->alias, self::TYPES)) {
             $this->schema();
             $this->_schema['distribution']['default'] = Configure::read('MISP.default_analyst_data_distribution') ?? 1;
         }
@@ -397,7 +408,7 @@ class AnalystData extends AppModel
 
     public function getAnalystDataTypeFromUUID($uuid)
     {
-        foreach (self::ANALYST_DATA_TYPES as $type) {
+        foreach (self::TYPES as $type) {
             $this->{$type} = ClassRegistry::init($type);
             $result = $this->{$type}->find('first', [
                 'conditions' => [$type.'.uuid' => $uuid],
@@ -412,10 +423,10 @@ class AnalystData extends AppModel
 
     public function deduceAnalystDataType(array $analystData)
     {
-        if (!empty($analystData['note_type_name']) && in_array($analystData['note_type_name'], self::ANALYST_DATA_TYPES)) {
+        if (!empty($analystData['note_type_name']) && in_array($analystData['note_type_name'], self::TYPES)) {
             return $analystData['note_type_name'];
         }
-        foreach (self::ANALYST_DATA_TYPES as $type) {
+        foreach (self::TYPES as $type) {
             if (isset($analystData[$type])) {
                 return $type;
             }
