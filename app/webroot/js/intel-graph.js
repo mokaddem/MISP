@@ -13,10 +13,10 @@
 //   transport  optional: (method, path, body) → Promise<data>, replacing HTTP
 //
 // Events, on document, each with the details in event.detail:
-//   intel-graph:active   { graph }                    the active graph changed
-//   intel-graph:added    { graph, report, items }     addNodes went through
-//   intel-graph:removed  { graph, report, items }     removeNodes went through
-//   intel-graph:pick     { items }                    an add with no graph to go to
+//   intel-graph:active   { graph }                        the active graph changed
+//   intel-graph:added    { graph, report, items, undo }   addNodes went through
+//   intel-graph:removed  { graph, report, items }         removeNodes went through
+//   intel-graph:pick     { items }                        an add with no graph to go to
 
 (function () {
     'use strict';
@@ -149,14 +149,15 @@
             return Promise.resolve({ status: 'no-graph', graph: null, report: null, undo: null });
         }
         return request('POST', graphPath('addNodes', uuid), { items: items }).then(function (report) {
-            touchActive(uuid, report);
-            emit('added', { graph: uuid, report: report, items: items });
             var added = report.added || [];
+            var undo = added.length ? function () { return removeFrom(uuid, added); } : null;
+            touchActive(uuid, report);
+            emit('added', { graph: uuid, report: report, items: items, undo: undo });
             return {
                 status: report.changed ? 'added' : 'unchanged',
                 graph: uuid,
                 report: report,
-                undo: added.length ? function () { return removeFrom(uuid, added); } : null
+                undo: undo
             };
         });
     }
