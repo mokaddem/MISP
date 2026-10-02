@@ -1107,6 +1107,8 @@ class ObjectsController extends AppController
                 $object['Object']['Attribute'] = $object['Attribute'];
             }
             return $this->RestResponse->viewData(array('Object' => $object['Object']), $this->response->type());
+        } else if (($this->theme ?? null) === 'Overmind') {
+            $this->redirect('/events/view2/' . $object['Object']['event_id'] . '#tab-objects');
         } else {
             $this->redirect('/events/view/' . $object['Object']['event_id']);
         }

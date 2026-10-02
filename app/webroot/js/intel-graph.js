@@ -153,8 +153,8 @@
         return out;
     }
 
-    // One undo per add, whoever calls it: the toast's and the dock's are the
-    // same function, and a second call answers the first one's promise.
+    // One undo per add, whoever calls it: a second call answers the first
+    // one's promise.
     function undoOnce(uuid, added) {
         var done = null;
         return function () {

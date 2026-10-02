@@ -18,7 +18,8 @@
     background: var(--bs-success); color: var(--bs-white); font-weight: 600;
 }
 .ig-slot-new.is-refused { background: var(--bs-danger); }
-.ig-slot-pulse [data-intel-graph-count] { animation: ig-so-pop .9s ease; }
+.ig-slot-pulse [data-intel-graph-count],
+.ig-slot-pulse [data-intel-graph-toggle] > i:first-child { animation: ig-so-pop .9s ease; }
 /* Above the navbar's collapse the bar has no room for the name below 1600px,
    nor for the count below 1366px: the slot's title and the dock's head carry
    them (F6). */
@@ -222,6 +223,9 @@
 .ig-so-arr-body { flex: 1 1 auto; min-width: 0; }
 .ig-so-arr-title { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--bs-emphasis-color); }
 .ig-so-arr-sub { display: block; color: var(--bs-secondary-color); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.ig-so-arr-title, .ig-so-arr-link { text-decoration: none; }
+.ig-so-arr-link { color: inherit; }
+a.ig-so-arr-title:hover, a.ig-so-arr-title:focus-visible, .ig-so-arr-link:hover, .ig-so-arr-link:focus-visible { text-decoration: underline; }
 .ig-so-arr[data-kind="undone"] .ig-so-arr-title { text-decoration: line-through; color: var(--bs-secondary-color); }
 .ig-so-arr[data-kind="gone"] .ig-so-arr-title { color: var(--bs-secondary-color); }
 .ig-so-arr[data-kind="refused"] .ig-so-arr-title { color: var(--bs-danger-text-emphasis); }
@@ -251,6 +255,6 @@
 @media (prefers-reduced-motion: reduce) {
     .ig-so, [data-intel-graph-toggle] .ig-slot-side { transition: none; }
     .ig-so.is-landing::before, .ig-so.is-refusing::before, .ig-so-arr.is-fresh, .ig-slot-pulse [data-intel-graph-count],
-    .ig-so-banner.is-shaking, .ig-so-skeleton span { animation: none; }
+    .ig-slot-pulse [data-intel-graph-toggle] > i:first-child, .ig-so-banner.is-shaking, .ig-so-skeleton span { animation: none; }
     .ig-so-callout { animation: none; }
 }

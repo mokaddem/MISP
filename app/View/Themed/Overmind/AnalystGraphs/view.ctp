@@ -11,7 +11,7 @@
  * @var array $forkTargets [{type, uuid, label}]
  */
 $targetPaths = [
-    'Event' => '/events/view/',
+    'Event' => '/events/view2/',
     'Collection' => '/collections/view/',
     'GalaxyCluster' => '/galaxy_clusters/view/',
 ];

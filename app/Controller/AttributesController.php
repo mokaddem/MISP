@@ -1283,6 +1283,9 @@ class AttributesController extends AppController
             unset($attribute['Attribute']['value2']);
             $this->set('Attribute', $attribute['Attribute']);
             $this->set('_serialize', array('Attribute'));
+        } else if (($this->theme ?? null) === 'Overmind') {
+            $tab = empty($attribute['Attribute']['object_id']) ? 'attributes' : 'objects';
+            $this->redirect('/events/view2/' . $attribute['Attribute']['event_id'] . '#tab-' . $tab);
         } else {
             $this->redirect('/events/view/' . $attribute['Attribute']['event_id']);
         }

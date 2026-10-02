@@ -862,7 +862,7 @@
         }
         if (type === 'Value') {
             (p.Value || []).forEach(function (r) { if (lower(r.uuid) === uuid) hit = r; });
-            return hit && { type: type, title: hit.value, sub: 'value' };
+            return hit && { type: type, title: hit.value, sub: 'value', value: hit.value };
         }
         if (type === 'Event') {
             Object.keys(p.events || {}).forEach(function (id) { if (lower(p.events[id].uuid) === uuid) hit = p.events[id]; });
@@ -926,7 +926,7 @@
         entry.kind = entry.keys.length ? 'added' : 'present';
         var only = (d.items || []).length === 1 ? d.items[0] : null;
         var onlyKey = entry.keys[0] || entry.present[0];
-        if (only && only.type === 'Value' && onlyKey) entry.labels[onlyKey] = { type: 'Value', title: only.label || only.value, sub: 'value' };
+        if (only && only.type === 'Value' && onlyKey) entry.labels[onlyKey] = { type: 'Value', title: only.label || only.value, sub: 'value', value: only.value };
         (d.items || []).forEach(function (item) {
             if (item.label && item.uuid) {
                 entry.labels[item.type + ':' + lower(item.uuid)] = { type: item.type, title: item.label, sub: typeOf(item.type).label.toLowerCase() };
@@ -937,7 +937,7 @@
         if (!opened) {
             unseen.added += entry.count;
             syncSlot();
-            if (entry.count) pulseSlot();
+            pulseSlot();
         }
         var a = IG().active();
         if (a && lower(a.uuid) === lower(d.graph)) {
@@ -969,7 +969,9 @@
         if (!d.graph) return;
         var entry = { id: String(++seq), kind: 'refused', keys: [], present: [], labels: {}, at: Date.now(),
                       count: 0, items: d.items, message: d.message || ('HTTP ' + d.status), status: d.status, fresh: true };
-        entry.labels._ = { title: 'Not added: ' + describeItems(d.items).replace(/^The value /, ''), sub: entry.message };
+        var one = (d.items || []).length === 1 ? d.items[0] : null;
+        entry.labels._ = { title: 'Not added: ' + describeItems(d.items).replace(/^The value /, ''), sub: entry.message,
+                           href: one ? hrefOf(one.type, one.uuid, one.value) : null };
         push(d.graph, entry);
         if (!opened) { unseen.refused = true; syncSlot(); pulseSlot(); return; }
         flash('is-refusing');
@@ -1072,7 +1074,6 @@
             if (!current || current.graph() !== g) return;
             setTimeout(function () {
                 try { g.emphasiseElements(nodes); } catch (e) { /* no emphasis */ }
-                try { g.selectElements(nodes); } catch (e) { /* no selection */ }
                 callouts(g, nodes, entry);
                 clearTimeout(emphasis);
                 emphasis = setTimeout(function () {
@@ -1134,7 +1135,7 @@
         }
     }
     function finishLocate(g, nodes, entry) {
-        try { g.emphasiseElements(nodes); g.selectElements(nodes); } catch (e) { /* none */ }
+        try { g.emphasiseElements(nodes); } catch (e) { /* none */ }
         callouts(g, nodes, entry);
         clearTimeout(emphasis);
         emphasis = setTimeout(function () { try { g.clearEmphasis(); } catch (e) { /* gone */ } }, 3200);
@@ -1149,20 +1150,62 @@
         keys.forEach(function (k) { var t = k.split(':')[0]; types[t] = (types[t] || 0) + 1; });
         return Object.keys(types).map(function (t) { return types[t] + ' ' + typeOf(t).label.toLowerCase() + (types[t] > 1 ? 's' : ''); }).join(', ');
     }
-    function subOf(e) {
+    // A record's own page; an attribute's and an object's redirect to their
+    // event's tab.
+    var PAGE = { Event: '/events/view2/', Attribute: '/attributes/view/', Object: '/objects/view/', GalaxyCluster: '/galaxy_clusters/view/' };
+    function b64url(s) {
+        var bin = '';
+        new TextEncoder().encode(s).forEach(function (b) { bin += String.fromCharCode(b); });
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_');
+    }
+    function hrefOf(type, uuid, value) {
+        if (PAGE[type] && uuid) return baseurl() + PAGE[type] + encodeURIComponent(uuid);
+        if (type === 'Value' && value != null) return baseurl() + '/values/view/' + b64url(String(value));
+        return null;
+    }
+    // A Value's key is a digest of the literal, which its label carries.
+    function keyHref(key, lab) {
+        var at = key.indexOf(':'), type = key.slice(0, at);
+        var value = type === 'Value' && lab ? (lab.value != null ? lab.value : lab.title) : null;
+        return hrefOf(type, key.slice(at + 1), value);
+    }
+    function entryHref(e) {
+        if (e.kind === 'refused') return (e.labels._ && e.labels._.href) || null;
         var keys = e.keys.length ? e.keys : e.present;
-        if (e.kind === 'refused') return e.message;
-        var what;
+        return keys.length === 1 ? keyHref(keys[0], e.labels[keys[0]]) : null;
+    }
+    function link(cls, text, href) {
+        var a = el(href ? 'a' : 'span', cls, text);
+        if (href) a.href = href;
+        return a;
+    }
+    // An entry of several records names each one, leading to its page.
+    function subEl(e) {
+        var s = el('span', 'ig-so-arr-sub');
+        if (e.kind === 'refused') { s.textContent = e.message; return s; }
+        var keys = e.keys.length ? e.keys : e.present;
+        var parts = [];
         if (keys.length === 1) {
             var lab = e.labels[keys[0]];
-            what = lab ? lab.sub : typeOf(keys[0].split(':')[0]).label.toLowerCase();
+            parts.push(lab ? lab.sub : typeOf(keys[0].split(':')[0]).label.toLowerCase());
         } else {
-            what = keys.map(function (k) { return e.labels[k] ? e.labels[k].title : null; }).filter(Boolean).join(' · ');
+            var names = el('span');
+            keys.forEach(function (k) {
+                if (!e.labels[k]) return;
+                if (names.childNodes.length) names.appendChild(document.createTextNode(' · '));
+                names.appendChild(link('ig-so-arr-link', e.labels[k].title, keyHref(k, e.labels[k])));
+            });
+            if (names.childNodes.length) parts.push(names);
         }
-        var verb = e.kind === 'present' ? 'already in this graph' : e.kind === 'undone' ? 'undone'
-            : e.kind === 'gone' ? 'no longer in this graph' : 'added';
-        var refused = e.refused ? e.refused + ' not added' : null;
-        return [what, verb, refused, ago(e.at)].filter(Boolean).join(' — ');
+        parts.push(e.kind === 'present' ? 'already in this graph' : e.kind === 'undone' ? 'undone'
+            : e.kind === 'gone' ? 'no longer in this graph' : 'added');
+        if (e.refused) parts.push(e.refused + ' not added');
+        parts.push(ago(e.at));
+        parts.forEach(function (p, i) {
+            if (i) s.appendChild(document.createTextNode(' — '));
+            s.appendChild(typeof p === 'string' ? document.createTextNode(p) : p);
+        });
+        return s;
     }
     function ago(t) {
         var s = Math.round((Date.now() - t) / 1000);
@@ -1214,8 +1257,8 @@
             li.setAttribute('data-kind', e.kind);
             li.appendChild(arrivalIcon(e));
             var bodyEl = el('div', 'ig-so-arr-body');
-            bodyEl.appendChild(el('span', 'ig-so-arr-title', titleOf(e)));
-            bodyEl.appendChild(el('span', 'ig-so-arr-sub', subOf(e)));
+            bodyEl.appendChild(link('ig-so-arr-title', titleOf(e), entryHref(e)));
+            bodyEl.appendChild(subEl(e));
             li.appendChild(bodyEl);
             var acts = el('div', 'ig-so-arr-acts');
             if (mounted && (e.kind === 'added' || e.kind === 'present')) {
