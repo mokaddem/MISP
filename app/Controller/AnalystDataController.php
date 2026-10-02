@@ -324,6 +324,19 @@ class AnalystDataController extends AppController
             $id = $this->AnalystData->getIDFromUUID($type, $id);
         }
 
+        if ($this->modelSelection === 'Graph' && !$this->_isRest() && !$this->request->is('ajax')) {
+            $graph = $this->AnalystData->find('first', [
+                'conditions' => ['AND' => [[$this->AnalystData->alias . '.id' => $id], $this->AnalystData->buildConditions($this->Auth->user())]],
+                'fields' => [$this->AnalystData->alias . '.uuid'],
+                'recursive' => -1,
+                'callbacks' => false,
+            ]);
+            if (empty($graph)) {
+                throw new NotFoundException(__('Invalid graph.'));
+            }
+            return $this->redirect('/analyst_graphs/view/' . $graph[$this->AnalystData->alias]['uuid']);
+        }
+
         $this->AnalystData->fetchRecursive = false;
         $conditions = $this->AnalystData->buildConditions($this->Auth->user());
         $this->CRUD->view($id, [
@@ -392,6 +405,9 @@ class AnalystDataController extends AppController
                         $data[$i] = $this->__decodeGraphContent($analystData);
                     }
                 }
+                if ($this->modelSelection === 'Graph' && !$this->_isRest()) {
+                    $data = $this->__countGraphNodes($data);
+                }
                 return $data;
             }
         ];
@@ -405,6 +421,27 @@ class AnalystDataController extends AppController
         }
         $this->_setViewElements();
         $this->set('menuData', array('menuList' => 'analyst_data', 'menuItem' => 'index'));
+    }
+
+    /**
+     * Each graph's node count as the user sees it, in place of the stored one
+     * (G6), and no document.
+     *
+     * @param array $data Graph rows
+     * @return array
+     */
+    private function __countGraphNodes(array $data)
+    {
+        $contents = [];
+        foreach ($data as $i => $row) {
+            $contents[$i] = $row['Graph']['content'] ?? null;
+        }
+        $counts = ClassRegistry::init('AnalystGraphData')->visibleCounts($this->Auth->user(), $contents);
+        foreach ($data as $i => $row) {
+            $data[$i]['Graph']['node_count'] = $counts[$i];
+            unset($data[$i]['Graph']['content'], $data[$i]['Graph']['content_size']);
+        }
+        return $data;
     }
 
     /**

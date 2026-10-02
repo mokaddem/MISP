@@ -82,6 +82,22 @@ if ($m === 'Note') {
         'card_section' => 'attribute',
         'display_in' => ['table', 'card'],
     ];
+} else if ($m === 'Graph') {
+    $fields[] = [
+        'name' => __('Name'),
+        'sort' => $m . '.name',
+        'data_path' => $m . '.name',
+        'class' => 'idx-col-wrap',
+        'card_section' => 'attribute',
+        'display_in' => ['table', 'card'],
+    ];
+    $fields[] = [
+        'name' => __('Nodes'),
+        'data_path' => $m . '.node_count',
+        'element' => 'count',
+        'card_section' => 'top',
+        'display_in' => ['table', 'card'],
+    ];
 } else if ($m === 'Relationship') {
     $fields[] = [
         'name' => __('Relationship type'),
@@ -146,7 +162,7 @@ $fields[] = [
             'label' => __('Edit'),
             'icon' => 'pen-to-square',
             'url' => $baseurl . '/analystData/edit/' . $m . '/%id%',
-            'requirement' => $canEdit,
+            'requirement' => $m === 'Graph' ? false : $canEdit,
         ],
         [
             'type' => 'modal',

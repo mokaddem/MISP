@@ -3,6 +3,7 @@ App::uses('AppController', 'Controller');
 App::uses('AnalystGraphDocumentTool', 'Tools');
 App::uses('JsonTool', 'Tools');
 App::uses('MispTheme', 'MispTheme');
+App::uses('Graph', 'Model');
 
 /**
  * The actions only an analyst graph has. Creating, editing, viewing and
@@ -19,6 +20,9 @@ class AnalystGraphsController extends AppController
 
     /** Collections offered as a fork's other target. */
     const FORK_COLLECTIONS = 50;
+
+    /** Graphs a record's Graphs card lists. */
+    const TARGET_LIMIT = 100;
 
     public function beforeFilter()
     {
@@ -97,6 +101,35 @@ class AnalystGraphsController extends AppController
             throw new InternalErrorException(__('The active graph could not be saved.'));
         }
         return $this->RestResponse->viewData(['Graph' => $graph], 'json');
+    }
+
+    /**
+     * The graphs hung off one record that the user may read, newest first,
+     * and the user's active graph.
+     *
+     * @param string $type
+     * @param string $uuid
+     */
+    public function forTarget($type, $uuid)
+    {
+        $this->request->allowMethod(['get']);
+        if (!in_array($type, Graph::VALID_TARGETS, true) || !Validation::uuid($uuid)) {
+            throw new NotFoundException(__('Invalid target.'));
+        }
+        $user = $this->Auth->user();
+        // Stored as each creator spelled it
+        $spellings = array_values(array_unique([$uuid, strtolower($uuid), strtoupper($uuid)]));
+        $graphs = $this->Graph->summaries($user, [
+            'Graph.object_type' => $type,
+            'Graph.object_uuid' => $spellings,
+        ], ['targets' => false, 'limit' => self::TARGET_LIMIT]);
+        $active = $this->ACL->canUserAccess($user, 'analystGraphs', 'active')
+            ? $this->Graph->activeFor($user, false)
+            : null;
+        return $this->RestResponse->viewData([
+            'Graph' => $graphs,
+            'active' => $active ? $active['uuid'] : null,
+        ], 'json');
     }
 
     /**

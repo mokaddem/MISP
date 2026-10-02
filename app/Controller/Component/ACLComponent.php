@@ -47,6 +47,7 @@ class ACLComponent extends Component
             'data' => ['*'],
             'editable' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'fork' => ['AND' => ['perm_add', 'perm_analyst_data']],
+            'forTarget' => ['*'],
             'removeNodes' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'save' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'view' => ['*'],
