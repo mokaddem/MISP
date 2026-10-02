@@ -75,6 +75,10 @@ class AnalystGraphsController extends AppController
         $document = json_decode($graph['Graph']['content'], true) ?: AnalystGraphDocumentTool::emptyDocument();
         unset($graph['Graph']['content']);
         $payload = $this->AnalystGraphData->resolve($this->Auth->user(), $document);
+        // Counted and measured as this user sees it (G6)
+        $graph['Graph']['node_count'] = $payload['meta']['nodes'];
+        unset($graph['Graph']['content_size']);
+        $payload['editable_events'] = $this->__editableEvents(array_keys((array)$payload['events']));
         return $this->RestResponse->viewData(['Graph' => $this->Graph->typed($graph['Graph'])] + $payload, 'json');
     }
 
@@ -167,12 +171,10 @@ class AnalystGraphsController extends AppController
         if (!$this->Graph->save($fork)) {
             return $this->RestResponse->saveFailResponse('AnalystGraphs', 'fork', false, $this->Graph->validationErrors, 'json');
         }
-        $created = $this->Graph->find('first', [
-            'conditions' => ['Graph.id' => $this->Graph->id],
-            'contain' => ['Org', 'Orgc'],
-        ]);
-        $created['Graph']['content'] = AnalystGraphDocumentTool::decode($created['Graph']['content']);
-        return $this->RestResponse->viewData($created, 'json');
+        $id = $this->Graph->id;
+        $created = $this->Graph->summaries($user, ['Graph.id' => $id])[0];
+        $created['content'] = AnalystGraphDocumentTool::decode($this->Graph->storedContents([$id])[$id]);
+        return $this->RestResponse->viewData(['Graph' => $created], 'json');
     }
 
     /**
@@ -214,6 +216,33 @@ class AnalystGraphsController extends AppController
             throw new ForbiddenException(__('Only the organisation that created this graph can change it. Fork it instead.'));
         }
         return $graph;
+    }
+
+    /**
+     * Of these events, the ones the user may modify: where an edge drawn in
+     * the graph can be an object reference.
+     *
+     * @param array $ids
+     * @return int[]
+     */
+    private function __editableEvents(array $ids)
+    {
+        $user = $this->Auth->user();
+        if (empty($ids) || (empty($user['Role']['perm_modify']) && empty($user['Role']['perm_site_admin']))) {
+            return [];
+        }
+        $events = ClassRegistry::init('Event')->find('all', [
+            'conditions' => ['Event.id' => array_map('strval', $ids)],
+            'fields' => ['Event.id', 'Event.orgc_id', 'Event.user_id'],
+            'recursive' => -1,
+        ]);
+        $editable = [];
+        foreach ($events as $event) {
+            if ($this->ACL->canModifyEvent($user, $event)) {
+                $editable[] = (int)$event['Event']['id'];
+            }
+        }
+        return $editable;
     }
 
     /**
@@ -269,12 +298,14 @@ class AnalystGraphsController extends AppController
             case 'invalid':
                 return $this->RestResponse->saveFailResponse('AnalystGraphs', $this->request->params['action'], $graph['Graph']['id'], $result['errors'], 'json');
         }
+        $id = $graph['Graph']['id'];
+        $visible = $this->AnalystGraphData->visibleCounts($this->Auth->user(), $this->Graph->storedContents([$id]));
         $response = [
             'saved' => true,
             'changed' => $result['status'] === 'saved',
             'uuid' => $graph['Graph']['uuid'],
             'revision' => $result['revision'],
-            'node_count' => $result['node_count'],
+            'node_count' => $visible[$id] ?? 0,
         ];
         if ($result['status'] === 'saved') {
             $response['content_size'] = $result['content_size'];

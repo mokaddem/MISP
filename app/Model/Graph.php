@@ -269,7 +269,8 @@ class Graph extends AnalystData
      * @param array $conditions
      * @param array $options `limit`; `targets` (default true) labels each
      *                       target as the user sees it
-     * @return array Graph rows, unwrapped
+     * @return array Graph rows, unwrapped, `node_count` the nodes the user
+     *               may read
      */
     public function summaries(array $user, array $conditions, array $options = [])
     {
@@ -284,10 +285,48 @@ class Graph extends AnalystData
             'limit' => $options['limit'] ?? null,
         ]);
         $graphs = array_map([$this, 'typed'], Hash::extract($rows, '{n}.' . $this->alias));
+        $graphs = $this->withVisibleCounts($user, $graphs);
         if ($options['targets'] ?? true) {
             $graphs = ClassRegistry::init('AnalystGraphData')->labelTargets($user, $graphs);
         }
         return $graphs;
+    }
+
+    /**
+     * The stored count includes nodes the user may not read (G6).
+     *
+     * @param array $user
+     * @param array $graphs Unwrapped, with `id`
+     * @return array
+     */
+    public function withVisibleCounts(array $user, array $graphs)
+    {
+        if (empty($graphs)) {
+            return $graphs;
+        }
+        $counts = ClassRegistry::init('AnalystGraphData')->visibleCounts(
+            $user,
+            $this->storedContents(array_column($graphs, 'id'))
+        );
+        foreach ($graphs as &$graph) {
+            $graph['node_count'] = $counts[$graph['id']] ?? 0;
+        }
+        unset($graph);
+        return $graphs;
+    }
+
+    /**
+     * @param array $ids
+     * @return array id => stored document, encoded
+     */
+    public function storedContents(array $ids)
+    {
+        return $this->find('list', [
+            'conditions' => [$this->alias . '.id' => $ids],
+            'fields' => [$this->alias . '.id', $this->alias . '.content'],
+            'recursive' => -1,
+            'callbacks' => false,
+        ]);
     }
 
     /**

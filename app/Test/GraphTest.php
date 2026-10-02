@@ -264,6 +264,18 @@ class GraphTestActiveGraph extends GraphTestGraph
     }
 }
 
+class GraphTestCountedGraph extends GraphTestGraph
+{
+    public $contents = array();
+    public $asked = array();
+
+    public function storedContents(array $ids)
+    {
+        $this->asked[] = $ids;
+        return array_intersect_key($this->contents, array_flip($ids));
+    }
+}
+
 class GraphTestBehaviors
 {
     public $log = array();
@@ -1251,5 +1263,52 @@ class GraphTest extends TestCase
         $this->assertSame(array('type' => 'GalaxyCluster', 'uuid' => self::C1, 'id' => 51, 'label' => 'APT29'), $labelled[2]['target']);
         $this->assertSame(array('type' => 'Collection', 'uuid' => $collection, 'id' => 7, 'label' => 'Campaign'), $labelled[3]['target']);
         $this->assertSame($labelled[0]['target'], $labelled[4]['target']);
+    }
+
+    // --------------------------------------------------------- viewer counts
+
+    public function testVisibleCountsAskOncePerTypeForEveryGraph()
+    {
+        $asked = array();
+        $this->fake('CollectionElement')->on('readableUuids', function ($user, $type, $uuids) use (&$asked) {
+            $asked[] = array($type, $uuids);
+            return array_values(array_diff($uuids, array(self::A_HIDDEN)));
+        });
+
+        $counts = (new AnalystGraphData())->visibleCounts(array('id' => 3), array(
+            7 => self::stored(array(self::node('Attribute', self::A1), self::node('Attribute', self::A_HIDDEN), self::valueNode('8.8.8.8'))),
+            8 => json_decode(self::stored(array(self::node('Attribute', self::A1), self::node('Event', self::E1))), true),
+            9 => 'not json',
+        ));
+
+        $this->assertSame(array(7 => 2, 8 => 2, 9 => 0), $counts);
+        $this->assertSame(array(
+            array('Attribute', array(self::A1, self::A_HIDDEN)),
+            array('Event', array(self::E1)),
+        ), $asked);
+    }
+
+    public function testSummariesCountOnlyWhatTheUserMayRead()
+    {
+        $this->fake('CollectionElement')->on('readableUuids', function ($user, $type, $uuids) {
+            return array_values(array_diff($uuids, array(self::A_HIDDEN)));
+        });
+        ClassRegistry::$instances['AnalystGraphData'] = new AnalystGraphData();
+        $this->registered[] = 'AnalystGraphData';
+        $graph = new GraphTestCountedGraph();
+        $graph->contents = array(
+            1 => self::stored(array(self::node('Attribute', self::A1), self::node('Attribute', self::A_HIDDEN))),
+            2 => self::stored(array()),
+        );
+
+        $out = $graph->withVisibleCounts(self::analyst(), array(
+            array('id' => 1, 'node_count' => 2),
+            array('id' => 2, 'node_count' => 0),
+        ));
+
+        $this->assertSame(array(1, 0), array_column($out, 'node_count'));
+        $this->assertSame(array(array(1, 2)), $graph->asked);
+        $this->assertSame(array(), $graph->withVisibleCounts(self::analyst(), array()));
+        $this->assertCount(1, $graph->asked);
     }
 }

@@ -84,22 +84,59 @@ class AnalystGraphData extends AppModel
      */
     public function visibleNodes(array $user, array $nodes)
     {
+        return $this->visibleNodeLists($user, [$nodes])[0];
+    }
+
+    /**
+     * visibleNodes() for several graphs, with one readability lookup per type
+     * for all of them.
+     *
+     * @param array $user
+     * @param array $lists key => normalised nodes
+     * @return array key => the readable nodes, in document order
+     */
+    public function visibleNodeLists(array $user, array $lists)
+    {
         $byType = [];
-        foreach ($nodes as $node) {
-            if ($node['type'] !== 'Value') {
-                $byType[$node['type']][] = $node['uuid'];
+        foreach ($lists as $nodes) {
+            foreach ($nodes as $node) {
+                if ($node['type'] !== 'Value') {
+                    $byType[$node['type']][$node['uuid']] = true;
+                }
             }
         }
         $readable = [];
         $elements = $this->model('CollectionElement');
         foreach ($byType as $type => $uuids) {
-            foreach ($elements->readableUuids($user, $type, $uuids) as $uuid) {
+            foreach ($elements->readableUuids($user, $type, array_keys($uuids)) as $uuid) {
                 $readable[$type][strtolower($uuid)] = true;
             }
         }
-        return array_values(array_filter($nodes, function ($node) use ($readable) {
-            return $node['type'] === 'Value' || isset($readable[$node['type']][$node['uuid']]);
-        }));
+        $out = [];
+        foreach ($lists as $key => $nodes) {
+            $out[$key] = array_values(array_filter($nodes, function ($node) use ($readable) {
+                return $node['type'] === 'Value' || isset($readable[$node['type']][$node['uuid']]);
+            }));
+        }
+        return $out;
+    }
+
+    /**
+     * How many nodes of each graph the user may read: the only count of a
+     * graph's nodes a user is ever shown.
+     *
+     * @param array $user
+     * @param array $contents key => stored document, encoded or decoded
+     * @return array key => int
+     */
+    public function visibleCounts(array $user, array $contents)
+    {
+        $lists = [];
+        foreach ($contents as $key => $content) {
+            $document = is_array($content) ? $content : json_decode((string)$content, true);
+            $lists[$key] = is_array($document['nodes'] ?? null) ? $document['nodes'] : [];
+        }
+        return array_map('count', $this->visibleNodeLists($user, $lists));
     }
 
     /**
