@@ -268,7 +268,8 @@ class Graph extends AnalystData
      * @param array $user
      * @param array $conditions
      * @param array $options `limit`; `targets` (default true) labels each
-     *                       target as the user sees it
+     *                       target as the user sees it; `parents` (default
+     *                       false) adds `forked_from`, see withParents()
      * @return array Graph rows, unwrapped, `node_count` the nodes the user
      *               may read
      */
@@ -289,6 +290,39 @@ class Graph extends AnalystData
         if ($options['targets'] ?? true) {
             $graphs = ClassRegistry::init('AnalystGraphData')->labelTargets($user, $graphs);
         }
+        if ($options['parents'] ?? false) {
+            $graphs = $this->withParents($user, $graphs);
+        }
+        return $graphs;
+    }
+
+    /**
+     * A fork's original, `forked_from` {uuid, name}, when the user may read
+     * it; null when they may not, or it is gone.
+     *
+     * @param array $user
+     * @param array $graphs Unwrapped
+     * @return array
+     */
+    public function withParents(array $user, array $graphs)
+    {
+        $uuids = array_values(array_unique(array_filter(array_column($graphs, 'forked_from_uuid'))));
+        $names = [];
+        if (!empty($uuids)) {
+            $names = $this->find('list', [
+                'conditions' => ['AND' => [[$this->alias . '.uuid' => $uuids], $this->buildConditions($user)]],
+                'fields' => [$this->alias . '.uuid', $this->alias . '.name'],
+                'recursive' => -1,
+                'callbacks' => false,
+            ]);
+        }
+        foreach ($graphs as &$graph) {
+            $parent = $graph['forked_from_uuid'] ?? null;
+            $graph['forked_from'] = $parent !== null && isset($names[$parent])
+                ? ['uuid' => $parent, 'name' => $names[$parent]]
+                : null;
+        }
+        unset($graph);
         return $graphs;
     }
 

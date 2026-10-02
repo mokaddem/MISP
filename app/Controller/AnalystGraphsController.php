@@ -52,7 +52,7 @@ class AnalystGraphsController extends AppController
         $this->request->allowMethod(['get']);
         $user = $this->Auth->user();
         $graph = $this->__fetchGraph($uuid);
-        $summary = $this->Graph->summaries($user, ['Graph.id' => $graph['Graph']['id']])[0];
+        $summary = $this->Graph->summaries($user, ['Graph.id' => $graph['Graph']['id']], ['parents' => true])[0];
 
         $canAnalyst = !empty($user['Role']['perm_site_admin'])
             || (!empty($user['Role']['perm_add']) && !empty($user['Role']['perm_analyst_data']));
@@ -122,7 +122,7 @@ class AnalystGraphsController extends AppController
         $graphs = $this->Graph->summaries($user, [
             'Graph.object_type' => $type,
             'Graph.object_uuid' => $spellings,
-        ], ['targets' => false, 'limit' => self::TARGET_LIMIT]);
+        ], ['targets' => false, 'parents' => true, 'limit' => self::TARGET_LIMIT]);
         $active = $this->ACL->canUserAccess($user, 'analystGraphs', 'active')
             ? $this->Graph->activeFor($user, false)
             : null;

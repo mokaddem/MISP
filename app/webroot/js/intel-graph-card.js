@@ -85,8 +85,11 @@
             if (g.description) a.title = g.description;
             top.appendChild(a);
             if (active) {
-                var on = el('span', 'badge rounded-pill text-bg-primary flex-shrink-0', 'active');
+                var on = el('span', 'badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle fw-semibold flex-shrink-0');
+                on.setAttribute('data-ig-active-pill', '');
                 on.title = '“Add to graph” feeds this graph';
+                on.appendChild(icon('fas fa-bullseye me-1'));
+                on.appendChild(document.createTextNode('Active'));
                 top.appendChild(on);
             }
             main.appendChild(top);
@@ -96,9 +99,16 @@
             if (bd) sub.appendChild(bd);
             sub.appendChild(el('span', null, g.node_count + (g.node_count === 1 ? ' node' : ' nodes')));
             if (g.forked_from_uuid) {
-                var f = el('span', null);
+                var f = el('span', 'text-truncate');
                 f.appendChild(icon('fas fa-code-fork me-1'));
-                f.appendChild(document.createTextNode('fork'));
+                if (g.forked_from) {
+                    f.appendChild(document.createTextNode('fork of '));
+                    var p = el('a', 'link-secondary', g.forked_from.name);
+                    p.href = config.baseurl + '/analyst_graphs/view/' + encodeURIComponent(g.forked_from.uuid);
+                    f.appendChild(p);
+                } else {
+                    f.appendChild(document.createTextNode('fork'));
+                }
                 sub.appendChild(f);
             }
             if (!g._canEdit) {
@@ -142,9 +152,10 @@
             return getJson('/analyst_graphs/forTarget/' + encodeURIComponent(target.type) + '/' + encodeURIComponent(target.uuid) + '.json')
                 .then(function (out) {
                     var graphs = (out && out.Graph) || [];
+                    // Kept on the record, its target: not the graphs it is a node of.
                     countEl.textContent = graphs.length
-                        ? graphs.length + (graphs.length === 1 ? ' graph' : ' graphs')
-                        : 'No graph on this ' + config.targetName;
+                        ? graphs.length + (graphs.length === 1 ? ' graph' : ' graphs') + ' kept on this ' + config.targetName
+                        : 'No graph kept on this ' + config.targetName;
                     body.textContent = '';
                     if (!graphs.length) {
                         var empty = el('div', 'd-flex flex-column align-items-center justify-content-center text-muted py-4 px-3 text-center');

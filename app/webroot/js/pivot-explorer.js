@@ -2851,10 +2851,12 @@
             return (Array.isArray(element) ? element : [element]).map(graphItemOf).filter(Boolean);
         }
 
-        // Offered where the page has IntelGraph: to a writer of graphs.
+        // Offered where the page has IntelGraph: to a writer of graphs. The
+        // explorer is a graph itself, so it says which graph the add feeds.
         function graphEntry(text) {
             return {
                 text:      text,
+                title:     'Adds it to your active graph, the one the navbar names',
                 iconClass: 'fas fa-circle-nodes',
                 visible:   function (el) { return !!window.IntelGraphActions && graphItems(el).length > 0; },
                 onclick:   function (e, el) { window.IntelGraphActions.add(graphItems(el)); }
@@ -2863,13 +2865,13 @@
 
         // The library's own menu for several selected nodes.
         function selectionMenu() {
-            return [saveEntry('Save selection'), graphEntry('Add selection to graph')];
+            return [saveEntry('Save selection'), graphEntry('Add selection to active graph')];
         }
 
         function nodeMenu() {
             return [
                 saveEntry('Save this element'),
-                graphEntry('Add to graph'),
+                graphEntry('Add to active graph'),
                 {
                     text:      'Open its event',
                     iconClass: 'fas fa-external-link-alt',

@@ -1513,8 +1513,22 @@
     });
     find('[data-ig-close]').addEventListener('click', function () { closeDock({ focusSlot: true }); });
 
+    // G shows or hides the dock, unless the key is typed into a field, taken
+    // by the control it was pressed on, or pressed behind a modal.
+    var SHORTCUT = 'g';
+    function typing(t) {
+        return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.defaultPrevented || e.repeat || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (String(e.key).toLowerCase() !== SHORTCUT || typing(e.target)) return;
+        if (document.querySelector('.modal.show')) return;
+        e.preventDefault();
+        toggle();
+    });
+
     /* ── boot ──────────────────────────────────────────────── */
-    IG().registerDock({ toggle: toggle });
+    IG().registerDock({ toggle: toggle, shortcut: SHORTCUT });
     decorateSlot();
     render();
     if (prefs.open) {

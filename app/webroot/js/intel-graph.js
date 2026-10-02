@@ -85,9 +85,13 @@
                 count.textContent = active ? String(active.node_count) : '';
                 count.hidden = !active;
             }
-            var title = active ? active.name + ' (' + active.node_count + ')' : text.none;
+            var title = (active ? active.name + ' (' + active.node_count + ')' : text.none)
+                + (dock && dock.shortcut ? ' — ' + dock.shortcut.toUpperCase() + ' shows or hides it' : '');
             slot.title = title;
-            slot.querySelectorAll('[data-intel-graph-toggle]').forEach(function (b) { b.title = title; });
+            slot.querySelectorAll('[data-intel-graph-toggle]').forEach(function (b) {
+                b.title = title;
+                if (dock && dock.shortcut) b.setAttribute('aria-keyshortcuts', dock.shortcut.toUpperCase());
+            });
         });
     }
 
@@ -301,9 +305,11 @@
     }
 
     /* ── the dock seam ─────────────────────────────────────── */
-    // dock: { toggle() }. Whatever registers last is the one the slot opens.
+    // dock: { toggle(), shortcut? }. Whatever registers last is the one the
+    // slot opens; its shortcut is named in the slot's title.
     function registerDock(d) {
         dock = d;
+        renderSlot();
     }
 
     function toggleDock() {

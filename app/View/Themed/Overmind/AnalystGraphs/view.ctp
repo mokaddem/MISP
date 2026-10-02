@@ -31,7 +31,12 @@ $description = [
     '<span class="me-3"><i class="misp-icon misp-icon-organisation misp-simple me-1"></i>' . h($graph['Orgc']['name'] ?? '') . '</span>',
     $this->element('genericElementsBS5/Badges/distribution', ['distribution' => $graph['distribution']]),
 ];
-if (!empty($graph['forked_from_uuid'])) {
+if (!empty($graph['forked_from'])) {
+    $parentLink = '<a href="' . h($baseurl . '/analyst_graphs/view/' . $graph['forked_from']['uuid']) . '">'
+        . h($graph['forked_from']['name']) . '</a>';
+    $description[] = '<span class="ms-3" data-ig-forked-from><i class="fas fa-code-fork me-1"></i>'
+        . __('Forked from %s', $parentLink) . '</span>';
+} elseif (!empty($graph['forked_from_uuid'])) {
     $description[] = '<span class="ms-3"><i class="fas fa-code-fork me-1"></i>' . __('A fork') . '</span>';
 }
 if (!empty($graph['description'])) {
