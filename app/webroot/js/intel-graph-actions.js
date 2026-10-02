@@ -1,12 +1,12 @@
 // "Add to graph" (PRD §8.3). Every control on the page that carries
 // data-intel-graph-add — a JSON list of items as IntelGraph.add() takes them,
-// each with a label — sends them to the active graph; data-intel-graph-other
-// asks which graph instead. With no active graph the dock asks.
+// each with a label — sends them to the active graph. With no active graph
+// the dock asks which one, and makes it active.
 //
 // What was added is said once: by the dock's arrivals when it is open, by a
 // toast with Open and Undo when it is not. Both hold the same undo.
 //
-//   IntelGraphActions.add(items, { other })   the same, from code (the explorer's menus)
+//   IntelGraphActions.add(items)   the same, from code (the explorer's menus)
 //
 // Needs intel-graph.js; loaded with it by Elements/intel_graph_boot.ctp.
 
@@ -85,10 +85,9 @@
 
     var OPEN = { label: 'Open', onClick: function () { openDock(); } };
 
-    function add(items, options) {
-        options = options || {};
+    function add(items) {
         if (!IG() || !items || !items.length) return Promise.resolve(null);
-        return IG().add(items, { other: !!options.other }).then(function (out) {
+        return IG().add(items).then(function (out) {
             if (out.status === 'no-graph' || dockOpen()) return out;
             var graph = IG().active();
             var name = '“' + ((graph && graph.name) || 'the graph') + '”';
@@ -143,7 +142,7 @@
             return;
         }
         if (!Array.isArray(items)) return;
-        add(items, { other: control.hasAttribute('data-intel-graph-other') });
+        add(items);
     });
 
     window.IntelGraphActions = { add: add };

@@ -312,19 +312,7 @@ $fields = array_merge($fields, [
             [
                 'type' => 'intelGraph',
                 'label' => __('Add to graph'),
-                'icon' => 'text-info fas fa-diagram-project',
-                'items' => function ($row) use ($path) {
-                    return [['type' => 'Attribute', 'uuid' => Hash::get($row, $path('uuid')), 'label' => Hash::get($row, $path('value'))]];
-                },
-                'requirement' => function($row) use ($_canGraph) {
-                    return $_canGraph && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'intelGraph',
-                'label' => __('Add to another graph…'),
-                'icon' => 'text-info fas fa-diagram-project',
-                'other' => true,
+                'icon' => 'text-info fas fa-circle-nodes',
                 'items' => function ($row) use ($path) {
                     return [['type' => 'Attribute', 'uuid' => Hash::get($row, $path('uuid')), 'label' => Hash::get($row, $path('value'))]];
                 },

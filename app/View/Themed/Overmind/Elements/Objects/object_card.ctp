@@ -171,7 +171,7 @@ $expanded = !empty($ctx['expand']);
                 <?php if (!$isDeleted && $this->Acl->canAccess('analystGraphs', 'addNodes')): ?>
                     <a href="#" class="btn btn-sm btn-outline-info py-0 px-2" title="<?= h(__('Add to graph')) ?>"
                        data-intel-graph-add="<?= h(json_encode([['type' => 'Object', 'uuid' => $object['uuid'], 'label' => $object['name']]])) ?>">
-                        <i class="fas fa-diagram-project"></i>
+                        <i class="fas fa-circle-nodes"></i>
                     </a>
                 <?php endif; ?>
                 <?php if (!empty($me['Role']['perm_analyst_data'])): ?>

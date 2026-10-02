@@ -34,7 +34,7 @@
         $headerActions[] = [
             'type' => 'navigate',
             'label' => __('Add to graph'),
-            'icon' => 'diagram-project',
+            'icon' => 'circle-nodes',
             'class' => 'btn btn-outline-info',
             'standalone' => true,
             'attributes' => ['data-intel-graph-add' => json_encode([[

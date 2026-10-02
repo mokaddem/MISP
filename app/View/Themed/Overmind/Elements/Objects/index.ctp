@@ -404,7 +404,7 @@ $foldChildren = empty($objects) ? [] : [
                         <?php if (!$isDeleted && $this->Acl->canAccess('analystGraphs', 'addNodes')): ?>
                             <a href="#" class="btn btn-sm btn-outline-info<?= $objCanEdit ? '' : ' ms-auto' ?>"
                                data-intel-graph-add="<?= h(json_encode([['type' => 'Object', 'uuid' => $object['uuid'], 'label' => $object['name']]])) ?>">
-                                <i class="fas fa-diagram-project me-1"></i>
+                                <i class="fas fa-circle-nodes me-1"></i>
                                 <?= __('Add to graph') ?>
                             </a>
                         <?php endif; ?>

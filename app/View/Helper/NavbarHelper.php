@@ -973,7 +973,7 @@ class NavbarHelper extends AppHelper {
             'label' => $graph ? $graph['name'] : __('No graph'),
             'count' => $graph ? (int)$graph['node_count'] : null,
             'title' => __('Analyst graph'),
-            'icon' => 'fas fa-diagram-project',
+            'icon' => 'fas fa-circle-nodes',
         ];
     }
 

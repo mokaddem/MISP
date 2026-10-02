@@ -140,7 +140,7 @@ $headerActions = array(
         ? array(
             'type' => 'navigate',
             'label' => __('Add to graph'),
-            'icon' => 'diagram-project',
+            'icon' => 'circle-nodes',
             'class' => 'btn btn-outline-dark',
             'attributes' => array('data-intel-graph-add' => json_encode(array(array(
                 'type' => 'Value', 'value' => $profile['value'], 'label' => $profile['value'],

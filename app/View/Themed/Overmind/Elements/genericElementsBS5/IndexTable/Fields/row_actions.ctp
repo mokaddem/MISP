@@ -221,7 +221,7 @@ if ($field['data_path'] === 'Event.id') {
                     <?php elseif ($action['type'] === 'intelGraph'): ?>
                         <?php // Sent by intel-graph-actions.js: the records items($row) names ?>
                         <a class="<?= trim('dropdown-item ' . ($action['class'] ?? '')) ?>" href="#"
-                           data-intel-graph-add="<?= h(json_encode($action['items']($row))) ?>"<?= empty($action['other']) ? '' : ' data-intel-graph-other' ?>>
+                           data-intel-graph-add="<?= h(json_encode($action['items']($row))) ?>">
                             <?= $renderIcon($action['icon']) ?>
                             <?= h($action['label']) ?>
                         </a>

@@ -42,7 +42,7 @@ $actions[] = [
 if ($this->Acl->canAccess('analystGraphs', 'addNodes') && !$isDeleted) {
     $actions[] = [
         'url' => '#',
-        'icon' => 'fas fa-diagram-project',
+        'icon' => 'fas fa-circle-nodes',
         'label' => __('Add to graph'),
         'attributes' => ['data-intel-graph-add' => json_encode([['type' => 'GalaxyCluster', 'uuid' => $uuid, 'label' => $data['value']]])],
     ];

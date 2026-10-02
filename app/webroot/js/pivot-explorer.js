@@ -2852,26 +2852,24 @@
         }
 
         // Offered where the page has IntelGraph: to a writer of graphs.
-        function graphEntry(text, other) {
+        function graphEntry(text) {
             return {
                 text:      text,
-                iconClass: 'fas fa-diagram-project',
+                iconClass: 'fas fa-circle-nodes',
                 visible:   function (el) { return !!window.IntelGraphActions && graphItems(el).length > 0; },
-                onclick:   function (e, el) { window.IntelGraphActions.add(graphItems(el), { other: other }); }
+                onclick:   function (e, el) { window.IntelGraphActions.add(graphItems(el)); }
             };
         }
 
         // The library's own menu for several selected nodes.
         function selectionMenu() {
-            return [saveEntry('Save selection'), graphEntry('Add selection to graph', false),
-                    graphEntry('Add selection to another graph…', true)];
+            return [saveEntry('Save selection'), graphEntry('Add selection to graph')];
         }
 
         function nodeMenu() {
             return [
                 saveEntry('Save this element'),
-                graphEntry('Add to graph', false),
-                graphEntry('Add to another graph…', true),
+                graphEntry('Add to graph'),
                 {
                     text:      'Open its event',
                     iconClass: 'fas fa-external-link-alt',

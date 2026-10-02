@@ -357,7 +357,6 @@
     var conflictRevision = null;
     var notice = null;      // { kind, text } shown in the banner once
     var pending = null;     // items an add with no graph left waiting (intel-graph:pick)
-    var makeActive = true;  // the waiting add's graph becomes the active one
 
     function drawnUuid() { return current ? current.uuid() : null; }
     // The summary says so, or the graph as mounted does.
@@ -705,15 +704,6 @@
         notice = null;
         var items = pending;
         pending = null;
-        if (items && !makeActive) {
-            closeChooser();
-            deliver(items, g.uuid).then(function (out) {
-                if (!out) return;
-                notice = { kind: 'done', text: (out.status === 'added' ? 'Added to “' : 'Already in “') + g.name + '”.' };
-                renderBanner();
-            });
-            return;
-        }
         if (a && lower(a.uuid) === lower(g.uuid)) {
             closeChooser();
             ensureMounted();
@@ -815,17 +805,7 @@
         noneEl.textContent = '';
         if (pending) {
             noneEl.appendChild(el('h2', null, 'Add to which graph?'));
-            var check = el('div', 'form-check');
-            var box = el('input', 'form-check-input');
-            box.type = 'checkbox';
-            box.id = 'ig-so-make-active';
-            box.checked = makeActive;
-            box.addEventListener('change', function () { makeActive = box.checked; });
-            var lab = el('label', 'form-check-label', 'Make it my active graph');
-            lab.htmlFor = box.id;
-            check.appendChild(box);
-            check.appendChild(lab);
-            noneEl.appendChild(check);
+            noneEl.appendChild(el('p', null, 'The one you pick becomes your active graph: later adds go to it too.'));
         } else {
             noneEl.appendChild(el('h2', null, 'No active graph'));
             noneEl.appendChild(el('p', null, '“Add to graph” on the pages you browse feeds one graph at a time. Pick the one you are working on, or start one; nothing loads until you do.'));
@@ -843,7 +823,6 @@
     }
     // Back to the graph, or to "no active graph".
     function closeChooser() {
-        makeActive = true;
         if (!IG().active()) { showNone(); return; }
         noneEl.hidden = true;
         ensureMounted();
@@ -1001,7 +980,6 @@
 
     IG().on('pick', function (d) {
         pending = d.items || null;
-        makeActive = !(d.options && d.options.other);
         if (!opened) openDock({ focus: false, deferMount: true });
         showNone();
     });

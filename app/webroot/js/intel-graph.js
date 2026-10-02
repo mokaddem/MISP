@@ -22,7 +22,7 @@
 //   intel-graph:refused  { graph, items, status, message } addNodes was refused
 //   intel-graph:removed  { graph, report, items }         removeNodes went through
 //   intel-graph:drawn    { graph, report, handle }        a mounted graph drew an add or a removal
-//   intel-graph:pick     { items, options }               an add with no graph to go to
+//   intel-graph:pick     { items }                        an add with no graph to go to
 
 (function () {
     'use strict';
@@ -169,12 +169,11 @@
     // items: [{ type, uuid } | { type: 'Value', value }]. Resolves
     // { status: 'added' | 'unchanged' | 'no-graph', graph, report, undo };
     // a refusal rejects, after intel-graph:refused.
-    // options.graph adds to that graph instead of the active one;
-    // options.other asks which graph, as when none is active.
+    // options.graph adds to that graph instead of the active one.
     function add(items, options) {
         var uuid = (options && options.graph) || (active && active.uuid);
-        if (!uuid || (options && options.other && !options.graph)) {
-            emit('pick', { items: items, options: options || {} });
+        if (!uuid) {
+            emit('pick', { items: items });
             return Promise.resolve({ status: 'no-graph', graph: null, report: null, undo: null });
         }
         return request('POST', graphPath('addNodes', uuid), { items: items.map(bare) }).then(function (report) {
