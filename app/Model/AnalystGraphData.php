@@ -16,6 +16,9 @@ class AnalystGraphData extends AppModel
     /** Nodes drawn at once: Pivotick's detail threshold. */
     const NODE_BUDGET = 1500;
 
+    /** Nodes a thumbnail draws. */
+    const THUMBNAIL_BUDGET = 300;
+
     private $models = [];
 
     private function model($alias)
@@ -29,13 +32,14 @@ class AnalystGraphData extends AppModel
     /**
      * @param array $user
      * @param array $document A stored graph document, decoded
+     * @param int $budget The visible nodes, in document order, that get records
      * @return array
      */
-    public function resolve(array $user, array $document)
+    public function resolve(array $user, array $document, $budget = self::NODE_BUDGET)
     {
         $visible = $this->visibleNodes($user, $document['nodes'] ?? []);
-        $drawn = array_slice($visible, 0, self::NODE_BUDGET);
-        $skipped = array_slice($visible, self::NODE_BUDGET);
+        $drawn = array_slice($visible, 0, $budget);
+        $skipped = array_slice($visible, $budget);
         $uuids = $this->uuidsByType($drawn);
 
         $objects = $this->objects($user, $uuids['Object']);
@@ -69,8 +73,71 @@ class AnalystGraphData extends AppModel
                 'nodes' => count($visible),
                 'drawn' => count($drawn),
                 'skipped' => array_map(['AnalystGraphDocumentTool', 'nodeKey'], $skipped),
-                'budget' => self::NODE_BUDGET,
+                'budget' => $budget,
             ],
+        ];
+    }
+
+    /**
+     * What a thumbnail of the graph draws for this user: the first
+     * THUMBNAIL_BUDGET nodes they may read, each at its saved position when it
+     * has one, and the edges `data` derives between them. An attribute inside
+     * a drawn object is the object, as the explorer draws it; hidden edges
+     * stay hidden.
+     *
+     * @param array $user
+     * @param array $document A stored graph document, decoded
+     * @return array {nodes: [{key, type, x?, y?, pinned?}], edges: [[from, to, kind]], total}
+     *               edges by index into nodes; total counts every node the user may read
+     */
+    public function thumbnail(array $user, array $document)
+    {
+        $payload = $this->resolve($user, $document, self::THUMBNAIL_BUDGET);
+        $parent = [];
+        foreach ($payload['Object'] as $object) {
+            $objectKey = 'Object:' . strtolower($object['uuid']);
+            foreach ($object['Attribute'] as $attribute) {
+                $parent['Attribute:' . strtolower($attribute['uuid'])] = $objectKey;
+            }
+        }
+        $nodes = [];
+        $index = [];
+        foreach (array_slice($payload['document']['nodes'], 0, self::THUMBNAIL_BUDGET) as $node) {
+            $key = AnalystGraphDocumentTool::nodeKey($node);
+            if (isset($parent[$key])) {
+                continue;
+            }
+            $thumb = ['key' => $key, 'type' => $node['type']];
+            if (isset($node['x'], $node['y']) && is_numeric($node['x']) && is_numeric($node['y'])) {
+                $thumb['x'] = round((float)$node['x'], 1);
+                $thumb['y'] = round((float)$node['y'], 1);
+            }
+            if (!empty($node['pinned'])) {
+                $thumb['pinned'] = true;
+            }
+            $index[$key] = count($nodes);
+            $nodes[] = $thumb;
+        }
+        $hidden = array_flip($document['hidden_edges'] ?? []);
+        $edges = [];
+        foreach ($payload['edges'] as $edge) {
+            if ($edge['kind'] === 'contains' || isset($hidden[$edge['id']])) {
+                continue;
+            }
+            $from = $index[$edge['from']] ?? $index[$parent[$edge['from']] ?? ''] ?? null;
+            $to = $index[$edge['to']] ?? $index[$parent[$edge['to']] ?? ''] ?? null;
+            if ($from === null || $to === null || $from === $to) {
+                continue;
+            }
+            $pair = min($from, $to) . '-' . max($from, $to);
+            if (!isset($edges[$pair])) {
+                $edges[$pair] = [$from, $to, $edge['kind']];
+            }
+        }
+        return [
+            'nodes' => $nodes,
+            'edges' => array_values($edges),
+            'total' => $payload['meta']['nodes'],
         ];
     }
 

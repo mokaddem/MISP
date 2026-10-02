@@ -1068,6 +1068,80 @@ class GraphTest extends TestCase
         $this->assertSame($expected, $edges);
     }
 
+    public function testThumbnailFoldsAnObjectsAttributesAndKeepsTheLayout()
+    {
+        $this->registerResolveFakes(array(self::E1, self::O1, self::O2, self::A1, self::A_CHILD1, self::A3, self::C1, self::C2));
+        list($document) = AnalystGraphDocumentTool::normalise(array(
+            'nodes' => array(
+                self::node('Event', self::E1) + array('x' => -320, 'y' => 0, 'pinned' => true),
+                self::node('Object', self::O1) + array('x' => 12.345, 'y' => 40),
+                self::node('Object', self::O2),
+                self::node('Attribute', self::A1),
+                self::node('Attribute', self::A_HIDDEN),
+                self::node('Attribute', self::A_CHILD1),
+                self::node('Attribute', self::A3),
+                self::node('GalaxyCluster', self::C1),
+                self::node('GalaxyCluster', self::C2),
+                self::valueNode(' 8.8.8.8 '),
+                self::valueNode('1.2.3.4'),
+                self::valueNode('EXAMPLE.ORG'),
+            ),
+            'hidden_edges' => array('in-event:' . self::O2),
+        ));
+
+        $thumb = (new AnalystGraphData())->thumbnail(array('id' => 1), $document);
+
+        $keys = array_column($thumb['nodes'], 'key');
+        $this->assertNotContains('Attribute:' . self::A_HIDDEN, $keys, 'unreadable');
+        $this->assertNotContains('Attribute:' . self::A_CHILD1, $keys, 'drawn as its object');
+        $this->assertCount(10, $keys);
+        $this->assertSame(11, $thumb['total'], 'every readable node is counted');
+        $this->assertSame(array('key' => 'Event:' . self::E1, 'type' => 'Event', 'x' => -320.0, 'y' => 0.0, 'pinned' => true), $thumb['nodes'][0]);
+        $this->assertSame(12.3, $thumb['nodes'][1]['x']);
+        $this->assertArrayNotHasKey('x', $thumb['nodes'][2], 'no saved position, none given');
+
+        $value = function ($v) {
+            return 'Value:' . Value::uuidFor($v);
+        };
+        $pairs = array();
+        foreach ($thumb['edges'] as list($from, $to, $kind)) {
+            $pairs[] = $keys[$from] . ' ' . $keys[$to] . ' ' . $kind;
+        }
+        sort($pairs);
+        $o1 = 'Object:' . self::O1;
+        $expected = array(
+            'Object:' . self::O2 . ' ' . $o1 . ' object-reference',
+            $o1 . ' Attribute:' . self::A1 . ' object-reference',
+            'Attribute:' . self::A1 . ' ' . $value('8.8.8.8') . ' relationship',
+            $o1 . ' Event:' . self::E1 . ' in-event',
+            'Attribute:' . self::A1 . ' Event:' . self::E1 . ' in-event',
+            'Event:' . self::E1 . ' GalaxyCluster:' . self::C1 . ' tag',
+            $o1 . ' GalaxyCluster:' . self::C1 . ' tag',
+            'GalaxyCluster:' . self::C1 . ' GalaxyCluster:' . self::C2 . ' cluster-relation',
+            $value('8.8.8.8') . ' ' . $o1 . ' value',
+            $value('1.2.3.4') . ' Attribute:' . self::A3 . ' value',
+            $value('EXAMPLE.ORG') . ' ' . $o1 . ' value',
+        );
+        sort($expected);
+        $this->assertSame($expected, $pairs, 'no contains edge, the hidden one left out, child ends on their object');
+    }
+
+    public function testThumbnailDrawsItsBudget()
+    {
+        $this->registerResolveFakes(array());
+        $nodes = array();
+        for ($i = 0; $i <= AnalystGraphData::THUMBNAIL_BUDGET; $i++) {
+            $nodes[] = self::valueNode('v' . $i);
+        }
+        list($document) = AnalystGraphDocumentTool::normalise(array('nodes' => $nodes));
+
+        $thumb = (new AnalystGraphData())->thumbnail(array('id' => 1), $document);
+
+        $this->assertCount(AnalystGraphData::THUMBNAIL_BUDGET, $thumb['nodes']);
+        $this->assertSame(AnalystGraphData::THUMBNAIL_BUDGET + 1, $thumb['total']);
+        $this->assertSame('Value:' . Value::uuidFor('v0'), $thumb['nodes'][0]['key'], 'in document order');
+    }
+
     public function testResolveDrawsTheBudgetAndListsTheRest()
     {
         $this->registerResolveFakes(array());

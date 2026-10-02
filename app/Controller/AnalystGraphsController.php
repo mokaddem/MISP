@@ -168,6 +168,22 @@ class AnalystGraphsController extends AppController
     }
 
     /**
+     * What a thumbnail of the graph draws for this user (AnalystGraphData::thumbnail).
+     *
+     * @param string $uuid
+     */
+    public function thumbnail($uuid)
+    {
+        $this->request->allowMethod(['get']);
+        $graph = $this->__fetchGraph($uuid);
+        $document = json_decode($graph['Graph']['content'], true) ?: AnalystGraphDocumentTool::emptyDocument();
+        return $this->RestResponse->viewData([
+            'uuid' => $graph['Graph']['uuid'],
+            'revision' => (int)$graph['Graph']['revision'],
+        ] + $this->AnalystGraphData->thumbnail($this->Auth->user(), $document), 'json');
+    }
+
+    /**
      * Replace the document, unless the graph was saved since the revision the
      * client started from.
      *

@@ -334,6 +334,40 @@
         return config.page || null;
     }
 
+    /* ── thumbnails ────────────────────────────────────────── */
+    // What a thumbnail draws of a graph for this user: { uuid, revision,
+    // nodes: [{ key, type, x?, y?, pinned? }], edges: [[from, to, kind]], total }.
+    // Kept for the page's life per uuid and revision, so pass the revision
+    // the summary carries; a few at a time, so a long list does not queue
+    // every request at once. IntelGraphThumb.layout() places it.
+    var thumbs = {};
+    var thumbQueue = [];
+    var thumbsInFlight = 0;
+    var THUMBS_AT_ONCE = 4;
+
+    function nextThumb() {
+        while (thumbsInFlight < THUMBS_AT_ONCE && thumbQueue.length) {
+            var job = thumbQueue.shift();
+            thumbsInFlight++;
+            request('GET', graphPath('thumbnail', job.uuid)).then(job.resolve, job.reject).then(function () {
+                thumbsInFlight--;
+                nextThumb();
+            });
+        }
+    }
+
+    function thumbnail(uuid, revision) {
+        var key = String(uuid).toLowerCase() + '@' + (revision === undefined ? '' : revision);
+        if (!thumbs[key]) {
+            thumbs[key] = new Promise(function (resolve, reject) {
+                thumbQueue.push({ uuid: uuid, resolve: resolve, reject: reject });
+                nextThumb();
+            });
+            thumbs[key].catch(function () { delete thumbs[key]; });
+        }
+        return thumbs[key];
+    }
+
     // { label, sub, bg, color, icon } of a distribution level, or null.
     function distribution(level) {
         var levels = config.distributionLevels || {};
@@ -351,6 +385,7 @@
         create: create,
         fork: fork,
         data: data,
+        thumbnail: thumbnail,
         save: save,
         load: load,
         mount: mount,
