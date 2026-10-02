@@ -73,6 +73,16 @@
             return b;
         }
 
+        // Where the graph's picture goes (intel-graph-thumbs.js)
+        function thumbHolder(g, surface) {
+            var h = el('span');
+            h.setAttribute('data-intel-graph-thumb', g.uuid);
+            h.setAttribute('data-revision', String(g.revision));
+            h.setAttribute('data-surface', surface);
+            h.setAttribute('data-name', g.name);
+            return h;
+        }
+
         function row(g, active) {
             var r = el('div', 'd-flex align-items-start gap-2 px-3 py-2 border-bottom');
             r.setAttribute('data-ig-graph', g.uuid);
@@ -118,6 +128,8 @@
                 sub.appendChild(ro);
             }
             main.appendChild(sub);
+            r.setAttribute('data-intel-graph-row', '');
+            main.appendChild(thumbHolder(g, 'card'));
             r.appendChild(main);
 
             var tools = el('div', 'd-flex flex-shrink-0');

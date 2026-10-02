@@ -65,8 +65,8 @@ $config = [
 <?php if ($withDock ?? true): ?>
     <?= $this->element('intel_graph_dock') ?>
     <?= $this->element('genericElements/assetLoader', [
-        'js' => ['intel-graph', 'intel-graph-dock', 'intel-graph-actions'],
-        'css' => ['intel-graph-dock'],
+        'js' => ['intel-graph', 'intel-graph-thumb', 'intel-graph-thumbs', 'intel-graph-dock', 'intel-graph-actions'],
+        'css' => ['intel-graph-dock', 'intel-graph-thumbs'],
     ]) ?>
 <?php else: ?>
     <?= $this->element('genericElements/assetLoader', ['js' => ['intel-graph']]) ?>

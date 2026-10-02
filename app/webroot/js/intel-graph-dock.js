@@ -693,6 +693,14 @@
         var mark = el('span', 'ig-so-pick-mark');
         if (isActive) mark.appendChild(icon('fas fa-check'));
         b.appendChild(mark);
+        // Where the graph's picture goes (intel-graph-thumbs.js)
+        b.setAttribute('data-intel-graph-row', '');
+        var thumb = el('span');
+        thumb.setAttribute('data-intel-graph-thumb', g.uuid);
+        thumb.setAttribute('data-revision', String(g.revision));
+        thumb.setAttribute('data-surface', 'switcher');
+        thumb.setAttribute('data-name', g.name);
+        b.appendChild(thumb);
         var bodyEl = el('span', 'ig-so-pick-body');
         bodyEl.appendChild(el('span', 'ig-so-pick-name', g.name));
         var sub = el('span', 'ig-so-pick-sub');

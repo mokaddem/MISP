@@ -175,12 +175,15 @@ class AnalystGraphsController extends AppController
     public function thumbnail($uuid)
     {
         $this->request->allowMethod(['get']);
+        // Read-only, and asked for several at a time: it leaves the session
+        // as it found it
+        $user = $this->_closeSession();
         $graph = $this->__fetchGraph($uuid);
         $document = json_decode($graph['Graph']['content'], true) ?: AnalystGraphDocumentTool::emptyDocument();
         return $this->RestResponse->viewData([
             'uuid' => $graph['Graph']['uuid'],
             'revision' => (int)$graph['Graph']['revision'],
-        ] + $this->AnalystGraphData->thumbnail($this->Auth->user(), $document), 'json');
+        ] + $this->AnalystGraphData->thumbnail($user, $document), 'json');
     }
 
     /**

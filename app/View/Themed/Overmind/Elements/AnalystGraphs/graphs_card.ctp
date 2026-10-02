@@ -48,7 +48,10 @@ $config = [
     'distributionLevels' => $this->DistributionLevel->all(),
 ];
 $jsonFlags = JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
-echo $this->element('genericElements/assetLoader', ['js' => ['intel-graph-card']]);
+echo $this->element('genericElements/assetLoader', [
+    'js' => ['intel-graph-thumb', 'intel-graph-thumbs', 'intel-graph-card'],
+    'css' => ['intel-graph-thumbs'],
+]);
 ?>
 <div class="card shadow-sm mb-3" data-ig-graphs-card>
     <script type="application/json" data-ig-card-config><?= json_encode($config, $jsonFlags) ?></script>

@@ -83,10 +83,24 @@ if ($m === 'Note') {
         'display_in' => ['table', 'card'],
     ];
 } else if ($m === 'Graph') {
+    echo $this->element('genericElements/assetLoader', [
+        'js' => ['intel-graph-thumb', 'intel-graph-thumbs'],
+        'css' => ['intel-graph-thumbs'],
+    ]);
     $fields[] = [
         'name' => __('Name'),
         'sort' => $m . '.name',
-        'data_path' => $m . '.name',
+        'element' => 'custom',
+        // The graph's picture (intel-graph-thumbs.js) beside its name
+        'function' => function ($row) {
+            return sprintf(
+                '<div class="igt-cell"><span data-intel-graph-thumb="%s" data-revision="%s" data-surface="index" data-name="%s"></span><span>%s</span></div>',
+                h($row['Graph']['uuid']),
+                h($row['Graph']['revision'] ?? ''),
+                h($row['Graph']['name']),
+                h($row['Graph']['name'])
+            );
+        },
         'class' => 'idx-col-wrap',
         'card_section' => 'attribute',
         'display_in' => ['table', 'card'],
