@@ -169,10 +169,11 @@
     // items: [{ type, uuid } | { type: 'Value', value }]. Resolves
     // { status: 'added' | 'unchanged' | 'no-graph', graph, report, undo };
     // a refusal rejects, after intel-graph:refused.
-    // options.graph adds to that graph instead of the active one.
+    // options.graph adds to that graph instead of the active one;
+    // options.other asks which graph, as when none is active.
     function add(items, options) {
         var uuid = (options && options.graph) || (active && active.uuid);
-        if (!uuid) {
+        if (!uuid || (options && options.other && !options.graph)) {
             emit('pick', { items: items, options: options || {} });
             return Promise.resolve({ status: 'no-graph', graph: null, report: null, undo: null });
         }

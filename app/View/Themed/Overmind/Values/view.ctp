@@ -136,6 +136,17 @@ $headerActions = array(
             'class' => 'btn btn-outline-dark disabled',
             'title' => $noWrites,
         ),
+    $this->Acl->canAccess('analystGraphs', 'addNodes')
+        ? array(
+            'type' => 'navigate',
+            'label' => __('Add to graph'),
+            'icon' => 'diagram-project',
+            'class' => 'btn btn-outline-dark',
+            'attributes' => array('data-intel-graph-add' => json_encode(array(array(
+                'type' => 'Value', 'value' => $profile['value'], 'label' => $profile['value'],
+            )))),
+        )
+        : null,
     array(
         'type' => 'navigate',
         'label' => __('Watch'),
@@ -151,6 +162,7 @@ $headerActions = array(
         'children' => $exportTargets,
     ),
 );
+$headerActions = array_values(array_filter($headerActions));
 
 $this->set('headerTitleHtml', $titleHtml);
 $this->set('headerBreadcrumb', array(

@@ -2831,14 +2831,47 @@
             };
         }
 
+        /* ── "Add to graph": the record behind a node, as IntelGraph names it ── */
+        var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        function graphItemOf(node) {
+            if (!node || typeof node.getData !== 'function') return null;
+            var d = node.getData() || {};
+            var at = node.id.indexOf(':');
+            var prefix = node.id.slice(0, at + 1), rest = node.id.slice(at + 1);
+            var uuid = d.uuid || (UUID_RE.test(rest) ? rest : null);
+            if (prefix === 'event:' && uuid) return { type: 'Event', uuid: uuid, label: d.label || d.info };
+            if (prefix === 'obj:' && uuid) return { type: 'Object', uuid: uuid, label: d.label || d.name };
+            if (prefix === 'attr:' && uuid) return { type: 'Attribute', uuid: uuid, label: d.value || d.label };
+            if (prefix === 'cluster:' && d.uuid) return { type: 'GalaxyCluster', uuid: d.uuid, label: d.label || d.value };
+            if (prefix === 'value:' && d.value != null) return { type: 'Value', value: String(d.value), label: String(d.value) };
+            return null;
+        }
+
+        function graphItems(element) {
+            return (Array.isArray(element) ? element : [element]).map(graphItemOf).filter(Boolean);
+        }
+
+        // Offered where the page has IntelGraph: to a writer of graphs.
+        function graphEntry(text, other) {
+            return {
+                text:      text,
+                iconClass: 'fas fa-diagram-project',
+                visible:   function (el) { return !!window.IntelGraphActions && graphItems(el).length > 0; },
+                onclick:   function (e, el) { window.IntelGraphActions.add(graphItems(el), { other: other }); }
+            };
+        }
+
         // The library's own menu for several selected nodes.
         function selectionMenu() {
-            return [saveEntry('Save selection')];
+            return [saveEntry('Save selection'), graphEntry('Add selection to graph', false),
+                    graphEntry('Add selection to another graph…', true)];
         }
 
         function nodeMenu() {
             return [
                 saveEntry('Save this element'),
+                graphEntry('Add to graph', false),
+                graphEntry('Add to another graph…', true),
                 {
                     text:      'Open its event',
                     iconClass: 'fas fa-external-link-alt',

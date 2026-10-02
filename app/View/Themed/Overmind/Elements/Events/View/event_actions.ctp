@@ -103,6 +103,22 @@ if ($canEdit) {
 
 $actions[] = ['divider' => true, 'label' => __('Share')];
 
+if ($this->Acl->canAccess('analystGraphs', 'addNodes')) {
+    $graphItems = json_encode([['type' => 'Event', 'uuid' => $data['Event']['uuid'], 'label' => $data['Event']['info']]]);
+    $actions[] = [
+        'url' => '#',
+        'icon' => 'fas fa-diagram-project',
+        'label' => __('Add to graph'),
+        'attributes' => ['data-intel-graph-add' => $graphItems],
+    ];
+    $actions[] = [
+        'url' => '#',
+        'icon' => 'fas fa-diagram-project',
+        'label' => __('Add to another graph…'),
+        'attributes' => ['data-intel-graph-add' => $graphItems, 'data-intel-graph-other' => '1'],
+    ];
+}
+
 if (!$isPublished && ($isSiteAdmin || ($mayModify && $canPublish))) {
     $actions[] = [
         'url' => "",

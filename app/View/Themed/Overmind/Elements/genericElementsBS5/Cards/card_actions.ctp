@@ -17,6 +17,7 @@
  * - 'tour' => string (optional) — emits data-tour, an anchor for the
  *   onboarding tour to spotlight this specific action.
  * - 'type' => 'post' (optional) — renders a postLink, with 'confirm' and 'id'
+ * - 'attributes' => array (optional) — more attributes of the link, name => value
  *
  * Separator params :
  * - 'divider' => true          a hairline between two groups
@@ -116,7 +117,10 @@ $renderDivider = function (array $spec) {
                            style="<?= $btnStyle ?>"
                            href="<?= h($url) ?>"
                            <?= !empty($action['tour']) ? 'data-tour="' . h($action['tour']) . '"' : '' ?>
-                           <?= !empty($action['onclick']) ? 'onclick="' . $action['onclick'] . '"' : '' ?>>
+                           <?= !empty($action['onclick']) ? 'onclick="' . $action['onclick'] . '"' : '' ?>
+                           <?php foreach ($action['attributes'] ?? [] as $name => $value): ?>
+                               <?= h($name) ?>="<?= h($value) ?>"
+                           <?php endforeach; ?>>
                             <?= $innerHtml ?>
                         </a>
                     <?php endif; ?>

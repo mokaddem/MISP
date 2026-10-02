@@ -401,8 +401,15 @@ $foldChildren = empty($objects) ? [] : [
                                 </a>
                             <?php endif; ?>
                         <?php endif; ?>
+                        <?php if (!$isDeleted && $this->Acl->canAccess('analystGraphs', 'addNodes')): ?>
+                            <a href="#" class="btn btn-sm btn-outline-info<?= $objCanEdit ? '' : ' ms-auto' ?>"
+                               data-intel-graph-add="<?= h(json_encode([['type' => 'Object', 'uuid' => $object['uuid'], 'label' => $object['name']]])) ?>">
+                                <i class="fas fa-diagram-project me-1"></i>
+                                <?= __('Add to graph') ?>
+                            </a>
+                        <?php endif; ?>
                         <?php if (!empty($me['Role']['perm_analyst_data'])): ?>
-                            <div class="<?= $objCanEdit ? '' : 'ms-auto' ?>">
+                            <div class="<?= ($objCanEdit || (!$isDeleted && $this->Acl->canAccess('analystGraphs', 'addNodes'))) ? '' : 'ms-auto' ?>">
                                 <?= $this->element('AnalystData/add_controls', [
                                     'objectType' => 'Object',
                                     'objectUuid' => $object['uuid'] ?? '',

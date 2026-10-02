@@ -129,6 +129,7 @@ if (isset($headerCountText)) {
  *   'primary'    this one keeps a button when its type is grouped
  *   'standalone' never folded into its type's group
  *   'children'   type dropdown only, same shape + ['type' => 'divider']
+ *   'attributes' more attributes of the rendered control, name => value
  *
  * Several actions sharing a behaviour (and a tab) collapse into a single
  * split button carrying that behaviour's style, so the strip never grows
@@ -264,7 +265,7 @@ $renderHeaderAction = function (array $action, array $options = []) use (
         'title' => $action['title'] ?? null,
         'data-header-tab' => $tab,
         'onclick' => $headerActionOnClick($action + ['type' => $type]),
-    ]) . '>' . $icon . $label . '</a>';
+    ] + ($action['attributes'] ?? [])) . '>' . $icon . $label . '</a>';
 };
 
 $renderHeaderMenu = function (array $entries) use ($renderHeaderAction) {

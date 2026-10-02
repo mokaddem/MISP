@@ -218,6 +218,14 @@ if ($field['data_path'] === 'Event.id') {
                             $action['confirm'] ?? false
                         ) ?>
 
+                    <?php elseif ($action['type'] === 'intelGraph'): ?>
+                        <?php // Sent by intel-graph-actions.js: the records items($row) names ?>
+                        <a class="<?= trim('dropdown-item ' . ($action['class'] ?? '')) ?>" href="#"
+                           data-intel-graph-add="<?= h(json_encode($action['items']($row))) ?>"<?= empty($action['other']) ? '' : ' data-intel-graph-other' ?>>
+                            <?= $renderIcon($action['icon']) ?>
+                            <?= h($action['label']) ?>
+                        </a>
+
                     <?php elseif ($action['type'] === 'divider'): ?>
                         <li><hr class="dropdown-divider"></li>
 

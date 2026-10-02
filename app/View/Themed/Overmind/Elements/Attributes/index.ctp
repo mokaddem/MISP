@@ -39,7 +39,8 @@ $galaxyOptions = isset($galaxyOptions) ? $galaxyOptions : null;
  *
  * Fields specific to actions:
  *
- * - type           : modal | navigate | toggle | copy | divider
+ * - type           : modal | navigate | toggle | copy | divider | intelGraph
+ * - items          : intelGraph only: fn($row) → the records "Add to graph" sends
  * - label          : Displayed text
  * - label_on/off   : Text for toggle
  * - icon           : FontAwesome icon
@@ -57,6 +58,7 @@ $model      = !empty($firstRow['Attribute']) ? 'Attribute' : null;
 $_canModify = !empty($mayModify);
 $_canPropose = !empty($me['Role']['perm_add']);
 $_canAnalystData = !empty($me['Role']['perm_analyst_data']);
+$_canGraph = $this->Acl->canAccess('analystGraphs', 'addNodes');
 // Enrichment / Cortex expansion (misp-modules): the "Enrich" actions are only
 // offered when the matching services plugin is enabled and the user can add data.
 $_enrichmentEnabled = (bool)Configure::read('Plugin.Enrichment_services_enable');
@@ -299,6 +301,35 @@ $fields = array_merge($fields, [
                 'url_params_data_paths' => ['uuid' => $path('uuid')],
                 'requirement' => function($row) use ($inEventView, $_canAnalystData) {
                     return $inEventView && $_canAnalystData && empty($row['deleted']) && empty($row['is_proposal']);
+                }
+            ],
+            [
+                'type' => 'divider',
+                'requirement' => function($row) use ($_canGraph) {
+                    return $_canGraph && empty($row['deleted']) && empty($row['is_proposal']);
+                }
+            ],
+            [
+                'type' => 'intelGraph',
+                'label' => __('Add to graph'),
+                'icon' => 'text-info fas fa-diagram-project',
+                'items' => function ($row) use ($path) {
+                    return [['type' => 'Attribute', 'uuid' => Hash::get($row, $path('uuid')), 'label' => Hash::get($row, $path('value'))]];
+                },
+                'requirement' => function($row) use ($_canGraph) {
+                    return $_canGraph && empty($row['deleted']) && empty($row['is_proposal']);
+                }
+            ],
+            [
+                'type' => 'intelGraph',
+                'label' => __('Add to another graph…'),
+                'icon' => 'text-info fas fa-diagram-project',
+                'other' => true,
+                'items' => function ($row) use ($path) {
+                    return [['type' => 'Attribute', 'uuid' => Hash::get($row, $path('uuid')), 'label' => Hash::get($row, $path('value'))]];
+                },
+                'requirement' => function($row) use ($_canGraph) {
+                    return $_canGraph && empty($row['deleted']) && empty($row['is_proposal']);
                 }
             ],
             [

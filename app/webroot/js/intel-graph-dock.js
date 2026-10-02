@@ -1513,6 +1513,7 @@
 
     window.IntelGraphDock = {
         open: openDock, close: closeDock, toggle: toggle, handle: function () { return current; },
+        isOpen: function () { return opened; },
         prefs: function () { return Object.assign({}, prefs); }, width: width, bounds: bounds,
         mode: function () { return prefs.mode; }, setMode: setMode, rect: winRect
     };
