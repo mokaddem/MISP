@@ -115,6 +115,16 @@ invalid_graph = dict(peer_graph, uuid=str(uuid.uuid4()), content={"nodes": [{"ty
 refused = pymisp._check_response(pymisp._prepare_request('POST', 'analyst_data/pushAnalystData', data={"Graph": invalid_graph}))
 assert isinstance(refused, dict) and "errors" in refused, refused
 
+# A batched push reports on each record, in order
+assert version.get("analyst_data_batch_push") is True, version
+batch = [{"Graph": dict(peer_graph, uuid=str(uuid.uuid4()))}, {"Graph": peer_graph}, {"Graph": invalid_graph}]
+report = pymisp._check_response(pymisp._prepare_request('POST', 'analyst_data/pushAnalystDataBatch', data=batch))
+assert [r["result"] for r in report["results"]] == ["imported", "ignored", "failed"], report
+assert report["results"][0]["uuid"] == batch[0]["Graph"]["uuid"], report
+batch_graph = pymisp._check_response(pymisp._prepare_request('GET', f'analyst_data/view/Graph/{batch[0]["Graph"]["uuid"]}'))
+check_response(batch_graph)
+batch_graph = batch_graph["Graph"]
+
 # Preview index
 url = f'servers/previewIndex/{remote_server["id"]}'
 index_preview = pymisp._check_response(pymisp._prepare_request('GET', url))
@@ -159,7 +169,7 @@ check_response(rules_response)
 
 # Delete server, graphs and test event
 check_response(pymisp.delete_server(remote_server))
-for graph_id in (graph["id"], pushed_graph["id"]):
+for graph_id in (graph["id"], pushed_graph["id"], batch_graph["id"]):
     url = f'analyst_data/delete/Graph/{graph_id}/0'
     check_response(pymisp._check_response(pymisp._prepare_request('POST', url)))
 check_response(pymisp.delete_event(event))

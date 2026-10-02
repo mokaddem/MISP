@@ -613,6 +613,33 @@ class AnalystDataController extends AppController
     }
 
     /**
+     * A batched push: a list of {Type: record}, each captured on its own and
+     * reported in order (AnalystData::captureBatch).
+     */
+    public function pushAnalystDataBatch()
+    {
+        if (!$this->Auth->user()['Role']['perm_sync'] || !$this->Auth->user()['Role']['perm_analyst_data']) {
+            throw new MethodNotAllowedException(__('You do not have the permission to do that.'));
+        }
+        if (!$this->_isRest()) {
+            throw new MethodNotAllowedException(__('This action is only accessible via a REST request.'));
+        }
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__('This action expects a POST request.'));
+        }
+        $records = $this->request->data;
+        if (!is_array($records) || empty($records) || !array_is_list($records)) {
+            throw new BadRequestException(__('Expected a non-empty list of analyst data records.'));
+        }
+        if (count($records) > AnalystData::PUSH_BATCH_COUNT) {
+            throw new BadRequestException(__('At most %s records per request.', AnalystData::PUSH_BATCH_COUNT));
+        }
+        $this->loadModel('AnalystData');
+        $report = $this->AnalystData->captureBatch($this->Auth->user(), $records);
+        return $this->RestResponse->viewData($report, 'json');
+    }
+
+    /**
      * A graph's document is stored as JSON text; REST returns it as an object.
      */
     private function __decodeGraphContent(array $analystData): array

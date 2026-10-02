@@ -30,6 +30,7 @@ class ACLComponent extends Component
             'index' => ['*'],
             'indexMinimal' => ['*'],
             'pushAnalystData' => ['perm_sync'],
+            'pushAnalystDataBatch' => ['perm_sync'],
             'view' => ['*'],
             'viewForObject' => ['theming_enabled'],
         ],

@@ -1,8 +1,9 @@
 <?php
 /**
  * Analyst graph sync: feature negotiation, the indexMinimal opt-in, the
- * receiver's push filter, byte-budgeted pulls and metadata-only push
- * collection, driven against fake peers that predate graphs or carry them.
+ * receiver's push filter, byte-budgeted pulls, metadata-only push
+ * collection and batched push, driven against fake peers that predate graphs
+ * or carry them.
  *
  * Pure PHPUnit, no CakePHP bootstrap and no database. The framework classes
  * touched are stubbed below, each guarded so that a full-suite run sharing
@@ -186,6 +187,23 @@ class GraphSyncTestSync extends ServerSyncTool
         return new GraphSyncTestResponse(array('saved' => true));
     }
 
+    /** @var callable|null fn(array $records) → response body; throws to fail the request */
+    public $batchReply;
+
+    public function pushAnalystDataBatch(array $records)
+    {
+        $this->requests[] = array('batch', $records);
+        if ($this->batchReply) {
+            return new GraphSyncTestResponse(call_user_func($this->batchReply, $records));
+        }
+        $results = array();
+        foreach ($records as $record) {
+            $type = key($record);
+            $results[] = array('type' => $type, 'uuid' => $record[$type]['uuid'], 'result' => 'imported', 'errors' => array());
+        }
+        return new GraphSyncTestResponse(array('results' => $results));
+    }
+
     public function requestsOf($kind)
     {
         return array_values(array_filter($this->requests, function ($request) use ($kind) {
@@ -314,14 +332,31 @@ class GraphSyncTestOrganisation
     }
 }
 
+class GraphSyncTestLog
+{
+    public $entries = array();
+
+    public function createLogEntry($user, $action, $model, $modelId, $title, $change = null)
+    {
+        $this->entries[] = compact('action', 'model', 'modelId', 'title', 'change');
+    }
+}
+
 class GraphSyncTestAnalystData extends AnalystData
 {
     public $alias = 'AnalystData';
     public $captured = array();
+    /** @var bool Keep exceptions in $exceptions rather than throwing them */
+    public $keepExceptions = false;
+    public $exceptions = array();
+    /** @var array uuid → capture result, or an Exception to throw */
+    public $captureReplies = array();
+    public $logModel;
 
     public function __construct()
     {
         $this->Org = new GraphSyncTestOrganisation();
+        $this->logModel = new GraphSyncTestLog();
     }
 
     public function log($message, $type = LOG_ERR, $scope = null)
@@ -331,7 +366,15 @@ class GraphSyncTestAnalystData extends AnalystData
 
     public function logException($message, Exception $exception, $type = LOG_ERR)
     {
-        throw $exception;
+        if (!$this->keepExceptions) {
+            throw $exception;
+        }
+        $this->exceptions[] = $message;
+    }
+
+    public function loadLog()
+    {
+        return $this->logModel;
     }
 
     public function jsonDecode($json)
@@ -342,8 +385,20 @@ class GraphSyncTestAnalystData extends AnalystData
     public function captureAnalystData(array $user, array $analystData, $fromPull = false, $orgUUId = false, $server = false): array
     {
         $this->captured[] = $analystData;
-        return array('success' => true, 'imported' => 1, 'ignored' => 0, 'failed' => 0, 'errors' => array());
+        $record = reset($analystData);
+        $reply = $this->captureReplies[$record['uuid'] ?? ''] ?? null;
+        if ($reply instanceof Exception) {
+            throw $reply;
+        }
+        return $reply ?: array('success' => true, 'imported' => 1, 'ignored' => 0, 'failed' => 0, 'errors' => array());
     }
+}
+
+/** Batches of at most 3 records or 1,000 bytes. */
+class GraphSyncTestSmallBatchAnalystData extends GraphSyncTestAnalystData
+{
+    const PUSH_BATCH_BYTES = 1000,
+        PUSH_BATCH_COUNT = 3;
 }
 
 class GraphSyncTest extends TestCase
@@ -381,11 +436,14 @@ class GraphSyncTest extends TestCase
         ClassRegistry::$instances = $this->saved;
     }
 
-    private function info($graphs)
+    private function info($graphs, $batch = false)
     {
         $info = array('version' => '2.5.42', 'perm_sync' => true, 'perm_analyst_data' => true);
         if ($graphs) {
             $info['analyst_graph'] = true;
+        }
+        if ($batch) {
+            $info['analyst_data_batch_push'] = true;
         }
         return $info;
     }
@@ -777,5 +835,222 @@ class GraphSyncTest extends TestCase
         $this->assertNotSame('Success', $results[0]);
         $this->assertSame('Success', $results[1]);
         $this->assertCount(1, $sync->requestsOf('push'));
+    }
+
+    // ---- batched push ------------------------------------------------------------
+
+    private function notes($from, $count)
+    {
+        $notes = array();
+        for ($n = $from; $n < $from + $count; $n++) {
+            $notes[] = $this->noteRow($n);
+        }
+        return $notes;
+    }
+
+    public function testBatchFeatureSupportedOnlyWhenAdvertised()
+    {
+        $batch = new GraphSyncTestSync($this->info(true, true), $this->server);
+        $plain = new GraphSyncTestSync($this->info(true), $this->server);
+        $this->assertTrue($batch->isSupported(ServerSyncTool::FEATURE_ANALYST_DATA_BATCH));
+        $this->assertFalse($plain->isSupported(ServerSyncTool::FEATURE_ANALYST_DATA_BATCH));
+    }
+
+    public function testPushToAPeerWithoutBatchesSendsOneRecordPerRequest()
+    {
+        $this->registerPushFakes($this->notes(1001, 3), array());
+        $sync = new GraphSyncTestSync($this->info(true), $this->server);
+
+        $pushed = (new GraphSyncTestAnalystData())->push($this->admin, $sync);
+
+        $this->assertCount(3, $pushed);
+        $this->assertCount(3, $sync->requestsOf('push'));
+        $this->assertEmpty($sync->requestsOf('batch'));
+    }
+
+    public function testPushToABatchPeerSendsUpToTheRecordCap()
+    {
+        $this->registerPushFakes(
+            $this->notes(1001, 150),
+            array($this->graphRow(1, 2), $this->graphRow(2, 3), $this->graphRow(3, 1))
+        );
+        $sync = new GraphSyncTestSync($this->info(true, true), $this->server);
+
+        $pushed = (new GraphSyncTestAnalystData())->push($this->admin, $sync);
+
+        $this->assertEmpty($sync->requestsOf('push'));
+        $batches = $sync->requestsOf('batch');
+        $this->assertSame(array(100, 52), array_map(function ($request) {
+            return count($request[1]);
+        }, $batches), 'notes and graphs share batches; community-only graph 3 is not offered');
+        $last = $batches[1][1];
+        $graph = $last[50]['Graph'];
+        $this->assertSame($this->uuid(1), $graph['uuid']);
+        $this->assertSame($this->uuid(9000), $graph['content']['nodes'][0]['uuid'], 'a graph goes out with its document');
+        $this->assertTrue($graph['locked']);
+        $this->assertSame(1, $graph['distribution']);
+        $this->assertArrayNotHasKey('id', $graph);
+        $this->assertSame($this->uuid(1001), $batches[0][1][0]['Note']['uuid']);
+        $this->assertCount(152, $pushed);
+    }
+
+    public function testBatchesRespectTheByteBudgetAndAnOversizedRecordGoesAlone()
+    {
+        $huge = '{"version":1,"nodes":[],"hidden_edges":["' . str_repeat('y', 1500) . '"],"view":{}}';
+        $this->registerPushFakes($this->notes(1001, 5), array(
+            $this->graphRow(1, 2),
+            $this->graphRow(2, 2, array('content' => $huge)),
+            $this->graphRow(3, 2),
+            $this->graphRow(4, 2),
+        ));
+        $sync = new GraphSyncTestSync($this->info(true, true), $this->server);
+
+        $pushed = (new GraphSyncTestSmallBatchAnalystData())->push($this->admin, $sync);
+
+        $batches = array_column($sync->requestsOf('batch'), 1);
+        $size = function (array $record) {
+            return strlen(JsonTool::encode($record));
+        };
+        $bytes = function (array $batch) use ($size) {
+            return array_sum(array_map($size, $batch));
+        };
+        $sent = array();
+        foreach ($batches as $i => $batch) {
+            $this->assertLessThanOrEqual(3, count($batch));
+            if (count($batch) > 1) {
+                $this->assertLessThanOrEqual(1000, $bytes($batch), "batch $i is over the byte budget");
+            }
+            if (isset($batches[$i + 1])) {
+                $this->assertTrue(
+                    count($batch) === 3 || $bytes($batch) + $size($batches[$i + 1][0]) > 1000,
+                    "batch $i could have taken the next record"
+                );
+            }
+            foreach ($batch as $record) {
+                $type = key($record);
+                $sent[] = $record[$type]['uuid'];
+                if ($type === 'Graph' && $record['Graph']['uuid'] === $this->uuid(2)) {
+                    $this->assertCount(1, $batch, 'the oversized graph goes alone');
+                    $this->assertGreaterThan(1000, $size($record));
+                }
+            }
+        }
+        $this->assertContains(2, array_map('count', $batches), 'small records do share a batch');
+        $this->assertCount(9, $sent);
+        $this->assertCount(9, array_unique($sent));
+        $this->assertCount(9, $pushed);
+    }
+
+    public function testBatchesRespectTheRecordCap()
+    {
+        $this->registerPushFakes($this->notes(1001, 7), array());
+        $sync = new GraphSyncTestSync($this->info(true, true), $this->server);
+
+        (new GraphSyncTestSmallBatchAnalystData())->push($this->admin, $sync);
+
+        $this->assertSame(array(3, 3, 1), array_map(function ($request) {
+            return count($request[1]);
+        }, $sync->requestsOf('batch')));
+    }
+
+    public function testABatchReportCountsImportsAndLogsWhatFailed()
+    {
+        $this->registerPushFakes($this->notes(1001, 4), array());
+        $sync = new GraphSyncTestSync($this->info(true, true), $this->server);
+        $uuid = function ($n) {
+            return $this->uuid($n);
+        };
+        $sync->batchReply = function (array $records) use ($uuid) {
+            return array('imported' => 1, 'ignored' => 1, 'failed' => 1, 'results' => array(
+                array('type' => 'Note', 'uuid' => strtoupper($uuid(1001)), 'result' => 'imported', 'errors' => array()),
+                array('type' => 'Note', 'uuid' => $uuid(1002), 'result' => 'ignored', 'errors' => array('not newer')),
+                array('type' => 'Note', 'uuid' => $uuid(1003), 'result' => 'failed', 'errors' => array('Blocked an edit')),
+                array('type' => 'Note', 'uuid' => $uuid(9999), 'result' => 'imported', 'errors' => array()),
+            ));
+        };
+        $analystData = new GraphSyncTestAnalystData();
+
+        $pushed = $analystData->push($this->admin, $sync);
+
+        $this->assertSame(array('AnalystData ' . $this->uuid(1001)), $pushed);
+        $logged = $analystData->logModel->entries;
+        $this->assertSame(array(1003, 1004), array_column($logged, 'modelId'), 'the refusal and the record reported under another uuid');
+        $this->assertSame('Blocked an edit', $logged[0]['change']);
+        $this->assertSame('push', $logged[0]['action']);
+    }
+
+    public function testAFailedBatchRequestIsSentAgainOneRecordAtATime()
+    {
+        $this->registerPushFakes($this->notes(1001, 2), array($this->graphRow(1, 2)));
+        $sync = new GraphSyncTestSync($this->info(true, true), $this->server);
+        $sync->batchReply = function () {
+            throw new RuntimeException('413 Request Entity Too Large');
+        };
+        $analystData = new GraphSyncTestAnalystData();
+        $analystData->keepExceptions = true;
+
+        $pushed = $analystData->push($this->admin, $sync);
+
+        $this->assertCount(1, $sync->requestsOf('batch'));
+        $singles = $sync->requestsOf('push');
+        $this->assertSame(array('Note', 'Note', 'Graph'), array_column($singles, 1));
+        $this->assertSame($this->uuid(9000), $singles[2][2]['Graph']['content']['nodes'][0]['uuid']);
+        $this->assertTrue($singles[2][2]['Graph']['locked'], 'the prepared record is sent, not prepared again');
+        $this->assertCount(3, $pushed);
+        $this->assertCount(1, $analystData->exceptions);
+        $finds = array_filter(ClassRegistry::$instances['Graph']->finds, function ($find) {
+            return isset($find[1]['conditions']['Graph.id']);
+        });
+        $this->assertCount(1, $finds, 'the content is read once');
+    }
+
+    public function testABatchToAPeerWithoutThePermissionSendsNothing()
+    {
+        $this->registerPushFakes($this->notes(1001, 2), array());
+        $info = $this->info(true, true);
+        $info['perm_analyst_data'] = false;
+        $sync = new GraphSyncTestSync($info, $this->server);
+
+        $pushed = (new GraphSyncTestAnalystData())->push($this->admin, $sync);
+
+        $this->assertSame(array(), $pushed);
+        $this->assertEmpty($sync->requestsOf('batch'));
+        $this->assertEmpty($sync->requestsOf('push'));
+    }
+
+    // ---- the receiver's batch ------------------------------------------------------
+
+    public function testCaptureBatchReportsEachRecordInOrder()
+    {
+        $analystData = new GraphSyncTestAnalystData();
+        $analystData->keepExceptions = true;
+        $analystData->captureReplies = array(
+            $this->uuid(2) => array('success' => false, 'imported' => 0, 'ignored' => 1, 'failed' => 0, 'errors' => array('not newer')),
+            $this->uuid(3) => array('success' => false, 'imported' => 0, 'ignored' => 0, 'failed' => 1, 'errors' => array('invalid document')),
+            $this->uuid(4) => new RuntimeException('SQLSTATE[HY000]: secret detail'),
+        );
+
+        $report = $analystData->captureBatch($this->admin, array(
+            array('Note' => array('uuid' => $this->uuid(1))),
+            array('Graph' => array('uuid' => $this->uuid(2))),
+            array('Graph' => array('uuid' => $this->uuid(3)), 'Widget' => array()),
+            array('Opinion' => array('uuid' => $this->uuid(4))),
+            array('Widget' => array('uuid' => $this->uuid(5))),
+            'not a record',
+            array('Relationship' => array('uuid' => $this->uuid(7))),
+        ));
+
+        $this->assertSame(array('imported' => 2, 'ignored' => 1, 'failed' => 4), array_intersect_key($report, array_flip(array('imported', 'ignored', 'failed'))));
+        $this->assertSame(
+            array('imported', 'ignored', 'failed', 'failed', 'failed', 'failed', 'imported'),
+            array_column($report['results'], 'result')
+        );
+        $this->assertSame(array('Note', 'Graph', 'Graph', 'Opinion', null, null, 'Relationship'), array_column($report['results'], 'type'));
+        $this->assertSame($this->uuid(2), $report['results'][1]['uuid']);
+        $this->assertSame(array('invalid document'), $report['results'][2]['errors']);
+        $this->assertSame(array('The record could not be captured.'), $report['results'][3]['errors'], 'an exception is not echoed to the peer');
+        $this->assertCount(1, $analystData->exceptions);
+        $this->assertSame(array('Graph' => array('uuid' => $this->uuid(3))), $analystData->captured[2], 'only the record\'s own type is captured');
+        $this->assertCount(5, $analystData->captured, 'the malformed ones never reach capture');
     }
 }

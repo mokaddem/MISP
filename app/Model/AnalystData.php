@@ -52,6 +52,10 @@ class AnalystData extends AppModel
     const GRAPH_PULL_BATCH_BYTES = 8388608,
         GRAPH_PULL_BATCH_COUNT = 100;
 
+    // A batched push sends at most this many bytes, or records, per request
+    const PUSH_BATCH_BYTES = 8388608,
+        PUSH_BATCH_COUNT = 100;
+
     protected const BASE_EDITABLE_FIELDS = [
         'language',
         'authors',
@@ -822,6 +826,53 @@ class AnalystData extends AppModel
         return $results;
     }
 
+    /**
+     * Captures the records of a batched push, each on its own: one refused
+     * or broken record does not stop the others.
+     *
+     * @param array $user
+     * @param array $records A list of {Type: record}
+     * @return array {imported, ignored, failed, results: [{type, uuid, result, errors}]},
+     *               one result per record, in order
+     */
+    public function captureBatch(array $user, array $records): array
+    {
+        $report = ['imported' => 0, 'ignored' => 0, 'failed' => 0, 'results' => []];
+        foreach (array_values($records) as $record) {
+            $type = null;
+            if (is_array($record)) {
+                foreach (self::TYPES as $candidate) {
+                    if (isset($record[$candidate]) && is_array($record[$candidate])) {
+                        $type = $candidate;
+                        break;
+                    }
+                }
+            }
+            $uuid = $type !== null && isset($record[$type]['uuid']) && is_string($record[$type]['uuid'])
+                ? $record[$type]['uuid']
+                : null;
+            if ($type === null) {
+                $outcome = ['result' => 'failed', 'errors' => [__('Not an analyst data record of a known type.')]];
+            } else {
+                try {
+                    $capture = $this->captureAnalystData($user, [$type => $record[$type]]);
+                    if ($capture['success']) {
+                        $result = 'imported';
+                    } else {
+                        $result = $capture['failed'] > 0 ? 'failed' : 'ignored';
+                    }
+                    $outcome = ['result' => $result, 'errors' => array_values($capture['errors'])];
+                } catch (Exception $e) {
+                    $this->logException("Could not capture pushed analyst data ($type)", $e);
+                    $outcome = ['result' => 'failed', 'errors' => [__('The record could not be captured.')]];
+                }
+            }
+            $report[$outcome['result']]++;
+            $report['results'][] = ['type' => $type, 'uuid' => $uuid] + $outcome;
+        }
+        return $report;
+    }
+
     public function captureOrganisationAndSG($element, $model, $user)
     {
         $this->Event = ClassRegistry::init('Event');
@@ -886,6 +937,9 @@ class AnalystData extends AppModel
         } catch (Exception $e) {
             $this->logException("Could not get eligible Analyst Data IDs from server #{$server['Server']['id']} for push.", $e);
             return [];
+        }
+        if ($serverSync->isSupported(ServerSyncTool::FEATURE_ANALYST_DATA_BATCH)) {
+            return $this->pushInBatches($user, $analystDataToPush, $serverSync);
         }
         $successes = [];
         foreach ($analystDataToPush as $type => $entries) {
@@ -1184,17 +1238,116 @@ class AnalystData extends AppModel
     public function uploadEntryToServer($type, array $analystData, array $server, ServerSyncTool $serverSync, array $user)
     {
         $analystDataID = $analystData[$type]['id'];
+        $analystData = $this->prepareEntryForUpload($type, $analystData, $server);
+        if (!is_array($analystData)) {
+            return $analystData;
+        }
+        return $this->sendEntryToServer($type, $analystDataID, $analystData, $server, $serverSync, $user);
+    }
+
+    /**
+     * Pushes the accepted records in batches of at most PUSH_BATCH_COUNT
+     * records and PUSH_BATCH_BYTES bytes, a larger record alone. A graph's
+     * content is read as its batch fills, so a push holds one batch at most.
+     *
+     * @param array $user
+     * @param array $analystDataToPush [type => [record]]
+     * @param ServerSyncTool $serverSync
+     * @return array The records the remote imported
+     */
+    private function pushInBatches(array $user, array $analystDataToPush, ServerSyncTool $serverSync): array
+    {
+        if (!$serverSync->isSupported(ServerSyncTool::PERM_SYNC) || !$serverSync->isSupported(ServerSyncTool::PERM_ANALYST_DATA)) {
+            return [];
+        }
+        $server = $serverSync->server();
+        $successes = [];
+        $batch = [];
+        $bytes = 0;
+        foreach ($analystDataToPush as $type => $entries) {
+            foreach ($entries as $entry) {
+                $id = $entry[$type]['id'];
+                $record = $this->prepareEntryForUpload($type, $entry, $server);
+                if (!is_array($record)) {
+                    continue;
+                }
+                $size = strlen(JsonTool::encode($record));
+                if (!empty($batch) && (count($batch) >= static::PUSH_BATCH_COUNT || $bytes + $size > static::PUSH_BATCH_BYTES)) {
+                    $successes = array_merge($successes, $this->uploadBatchToServer($batch, $server, $serverSync, $user));
+                    $batch = [];
+                    $bytes = 0;
+                }
+                $batch[] = ['type' => $type, 'id' => $id, 'record' => $record];
+                $bytes += $size;
+            }
+        }
+        if (!empty($batch)) {
+            $successes = array_merge($successes, $this->uploadBatchToServer($batch, $server, $serverSync, $user));
+        }
+        return $successes;
+    }
+
+    /**
+     * One batch. A request that fails as a whole is sent again one record per
+     * request, so a single bad record cannot hold back the rest.
+     *
+     * @param array $batch [{type, id, record}]
+     * @return array The records the remote imported
+     */
+    private function uploadBatchToServer(array $batch, array $server, ServerSyncTool $serverSync, array $user): array
+    {
+        $successes = [];
+        try {
+            $response = $serverSync->pushAnalystDataBatch(array_column($batch, 'record'))->json();
+        } catch (Exception $e) {
+            $this->logException("Could not push a batch of analyst data to remote server {$serverSync->serverId()}, sending its records one by one", $e);
+            foreach ($batch as $item) {
+                if ($this->sendEntryToServer($item['type'], $item['id'], $item['record'], $server, $serverSync, $user) === 'Success') {
+                    $successes[] = __('AnalystData %s', $item['record'][$item['type']]['uuid']);
+                }
+            }
+            return $successes;
+        }
+        $results = isset($response['results']) && is_array($response['results']) ? $response['results'] : [];
+        foreach ($batch as $i => $item) {
+            $uuid = $item['record'][$item['type']]['uuid'];
+            $result = $results[$i] ?? null;
+            if (!is_array($result) || strtolower((string)($result['uuid'] ?? '')) !== strtolower($uuid)) {
+                $result = ['result' => 'failed', 'errors' => [__('The remote did not report on this record.')]];
+            }
+            $outcome = $result['result'] ?? null;
+            if ($outcome === 'imported') {
+                $successes[] = __('AnalystData %s', $uuid);
+            } elseif ($outcome !== 'ignored') {
+                $title = __('Uploading AnalystData (%s::%s) to Server (%s)', $item['type'], $item['id'], $server['Server']['id']);
+                $errors = !empty($result['errors']) && is_array($result['errors'])
+                    ? implode(', ', array_map('strval', $result['errors']))
+                    : __('Refused by the remote.');
+                $this->loadLog()->createLogEntry($user, 'push', 'AnalystData', $item['id'], $title, $errors);
+            }
+        }
+        return $successes;
+    }
+
+    /**
+     * A collected record as it goes to a remote: a graph with its content.
+     *
+     * @return array|string|int The record; a message when it is gone, 403
+     *                          when it may not go to this server
+     */
+    private function prepareEntryForUpload($type, array $analystData, array $server)
+    {
         if ($type === 'Graph') {
             $analystData = ClassRegistry::init('Graph')->attachContent($analystData);
             if ($analystData === null) {
                 return __('The graph was deleted before it could be pushed.');
             }
         }
-        $analystData = $this->prepareForPushToServer($type, $analystData, $server);
-        if (is_numeric($analystData)) {
-            return $analystData;
-        }
+        return $this->prepareForPushToServer($type, $analystData, $server);
+    }
 
+    private function sendEntryToServer($type, $analystDataID, array $analystData, array $server, ServerSyncTool $serverSync, array $user)
+    {
         try {
             if (!$serverSync->isSupported(ServerSyncTool::PERM_SYNC) || !$serverSync->isSupported(ServerSyncTool::PERM_ANALYST_DATA)) {
                 return __('The remote user does not have the permission to manipulate analyst data, the upload of the analyst data has been blocked.');
