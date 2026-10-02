@@ -60,11 +60,17 @@
         <div class="ig-so-none" data-ig-none hidden></div>
     </div>
     <section class="ig-so-tray" data-ig-tray aria-labelledby="ig-so-tray-label" hidden>
-        <button type="button" class="ig-so-tray-head" data-ig-tray-toggle aria-expanded="true" aria-controls="ig-so-tray-list">
-            <span id="ig-so-tray-label"><?= __('Arrivals') ?></span>
-            <span data-ig-tray-new></span>
-            <i class="fas fa-chevron-down ig-so-caret" aria-hidden="true"></i>
-        </button>
+        <div class="ig-so-tray-bar">
+            <button type="button" class="ig-so-tray-head" data-ig-tray-toggle aria-expanded="true" aria-controls="ig-so-tray-list">
+                <span id="ig-so-tray-label"><?= __('Arrivals') ?></span>
+                <span data-ig-tray-new></span>
+                <i class="fas fa-chevron-down ig-so-caret" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="ig-so-tool ig-so-tray-clear" data-ig-tray-clear hidden
+                    title="<?= __('Clear the arrivals') ?>" aria-label="<?= __('Clear the arrivals') ?>">
+                <i class="fas fa-broom" aria-hidden="true"></i>
+            </button>
+        </div>
         <ol id="ig-so-tray-list" class="ig-so-tray-list" data-ig-tray-list></ol>
     </section>
     <footer class="ig-so-foot" data-ig-foot hidden></footer>

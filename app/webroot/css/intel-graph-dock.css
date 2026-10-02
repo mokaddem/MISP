@@ -131,6 +131,9 @@
 .ig-so-fact { display: inline-flex; align-items: center; gap: .35rem; min-width: 0; max-width: 100%; }
 .ig-so-fact > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ig-so-fact strong { color: var(--bs-body-color); font-weight: 600; }
+.ig-so-target { text-decoration: none; }
+.ig-so-target strong { color: var(--bs-link-color); }
+.ig-so-target:hover, .ig-so-target:focus-visible { text-decoration: underline; text-decoration-color: var(--bs-link-color); }
 .ig-so-count { font-variant-numeric: tabular-nums; }
 .ig-so-ro-chip { color: var(--bs-warning-text-emphasis); background: var(--bs-warning-bg-subtle); border: 1px solid var(--bs-warning-border-subtle); border-radius: var(--bs-border-radius-pill); padding: .05rem .5rem; font-size: .75rem; font-weight: 600; }
 
@@ -202,8 +205,10 @@
 
 .ig-so-tray { border-top: 1px solid var(--bs-border-color); flex: 0 0 auto; background: var(--bs-body-bg); }
 .ig-so-tray[hidden] { display: none; }
+.ig-so-tray-bar { display: flex; align-items: center; }
+.ig-so-tray-clear { width: 1.5rem; height: 1.5rem; margin-right: .5rem; font-size: .7rem; }
 .ig-so-tray-head {
-    display: flex; align-items: center; gap: .4rem; width: 100%; border: 0; background: none;
+    display: flex; align-items: center; gap: .4rem; flex: 1 1 auto; min-width: 0; border: 0; background: none;
     padding: .4rem .75rem .4rem 1rem; color: var(--bs-secondary-color); font-size: .75rem;
     text-transform: uppercase; letter-spacing: .06em; font-weight: 600; text-align: left;
 }

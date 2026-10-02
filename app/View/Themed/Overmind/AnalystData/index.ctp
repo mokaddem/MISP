@@ -92,6 +92,27 @@ if ($m === 'Note') {
         'display_in' => ['table', 'card'],
     ];
     $fields[] = [
+        'name' => __('Forked from'),
+        'element' => 'custom',
+        'function' => function ($row) use ($baseurl) {
+            if (empty($row['Graph']['forked_from_uuid'])) {
+                return '';
+            }
+            $icon = '<i class="fas fa-code-fork me-1 text-body-secondary" aria-hidden="true"></i>';
+            $parent = $row['Graph']['forked_from'] ?? null;
+            if ($parent === null) {
+                return $icon . '<span class="text-body-secondary">' . __('A fork') . '</span>';
+            }
+            return $icon . sprintf(
+                '<a href="%s">%s</a>',
+                h($baseurl . '/analyst_graphs/view/' . $parent['uuid']),
+                h($parent['name'])
+            );
+        },
+        'card_section' => 'attribute',
+        'display_in' => ['table', 'card'],
+    ];
+    $fields[] = [
         'name' => __('Nodes'),
         'data_path' => $m . '.node_count',
         'element' => 'count',

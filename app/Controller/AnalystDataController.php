@@ -425,20 +425,24 @@ class AnalystDataController extends AppController
 
     /**
      * Each graph's node count as the user sees it, in place of the stored one
-     * (G6), and no document.
+     * (G6), its original when it is a fork, and no document.
      *
      * @param array $data Graph rows
      * @return array
      */
     private function __countGraphNodes(array $data)
     {
-        $contents = [];
+        $contents = $graphs = [];
         foreach ($data as $i => $row) {
             $contents[$i] = $row['Graph']['content'] ?? null;
+            $graphs[$i] = $row['Graph'];
         }
-        $counts = ClassRegistry::init('AnalystGraphData')->visibleCounts($this->Auth->user(), $contents);
+        $user = $this->Auth->user();
+        $counts = ClassRegistry::init('AnalystGraphData')->visibleCounts($user, $contents);
+        $parents = $this->AnalystData->withParents($user, $graphs);
         foreach ($data as $i => $row) {
             $data[$i]['Graph']['node_count'] = $counts[$i];
+            $data[$i]['Graph']['forked_from'] = $parents[$i]['forked_from'];
             unset($data[$i]['Graph']['content'], $data[$i]['Graph']['content_size']);
         }
         return $data;

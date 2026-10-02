@@ -3782,7 +3782,7 @@
            element pivot, offered to every viewer.
            ══════════════════════════════════════════════════════════ */
         // Canvas node type → AnalystData::valid_targets name.
-        var ANALYST_TYPES = { attribute: 'Attribute', object: 'Object', event: 'Event' };
+        var ANALYST_TYPES = { attribute: 'Attribute', object: 'Object', event: 'Event', cluster: 'GalaxyCluster' };
 
         // The object_relationships vocabulary, fetched once on first use. A
         // failed fetch leaves only the free-text field, which the server

@@ -49,6 +49,7 @@
     var trayToggle = find('[data-ig-tray-toggle]');
     var trayList = find('[data-ig-tray-list]');
     var trayNew = find('[data-ig-tray-new]');
+    var trayClear = find('[data-ig-tray-clear]');
     var footEl = find('[data-ig-foot]');
     var sayEl = find('[data-ig-say]');
 
@@ -502,6 +503,7 @@
         Value:         { label: 'Value', icon: 'fas fa-quote-left', color: 'var(--bs-secondary)' }
     };
     function typeOf(t) { return TYPE[t] || { label: t || 'Record', icon: 'fas fa-circle' }; }
+    var TARGET_PAGE = { Event: '/events/view2/', Collection: '/collections/view/', GalaxyCluster: '/galaxy_clusters/view/' };
 
     // A target as type and label; a target the reader cannot read is its
     // type alone. A summary with no target at all is not labelled yet.
@@ -515,7 +517,15 @@
         if (!target) s.appendChild(document.createTextNode(' · …'));
         else if (target.label) {
             s.appendChild(document.createTextNode(' · '));
-            s.appendChild(el('strong', null, target.label));
+            var href = TARGET_PAGE[target.type] && target.id != null
+                ? baseurl() + TARGET_PAGE[target.type] + encodeURIComponent(target.id) : null;
+            var name = el('strong', null, target.label);
+            if (href) {
+                var a = link('ig-so-target', '', href);
+                a.title = 'Open the ' + t.label.toLowerCase();
+                a.appendChild(name);
+                s.appendChild(a);
+            } else s.appendChild(name);
         }
         f.appendChild(s);
         return f;
@@ -1232,12 +1242,22 @@
         remember();
         renderTray();
     });
+    trayClear.addEventListener('click', function () {
+        var a = IG().active();
+        if (!a) return;
+        entriesOf(a.uuid).forEach(function (e) { delete undos[e.id]; });
+        delete log[lower(a.uuid)];
+        saveLog();
+        renderTray();
+        trayToggle.focus({ preventScroll: true });
+    });
     function renderTray() {
         var a = IG().active();
         trayEl.hidden = !a;
         if (!a) return;
         var list = entriesOf(a.uuid);
         var fresh = list.filter(function (e) { return e.fresh; }).length;
+        trayClear.hidden = !list.length;
         trayToggle.setAttribute('aria-expanded', prefs.tray ? 'true' : 'false');
         trayList.hidden = !prefs.tray;
         trayNew.className = fresh && !prefs.tray ? 'ig-so-tray-new' : '';
