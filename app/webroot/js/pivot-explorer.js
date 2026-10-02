@@ -3877,7 +3877,7 @@
                         options:      [{ label: '—', value: '' }].concat(analystSharing.sharingGroups.map(function (g) {
                             return { label: g[1], value: String(g[0]) };
                         })),
-                        defaultValue: ''
+                        defaultValue: analystSharing.sharingGroup != null ? String(analystSharing.sharingGroup) : ''
                     });
                 }
                 fields.push({

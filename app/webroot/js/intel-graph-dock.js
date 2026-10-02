@@ -459,8 +459,13 @@
         var g = h.graph();
         try {
             var bus = g.renderer.getGraphInteraction();
+            // A click ends a drag too; only one that moved the node counts.
+            var dragged = false;
+            bus.on('dragging', function () { dragged = true; });
             bus.on('dragended', function () {
-                if (h !== current) return;
+                var moved = dragged;
+                dragged = false;
+                if (h !== current || !moved) return;
                 if (!h.canEdit()) { layout = 'moved-ro'; renderFoot(); return; }
                 if (layout !== 'conflict') { layout = 'dirty'; layoutWhy = 'moved'; renderFoot(); }
             });

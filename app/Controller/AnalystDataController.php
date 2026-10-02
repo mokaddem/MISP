@@ -32,8 +32,9 @@ class AnalystDataController extends AppController
     {
         parent::beforeFilter();
         // The event pivot explorer posts hand-built JSON to add() and delete(),
-        // so it sends the CSRF token as the X-CSRF-Token header.
-        $this->_csrfTokenHeaderOnly(['add', 'delete']);
+        // and the graph page's settings to edit(), so they send the CSRF token
+        // as the X-CSRF-Token header.
+        $this->_csrfTokenHeaderOnly(['add', 'edit', 'delete']);
     }
 
     private function _setViewElements()

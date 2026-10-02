@@ -2,6 +2,7 @@
 App::uses('AppController', 'Controller');
 App::uses('AnalystGraphDocumentTool', 'Tools');
 App::uses('JsonTool', 'Tools');
+App::uses('MispTheme', 'MispTheme');
 
 /**
  * The actions only an analyst graph has. Creating, editing, viewing and
@@ -13,6 +14,12 @@ class AnalystGraphsController extends AppController
 
     public $uses = ['Graph', 'AnalystGraphData'];
 
+    /** The only theme that carries the graph page. */
+    const THEME = 'Overmind';
+
+    /** Collections offered as a fork's other target. */
+    const FORK_COLLECTIONS = 50;
+
     public function beforeFilter()
     {
         parent::beforeFilter();
@@ -21,6 +28,51 @@ class AnalystGraphsController extends AppController
         $this->_csrfTokenHeaderOnly(['save', 'addNodes', 'removeNodes', 'fork', 'active']);
     }
 
+    public function beforeRender()
+    {
+        parent::beforeRender();
+        if (!MispTheme::carries($this->theme, 'AnalystGraphs')) {
+            $this->theme = self::THEME;
+            $this->viewClass = 'Theme';
+        }
+    }
+
+    /**
+     * The graph's own page: the explorer at full size, where its editors
+     * save it and everyone else may fork it.
+     *
+     * @param string $uuid
+     */
+    public function view($uuid)
+    {
+        $this->request->allowMethod(['get']);
+        $user = $this->Auth->user();
+        $graph = $this->__fetchGraph($uuid);
+        $summary = $this->Graph->summaries($user, ['Graph.id' => $graph['Graph']['id']])[0];
+
+        $canAnalyst = !empty($user['Role']['perm_site_admin'])
+            || (!empty($user['Role']['perm_add']) && !empty($user['Role']['perm_analyst_data']));
+        $this->set('graph', $summary);
+        $this->set('canEdit', !empty($summary['_canEdit']));
+        $this->set('canFork', $canAnalyst);
+        $labels = ClassRegistry::init('AnalystProfile')->pivotLabels($user);
+        $this->set('explorer', [
+            'canEdit' => !empty($user['Role']['perm_site_admin']) || !empty($user['Role']['perm_modify']),
+            'canAnalyst' => $canAnalyst,
+            'analystSharing' => $canAnalyst ? $this->__analystSharing($user, $summary) : null,
+            'labelPlan' => $labels['plan'],
+            'permitted' => $labels['permitted'],
+        ]);
+        $this->set('forkTargets', $canAnalyst ? $this->__forkTargets($user, $summary) : []);
+        if (!empty($summary['target']['label'])) {
+            $this->set('intelGraphPage', [
+                'type' => $summary['target']['type'],
+                'uuid' => $summary['target']['uuid'],
+                'label' => $summary['target']['label'],
+            ]);
+        }
+        $this->set('title_for_layout', $summary['name']);
+    }
     /**
      * The graph "Add to graph" feeds. POST `{graph_uuid}` sets it to a graph
      * the user may edit, or clears it with null.
@@ -216,6 +268,72 @@ class AnalystGraphsController extends AppController
             throw new ForbiddenException(__('Only the organisation that created this graph can change it. Fork it instead.'));
         }
         return $graph;
+    }
+
+    /**
+     * What a relationship drawn in the graph can be shared with, as
+     * analystData/add offers it, defaulting to the graph's own distribution.
+     *
+     * @param array $user
+     * @param array $graph Summary
+     * @return array
+     */
+    private function __analystSharing(array $user, array $graph)
+    {
+        $levels = [];
+        foreach (ClassRegistry::init('Event')->distributionLevels as $level => $name) {
+            if ($level <= 4) {
+                $levels[] = [(int)$level, $name];
+            }
+        }
+        $sharingGroups = [];
+        $authorised = ClassRegistry::init('SharingGroup')->fetchAllAuthorised($user, 'name', 1);
+        asort($authorised);
+        foreach ($authorised as $id => $name) {
+            $sharingGroups[] = [(int)$id, $name];
+        }
+        return [
+            'levels' => $levels,
+            'sharingGroups' => $sharingGroups,
+            'default' => (int)$graph['distribution'],
+            'sharingGroup' => $graph['sharing_group_id'],
+            'authors' => $user['email'] ?? '',
+        ];
+    }
+
+    /**
+     * Where a fork can land: the original's target when the user can read
+     * it, then the collections their organisation created (Q8).
+     *
+     * @param array $user
+     * @param array $graph Summary, its target labelled
+     * @return array [{type, uuid, label}]
+     */
+    private function __forkTargets(array $user, array $graph)
+    {
+        $targets = [];
+        if (!empty($graph['target']['label'])) {
+            $targets[] = [
+                'type' => $graph['target']['type'],
+                'uuid' => $graph['target']['uuid'],
+                'label' => $graph['target']['label'],
+            ];
+        }
+        $collections = ClassRegistry::init('Collection')->find('all', [
+            'conditions' => ['Collection.orgc_id' => $user['org_id']],
+            'fields' => ['Collection.uuid', 'Collection.name'],
+            'order' => ['Collection.modified' => 'DESC'],
+            'limit' => self::FORK_COLLECTIONS,
+            'recursive' => -1,
+        ]);
+        foreach ($collections as $collection) {
+            $uuid = strtolower($collection['Collection']['uuid']);
+            if (!empty($targets) && $targets[0]['uuid'] === $uuid) {
+                continue;
+            }
+            $targets[] = ['type' => 'Collection', 'uuid' => $uuid, 'label' => $collection['Collection']['name']];
+        }
+        return $targets;
     }
 
     /**

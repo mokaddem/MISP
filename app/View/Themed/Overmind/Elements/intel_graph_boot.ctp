@@ -8,6 +8,8 @@
  * @var array $intelGraph `active`: the active graph's summary, or null
  * @var array|null $intelGraphPage The record on screen a graph can hang off,
  *                                 {type, uuid, label}, set by the view
+ * @var bool $withDock False on a page that draws a graph for a user who has
+ *                     no slot to open the dock with
  */
 $cachedTimestamp = Configure::read('Asset.timestamp') === 'cached';
 $asset = function ($path, $ext) use ($cachedTimestamp, $queryVersion) {
@@ -60,8 +62,12 @@ $config = [
 <script>
     window.IntelGraphConfig = <?= json_encode($config, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
-<?= $this->element('intel_graph_dock') ?>
-<?= $this->element('genericElements/assetLoader', [
-    'js' => ['intel-graph', 'intel-graph-dock'],
-    'css' => ['intel-graph-dock'],
-]) ?>
+<?php if ($withDock ?? true): ?>
+    <?= $this->element('intel_graph_dock') ?>
+    <?= $this->element('genericElements/assetLoader', [
+        'js' => ['intel-graph', 'intel-graph-dock'],
+        'css' => ['intel-graph-dock'],
+    ]) ?>
+<?php else: ?>
+    <?= $this->element('genericElements/assetLoader', ['js' => ['intel-graph']]) ?>
+<?php endif; ?>

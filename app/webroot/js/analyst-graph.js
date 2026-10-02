@@ -12,7 +12,8 @@
 //
 // config: { graph (uuid), containerEl, loaderEl?, payload?, request, baseurl,
 //           labelPlan?, permitted?, orgUuid?, siteAdmin?, valueCard?, canEnrich?, text?,
-//           ui?, canEdit?, canAnalyst?, analystSharing?, menus?, onChange? }
+//           ui?, canEdit?, canAnalyst?, analystSharing?, menus?, onChange?,
+//           fitHeight?, cardEl? }
 // request(method, path, body) → Promise<data> is IntelGraph's.
 // ui: Pivotick UI options laid over the explorer's, key by key — a container
 // smaller than a page asks for less chrome ({ mode: 'light' }, { legend: false }).
@@ -319,13 +320,14 @@
             });
         }
 
-        // On the canvas but not in the document: a pivot brought it.
+        // On the canvas but not in the document: a pivot brought it. An
+        // object's attributes come and go with the object.
         function isPivoted(node) {
-            return !state.built.keyOf[node.id] && state.kept.indexOf(node.id) === -1 && !!documentNode(node);
+            return !node.isChild && !state.built.keyOf[node.id] && state.kept.indexOf(node.id) === -1 && !!documentNode(node);
         }
 
         function inDocument(node) {
-            return !!state.built.keyOf[node.id] || state.kept.indexOf(node.id) !== -1;
+            return !node.isChild && (!!state.built.keyOf[node.id] || state.kept.indexOf(node.id) !== -1);
         }
 
         function addMenus(opts) {
@@ -398,8 +400,15 @@
                 var node = id && !state.built.folded[id] ? graph.getMutableNode(id) : null;
                 if (node) node.freeze();
             });
+            // A click ends a drag too; only one that moved the node counts.
             try {
-                graph.renderer.getGraphInteraction().on('dragended', function () { changed('moved'); });
+                var bus = graph.renderer.getGraphInteraction();
+                var dragged = false;
+                bus.on('dragging', function () { dragged = true; });
+                bus.on('dragended', function () {
+                    if (dragged) changed('moved');
+                    dragged = false;
+                });
             } catch (e) { /* no interaction bus: moves go unnoticed */ }
         }
 
@@ -413,7 +422,8 @@
         explorer = window.MispPivotExplorer.create({
             containerEl: config.containerEl,
             loaderEl:    config.loaderEl || null,
-            fitHeight:   false,
+            cardEl:      config.cardEl || null,
+            fitHeight:   config.fitHeight === true,
             provenance:  false,
             config: {
                 baseurl:        config.baseurl,

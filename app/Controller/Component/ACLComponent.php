@@ -49,6 +49,7 @@ class ACLComponent extends Component
             'fork' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'removeNodes' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'save' => ['AND' => ['perm_add', 'perm_analyst_data']],
+            'view' => ['*'],
         ],
         'api' => [
             'rest' => ['perm_auth'],
