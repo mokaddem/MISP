@@ -1,11 +1,13 @@
 <?php
 /**
- * IntelGraph (intel-graph.js) and its config, on every page whose navbar
- * carries the analyst graph slot. The graph itself loads on first use, so its
- * scripts and stylesheets are only listed here, at the URLs the asset loader
- * would give them.
+ * IntelGraph (intel-graph.js), its config and the dock, on every page whose
+ * navbar carries the analyst graph slot. The graph itself loads on first use,
+ * so its scripts and stylesheets are only listed here, at the URLs the asset
+ * loader would give them.
  *
  * @var array $intelGraph `active`: the active graph's summary, or null
+ * @var array|null $intelGraphPage The record on screen a graph can hang off,
+ *                                 {type, uuid, label}, set by the view
  */
 $cachedTimestamp = Configure::read('Asset.timestamp') === 'cached';
 $asset = function ($path, $ext) use ($cachedTimestamp, $queryVersion) {
@@ -37,6 +39,8 @@ foreach (['pivotick', 'pivot-explorer', 'pivot-sidebar'] as $path) {
 $config = [
     'baseurl' => $baseurl,
     'active' => $intelGraph['active'] ?? null,
+    'page' => $intelGraphPage ?? null,
+    'distributionLevels' => $this->DistributionLevel->all(),
     'assets' => ['js' => $js, 'css' => $css],
     'explorer' => [
         'orgUuid' => $me['Organisation']['uuid'] ?? '',
@@ -56,4 +60,8 @@ $config = [
 <script>
     window.IntelGraphConfig = <?= json_encode($config, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
-<?= $this->element('genericElements/assetLoader', ['js' => ['intel-graph']]) ?>
+<?= $this->element('intel_graph_dock') ?>
+<?= $this->element('genericElements/assetLoader', [
+    'js' => ['intel-graph', 'intel-graph-dock'],
+    'css' => ['intel-graph-dock'],
+]) ?>

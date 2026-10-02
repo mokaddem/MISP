@@ -28,6 +28,8 @@
     //   options(opts, kit, seed)  → adjusts the pivotick options
     //   afterMount(graph, kit, seed)
     //   provenance: false         → no "this event" against "elsewhere"
+    //   canReference(from, to)    → whether a drawn edge between these node
+    //                               data can be an object reference
     //
     // A hook left out keeps the event page's behaviour.
     function createExplorer(host) {
@@ -3830,11 +3832,16 @@
             //
             // An analyst relationship may join any two elements MISP can name,
             // this event's or another's (D8).
+            function referenceable(s, t) {
+                if (host.canReference) return host.canReference(s, t);
+                return isOwnElement(s) && isOwnElement(t);
+            }
+
             function possibleKinds(source, target) {
                 var s = nodeData(source) || {}, t = nodeData(target) || {};
                 var kinds = [];
-                if (canEdit && s.type === 'object' && isOwnElement(s)
-                    && (t.type === 'object' || t.type === 'attribute') && isOwnElement(t)) {
+                if (canEdit && s.type === 'object'
+                    && (t.type === 'object' || t.type === 'attribute') && referenceable(s, t)) {
                     kinds.push('object-reference');
                 }
                 if (canAnalyst && ANALYST_TYPES[s.type] && ANALYST_TYPES[t.type]
@@ -4004,7 +4011,10 @@
             function isDeletable(edge) {
                 var d = edge.getData ? edge.getData() : null;
                 if (!d || !d.uuid) return false;
-                if (d.kind === 'object-reference') return canEdit && isOwnElement(nodeData(edge.from));
+                if (d.kind === 'object-reference') {
+                    var from = nodeData(edge.from);
+                    return canEdit && (host.canReference ? host.canReference(from, from) : isOwnElement(from));
+                }
                 if (d.kind === 'analyst-relationship') {
                     return canAnalyst && (siteAdmin || (!!orgUuid && d.orgc === orgUuid));
                 }

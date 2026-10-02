@@ -10,7 +10,7 @@
     <?php // Kept current by intel-graph.js, which also opens the dock on click. ?>
     <li class="nav-item" data-intel-graph-slot data-state="<?= $item['count'] === null ? 'none' : 'active' ?>"<?= $tourAttr ?>>
         <button type="button" class="nav-link d-flex align-items-center gap-1" data-intel-graph-toggle
-                title="<?= h($item['label']) ?>" aria-label="<?= h($item['title']) ?>">
+                title="<?= h($item['label'] . ($item['count'] === null ? '' : ' (' . $item['count'] . ')')) ?>" aria-label="<?= h($item['title']) ?>">
             <i class="<?= h($item['icon']) ?> fa-fw"></i>
             <span class="d-inline-block text-truncate" style="max-width: 14rem;" data-intel-graph-name><?= h($item['label']) ?></span>
             <span class="badge rounded-pill text-bg-secondary" data-intel-graph-count<?= $item['count'] === null ? ' hidden' : '' ?>><?= h((string)$item['count']) ?></span>

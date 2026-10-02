@@ -7,16 +7,22 @@
 // window.IntelGraphConfig, read once at load:
 //   baseurl    MISP $baseurl
 //   active     the active graph's summary, or null
+//   page       the record on screen a graph can hang off, { type, uuid, label }, or null
+//   distributionLevels  DistributionLevel::all(), for badges drawn here
 //   assets     { js: [{ global, url }], css: [{ path, url }] }, in load order
 //   explorer   options handed to every mounted graph (labelPlan, orgUuid, …)
 //   text       { none }
 //   transport  optional: (method, path, body) → Promise<data>, replacing HTTP
 //
+// An item may carry a `label`, what it is called on screen; it stays here.
+//
 // Events, on document, each with the details in event.detail:
 //   intel-graph:active   { graph }                        the active graph changed
 //   intel-graph:added    { graph, report, items, undo }   addNodes went through
+//   intel-graph:refused  { graph, items, status, message } addNodes was refused
 //   intel-graph:removed  { graph, report, items }         removeNodes went through
-//   intel-graph:pick     { items }                        an add with no graph to go to
+//   intel-graph:drawn    { graph, report, handle }        a mounted graph drew an add or a removal
+//   intel-graph:pick     { items, options }               an add with no graph to go to
 
 (function () {
     'use strict';
@@ -79,7 +85,9 @@
                 count.textContent = active ? String(active.node_count) : '';
                 count.hidden = !active;
             }
-            slot.title = active ? active.name : text.none;
+            var title = active ? active.name + ' (' + active.node_count + ')' : text.none;
+            slot.title = title;
+            slot.querySelectorAll('[data-intel-graph-toggle]').forEach(function (b) { b.title = title; });
         });
     }
 
@@ -139,18 +147,38 @@
         });
     }
 
+    function bare(item) {
+        var out = {};
+        Object.keys(item || {}).forEach(function (k) { if (k !== 'label') out[k] = item[k]; });
+        return out;
+    }
+
+    // One undo per add, whoever calls it: the toast's and the dock's are the
+    // same function, and a second call answers the first one's promise.
+    function undoOnce(uuid, added) {
+        var done = null;
+        return function () {
+            if (!done) {
+                done = removeFrom(uuid, added);
+                done.catch(function () { done = null; });
+            }
+            return done;
+        };
+    }
+
     // items: [{ type, uuid } | { type: 'Value', value }]. Resolves
-    // { status: 'added' | 'unchanged' | 'no-graph', graph, report, undo }.
+    // { status: 'added' | 'unchanged' | 'no-graph', graph, report, undo };
+    // a refusal rejects, after intel-graph:refused.
     // options.graph adds to that graph instead of the active one.
     function add(items, options) {
         var uuid = (options && options.graph) || (active && active.uuid);
         if (!uuid) {
-            emit('pick', { items: items });
+            emit('pick', { items: items, options: options || {} });
             return Promise.resolve({ status: 'no-graph', graph: null, report: null, undo: null });
         }
-        return request('POST', graphPath('addNodes', uuid), { items: items }).then(function (report) {
+        return request('POST', graphPath('addNodes', uuid), { items: items.map(bare) }).then(function (report) {
             var added = report.added || [];
-            var undo = added.length ? function () { return removeFrom(uuid, added); } : null;
+            var undo = added.length ? undoOnce(uuid, added) : null;
             touchActive(uuid, report);
             emit('added', { graph: uuid, report: report, items: items, undo: undo });
             return {
@@ -159,6 +187,9 @@
                 report: report,
                 undo: undo
             };
+        }, function (err) {
+            emit('refused', { graph: uuid, items: items, status: err && err.status, message: err && err.message });
+            throw err;
         });
     }
 
@@ -252,7 +283,10 @@
             }, options));
             function onChange(e) {
                 if (!e.detail || e.detail.graph !== handle.uuid()) return;
-                handle.followed(e.detail.report);
+                var report = e.detail.report;
+                handle.followed(report).then(function () {
+                    emit('drawn', { graph: handle.uuid(), report: report, handle: handle });
+                }, function () { /* never drawn: nothing to point at */ });
             }
             document.addEventListener('intel-graph:added', onChange);
             document.addEventListener('intel-graph:removed', onChange);
@@ -290,8 +324,20 @@
         if (c && 'active' in c) setActiveState(c.active);
     }
 
+    function page() {
+        return config.page || null;
+    }
+
+    // { label, sub, bg, color, icon } of a distribution level, or null.
+    function distribution(level) {
+        var levels = config.distributionLevels || {};
+        return levels[level] || null;
+    }
+
     window.IntelGraph = {
         active: getActive,
+        page: page,
+        distribution: distribution,
         refreshActive: refreshActive,
         setActive: setActive,
         list: list,
