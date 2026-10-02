@@ -63,7 +63,7 @@ class AnalystDataController extends AppController
         }
 
         if (empty($this->request->data[$this->modelSelection]['object_type']) && !empty($this->request->data[$this->modelSelection]['object_uuid'])) {
-            $this->request->data[$this->modelSelection]['object_type'] = $this->AnalystData->deduceType($object_uuid);
+            throw new BadRequestException(__('object_type is required.'));
         }
         $this->loadModel('Event');
         $currentUser = $this->Auth->user();
@@ -114,7 +114,7 @@ class AnalystDataController extends AppController
     {
         if ($type === 'all' && Validation::uuid($id)) {
             $this->loadModel('AnalystData');
-            $type = $this->AnalystData->deduceType($id);
+            $type = $this->AnalystData->deduceType($this->Auth->user(), $id);
         }
         $this->__typeSelector($type);
         if (!is_numeric($id) && Validation::uuid($id)) {
@@ -179,7 +179,7 @@ class AnalystDataController extends AppController
     {
         if ($type === 'all' && Validation::uuid($id)) {
             $this->loadModel('AnalystData');
-            $type = $this->AnalystData->deduceType($id);
+            $type = $this->AnalystData->deduceType($this->Auth->user(), $id);
         }
         $this->__typeSelector($type);
         if (!is_numeric($id) && Validation::uuid($id)) {

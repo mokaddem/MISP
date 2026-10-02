@@ -395,16 +395,27 @@ class AnalystData extends AppModel
         return $analystData;
     }
 
-    public function deduceType(string $uuid)
+    /**
+     * The type of the analyst data the user may read under this uuid. One
+     * they may not read is as unknown as a missing one.
+     *
+     * @param array $user
+     * @param string $uuid
+     * @return string
+     * @throws NotFoundException
+     */
+    public function deduceType(array $user, string $uuid)
     {
-        foreach ($this->valid_targets as $valid_target) {
-            $this->{$valid_target} = ClassRegistry::init($valid_target);
-            $result = $this->$valid_target->find('first', [
-                'conditions' => [$valid_target.'.uuid' => $uuid],
-                'recursive' => -1
+        foreach (self::TYPES as $type) {
+            $Model = ClassRegistry::init($type);
+            $found = $Model->find('first', [
+                'conditions' => ['AND' => [[$Model->alias . '.uuid' => $uuid], $Model->buildConditions($user)]],
+                'fields' => [$Model->alias . '.id'],
+                'recursive' => -1,
+                'callbacks' => false,
             ]);
-            if (!empty($result)) {
-                return $valid_target;
+            if (!empty($found)) {
+                return $type;
             }
         }
         throw new NotFoundException(__('Invalid UUID'));
