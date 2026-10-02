@@ -174,6 +174,13 @@ $expanded = !empty($ctx['expand']);
                         <i class="fas fa-circle-nodes"></i>
                     </a>
                 <?php endif; ?>
+                <?php if (!$isDeleted && $this->Acl->canAccess('collectionElements', 'addElementToCollection')): ?>
+                    <?php $collectUrl = $baseurl . '/collectionElements/addElementToCollection/Object/' . h($object['uuid']); ?>
+                    <a href="<?= $collectUrl ?>" class="btn btn-sm btn-outline-dark py-0 px-2" title="<?= h(__('Add to collection')) ?>"
+                       onclick="event.preventDefault(); openModal('<?= $collectUrl ?>', 'xl');">
+                        <i class="fas fa-folder-plus"></i>
+                    </a>
+                <?php endif; ?>
                 <?php if (!empty($me['Role']['perm_analyst_data'])): ?>
                     <?= $this->element('AnalystData/add_controls', [
                         'objectType' => 'Object',

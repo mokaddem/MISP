@@ -59,6 +59,7 @@ $_canModify = !empty($mayModify);
 $_canPropose = !empty($me['Role']['perm_add']);
 $_canAnalystData = !empty($me['Role']['perm_analyst_data']);
 $_canGraph = $this->Acl->canAccess('analystGraphs', 'addNodes');
+$_canCollect = $this->Acl->canAccess('collectionElements', 'addElementToCollection');
 // Enrichment / Cortex expansion (misp-modules): the "Enrich" actions are only
 // offered when the matching services plugin is enabled and the user can add data.
 $_enrichmentEnabled = (bool)Configure::read('Plugin.Enrichment_services_enable');
@@ -305,8 +306,19 @@ $fields = array_merge($fields, [
             ],
             [
                 'type' => 'divider',
-                'requirement' => function($row) use ($_canGraph) {
-                    return $_canGraph && empty($row['deleted']) && empty($row['is_proposal']);
+                'requirement' => function($row) use ($_canGraph, $_canCollect) {
+                    return ($_canGraph || $_canCollect) && empty($row['deleted']) && empty($row['is_proposal']);
+                }
+            ],
+            [
+                'type' => 'modal',
+                'label' => __('Add to collection'),
+                'icon' => 'folder-plus',
+                'url' => $baseurl . '/collectionElements/addElementToCollection/Attribute/%uuid%',
+                'url_params_data_paths' => ['uuid' => $path('uuid')],
+                'size' => 'xl',
+                'requirement' => function($row) use ($_canCollect) {
+                    return $_canCollect && empty($row['deleted']) && empty($row['is_proposal']);
                 }
             ],
             [
