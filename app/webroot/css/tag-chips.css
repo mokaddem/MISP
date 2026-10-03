@@ -81,14 +81,19 @@
 .hinge-tags .hg-chip.has-colour,
 .hinge-tags .hg-group.is-varied .hg-chip.has-colour,
 .hinge-tags a.hg-chip.has-colour:hover {
-    border-color: var(--hg-c);
+    border-color: var(--hg-edge, var(--hg-c));
     background: color-mix(in srgb, var(--hg-c) var(--hg-tint), var(--hg-surface));
+}
+/* A colourless declared colour (tlp:clear is white) would vanish as an
+   outline against the surface, so its edge leans toward the muted tone. */
+.hinge-tags .hg-chip.is-neutral {
+    --hg-edge: color-mix(in srgb, var(--hg-c) 35%, var(--hg-muted));
 }
 .hinge-tags .hg-chip.has-colour .hg-path {
     color: color-mix(in srgb, var(--hg-muted) 70%, var(--hg-text));
 }
 .hinge-tags .hg-chip.has-colour .hg-meter i {
-    background: var(--hg-c);
+    background: var(--hg-edge, var(--hg-c));
 }
 .hinge-tags a.hg-chip:focus-visible {
     outline: 2px solid hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));

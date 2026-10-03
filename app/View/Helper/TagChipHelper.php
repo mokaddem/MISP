@@ -202,12 +202,12 @@ class TagChipHelper extends AppHelper
             return [0, '0%', null];
         }
         if (in_array(mb_strtolower($parsed['namespace']), $this->semanticNamespaces(), true)) {
-            // tlp:clear is #ffffff: no hue to keep, so the chip stays neutral
-            $declared = TagChipTool::hueSat($colour);
-            if ($declared['s'] < 15) {
-                return [$declared['h'], '0%', null];
+            if (!preg_match('/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/', (string)$colour)) {
+                return [0, '0%', null];
             }
-            return [$declared['h'], '62%', strtolower($colour)];
+            // A grey (tlp:clear is #ffffff) keeps its colour but has no hue
+            $declared = TagChipTool::hueSat($colour);
+            return [$declared['h'], $declared['s'] < 15 ? '0%' : '62%', strtolower($colour)];
         }
         return [TagChipTool::hue($parsed['namespace']), '62%', null];
     }
@@ -369,6 +369,9 @@ class TagChipHelper extends AppHelper
         }
         if ($declared !== null) {
             $classes[] = 'has-colour';
+            if ($sat === '0%') {
+                $classes[] = 'is-neutral';
+            }
         }
         $tight = in_array('is-tight', $classes, true);
 

@@ -128,11 +128,11 @@
             return [0, '0%', null];
         }
         if (semanticNamespaces().indexOf(p.namespace.toLowerCase()) !== -1) {
-            var declared = hueSat(colour);
-            if (declared.s < 15) {
-                return [declared.h, '0%', null];
+            if (!/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(String(colour))) {
+                return [0, '0%', null];
             }
-            return [declared.h, '62%', String(colour).toLowerCase()];
+            var declared = hueSat(colour);
+            return [declared.h, declared.s < 15 ? '0%' : '62%', String(colour).toLowerCase()];
         }
         return [hue(p.namespace), '62%', null];
     }
@@ -190,7 +190,10 @@
             classes.push('is-inline');
         }
         if (hasNv) classes.push('has-meter');
-        if (hs[2]) classes.push('has-colour');
+        if (hs[2]) {
+            classes.push('has-colour');
+            if (hs[1] === '0%') classes.push('is-neutral');
+        }
         var tight = classes.indexOf('is-tight') !== -1;
 
         var inner = '';
