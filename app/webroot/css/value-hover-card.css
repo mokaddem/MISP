@@ -179,6 +179,18 @@
 /* ---- the anchor ------------------------------------------------- */
 
 .vp-hc-head { padding: 7px 11px 6px; }
+
+/* Shown while the assessment is being fetched. */
+.vp-hc-wait {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 11px;
+    font-size: 11.5px;
+    color: var(--vp-hc-mute);
+}
+.vp-hc-wait .misp-loader { margin: 0; }
 .vp-hc-value {
     font: 600 14.5px/1.25 var(--vp-hc-mono);
     letter-spacing: -0.1px;

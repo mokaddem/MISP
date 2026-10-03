@@ -44,6 +44,7 @@
     var token = 0;
     var inFlight = null;
     var cache = {};
+    var lastHeight = 420;
 
     /*
      * The enrichment strip is cached apart from the card and only once
@@ -85,23 +86,27 @@
      * near the right edge. Measured after the markup is in, because a
      * card whose height is not known yet cannot be flipped correctly.
      */
-    function place(anchor) {
+    function place(anchor, reserve) {
         var node = element();
         var rect = anchor.getBoundingClientRect();
         var box = node.getBoundingClientRect();
         var gap = 8;
         var margin = 12;
+        var limit = window.innerHeight - margin;
+        // Pick the side the card will need, so it does not flip on arrival.
+        var need = Math.max(box.height, reserve || 0);
 
         var top = rect.bottom + gap;
-        if (top + box.height > window.innerHeight - margin) {
-            var above = rect.top - gap - box.height;
-            if (above >= margin) {
-                top = above;
-            } else {
-                top = Math.max(
-                    margin,
-                    window.innerHeight - margin - box.height
-                );
+        if (top + need > limit) {
+            if (rect.top - gap - need >= margin) {
+                top = rect.top - gap - box.height;
+            } else if (top + box.height > limit) {
+                var above = rect.top - gap - box.height;
+                if (above >= margin) {
+                    top = above;
+                } else {
+                    top = Math.max(margin, limit - box.height);
+                }
             }
         }
 
@@ -113,11 +118,57 @@
         node.style.left = Math.round(Math.max(margin, left)) + 'px';
     }
 
+    /*
+     * The card's frame with the value already in it, so the hover is
+     * answered at once and the assessment fills in when it lands.
+     */
+    function loading(anchor, value) {
+        var node = element();
+        var card = document.createElement('article');
+        card.className = 'vp-hc vp-hc-lean-skel vp-hc-loading';
+        card.setAttribute('aria-busy', 'true');
+        card.innerHTML = '<span class="vp-hc-rail" aria-hidden="true"></span>'
+            + '<div class="vp-hc-panel">'
+            + '<div class="vp-hc-sec vp-hc-head">'
+            + '<div class="vp-hc-value"></div></div>'
+            + '<div class="vp-hc-sec vp-hc-wait">'
+            + '<div class="misp-loader misp-loader-sm" role="status"></div>'
+            + '<span>Loading assessment…</span></div>'
+            + '</div>';
+        var plain = decode(value);
+        var head = card.querySelector('.vp-hc-head');
+        if (plain === null) {
+            head.remove();
+        } else {
+            head.firstChild.textContent = plain;
+        }
+        node.replaceChildren(card);
+        node.classList.add('vp-hc-shown');
+        place(anchor, lastHeight);
+    }
+
+    // The trigger carries the value as ValueUrlTool's URL-safe base64.
+    function decode(b64) {
+        try {
+            var bin = window.atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
+            var bytes = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) {
+                bytes[i] = bin.charCodeAt(i);
+            }
+            return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        } catch (e) {
+            return null;
+        }
+    }
+
     function render(anchor, html, value) {
         var node = element();
         node.innerHTML = html;
         node.classList.add('vp-hc-shown');
         place(anchor);
+        if (value !== undefined) {
+            lastHeight = node.getBoundingClientRect().height;
+        }
         enrich(node, anchor, value);
     }
 
@@ -370,13 +421,8 @@
             return;
         }
 
-        /*
-         * No spinner. The card answers in one query budget and a
-         * skeleton that flashes for 80ms is noise; a card that simply
-         * appears when it is ready reads as faster than one that
-         * announces it is coming. If the fetch is slow the reader has
-         * lost nothing — nothing was covering their row.
-         */
+        loading(anchor, value);
+
         if (window.AbortController) {
             inFlight = new window.AbortController();
         }
