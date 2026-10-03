@@ -21,8 +21,10 @@
     --hg-border-strong: #c2c2bc;
     --hg-track: color-mix(in srgb, var(--hg-text) 12%, var(--hg-surface));
     --hg-tint: 14%;
-    --hg-group-bg: #edede8;
     --hg-shadow: 0 1px 2px rgba(20, 20, 15, .14), 0 0 1px rgba(20, 20, 15, .1);
+    --hg-raised: #ffffff;
+    --hg-raised-border: #dededa;
+    --hg-raised-shadow: 0 1px 3px rgba(20, 20, 15, .2), 0 0 1px rgba(20, 20, 15, .16);
     --hg-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     display: inline-flex;
     flex-wrap: wrap;
@@ -48,8 +50,10 @@
     --hg-border: #33332c;
     --hg-border-strong: #4a4a42;
     --hg-tint: 22%;
-    --hg-group-bg: #121210;
     --hg-shadow: none;
+    --hg-raised: #2a2a24;
+    --hg-raised-border: #46463e;
+    --hg-raised-shadow: 0 1px 2px rgba(0, 0, 0, .45);
 }
 .hinge-tags .hg-chip {
     position: relative;
@@ -264,7 +268,7 @@
     min-width: 0;
     max-width: 100%;
     padding: 5px 7px 6px;
-    background: var(--hg-group-bg);
+    background: var(--hg-surface);
     border: 1px solid var(--hg-border);
     border-left: 4px solid hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
     border-radius: 4px 5px 5px 4px;
@@ -309,7 +313,11 @@
     color: var(--hg-faint);
     font-variant-numeric: tabular-nums;
 }
+/* The block shares the chips' surface, so its members stand on a raised one. */
 .hinge-tags .hg-members {
+    --hg-surface: var(--hg-raised);
+    --hg-border: var(--hg-raised-border);
+    --hg-shadow: var(--hg-raised-shadow);
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
