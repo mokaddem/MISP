@@ -32,13 +32,14 @@
  */
 App::uses('MispTheme', 'Lib/MispTheme');
 $bootstrapTheme = $bootstrapTheme ?? MispTheme::bootstrapTheme($me ?? null);
-// The dashboard's dark appearance is its own midnight overlay, not the
-// Bootstrap dark palette, so a theme with both palettes renders light here.
-$initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
+// The global dark mode drives the dashboard's midnight overlay, so its
+// charts and globe go dark with the rest of the page.
+$hasDarkToggle = $bootstrapTheme['mode'] === 'both';
+$initialMode = $hasDarkToggle ? 'light' : $bootstrapTheme['mode'];
 $useRail = $bootstrapTheme['navbar'] === 'rail';
 ?>
 <!DOCTYPE html>
-<html lang="<?= Configure::read('Config.language') === 'eng' ? 'en' : Configure::read('Config.language') ?>"<?= $useRail ? ' class="misp-railed"' : '' ?> data-misp-mode="<?= h($initialMode) ?>" data-misp-theme="<?= h($bootstrapTheme['name']) ?>">
+<html lang="<?= Configure::read('Config.language') === 'eng' ? 'en' : Configure::read('Config.language') ?>"<?= $useRail ? ' class="misp-railed"' : '' ?> data-misp-mode="<?= h($initialMode) ?>" data-misp-theme="<?= h($bootstrapTheme['name']) ?>"<?= $initialMode === 'dark' ? ' data-theme="midnight"' : '' ?>>
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -46,7 +47,9 @@ $useRail = $bootstrapTheme['navbar'] === 'rail';
     <meta name="misp-tag-palettes" content="<?= h(implode(' ', $this->TagChip->semanticNamespaces())) ?>">
     <link rel="shortcut icon" href="<?= $baseurl ?>/img/favicon.png">
     <title><?= h($title_for_layout) . ' - ' . h(Configure::read('MISP.title_text') ?: 'MISP') ?></title>
-    <?php echo $this->element('dashboard/theme_boot'); /* DD-51 no-FOUC light/dark boot */ ?>
+    <?php if ($hasDarkToggle): ?>
+    <script>(function(){if(localStorage.getItem('darkMode')==='true'){var r=document.documentElement;r.setAttribute('data-bs-theme','dark');r.setAttribute('data-misp-mode','dark');r.setAttribute('data-theme','midnight');}})()</script>
+    <?php endif; ?>
     <?php
         $css = [
             [$bootstrapTheme['css'], ['preload' => true]],
@@ -114,7 +117,7 @@ $useRail = $bootstrapTheme['navbar'] === 'rail';
                     'theme' => $theme,
                     'themesEnabled' => $themesEnabled,
                     'intelGraph' => $intelGraph ?? null,
-                    'darkModeToggle' => $bootstrapTheme['mode'] === 'both',
+                    'darkModeToggle' => $hasDarkToggle,
                     'bootstrapTheme' => $bootstrapTheme['name'],
                     'bootstrapThemeChosen' => !empty($bootstrapTheme['userChoice']),
                 ];
