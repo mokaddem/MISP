@@ -207,7 +207,7 @@ class TagChipHelper extends AppHelper
 
         list($hue, $sat, $declared) = $this->hueOf($p, $tag['Tag']['colour']);
         $inline = $mode === 'flow' && $display === 'full'
-            && TagChipTool::inlineWidth($p) <= ($options['budget'] ?? 300);
+            && TagChipTool::inlineWidth($p, $rel) <= ($options['budget'] ?? 300);
 
         $classes = ['hg-chip'];
         if ($isLocal) {

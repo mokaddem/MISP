@@ -145,16 +145,20 @@ class TagChipTool
 
     /**
      * Rough one-line width of a chip in px: the rail is 10px mono, the leaf
-     * 13px semibold. Only decides which side of the hinge a chip falls on.
+     * 13px semibold, a relationship badge 9px uppercase. Only decides which
+     * side of the hinge a chip falls on.
      *
      * @param array $parsed from parse()
-     * @param bool $hidePath
+     * @param string|null $relationship
      * @return int
      */
-    public static function inlineWidth(array $parsed, $hidePath = false)
+    public static function inlineWidth(array $parsed, $relationship = null)
     {
         $prefix = 0;
-        if (!$hidePath && $parsed['namespace'] !== null) {
+        if ($relationship !== null && $relationship !== '') {
+            $prefix += mb_strlen($relationship) * 7 / 6 + 2;
+        }
+        if ($parsed['namespace'] !== null) {
             $prefix = mb_strlen($parsed['namespace']);
             foreach ($parsed['above'] as $seg) {
                 $prefix += mb_strlen($seg) + 1;

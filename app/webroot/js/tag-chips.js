@@ -122,8 +122,8 @@
         return [hue(p.namespace), '62%', null];
     }
 
-    function inlineWidth(p) {
-        var prefix = 0;
+    function inlineWidth(p, rel) {
+        var prefix = rel ? rel.length * 7 / 6 + 2 : 0;
         if (p.namespace !== null) {
             prefix = p.namespace.length;
             p.above.forEach(function (seg) { prefix += seg.length + 1; });
@@ -157,7 +157,7 @@
         var nv = hasNv ? Number(nvRaw) : null;
         var over = hasNv && (nv > 100 || nv < 0);
         var hs = hueOf(p, tag.colour || '#0088cc');
-        var inline = mode === 'flow' && display === 'full' && inlineWidth(p) <= (opts.budget || 300);
+        var inline = mode === 'flow' && display === 'full' && inlineWidth(p, rel) <= (opts.budget || 300);
 
         var classes = ['hg-chip'];
         if (isLocal) classes.push('is-local');

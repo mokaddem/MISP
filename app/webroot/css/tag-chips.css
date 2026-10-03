@@ -94,10 +94,13 @@
     outline: 2px solid hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
     outline-offset: 1px;
 }
+/* The one-line call is an estimate; if it is wrong the leaf wraps under the
+   rail rather than being cut. */
 .hinge-tags .hg-chip.is-inline {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 7px;
+    gap: 0 7px;
 }
 .hinge-tags .hg-chip.is-tight {
     display: inline-flex;
