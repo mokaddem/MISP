@@ -931,10 +931,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function tagLabel(starIcon) {
-        const badge = starIcon.parentElement
-            ? starIcon.parentElement.querySelector('.badge')
-            : null;
-        const name = badge ? badge.textContent.trim() : '';
+        const name = (starIcon.dataset.name || '').trim();
         return name === '' ? 'Tag' : escapeHtml(name);
     }
 

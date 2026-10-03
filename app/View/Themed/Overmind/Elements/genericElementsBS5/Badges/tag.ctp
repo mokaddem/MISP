@@ -22,6 +22,7 @@ if ($showFavourite && !empty($tag['id'])): ?>
     <i
         class="<?= !empty($tag['favourite']) ? 'fas fa-star' : 'far fa-star' ?> text-warning me-1 tag-star"
         data-id="<?= (int)$tag['id'] ?>"
+        data-name="<?= h($tag['name'] ?? '') ?>"
         style="cursor:pointer;"
     ></i>
     <?= $chip ?>
