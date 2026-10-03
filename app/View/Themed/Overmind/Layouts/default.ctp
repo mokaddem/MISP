@@ -182,6 +182,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                         'menus' => $this->Navbar->build($context),
                         'baseurl' => $baseurl,
                         'me' => $me ?? null,
+                        'builtinPalette' => $bootstrapTheme['navbar'] === 'builtin',
                     ]);
                 }
             ?>

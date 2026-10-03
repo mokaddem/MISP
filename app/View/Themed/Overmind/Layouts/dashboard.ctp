@@ -120,6 +120,7 @@ $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
                     'menus' => $menus,
                     'baseurl' => $baseurl,
                     'me' => $me ?? null,
+                    'builtinPalette' => $bootstrapTheme['navbar'] === 'builtin',
                 ]);
             ?>
         </header>

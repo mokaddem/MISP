@@ -56,7 +56,11 @@ Create `themes/<name>/` with two files.
 - The top navbar takes the theme's primary as its bar, darkened until white
   text reads on it, and the theme's dropdown colours for its menus. Set
   `$misp-navbar-bg` or `$misp-navbar-accent` before `misp-bootstrap` to
-  change the bar; `scss/_misp-navbar.scss` has the full set.
+  change the bar; `scss/_misp-navbar.scss` has the full set. The MISP mark
+  is drawn white on the bar; `$misp-navbar-brand-filter: none;` keeps its
+  colours.
+  `"navbar": "builtin"` in `theme.json` keeps the navbar's own palette
+  instead: a white bar in light mode, an ink one in dark mode.
 - The build warns when a MISP colour is below 3:1 against the theme's
   background. Either tune it, or accept it in `theme.json`:
   `"contrast_accepted": {"light": ["type"], "dark": ["object"]}`.

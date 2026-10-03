@@ -1,8 +1,9 @@
 /*
  * Overmind top navbar (Elements/navbar*.ctp): hover or click dropdowns,
- * flyout submenus, keyboard navigation and the phone drawer. The theme,
- * dark-mode, homepage, tutorial and analyst-graph entries keep their own
- * handlers (navbar.ctp, mispOvermind.js, onboarding.js, intel-graph.js).
+ * flyout submenus, keyboard navigation, the phone drawer and the lift once
+ * the page scrolls under the bar. The theme, dark-mode, homepage, tutorial
+ * and analyst-graph entries keep their own handlers (navbar.ctp,
+ * mispOvermind.js, onboarding.js, intel-graph.js).
  */
 (function () {
     'use strict';
@@ -257,6 +258,12 @@
             closeAll(nav);
             setDrawer(nav, false);
         });
+
+        function onScroll() {
+            nav.classList.toggle('is-scrolled', window.scrollY > 0);
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
     }
 
     if (document.readyState === 'loading') {

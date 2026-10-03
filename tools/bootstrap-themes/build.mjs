@@ -15,6 +15,7 @@ const fontOut = path.join(root, 'app/webroot/fonts/themes');
 const fontUrlPrefix = '../../fonts/themes/';
 
 const MODES = ['light', 'dark', 'both'];
+const NAVBARS = ['theme', 'builtin'];
 
 // Bootstrap 5.3 itself triggers these; anything else is ours and should show.
 const SILENCED = ['import', 'global-builtin', 'color-functions'];
@@ -37,6 +38,10 @@ function readMeta(name) {
     if (typeof meta.hide_from_users !== 'boolean') {
         problems.push('hide_from_users must be a boolean');
     }
+    const navbar = meta.navbar ?? 'theme';
+    if (!NAVBARS.includes(navbar)) {
+        problems.push(`navbar must be one of ${NAVBARS.join(', ')}`);
+    }
     const accepted = meta.contrast_accepted ?? {};
     for (const [mode, colours] of Object.entries(accepted)) {
         if (!['light', 'dark'].includes(mode) || !Array.isArray(colours)) {
@@ -52,6 +57,7 @@ function readMeta(name) {
         mode: meta.mode,
         fonts: meta.fonts,
         hide_from_users: meta.hide_from_users,
+        navbar,
         contrast_accepted: accepted,
     };
 }
@@ -66,6 +72,7 @@ function compile(name, meta) {
     const entry = path.join(themesDir, name, 'theme.scss');
     const warnings = [];
     const source = `$misp-theme-mode: "${meta.mode}";\n`
+        + (meta.navbar === 'builtin' ? '$misp-navbar-tokens: ();\n' : '')
         + fs.readFileSync(entry, 'utf8');
     const result = sass.compileString(source, {
         url: pathToFileURL(entry),

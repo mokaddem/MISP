@@ -1,7 +1,8 @@
 /* Overmind top navbar (Elements/navbar*.ctp, js/overmind-navbar.js).
    Spacing on a 4/8px scale, radii from --bs-border-radius*. A Bootstrap
    theme re-skins it through the --misp-navbar-* properties its build emits;
-   without them it keeps Overmind's palette. */
+   one that keeps Overmind's palette gets .rc-daylight: a white bar in light
+   mode, the ink bar in dark mode. */
 
 .rc-nav {
     /* brand palette */
@@ -14,21 +15,36 @@
 
     --rc-bar-h: 56px;
 
-    /* the bar (dark in both modes) */
+    /* the bar */
     --rc-bar-bg: var(--misp-navbar-bg, var(--rc-ink));
     --rc-bar-edge: var(--misp-navbar-edge, transparent);
     --rc-bar-shadow: var(--misp-navbar-shadow, 0 1px 2px rgba(43, 27, 28, .18),
         0 4px 12px -2px rgba(43, 27, 28, .22));
+    --rc-bar-shadow-up: var(--rc-bar-shadow);
+    --rc-brand-filter: var(--misp-navbar-brand-filter, none);
     --rc-bar-fg: rgba(255, 255, 255, .78);
     --rc-bar-fg-strong: #fff;
     --rc-bar-icon: rgba(255, 255, 255, .6);
+    --rc-bar-icon-strong: var(--rc-bar-fg-strong);
     --rc-bar-hover: rgba(255, 255, 255, .08);
     --rc-bar-open: rgba(255, 255, 255, .13);
     --rc-bar-line: rgba(255, 255, 255, .16);
+    --rc-bar-rule: transparent;
     --rc-accent: var(--misp-navbar-accent, var(--rc-sky));
+    --rc-active-fg: var(--rc-bar-fg-strong);
+    --rc-active-icon: var(--rc-accent);
     --rc-ring-bar: var(--rc-accent);
+    --rc-chip-bg: rgba(255, 255, 255, .04);
+    --rc-chip-line-hover: rgba(255, 255, 255, .3);
+    --rc-chip-icon: var(--rc-accent);
+    --rc-chip-empty-fg: rgba(255, 255, 255, .64);
+    --rc-chip-empty-line: var(--rc-bar-line);
+    --rc-chip-empty-icon: var(--rc-bar-icon);
     --rc-count-bg: var(--misp-navbar-count-bg, rgba(51, 195, 238, .2));
     --rc-count-fg: var(--misp-navbar-count-fg, #b3eafb);
+    --rc-avatar-ring: 0 0 0 1px rgba(255, 255, 255, .2);
+    --rc-drawer-edge: rgba(255, 255, 255, .08);
+    --rc-drawer-shadow: 0 16px 32px -8px rgba(0, 0, 0, .5);
 
     /* dropdown panels */
     --rc-menu-bg: var(--misp-navbar-menu-bg, #fff);
@@ -66,6 +82,8 @@
     --rc-bar-edge: var(--misp-navbar-edge, rgba(255, 255, 255, .07));
     --rc-bar-shadow: var(--misp-navbar-shadow, 0 1px 0 rgba(0, 0, 0, .45),
         0 6px 18px -4px rgba(0, 0, 0, .6));
+    --rc-bar-shadow-up: var(--misp-navbar-shadow, 0 1px 0 rgba(0, 0, 0, .5),
+        0 10px 28px -6px rgba(0, 0, 0, .75));
     --rc-count-bg: var(--misp-navbar-count-bg, rgba(51, 195, 238, .18));
 
     --rc-menu-bg: var(--misp-navbar-menu-bg, #2a2f35);
@@ -91,6 +109,51 @@
     --rc-scrim: rgba(0, 0, 0, .55);
 }
 
+[data-misp-mode="light"] .rc-nav.rc-daylight {
+    --rc-bar-bg: #fff;
+    --rc-bar-edge: rgba(12, 58, 74, .12);
+    --rc-bar-shadow: 0 1px 1px rgba(12, 58, 74, .03);
+    --rc-bar-shadow-up: 0 1px 3px rgba(12, 58, 74, .08),
+        0 10px 28px -10px rgba(12, 58, 74, .3);
+    --rc-bar-fg: var(--rc-ink);
+    --rc-bar-fg-strong: var(--rc-abyss);
+    --rc-bar-icon: var(--rc-teal);
+    --rc-bar-icon-strong: var(--rc-teal);
+    --rc-bar-hover: rgba(24, 146, 177, .08);
+    --rc-bar-open: rgba(24, 146, 177, .14);
+    --rc-bar-line: rgba(19, 113, 142, .24);
+    --rc-bar-rule: rgba(12, 58, 74, .12);
+    --rc-accent: var(--rc-teal);
+    --rc-active-fg: var(--rc-abyss);
+    --rc-active-icon: var(--rc-primary);
+    --rc-ring-bar: var(--rc-primary);
+    --rc-chip-bg: rgba(24, 146, 177, .06);
+    --rc-chip-line-hover: rgba(19, 113, 142, .44);
+    --rc-chip-icon: var(--rc-primary);
+    --rc-chip-empty-fg: #5c6267;
+    --rc-chip-empty-line: rgba(43, 27, 28, .26);
+    --rc-chip-empty-icon: #7a878d;
+    --rc-count-bg: var(--rc-teal);
+    --rc-count-fg: #fff;
+    --rc-avatar-ring: 0 0 0 1px rgba(43, 27, 28, .14),
+        0 1px 2px rgba(12, 58, 74, .14);
+    --rc-drawer-edge: rgba(12, 58, 74, .08);
+    --rc-drawer-shadow: 0 18px 36px -10px rgba(12, 58, 74, .28);
+
+    --rc-menu-fg: var(--rc-ink);
+    --rc-menu-muted: #5a666b;
+    --rc-menu-icon: #4d7886;
+    --rc-menu-border: rgba(12, 58, 74, .11);
+    --rc-menu-shadow: 0 1px 2px rgba(12, 58, 74, .06),
+        0 8px 16px -6px rgba(12, 58, 74, .12),
+        0 22px 44px -14px rgba(12, 58, 74, .26);
+    --rc-hover-bg: var(--rc-bar-hover);
+    --rc-divider: rgba(12, 58, 74, .09);
+    --rc-note-bg: rgba(24, 146, 177, .05);
+    --rc-inset: rgba(24, 146, 177, .05);
+    --rc-scrim: rgba(12, 32, 40, .34);
+}
+
 .rc-nav *, .rc-nav *::before, .rc-nav *::after { box-sizing: border-box; }
 
 /* ---------- bar ---------- */
@@ -107,9 +170,15 @@
     color: var(--rc-bar-fg);
     font-size: .875rem;
     line-height: 1.25rem;
+    transition: box-shadow .2s ease;
+}
+/* once the page runs under it, the bar lifts off */
+.rc-nav.is-scrolled .rc-bar {
+    box-shadow: inset 0 -1px 0 var(--rc-bar-edge), var(--rc-bar-shadow-up);
 }
 
 .rc-brand {
+    position: relative;
     flex: none;
     align-self: center;
     display: inline-flex;
@@ -121,7 +190,23 @@
     border-radius: var(--bs-border-radius);
     transition: background-color .12s;
 }
-.rc-brand img { display: block; width: 30px; height: 30px; }
+.rc-brand img {
+    display: block;
+    width: 30px;
+    height: 30px;
+    filter: var(--rc-brand-filter);
+}
+/* a hairline after the mark, centred in the bar gap */
+.rc-brand::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    right: -9px;
+    width: 1px;
+    background: var(--rc-bar-rule);
+    pointer-events: none;
+}
 .rc-brand:hover { background: var(--rc-bar-hover); }
 .rc-brand:focus-visible {
     outline: 2px solid var(--rc-ring-bar);
@@ -180,12 +265,12 @@
 }
 .rc-trigger .rc-ico { color: var(--rc-bar-icon); transition: color .12s; }
 .rc-trigger:hover { background: var(--rc-bar-hover); color: var(--rc-bar-fg-strong); }
-.rc-trigger:hover .rc-ico { color: var(--rc-bar-fg-strong); }
+.rc-trigger:hover .rc-ico { color: var(--rc-bar-icon-strong); }
 .rc-group.is-open > .rc-trigger {
     background: var(--rc-bar-open);
     color: var(--rc-bar-fg-strong);
 }
-.rc-group.is-open > .rc-trigger .rc-ico { color: var(--rc-bar-fg-strong); }
+.rc-group.is-open > .rc-trigger .rc-ico { color: var(--rc-bar-icon-strong); }
 .rc-trigger:focus-visible {
     outline: 2px solid var(--rc-ring-bar);
     outline-offset: 0;
@@ -200,9 +285,9 @@
 .rc-trigger:hover .rc-chev { opacity: .85; }
 .rc-group.is-open > .rc-trigger .rc-chev { transform: rotate(180deg); opacity: 1; }
 
-/* active group: sky glyph plus a marker on the bar's bottom edge */
-.rc-group.is-active > .rc-trigger { color: var(--rc-bar-fg-strong); }
-.rc-group.is-active > .rc-trigger .rc-ico { color: var(--rc-accent); }
+/* active group: accent glyph plus a marker on the bar's bottom edge */
+.rc-group.is-active > .rc-trigger { color: var(--rc-active-fg); }
+.rc-group.is-active > .rc-trigger .rc-ico { color: var(--rc-active-icon); }
 .rc-group.is-active::after {
     content: "";
     position: absolute;
@@ -224,7 +309,7 @@
     overflow: hidden;
     border-radius: var(--bs-border-radius-sm);
     background: #fff;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, .2);
+    box-shadow: var(--rc-avatar-ring);
 }
 .rc-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .rc-clip {
@@ -245,7 +330,7 @@
     padding: 0 6px 0 10px;
     border: 1px solid var(--rc-bar-line);
     border-radius: var(--bs-border-radius-pill);
-    background: rgba(255, 255, 255, .04);
+    background: var(--rc-chip-bg);
     color: var(--rc-bar-fg);
     font: inherit;
     font-weight: 500;
@@ -253,10 +338,10 @@
     cursor: pointer;
     transition: background-color .12s, border-color .12s, color .12s;
 }
-.rc-chip .rc-ico { color: var(--rc-accent); }
+.rc-chip .rc-ico { color: var(--rc-chip-icon); }
 .rc-chip:hover {
     background: var(--rc-bar-hover);
-    border-color: rgba(255, 255, 255, .3);
+    border-color: var(--rc-chip-line-hover);
     color: var(--rc-bar-fg-strong);
 }
 .rc-chip:focus-visible {
@@ -288,10 +373,11 @@
 .rc-slot[data-state="none"] > .rc-chip {
     padding-right: 12px;
     border-style: dashed;
+    border-color: var(--rc-chip-empty-line);
     background: transparent;
-    color: rgba(255, 255, 255, .64);
+    color: var(--rc-chip-empty-fg);
 }
-.rc-slot[data-state="none"] > .rc-chip .rc-ico { color: var(--rc-bar-icon); }
+.rc-slot[data-state="none"] > .rc-chip .rc-ico { color: var(--rc-chip-empty-icon); }
 
 /* ---------- dropdown panels ---------- */
 .rc-panel {
@@ -550,6 +636,7 @@
     .rc-groups { gap: 2px; }
     .rc-trigger { padding: 0 8px; }
     .rc-group.is-active::after { left: 8px; right: 8px; }
+    .rc-brand::after { right: -7px; }
     .rc-clip { max-width: 8rem; }
 }
 @media (min-width: 1200px) and (max-width: 1439.98px) {
@@ -559,9 +646,11 @@
 
 @media (max-width: 1199.98px) {
     .rc-toggler { display: inline-flex; }
+    .rc-brand::after { display: none; }
 
-    .rc-collapse {
-        /* the drawer sits on the bar's own ground */
+    /* the drawer sits on the bar's own ground; a dark bar relights its menus */
+    .rc-nav:not(.rc-daylight) .rc-collapse,
+    [data-misp-mode="dark"] .rc-collapse {
         --rc-menu-fg: rgba(255, 255, 255, .88);
         --rc-menu-muted: rgba(255, 255, 255, .62);
         --rc-menu-icon: rgba(255, 255, 255, .58);
@@ -578,7 +667,8 @@
         --rc-track-on: var(--rc-accent);
         --rc-note-bg: rgba(255, 255, 255, .05);
         --rc-inset: rgba(255, 255, 255, .04);
-
+    }
+    .rc-collapse {
         display: none;
         position: fixed;
         top: var(--rc-bar-h);
@@ -593,8 +683,8 @@
         overscroll-behavior: contain;
         padding: 8px 16px 16px;
         background: var(--rc-bar-bg);
-        border-top: 1px solid rgba(255, 255, 255, .08);
-        box-shadow: 0 16px 32px -8px rgba(0, 0, 0, .5);
+        border-top: 1px solid var(--rc-drawer-edge);
+        box-shadow: var(--rc-drawer-shadow);
         font-size: .875rem;
     }
     .rc-nav.is-drawer .rc-collapse { display: flex; animation: rc-drop .18s ease-out; }

@@ -90,7 +90,7 @@ class MispTheme
      * The Bootstrap stylesheets built by tools/bootstrap-themes, discovered from
      * the metadata file the build writes beside each one.
      *
-     * @return array name => ['name', 'label', 'description', 'mode', 'hide_from_users']
+     * @return array name => ['name', 'label', 'description', 'mode', 'hide_from_users', 'navbar']
      */
     public static function getBootstrapThemes()
     {
@@ -114,6 +114,7 @@ class MispTheme
                 'description' => $meta['description'] ?? '',
                 'mode' => $meta['mode'],
                 'hide_from_users' => !empty($meta['hide_from_users']),
+                'navbar' => ($meta['navbar'] ?? 'theme') === 'builtin' ? 'builtin' : 'theme',
             ];
         }
         ksort($themes);
@@ -163,6 +164,7 @@ class MispTheme
             'description' => '',
             'mode' => 'both',
             'hide_from_users' => false,
+            'navbar' => 'builtin',
             'css' => 'themes/' . self::DEFAULT_BOOTSTRAP_THEME . '.min',
             'userChoice' => false,
         ];

@@ -1,4 +1,4 @@
-<nav class="rc-nav" aria-label="<?= __('Main') ?>">
+<nav class="rc-nav<?= empty($builtinPalette) ? '' : ' rc-daylight' ?>" aria-label="<?= __('Main') ?>">
     <div class="rc-bar">
         <a class="rc-brand" href="<?= empty($homepage['path']) ? $baseurl .'/' : $baseurl . h($homepage['path']) ?>">
             <?= $this->Html->image('misp-logo-main-cmyk-icon coul.png', ['alt' => __('MISP Logo')]) ?>
