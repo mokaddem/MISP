@@ -236,7 +236,7 @@ function returnToEventView(eventId) {
  */
 function setTabCount(tabId, count) {
     const el = document.querySelector('.ov-tab-count[data-tab-count="' + tabId + '"]');
-    if (el) { el.textContent = '(' + count + ')'; }
+    if (el) { el.textContent = Number(count).toLocaleString('en-US'); }
 }
 
 /**

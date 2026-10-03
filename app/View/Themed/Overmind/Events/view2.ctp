@@ -118,6 +118,7 @@
                 'id' => 'correlation',
                 'title' => __('Correlation'),
                 'icon' => 'fas fa-link',
+                'iconColor' => 'var(--bs-correlation)',
                 'count' => $correlation_count ?? 0,
 
                 // Content

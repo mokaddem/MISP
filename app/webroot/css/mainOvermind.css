@@ -1058,8 +1058,101 @@ th .sort-icon::before {
 
 
 
-.nav-view.active {
-    color: var(--misp-accent) !important;
+/* view_layout's tab strip: an edge-to-edge band that pins under the navbar */
+.ov-view-tabs {
+    position: sticky;
+    top: 56px;
+    z-index: 1020;
+    flex-wrap: nowrap;
+    gap: .15rem;
+    margin: 0 calc(var(--bs-gutter-x) * -.5) 1.1rem;
+    padding: 0 calc(var(--bs-gutter-x) * .5 - .55rem);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    background: var(--bs-body-bg);
+    border-top: 1px solid var(--bs-border-color-translucent);
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    transition: box-shadow .15s;
+}
+.ov-view-tabs::-webkit-scrollbar {
+    display: none;
+}
+.ov-view-tabs.is-stuck {
+    border-top-color: transparent;
+    box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .25);
+}
+.ov-view-tabs.is-overflowing {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+}
+.ov-view-tabs .nav-view {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .62rem .55rem;
+    font-size: .875rem;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: var(--bs-secondary-color);
+}
+.ov-view-tabs .nav-view::after {
+    content: "";
+    position: absolute;
+    left: .55rem;
+    right: .55rem;
+    bottom: 0;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+}
+.ov-view-tabs .nav-view:hover {
+    color: var(--bs-emphasis-color);
+}
+.ov-view-tabs .nav-view:hover::after {
+    background: var(--bs-border-color-translucent);
+}
+.ov-view-tabs .nav-view:focus-visible {
+    box-shadow: none;
+    outline: 2px solid var(--bs-primary);
+    outline-offset: -2px;
+}
+.ov-view-tabs .nav-view.active {
+    color: var(--bs-emphasis-color);
+    font-weight: 600;
+}
+.ov-view-tabs .nav-view.active::after {
+    background: var(--bs-primary);
+}
+.ov-view-tabs .nav-view i {
+    font-size: .9em;
+    color: var(--ov-view-tab-icon, var(--bs-secondary-color));
+}
+.ov-view-tabs .nav-view.active i {
+    color: var(--ov-view-tab-icon, var(--misp-accent));
+}
+/* entity colours such as --bs-object are too dark to read on a dark band */
+[data-misp-mode="dark"] .ov-view-tabs .nav-view[style] i {
+    color: color-mix(in srgb, var(--ov-view-tab-icon) 55%, var(--bs-body-color));
+}
+.ov-view-tabs .ov-tab-count {
+    padding: 0 .4rem;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .7rem;
+    font-weight: 600;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+}
+.ov-view-tabs .nav-view.active .ov-tab-count {
+    background: var(--bs-primary-bg-subtle);
+    color: var(--misp-accent);
+}
+.ov-view-tabs .nav-view-badge {
+    padding: 0 7px;
+    font-size: .64rem;
 }
 
 /*

@@ -147,6 +147,8 @@ $renderColumn = function ($cards, $containerClass) use (
  *     id           string  anchor, the pane is #tab-<id>
  *     title        string  the tab label
  *     icon         string  full class attribute of the label glyph
+ *     iconColor    string  CSS colour of the glyph; a misp-icon-<entity> icon
+ *                          takes its entity colour without it
  *     count        int     shown after the label
  *     active       bool    open this tab first (default: the first one)
  *     description  string  the page header's description while this tab is
@@ -182,18 +184,39 @@ foreach ($tabs as $i => $tab) {
         break;
     }
 }
+
+$entityIconColours = array(
+    'event', 'object', 'attribute', 'tag', 'galaxy', 'report', 'sighting',
+    'correlation', 'analystData', 'enrichment',
+);
+$tabIconColour = function (array $tab) use ($entityIconColours) {
+    if (!empty($tab['iconColor'])) {
+        return $tab['iconColor'];
+    }
+    $matched = preg_match(
+        '/\bmisp-icon-([A-Za-z]+)\b/', $tab['icon'] ?? '', $m
+    );
+    if ($matched && in_array($m[1], $entityIconColours, true)) {
+        return 'var(--bs-' . $m[1] . ')';
+    }
+    return null;
+};
 ?>
 
 <div class="container-fluid">
-    <ul class="nav nav-tabs mb-3 fs-5" role="tablist" data-tour="view-tabs">
+    <ul class="nav ov-view-tabs" role="tablist" data-tour="view-tabs">
         <?php foreach ($tabs as $i => $tab): ?>
-            <?php $isActive = $i === $activeTabIndex; ?>
+            <?php
+                $isActive = $i === $activeTabIndex;
+                $iconColour = $tabIconColour($tab);
+            ?>
             <li class="nav-item"  role="presentation">
-                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark <?= $isActive ? 'active' : '' ?>"
+                <a class="nav-view nav-link <?= $isActive ? 'active' : '' ?>"
                     data-tour="view-tab-<?= h($tab['id']) ?>"
                     data-bs-toggle="tab"
                     href="#tab-<?= h($tab['id']) ?>"
                     role="tab"
+                    <?= $iconColour === null ? '' : 'style="--ov-view-tab-icon: ' . h($iconColour) . ';"' ?>
                     aria-selected="<?= $isActive ? 'true' : 'false' ?>">
 
                     <?php if (!empty($tab['icon'])): ?>
@@ -201,13 +224,13 @@ foreach ($tabs as $i => $tab) {
                     <?php endif; ?>
 
                     <?php if (!empty($tab['title'])): ?>
-                        <?= h($tab['title']) ?>
+                        <span><?= h($tab['title']) ?></span>
                     <?php endif; ?>
 
                     <?php if (isset($tab['count'])): ?>
-                        <span class="ov-tab-count" data-tab-count="<?= h($tab['id']) ?>">
-                            (<?= h($tab['count']) ?>)
-                        </span>
+                        <span class="ov-tab-count" data-tab-count="<?= h($tab['id']) ?>"><?=
+                            h(number_format((int)$tab['count']))
+                        ?></span>
                     <?php endif; ?>
 
                     <?php
@@ -296,6 +319,35 @@ function currentTabId() {
     return active ? active.getAttribute('href').replace('#tab-', '') : null;
 }
 
+function isViewTabsStuck(strip) {
+    var top = parseFloat(getComputedStyle(strip).top) || 0;
+    return window.scrollY > 0 && strip.getBoundingClientRect().top <= top + 0.5;
+}
+
+function syncViewTabsChrome() {
+    var strip = document.querySelector('.ov-view-tabs');
+    if (!strip) return;
+    strip.classList.toggle('is-stuck', isViewTabsStuck(strip));
+    strip.classList.toggle('is-overflowing',
+        strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1);
+}
+
+// Switching tabs from a pinned strip would otherwise land mid-way down the
+// new pane, at whatever depth the previous one had been scrolled to.
+function scrollToPaneTop(strip) {
+    if (!isViewTabsStuck(strip)) return;
+    var stripBottom = strip.getBoundingClientRect().bottom;
+    var marginBottom = parseFloat(getComputedStyle(strip).marginBottom) || 0;
+    var pane = document.querySelector('.tab-content');
+    var overshoot = stripBottom + marginBottom - pane.getBoundingClientRect().top;
+    if (overshoot > 0) {
+        window.scrollBy(0, -overshoot);
+    }
+}
+
+window.addEventListener('scroll', syncViewTabsChrome, { passive: true });
+window.addEventListener('resize', syncViewTabsChrome);
+
 // A link to #tab-<id> from inside a panel has to switch tabs, not just move
 // the hash. Bootstrap does not watch the hash, so neither did this.
 window.addEventListener('hashchange', activateTabFromHash);
@@ -307,6 +359,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // Reveal the header actions belonging to the initially active tab
     syncHeaderActions(currentTabId());
 
+    var strip = document.querySelector('.ov-view-tabs');
+    if (strip) {
+        strip.addEventListener('scroll', syncViewTabsChrome, { passive: true });
+        var active = strip.querySelector('.nav-view.active');
+        if (active) {
+            strip.scrollLeft = active.parentNode.offsetLeft - strip.clientWidth / 3;
+        }
+        syncViewTabsChrome();
+    }
+
     // Keep URL hash + header actions in sync when switching tabs
     document.querySelectorAll('.nav-link[data-bs-toggle="tab"]').forEach(function (tab) {
         tab.addEventListener('shown.bs.tab', function (e) {
@@ -316,6 +378,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 syncHeaderActions(href.replace('#tab-', ''));
             }
         });
+        if (strip) {
+            tab.addEventListener('show.bs.tab', function () {
+                scrollToPaneTop(strip);
+            });
+        }
     });
 });
 
