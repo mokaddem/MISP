@@ -129,23 +129,27 @@ class TagChipHelper extends AppHelper
     }
 
     /**
-     * Hue and saturation for a tag, as CSS custom property values.
+     * Hue and saturation for a tag, as CSS custom property values, and the
+     * declared colour when the tag's taxonomy keeps it.
      *
      * @param array $parsed
      * @param string $colour
-     * @return array{0: int, 1: string}
+     * @return array{0: int, 1: string, 2: ?string}
      */
     private function hueOf(array $parsed, $colour)
     {
         if ($parsed['namespace'] === null) {
-            return [0, '0%'];
+            return [0, '0%', null];
         }
         if (in_array(mb_strtolower($parsed['namespace']), $this->semanticNamespaces(), true)) {
-            // tlp:clear is #ffffff: no hue to keep, so the mark goes neutral
+            // tlp:clear is #ffffff: no hue to keep, so the chip stays neutral
             $declared = TagChipTool::hueSat($colour);
-            return [$declared['h'], $declared['s'] < 15 ? '0%' : '62%'];
+            if ($declared['s'] < 15) {
+                return [$declared['h'], '0%', null];
+            }
+            return [$declared['h'], '62%', strtolower($colour)];
         }
-        return [TagChipTool::hue($parsed['namespace']), '62%'];
+        return [TagChipTool::hue($parsed['namespace']), '62%', null];
     }
 
     private function normalise(array $tags)
@@ -201,7 +205,7 @@ class TagChipHelper extends AppHelper
         $nv = $hasNv ? $nv + 0 : null;
         $over = $hasNv && ($nv > 100 || $nv < 0);
 
-        list($hue, $sat) = $this->hueOf($p, $tag['Tag']['colour']);
+        list($hue, $sat, $declared) = $this->hueOf($p, $tag['Tag']['colour']);
         $inline = $mode === 'flow' && $display === 'full'
             && TagChipTool::inlineWidth($p) <= ($options['budget'] ?? 300);
 
@@ -218,6 +222,9 @@ class TagChipHelper extends AppHelper
         }
         if ($hasNv) {
             $classes[] = 'has-meter';
+        }
+        if ($declared !== null) {
+            $classes[] = 'has-colour';
         }
         $tight = in_array('is-tight', $classes, true);
 
@@ -276,10 +283,11 @@ class TagChipHelper extends AppHelper
             $title .= ' (' . __('local') . ')';
         }
         $attrs = sprintf(
-            'class="%s" style="--hg-h:%d;--hg-s:%s" title="%s"',
+            'class="%s" style="--hg-h:%d;--hg-s:%s%s" title="%s"',
             implode(' ', $classes),
             $hue,
             $sat,
+            $declared === null ? '' : ';--hg-c:' . $declared,
             h($title)
         );
         if ($display === 'swatch') {

@@ -1,9 +1,10 @@
 /*
  * Tag chips, rendered by TagChipHelper and js/tag-chips.js.
  *
- * Neutrals derive from the surrounding text colour, so the chips follow any
- * theme. Only the two hue lightnesses depend on the mode: one lightness
- * cannot clear contrast on both a light and a dark surface.
+ * Chips carry their own surface and neutrals rather than the theme's, so
+ * they read the same on every theme; only the mode switches them. A taxonomy
+ * whose declared colours are kept (--hg-c) outlines the chip in that colour
+ * over a tint of it.
  *
  * The hue is held as plain inheritable values (--hg-h, --hg-s) and the hsl()
  * is composed at each use site. Composing it into a custom property on an
@@ -12,11 +13,14 @@
 .hinge-tags {
     --hg-l-ink: 28%;
     --hg-l-mark: 48%;
-    --hg-muted: color-mix(in srgb, currentColor 62%, transparent);
-    --hg-faint: color-mix(in srgb, currentColor 42%, transparent);
-    --hg-border: color-mix(in srgb, currentColor 22%, transparent);
-    --hg-border-strong: color-mix(in srgb, currentColor 38%, transparent);
-    --hg-track: color-mix(in srgb, currentColor 14%, transparent);
+    --hg-surface: #ffffff;
+    --hg-text: #14140f;
+    --hg-muted: #6b6b63;
+    --hg-faint: #9b9b92;
+    --hg-border: #dededa;
+    --hg-border-strong: #c2c2bc;
+    --hg-track: color-mix(in srgb, var(--hg-text) 12%, var(--hg-surface));
+    --hg-tint: 14%;
     --hg-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     display: inline-flex;
     flex-wrap: wrap;
@@ -29,16 +33,19 @@
     line-height: normal;
     text-align: left;
     white-space: normal;
+    color: var(--hg-text);
 }
 [data-misp-mode="dark"] .hinge-tags,
 [data-theme="midnight"] .hinge-tags {
     --hg-l-ink: 74%;
     --hg-l-mark: 62%;
-}
-/* The dashboard's dark overlay recolours widgets through its own token and
-   leaves the body text colour light-mode dark. */
-[data-theme="midnight"] .hinge-tags {
-    color: var(--misp-dash-text, inherit);
+    --hg-surface: #1d1d18;
+    --hg-text: #f0f0ea;
+    --hg-muted: #a3a39a;
+    --hg-faint: #75756d;
+    --hg-border: #33332c;
+    --hg-border-strong: #4a4a42;
+    --hg-tint: 22%;
 }
 .hinge-tags .hg-chip {
     position: relative;
@@ -51,8 +58,8 @@
     overflow: hidden;
     padding: 3px 8px 4px;
     text-align: left;
-    color: inherit;
-    background: transparent;
+    color: var(--hg-text);
+    background: var(--hg-surface);
     border: 1px solid var(--hg-border);
     border-left: 3px solid hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
     border-radius: 2px 5px 5px 2px;
@@ -63,8 +70,20 @@
 .hinge-tags a.hg-chip:hover,
 .hinge-tags a.hg-chip:focus-visible {
     border-color: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
-    color: inherit;
+    color: var(--hg-text);
     text-decoration: none;
+}
+.hinge-tags .hg-chip.has-colour,
+.hinge-tags .hg-group.is-varied .hg-chip.has-colour,
+.hinge-tags a.hg-chip.has-colour:hover {
+    border-color: var(--hg-c);
+    background: color-mix(in srgb, var(--hg-c) var(--hg-tint), var(--hg-surface));
+}
+.hinge-tags .hg-chip.has-colour .hg-path {
+    color: color-mix(in srgb, var(--hg-muted) 70%, var(--hg-text));
+}
+.hinge-tags .hg-chip.has-colour .hg-meter i {
+    background: var(--hg-c);
 }
 .hinge-tags a.hg-chip:focus-visible {
     outline: 2px solid hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
@@ -88,6 +107,9 @@
     padding: 0;
     border-width: 1px 1px 1px 3px;
     background: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark) / .35);
+}
+.hinge-tags .hg-chip.is-swatch.has-colour {
+    background: var(--hg-c);
 }
 .hinge-tags .hg-chip.is-local {
     border-top-style: dashed;
@@ -284,7 +306,7 @@
     border-left-color: var(--hg-border-strong);
 }
 .hinge-tags .hg-group.is-varied .hg-hns {
-    color: inherit;
+    color: var(--hg-text);
 }
 .hinge-tags .hg-group.is-varied .hg-chip {
     border-left: 3px solid hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
@@ -304,7 +326,7 @@
     line-height: 1;
     padding: 3px 4px;
     color: var(--hg-muted);
-    background: none;
+    background: var(--hg-surface);
     border: 1px solid var(--hg-border);
     border-radius: 3px;
     cursor: pointer;
@@ -312,7 +334,7 @@
 }
 .hinge-tags .hg-act:hover,
 .hinge-tags .hg-act:focus-visible {
-    color: inherit;
+    color: var(--hg-text);
     border-color: var(--hg-border-strong);
     text-decoration: none;
 }

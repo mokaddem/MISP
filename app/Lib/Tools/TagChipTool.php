@@ -81,6 +81,7 @@ class TagChipTool
             $c = $c[0] . $c[0] . $c[1] . $c[1] . $c[2] . $c[2];
         }
         if (!preg_match('/^[0-9a-fA-F]{6}$/', $c)) {
+            // Also what keeps an unchecked colour out of a style attribute
             return ['h' => 0, 's' => 0];
         }
         $r = hexdec(substr($c, 0, 2)) / 255;

@@ -110,13 +110,16 @@
 
     function hueOf(p, colour) {
         if (p.namespace === null) {
-            return [0, '0%'];
+            return [0, '0%', null];
         }
         if (semanticNamespaces().indexOf(p.namespace.toLowerCase()) !== -1) {
             var declared = hueSat(colour);
-            return [declared.h, declared.s < 15 ? '0%' : '62%'];
+            if (declared.s < 15) {
+                return [declared.h, '0%', null];
+            }
+            return [declared.h, '62%', String(colour).toLowerCase()];
         }
-        return [hue(p.namespace), '62%'];
+        return [hue(p.namespace), '62%', null];
     }
 
     function inlineWidth(p) {
@@ -166,6 +169,7 @@
             classes.push('is-inline');
         }
         if (hasNv) classes.push('has-meter');
+        if (hs[2]) classes.push('has-colour');
         var tight = classes.indexOf('is-tight') !== -1;
 
         var inner = '';
@@ -199,7 +203,7 @@
 
         var title = (rel ? rel + ': ' : '') + p.raw + (isLocal ? ' (local)' : '');
         var attrs = 'class="' + classes.join(' ') + '" style="--hg-h:' + hs[0] + ';--hg-s:' + hs[1] +
-            '" title="' + esc(title) + '"' + (display === 'swatch' ? ' aria-label="' + esc(title) + '"' : '');
+            (hs[2] ? ';--hg-c:' + hs[2] : '') + '" title="' + esc(title) + '"' + (display === 'swatch' ? ' aria-label="' + esc(title) + '"' : '');
         var searchUrl = opts.searchUrl === undefined ? '/events/index/searchtag:' : opts.searchUrl;
         var out;
         if (tag.id) {
