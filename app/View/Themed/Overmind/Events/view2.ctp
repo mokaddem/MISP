@@ -30,19 +30,6 @@
         ];
     }
 
-    if ($this->Acl->canAccess('analystGraphs', 'addNodes')) {
-        $headerActions[] = [
-            'type' => 'navigate',
-            'label' => __('Add to graph'),
-            'icon' => 'circle-nodes',
-            'class' => 'btn btn-outline-info',
-            'standalone' => true,
-            'attributes' => ['data-intel-graph-add' => json_encode([[
-                'type' => 'Event', 'uuid' => $event['Event']['uuid'], 'label' => $event['Event']['info'],
-            ]])],
-        ];
-    }
-
     $this->set('headerTitle', $headerTitle);
     $this->set('headerDescription', $headerDescription);
     $this->set('headerActions', $headerActions);
