@@ -1,6 +1,7 @@
 <?php
 App::uses('AppHelper', 'View/Helper');
 App::uses('Router', 'Routing');
+App::uses('MispTheme', 'Lib/MispTheme');
 
 class NavbarHelper extends AppHelper {
 
@@ -1029,12 +1030,18 @@ class NavbarHelper extends AppHelper {
         extract($context);
         $user_icon = !empty($me['Role']['perm_site_admin']) ? 'misp-icon misp-icon-user3 misp-simple' : 'misp-icon misp-icon-user1 misp-simple';
 
-        $profileChildren = [
-            [
+        $profileChildren = $this->buildBootstrapThemeItems($context);
+        // Only a Bootstrap theme with both a light and a dark palette has
+        // anything to toggle.
+        if ($context['darkModeToggle'] ?? true) {
+            $profileChildren[] = [
                 'type' => 'darkMode',
                 'label' => __('Dark mode'),
                 'icon'  => 'fas fa-moon',
-            ],
+            ];
+        }
+        $profileChildren = array_merge($profileChildren, [
+            ['divider' => true],
             [
                 'type' => 'tutorial',
                 'label' => __('Replay the tutorial'),
@@ -1055,7 +1062,7 @@ class NavbarHelper extends AppHelper {
                 'action' => 'logout',
                 'icon' => 'fas fa-right-from-bracket'
             ]
-        ];
+        ]);
 
         $orgLogo = $this->OrgImg->getOrgLogoV2($me, 20);
 
@@ -1072,6 +1079,51 @@ class NavbarHelper extends AppHelper {
 
     }
 
+
+    private function buildBootstrapThemeItems(array $context)
+    {
+        $current = $context['bootstrapTheme'] ?? null;
+        $chosen = !empty($context['bootstrapThemeChosen']);
+        $modes = [
+            'light' => ['icon' => 'fas fa-sun', 'label' => __('Light')],
+            'dark' => ['icon' => 'fas fa-moon', 'label' => __('Dark')],
+            'both' => ['icon' => 'fas fa-circle-half-stroke', 'label' => __('Light and dark')],
+        ];
+
+        $items = [];
+        foreach (MispTheme::getBootstrapThemes() as $name => $theme) {
+            if ($theme['hide_from_users'] && !($chosen && $name === $current)) {
+                continue;
+            }
+            $items[] = [
+                'type' => 'bootstrapTheme',
+                'theme' => $name,
+                'label' => $theme['label'],
+                'description' => $theme['description'],
+                'modeIcon' => $modes[$theme['mode']]['icon'],
+                'modeLabel' => $modes[$theme['mode']]['label'],
+                'on' => $chosen && $name === $current,
+            ];
+        }
+        if (count($items) < 2) {
+            return [];
+        }
+        $default = MispTheme::bootstrapTheme();
+        array_unshift(
+            $items,
+            ['type' => 'header', 'label' => __('Appearance')],
+            [
+                'type' => 'bootstrapTheme',
+                'theme' => '',
+                'label' => __('Instance default (%s)', $default['label']),
+                'description' => __('Follow the theme your administrator picks for this instance.'),
+                'modeIcon' => $modes[$default['mode']]['icon'],
+                'modeLabel' => $modes[$default['mode']]['label'],
+                'on' => !$chosen,
+            ]
+        );
+        return $items;
+    }
 
     /**
      * Recursively filter menu items based on requirement and children visibility

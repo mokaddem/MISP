@@ -5,7 +5,7 @@
 
 <div class="d-flex align-items-center justify-content-center overflow-y-auto" style="position: fixed; inset: 0;">
     <div class="col-md-auto" style="max-width: 500px; width: 100%;">
-        <div class="card shadow-lg p-4" style="background-color: #ffffff">
+        <div class="card shadow-lg p-4" data-bs-theme="light" style="background-color: #ffffff">
             <!-- Welcome message -->
             <div class="mb-4 text-center">
                 <h2 class="fw-bold">
@@ -129,7 +129,7 @@
                         <label for="UserOtp"><?= __('OTP') ?></label>
                     </div>
                     <div class="alert alert-secondary d-flex align-items-center small mb-3" role="alert">
-                        <i class="fa-solid fa-info-circle me-2 text-primary"></i>
+                        <i class="fa-solid fa-info-circle me-2 text-accent"></i>
                         <div>
                             <?= __('Visit') ?>
                             <a href="<?= h(Configure::read('LinOTPAuth.baseUrl')) ?>/selfservice"

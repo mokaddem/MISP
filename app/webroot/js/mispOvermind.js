@@ -8,6 +8,7 @@ function toggleDarkMode() {
     const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
     const next = !isDark;
     document.documentElement.setAttribute('data-bs-theme', next ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-misp-mode', next ? 'dark' : 'light');
     localStorage.setItem('darkMode', next);
     updateDarkModeUI(next);
 }
@@ -1484,11 +1485,11 @@ function toggleSecret(fieldId, btn) {
     if (input.type === 'password') {
         input.type = 'text';
         icon.classList.replace('fa-eye', 'fa-eye-slash');
-        btn.classList.add('text-primary');
+        btn.classList.add('text-accent');
     } else {
         input.type = 'password';
         icon.classList.replace('fa-eye-slash', 'fa-eye');
-        btn.classList.remove('text-primary');
+        btn.classList.remove('text-accent');
     }
 }
 
@@ -1851,7 +1852,7 @@ function copyToClipboard(btn, text) {
     const originalHtml = btn.innerHTML;
 
     const proceedCopy = () => {
-        btn.innerHTML = '<i class="fas fa-check text-primary"></i>';
+        btn.innerHTML = '<i class="fas fa-check text-accent"></i>';
 
         const tooltip = bootstrap.Tooltip.getInstance(btn);
         if (tooltip) {
@@ -1938,11 +1939,11 @@ function toggleFormats(button, containerId) {
     if (isExpanding) {
         button.innerHTML = '<i class="fas fa-minus small me-1"></i>';
         button.classList.replace('bg-dark', 'bg-primary');
-        button.classList.replace('text-primary', 'text-dark');
+        button.classList.replace('text-accent', 'text-dark');
     } else {
         button.innerHTML = '<i class="fas fa-plus small me-1"></i>' + extraFormats.length;
         button.classList.replace('bg-primary', 'bg-dark');
-        button.classList.replace('text-dark', 'text-primary');
+        button.classList.replace('text-dark', 'text-accent');
     }
 }
 
@@ -3207,9 +3208,9 @@ function initTagPickerSection(root, catData, initTags, options) {
 function galaxyBadgeStyle(hue) {
     hue = (hue == null) ? 270 : hue;
     return 'background-color:hsla(' + hue + ',65%,55%,var(--galaxy-alpha,0.12));'
-        + 'color:hsl(' + hue + ',65%,28%);'
-        + 'border:1px solid hsl(' + hue + ',55%,65%);'
-        + 'background-image:linear-gradient(145deg,rgba(255,255,255,0.15) 0%,'
+        + 'color:hsl(' + hue + ',65%,var(--galaxy-text-l,28%));'
+        + 'border:1px solid hsl(' + hue + ',55%,var(--galaxy-border-l,65%));'
+        + 'background-image:linear-gradient(145deg,rgba(255,255,255,var(--galaxy-sheen,0.15)) 0%,'
         + 'rgba(255,255,255,0.04) 40%,rgba(0,0,0,0.04) 100%);'
         + 'white-space:normal;word-wrap:break-word;text-align:left;max-width:260px;';
 }
@@ -6356,7 +6357,7 @@ function initIndexFilterDraft(root, opts) {
         if (busy && !overlay) {
             overlay = document.createElement('div');
             overlay.className = 'index-results-overlay';
-            overlay.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
+            overlay.innerHTML = '<div class="spinner-border text-accent" role="status"></div>';
             results.appendChild(overlay);
         } else if (!busy && overlay) {
             overlay.remove();

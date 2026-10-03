@@ -1,5 +1,6 @@
 <?php
 App::uses('AppModel', 'Model');
+App::uses('MispTheme', 'Lib/MispTheme');
 
 /**
  * @property User $User
@@ -142,6 +143,11 @@ class UserSetting extends AppModel
             'placeholder' => 'Default, Overmind, UiBeta, EventTest',
             'options' => ['Default', 'Overmind', 'UiBeta', 'EventTest'],
             'validation' => 'validate_theme',
+        ],
+        // No static options: themes are discovered from the build output.
+        'ui_bootstrap_theme' => [
+            'placeholder' => 'overmind',
+            'validation' => 'validate_bootstrap_theme',
         ],
         'event_template_user_form_mode' => [
             'placeholder' => 'all',
@@ -289,6 +295,14 @@ class UserSetting extends AppModel
             return false;
         }
         return true;
+    }
+
+    public static function validate_bootstrap_theme($value, $user)
+    {
+        if (empty($value)) {
+            return true;
+        }
+        return MispTheme::isBootstrapTheme($value);
     }
 
         public static function validate_event_index_hide_columns($value, $user)
