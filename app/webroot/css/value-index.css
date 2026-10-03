@@ -1696,22 +1696,43 @@
  * is qualified, and the qualification is one hover or one keystroke
  * away in either direction.
  */
+.vi-warnmark,
+.vi-wlpill {
+    border: 1px solid var(--warninglist);
+    border-radius: 999px;
+    background: var(--warninglist-soft);
+    color: var(--warninglist);
+}
+
 .vi-warnmark {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     align-self: center;
     padding: 1px 5px;
-    border: 1px solid var(--warninglist);
-    border-radius: 999px;
-    background: var(--warninglist-soft);
-    color: var(--warninglist);
     font-size: 0.6rem;
     line-height: 1.4;
     cursor: help;
 }
 
-[data-bs-theme="dark"] .vi-warnmark {
+/* The card's spelled-out counterpart of the table's mark. */
+.vi-wlpill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 7px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.5;
+    vertical-align: 1px;
+}
+
+.vi-wlpill i {
+    font-size: 0.6rem;
+}
+
+[data-bs-theme="dark"] .vi-warnmark,
+[data-bs-theme="dark"] .vi-wlpill {
     background: color-mix(in srgb, var(--warninglist) 22%,
         var(--bs-body-bg));
     color: var(--bs-body-color);

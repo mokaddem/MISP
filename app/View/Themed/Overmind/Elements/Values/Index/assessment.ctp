@@ -237,7 +237,9 @@ if ($card['hot']) {
         . ' on this row was.'));
 }
 if ($warninglist !== null) {
-    $caveats[] = '<b>' . h($warninglist['category_label']) . '</b> — '
+    $caveats[] = '<span class="vi-wlpill">'
+        . '<i class="fas fa-list-check" aria-hidden="true"></i>'
+        . h($warninglist['category_label']) . '</span> — '
         . h($warninglist['name'])
         . ($warninglist['more']
             ? ' <span>' . h(sprintf(__n('and %d other list',
