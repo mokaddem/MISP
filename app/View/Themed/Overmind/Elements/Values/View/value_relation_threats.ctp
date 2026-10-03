@@ -16,13 +16,10 @@
  * and no installed taxonomy names an individual threat, they classify
  * one.
  *
- * **Clusters wear MISP's own cluster badge.** `GalaxyColour` derives a
- * hue from the galaxy's name and every galaxy view in MISP tints its
- * clusters with it, so a Threat Actor cluster is the same colour here
- * as on the event page. That is a galaxy hue, not one of this tab's
- * seven notion hues, so the notion grammar is untouched — and dark
- * mode is handled by `--galaxy-alpha`, which `mainOvermind.css` lifts
- * from 0.12 to 0.92 so the badge's own text colour still reads.
+ * **Clusters wear MISP's own cluster chip**, in their galaxy's hue, so a
+ * Threat Actor cluster is the same colour here as on the event page.
+ * That is a galaxy hue, not one of this tab's seven notion hues, so the
+ * notion grammar is untouched.
  *
  * **The counts at the top are the filter.** They were a static
  * composition line first, which told a reader the neighbourhood held
@@ -53,8 +50,6 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('GalaxyColour', 'Tools');
-
 $profile = $valueProfile;
 $relations = $profile['relationships'];
 $threats = $relations['threats'];
@@ -242,18 +237,14 @@ $row = function (array $threat, $folded) use (
             . h(__n('event', 'events', (int)$threat['events']));
     }
     ?>
-    <?php $url = $baseurl . '/galaxy_clusters/view/' . $threat['id']; ?>
     <li class="vp-threat<?= $folded ? ' vp-threat-folded' : '' ?>"
         data-vp-threat-kind="<?= h($kind) ?>">
         <span class="vp-threat-cell">
-            <a class="vp-threat-badge"
-               style="<?= GalaxyColour::badgeStyle($threat['galaxy']) ?>"
-               href="<?= h($url) ?>"
-               title="<?= h(sprintf(
-                   __('%s in the %s galaxy'),
-                   $threat['name'],
-                   $threat['galaxy']
-               )) ?>"><?= h($threat['name']) ?></a>
+            <?= $this->TagChip->cluster([
+                'id' => $threat['id'],
+                'value' => $threat['name'],
+                'galaxy' => $threat['galaxy'],
+            ], ['display' => 'leaf']) ?>
             <?php if (!empty($threat['target'])): ?>
                 <?php /*
                  * The asserted section's own hover card, rendered

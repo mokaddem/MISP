@@ -1,6 +1,8 @@
 <?php
 App::uses('AppHelper', 'View/Helper');
 App::uses('TagChipTool', 'Tools');
+App::uses('GalaxyColour', 'Tools');
+App::uses('FontAwesomeHelper', 'View/Helper');
 
 /**
  * Renders tags as chips: one line while the name fits, the leaf dropping to a
@@ -8,7 +10,8 @@ App::uses('TagChipTool', 'Tools');
  * a namespace and predicate chain fuse into a block that prints the prefix
  * once. Colour means taxonomy: a taxonomy whose declared palette tells its
  * values apart (TLP, PAP) keeps its colours, every other one gets a hue
- * derived from its namespace. Styles live in css/tag-chips.css.
+ * derived from its namespace. Galaxy clusters wear the same chip with their
+ * galaxy in the namespace's place. Styles live in css/tag-chips.css.
  */
 class TagChipHelper extends AppHelper
 {
@@ -43,7 +46,59 @@ class TagChipHelper extends AppHelper
             'track' => null,
             'class' => '',
         ];
-        $rows = $this->normalise($tags);
+        return $this->renderRows($this->normalise($tags), $options);
+    }
+
+    /**
+     * Galaxy clusters as chips: the galaxy takes the namespace's place, so the
+     * clusters of one galaxy fuse into a block, and the galaxy keeps the
+     * GalaxyColour hue its own pages carry.
+     *
+     * @param array $clusters flat rows: value, galaxy (name), and optionally
+     *   id, galaxy_id, icon, tag_id, local, relationship_type, description;
+     *   a GalaxyCluster row with its Galaxy attached is read too
+     * @param array $options as collection(); href and prefix get the flat row
+     * @return string
+     */
+    public function clusters(array $clusters, array $options = [])
+    {
+        $options += [
+            'display' => 'full',
+            'group' => true,
+            'minGroup' => 2,
+            'wideAt' => 8,
+            'track' => null,
+            'class' => '',
+        ];
+        $rows = [];
+        foreach ($clusters as $cluster) {
+            $row = $this->clusterRow($cluster);
+            if ($row !== null) {
+                $rows[] = $row;
+            }
+        }
+        return $this->renderRows($rows, $options);
+    }
+
+    /**
+     * A single cluster, never grouped.
+     *
+     * @param array $cluster as clusters()
+     * @param array $options as collection()
+     * @return string
+     */
+    public function cluster(array $cluster, array $options = [])
+    {
+        $options += ['display' => 'full', 'class' => ''];
+        $row = $this->clusterRow($cluster);
+        if ($row === null) {
+            return '';
+        }
+        return $this->wrap($this->renderChip($row, 'flow', $options), $options);
+    }
+
+    private function renderRows(array $rows, array $options)
+    {
         if (empty($rows)) {
             return '';
         }
@@ -52,13 +107,18 @@ class TagChipHelper extends AppHelper
         $groups = [];
         foreach ($rows as $row) {
             $p = $row['parsed'];
-            $key = $p['namespace'] === null || !$grouping
-                ? "\0" . count($groups)
-                : mb_strtolower($p['namespace']) . "\1" . implode("\1", $p['above']);
+            if ($p['namespace'] === null || !$grouping) {
+                $key = "\0" . count($groups);
+            } elseif (isset($row['groupKey'])) {
+                $key = "\2" . $row['groupKey'];
+            } else {
+                $key = mb_strtolower($p['namespace']) . "\1" . implode("\1", $p['above']);
+            }
             if (!isset($groups[$key])) {
                 $groups[$key] = [
                     'namespace' => $p['namespace'],
                     'above' => $p['above'],
+                    'galaxy' => $row['galaxy'] ?? null,
                     'rows' => [],
                 ];
             }
@@ -152,6 +212,88 @@ class TagChipHelper extends AppHelper
         return [TagChipTool::hue($parsed['namespace']), '62%', null];
     }
 
+    /**
+     * @param array $cluster
+     * @return array|null a row as normalise() builds it, plus the cluster's
+     *                    own hue, icon, link, title and grouping
+     */
+    private function clusterRow(array $cluster)
+    {
+        if (isset($cluster['GalaxyCluster']['value'])) {
+            $galaxy = $cluster['Galaxy'] ?? $cluster['GalaxyCluster']['Galaxy'] ?? [];
+            $cluster = $cluster['GalaxyCluster'];
+            $cluster['Galaxy'] = $galaxy;
+        }
+        if (isset($cluster['Galaxy']) && is_array($cluster['Galaxy'])) {
+            $cluster += [
+                'galaxy' => $cluster['Galaxy']['name'] ?? '',
+                'galaxy_id' => $cluster['Galaxy']['id'] ?? null,
+                'icon' => $cluster['Galaxy']['icon'] ?? null,
+            ];
+        }
+        $value = trim((string)($cluster['value'] ?? ''));
+        if ($value === '') {
+            return null;
+        }
+        $galaxy = trim((string)($cluster['galaxy'] ?? ''));
+        $id = (int)($cluster['id'] ?? 0);
+        $galaxyId = (int)($cluster['galaxy_id'] ?? 0);
+
+        $description = trim((string)($cluster['description'] ?? ''));
+        if (mb_strlen($description) > 300) {
+            $description = rtrim(mb_substr($description, 0, 300)) . '…';
+        }
+
+        return [
+            'tag' => [
+                'Tag' => [
+                    'id' => $cluster['tag_id'] ?? null,
+                    'name' => $value,
+                    'colour' => null,
+                ],
+                'local' => !empty($cluster['local']),
+                'relationship_type' => $cluster['relationship_type'] ?? null,
+            ],
+            'parsed' => [
+                'raw' => $value,
+                'namespace' => $galaxy === '' ? null : $galaxy,
+                'path' => [],
+                'above' => [],
+                'value' => $value,
+                'leaf' => $value,
+            ],
+            'source' => $cluster,
+            'hue' => GalaxyColour::hue($galaxy),
+            'icon' => empty($cluster['icon']) ? null : (string)$cluster['icon'],
+            'href' => $id ? $this->baseurl() . '/galaxy_clusters/view/' . $id : null,
+            'title' => $galaxy === '' ? $value : $galaxy . ' › ' . $value,
+            'note' => $description,
+            'groupKey' => $galaxyId ?: mb_strtolower($galaxy),
+            'galaxy' => [
+                'name' => $galaxy,
+                'href' => $galaxyId ? $this->baseurl() . '/galaxies/view/' . $galaxyId : null,
+            ],
+            'unit' => sprintf(
+                'data-cluster-item data-cluster-name="%s" data-galaxy-name="%s"%s',
+                h(mb_strtolower($value)),
+                h(mb_strtolower($galaxy)),
+                $id ? sprintf(' data-cluster-id="%d"', $id) : ''
+            ),
+        ];
+    }
+
+    private function icon(array $row)
+    {
+        if (empty($row['icon'])) {
+            return '';
+        }
+        return sprintf(
+            '<i class="hg-icon %s fa-%s" aria-hidden="true"></i>',
+            FontAwesomeHelper::findNamespace($row['icon']),
+            h($row['icon'])
+        );
+    }
+
     private function normalise(array $tags)
     {
         $rows = [];
@@ -205,7 +347,9 @@ class TagChipHelper extends AppHelper
         $nv = $hasNv ? $nv + 0 : null;
         $over = $hasNv && ($nv > 100 || $nv < 0);
 
-        list($hue, $sat, $declared) = $this->hueOf($p, $tag['Tag']['colour']);
+        list($hue, $sat, $declared) = isset($row['hue'])
+            ? [$row['hue'], '62%', null]
+            : $this->hueOf($p, $tag['Tag']['colour']);
         $inline = $mode === 'flow' && $display === 'full'
             && TagChipTool::inlineWidth($p, $rel) <= ($options['budget'] ?? 300);
 
@@ -242,7 +386,8 @@ class TagChipHelper extends AppHelper
                     );
                 }
                 if ($showPath) {
-                    $path = sprintf('<b class="hg-ns">%s</b>', h($p['namespace']));
+                    $path = $this->icon($row)
+                        . sprintf('<b class="hg-ns">%s</b>', h($p['namespace']));
                     foreach ($p['above'] as $seg) {
                         $path .= '<i class="hg-sep">&rsaquo;</i>' . h($seg);
                     }
@@ -261,7 +406,7 @@ class TagChipHelper extends AppHelper
             if ($isLocal) {
                 $tail .= sprintf(
                     '<span class="hg-flag" title="%s">%s</span>',
-                    __('Local tag'),
+                    isset($row['galaxy']) ? __('Local cluster') : __('Local tag'),
                     __('local')
                 );
             }
@@ -275,12 +420,15 @@ class TagChipHelper extends AppHelper
             }
         }
 
-        $title = $p['raw'];
+        $title = $row['title'] ?? $p['raw'];
         if ($rel) {
             $title = $rel . ': ' . $title;
         }
         if ($isLocal) {
             $title .= ' (' . __('local') . ')';
+        }
+        if (!empty($row['note'])) {
+            $title .= "\n\n" . $row['note'];
         }
         $attrs = sprintf(
             'class="%s" style="--hg-h:%d;--hg-s:%s%s" title="%s"',
@@ -295,9 +443,12 @@ class TagChipHelper extends AppHelper
         }
         $tagId = isset($tag['Tag']['id']) ? (int)$tag['Tag']['id'] : 0;
         $searchUrl = $options['searchUrl'] ?? '/events/index/searchtag:';
+        $source = $row['source'] ?? $tag;
         $href = null;
         if (isset($options['href']) && is_callable($options['href'])) {
-            $href = $options['href']($tag);
+            $href = $options['href']($source);
+        } elseif (array_key_exists('href', $row)) {
+            $href = $row['href'];
         } elseif ($tagId && $searchUrl !== '' && $searchUrl !== false) {
             $href = $this->baseurl() . $searchUrl . $tagId;
         }
@@ -334,11 +485,11 @@ class TagChipHelper extends AppHelper
             );
         }
         if (isset($options['prefix']) && is_callable($options['prefix'])) {
-            $out = $options['prefix']($tag) . $out;
+            $out = $options['prefix']($source) . $out;
         }
         return sprintf(
-            '<span class="hg-unit" data-tag-item data-tag-name="%s">%s</span>',
-            h(mb_strtolower($p['raw'])),
+            '<span class="hg-unit" %s>%s</span>',
+            $row['unit'] ?? sprintf('data-tag-item data-tag-name="%s"', h(mb_strtolower($p['raw']))),
             $out
         );
     }
@@ -350,13 +501,25 @@ class TagChipHelper extends AppHelper
         if ($count >= $options['wideAt']) {
             $classes[] = 'is-wide';
         }
+        $first = $group['rows'][0];
+        $galaxy = $group['galaxy'];
         // A hand-picked palette keeps a bar on every member, because those
         // bars differ; a derived one puts its single hue on the block.
-        if (in_array(mb_strtolower($group['namespace']), $this->semanticNamespaces(), true)) {
+        if ($galaxy === null && in_array(mb_strtolower($group['namespace']), $this->semanticNamespaces(), true)) {
             $classes[] = 'is-varied';
         }
 
-        $head = sprintf('<b class="hg-hns">%s</b>', h($group['namespace']));
+        $head = $this->icon($first);
+        if (!empty($galaxy['href'])) {
+            $head .= sprintf(
+                '<a class="hg-hns" href="%s" title="%s">%s</a>',
+                h($galaxy['href']),
+                __('View galaxy'),
+                h($group['namespace'])
+            );
+        } else {
+            $head .= sprintf('<b class="hg-hns">%s</b>', h($group['namespace']));
+        }
         if (!empty($group['above'])) {
             $head .= sprintf(
                 '<span class="hg-hpath">&rsaquo; %s</span>',
@@ -365,7 +528,9 @@ class TagChipHelper extends AppHelper
         }
         $head .= sprintf(
             '<span class="hg-count" title="%s">%d</span>',
-            __('%s tags share this prefix', $count),
+            $galaxy === null
+                ? __('%s tags share this prefix', $count)
+                : __('%s clusters of this galaxy', $count),
             $count
         );
 
@@ -375,12 +540,15 @@ class TagChipHelper extends AppHelper
         }
 
         return sprintf(
-            '<span class="%s" style="--hg-h:%d;--hg-s:62%%%s" title="%s">'
+            '<span class="%s" style="--hg-h:%d;--hg-s:62%%%s" title="%s"%s>'
                 . '<span class="hg-head">%s</span><span class="hg-members">%s</span></span>',
             implode(' ', $classes),
-            TagChipTool::hue($group['namespace']),
+            $first['hue'] ?? TagChipTool::hue($group['namespace']),
             empty($options['track']) ? '' : sprintf(';--hg-colw:%dpx', $options['track']),
             h(implode(':', array_merge([$group['namespace']], $group['above']))),
+            $galaxy === null
+                ? ''
+                : sprintf(' data-galaxy-group data-galaxy-name="%s"', h(mb_strtolower($galaxy['name']))),
             $head,
             $members
         );

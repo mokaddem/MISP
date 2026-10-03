@@ -3164,28 +3164,11 @@ function initTagPickerSection(root, catData, initTags, options) {
 }
 
 /*******************************
- * galaxyBadgeStyle
- * The client-side mirror of GalaxyColour::palette()/badgeStyle() — a cluster
- * badge drawn by JavaScript has to come out looking exactly like one drawn by
- * PHP, so keep the numbers in sync with the lib.
- * @param {number} hue  GalaxyColour::hue() of the cluster's galaxy
- *******************************/
-function galaxyBadgeStyle(hue) {
-    hue = (hue == null) ? 270 : hue;
-    return 'background-color:hsla(' + hue + ',65%,55%,var(--galaxy-alpha,0.12));'
-        + 'color:hsl(' + hue + ',65%,var(--galaxy-text-l,28%));'
-        + 'border:1px solid hsl(' + hue + ',55%,var(--galaxy-border-l,65%));'
-        + 'background-image:linear-gradient(145deg,rgba(255,255,255,var(--galaxy-sheen,0.15)) 0%,'
-        + 'rgba(255,255,255,0.04) 40%,rgba(0,0,0,0.04) 100%);'
-        + 'white-space:normal;word-wrap:break-word;text-align:left;max-width:260px;';
-}
-
-/*******************************
  * initGalaxyPickerSection
  * The galaxy cluster picker used everywhere in the theme: galaxy category
  * buttons, a TomSelect searching the cluster endpoint remotely (an empty query
  * lists the scoped galaxy's clusters, "All Galaxies" needs 2 characters), and
- * the picked clusters drawn below as galaxy badges with a remove cross. Drives
+ * the picked clusters drawn below as cluster chips with a remove cross. Drives
  * both the standalone edit-clusters modal (Modals/galaxy_picker.ctp, one
  * section per locality) and the in-form field (Forms/galaxy_picker_field.ctp).
  *
@@ -3196,7 +3179,7 @@ function galaxyBadgeStyle(hue) {
  * @param {Element} root          Section container
  * @param {Array}   initClusters  Pre-selected [{id,name,galaxy,hue}]
  * @param {object}  options       searchUrl: cluster search endpoint (required);
- *                                localMarker: draw the local user glyph on badges;
+ *                                localMarker: flag the chips as local clusters;
  *                                onChange: called with the selected id array
  * @return {{ids: function}} the current selection
  *******************************/
@@ -3217,58 +3200,44 @@ function initGalaxyPickerSection(root, initClusters, options) {
     function addCluster(c) {
         if (!c || c.id == null) { return; }
         selected[String(c.id)] = {
-            id: c.id, name: c.name, galaxy: c.galaxy || '',
-            hue: (c.hue == null ? 270 : c.hue)
+            id: c.id, name: c.name, galaxy: c.galaxy || '', hue: c.hue
         };
     }
 
     function render() {
         var keys = Object.keys(selected);
         emptyEl.classList.toggle('d-none', keys.length > 0);
-        selEl.innerHTML = '';
         keys.sort(function (a, b) {
             return selected[a].name.localeCompare(selected[b].name);
         });
-        keys.forEach(function (id) {
+        selEl.innerHTML = TagChips.clusters(keys.map(function (id) {
             var c = selected[id];
-
-            var badge = document.createElement('span');
-            badge.className = 'badge p-2 d-inline-flex align-items-center gap-2';
-            badge.style.cssText = galaxyBadgeStyle(c.hue);
-            if (c.galaxy) { badge.title = c.galaxy; }
-
-            var txt = document.createElement('span');
-            txt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;'
-                + 'white-space:nowrap;min-width:0;';
-            if (options.localMarker) {
-                txt.innerHTML = '<i class="fas fa-user me-1"></i>';
-            }
-            txt.appendChild(document.createTextNode(c.name));
-
-            var x = document.createElement('i');
-            x.className = 'fas fa-times';
-            x.style.cssText = 'cursor:pointer; opacity:.8; flex-shrink:0;';
-            x.setAttribute('role', 'button');
+            return { id: c.id, value: c.name, galaxy: c.galaxy, hue: c.hue, local: !!options.localMarker };
+        }), { href: noLink });
+        selEl.querySelectorAll('.hg-unit[data-cluster-id]').forEach(function (unit) {
+            var id = unit.getAttribute('data-cluster-id');
+            var x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'hg-act';
             x.setAttribute('aria-label', 'Remove');
+            x.title = 'Remove';
+            x.innerHTML = '&times;';
             x.addEventListener('click', function () {
                 delete selected[id];
                 render();
             });
-
-            badge.appendChild(txt);
-            badge.appendChild(x);
-            selEl.appendChild(badge);
+            unit.appendChild(x);
         });
         if (typeof options.onChange === 'function') { options.onChange(ids()); }
     }
 
-    function renderOpt(item, escape) {
-        return '<div class="d-flex flex-column py-1">'
-            + '<span>' + escape(item.name) + '</span>'
-            + (item.galaxy
-                ? '<span class="text-muted" style="font-size:.72rem;">'
-                    + escape(item.galaxy) + '</span>'
-                : '')
+    function noLink() {
+        return null;
+    }
+
+    function renderOpt(item) {
+        return '<div class="py-1">'
+            + TagChips.cluster({ value: item.name, galaxy: item.galaxy, hue: item.hue }, { href: noLink })
             + '</div>';
     }
 

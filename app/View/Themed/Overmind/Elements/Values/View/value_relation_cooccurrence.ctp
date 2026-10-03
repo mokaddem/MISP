@@ -3,7 +3,6 @@ App::uses('ValueFieldKind', 'Tools/ValueProfile');
 App::uses('ValueRelationTool', 'Tools/ValueProfile');
 App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 App::uses('ValueUrlTool', 'Tools/ValueProfile');
-App::uses('GalaxyColour', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine
  * stored about this value.
@@ -839,35 +838,24 @@ $attachCell = function (array $row) use ($attachWords) {
 /**
  * The first cell: what this label is called.
  *
- * Two shapes, because the two kinds are not the same sort of thing. A
- * cluster is a record with a page of its own — its name, linked, in its
- * galaxy's colour, exactly as the rail card beside this draws it. A tag
- * is MISP's own chip through MISP's own element, because a taxonomy
+ * A cluster is MISP's cluster chip, linked to its page and in its
+ * galaxy's colour; a tag is MISP's own tag chip, because a taxonomy
  * tag's colour *is* its identity to a reader who has seen it on an
  * event.
  *
  * @param array $row
  * @return string
  */
-$labelCell = function (array $row) use ($view, $baseurl) {
+$labelCell = function (array $row) use ($view) {
     if ($row['kind'] === ValueRelationTool::KIND_CLUSTER) {
         $cluster = isset($row['cluster']['GalaxyCluster'])
             ? $row['cluster']['GalaxyCluster']
             : array();
-        $url = empty($cluster['id'])
-            ? null
-            : $baseurl . '/galaxy_clusters/view/' . $cluster['id'];
-        $badge = '<span class="vp-rel-cluster"'
-            . ' style="' . GalaxyColour::badgeStyle($row['family']) . '"'
-            . ' title="' . h(sprintf(
-                __('%1$s in the %2$s galaxy'),
-                $row['label'],
-                $row['family']
-            )) . '">' . h($row['label']) . '</span>';
-        return $url === null
-            ? $badge
-            : '<a class="vp-rel-clusterlink" href="' . h($url) . '">'
-                . $badge . '</a>';
+        return $view->TagChip->cluster([
+            'id' => $cluster['id'] ?? null,
+            'value' => $row['label'],
+            'galaxy' => $row['family'],
+        ]);
     }
     return empty($row['tag'])
         ? '<span class="vp-rel-cell">' . h($row['label']) . '</span>'

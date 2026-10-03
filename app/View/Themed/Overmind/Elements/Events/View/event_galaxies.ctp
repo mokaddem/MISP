@@ -137,31 +137,20 @@ $mayModify = $this->Acl->canModifyTag($data);
 
     function applySearch(total, label) {
         var q        = search.value.toLowerCase().trim();
-        var sections = body.querySelectorAll('[data-galaxy-section]');
         var noResult = body.querySelector('[data-galaxy-noresult]');
         var list     = body.querySelector('[data-galaxy-list]');
         var visible  = 0;
 
-        sections.forEach(function (section) {
-            var gName    = section.getAttribute('data-galaxy-name') || '';
-            var cNames   = section.getAttribute('data-cluster-names') || '';
-            var matches  = (q === '' || gName.includes(q) || cNames.includes(q));
-
-            section.classList.toggle('d-none', !matches);
-
-            if (matches) {
-                /* When filtering, also hide individual clusters that don't match */
-                var items = section.querySelectorAll('[data-cluster-item]');
-                items.forEach(function (item) {
-                    var cName = item.getAttribute('data-cluster-name') || '';
-                    var show  = (q === '' || gName.includes(q) || cName.includes(q));
-                    item.classList.toggle('d-none', !show);
-                    if (show) { visible++; }
-                });
-                /* Re-show section if it contains at least one visible cluster */
-                var anyVisible = section.querySelector('[data-cluster-item]:not(.d-none)');
-                section.classList.toggle('d-none', !anyVisible);
-            }
+        body.querySelectorAll('[data-cluster-item]').forEach(function (item) {
+            var gName = item.getAttribute('data-galaxy-name') || '';
+            var cName = item.getAttribute('data-cluster-name') || '';
+            var show  = (q === '' || gName.includes(q) || cName.includes(q));
+            item.classList.toggle('d-none', !show);
+            if (show) { visible++; }
+        });
+        body.querySelectorAll('[data-galaxy-group]').forEach(function (group) {
+            var anyVisible = group.querySelector('[data-cluster-item]:not(.d-none)');
+            group.classList.toggle('d-none', !anyVisible);
         });
 
         /* Total visible clusters when no filter */

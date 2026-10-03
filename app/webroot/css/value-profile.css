@@ -5447,21 +5447,6 @@ th[aria-sort="descending"] .sort-icon::before,
     gap: 2px;
 }
 
-.vp-threat-badge {
-    display: inline-block;
-    padding: 2px 7px;
-    border-radius: 999px;
-    font-size: 0.76rem;
-    font-weight: 600;
-    line-height: 1.35;
-    text-decoration: none;
-}
-
-.vp-threat-badge:hover,
-.vp-threat-badge:focus-visible {
-    text-decoration: underline;
-}
-
 .vp-threat-right {
     display: inline-flex;
     align-items: baseline;
@@ -7062,43 +7047,6 @@ th.vp-rel-num {
     font-family: var(--bs-font-monospace);
     font-size: 0.72rem;
     white-space: nowrap;
-}
-
-/* ------------------------------------------------------------------
- * §10.2 — the labels section's cells
- *
- * Its own table, beneath the value one, so the two kinds it holds have
- * to be told apart from each other rather than from a value. The
- * *shape* of the first cell does it: a tag is MISP's own coloured chip
- * and a cluster is the rail card's pill in its galaxy's colour.
- *
- * `.vp-threat-badge`'s geometry, deliberately duplicated rather than
- * shared: that class is the rail card's and carries its font size,
- * which is a 340px column's. Borrowing it here would tie a table cell
- * to a decision made about a sidebar.
- * ------------------------------------------------------------------ */
-
-.vp-rel-cluster {
-    display: inline-block;
-    max-width: 18rem;
-    overflow: hidden;
-    padding: 1px 7px;
-    border-radius: 999px;
-    font-size: 0.74rem;
-    font-weight: 600;
-    line-height: 1.4;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    vertical-align: bottom;
-}
-
-.vp-rel-clusterlink {
-    text-decoration: none;
-}
-
-.vp-rel-clusterlink:hover .vp-rel-cluster,
-.vp-rel-clusterlink:focus-visible .vp-rel-cluster {
-    text-decoration: underline;
 }
 
 /*

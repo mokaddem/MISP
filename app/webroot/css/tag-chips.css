@@ -144,6 +144,18 @@
     font-weight: 700;
     color: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-ink));
 }
+/* A galaxy's icon marks a cluster chip apart from a tag chip. */
+.hinge-tags .hg-icon {
+    flex: none;
+    margin-right: 4px;
+    font-size: 9px;
+    color: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
+}
+.hinge-tags .hg-head .hg-icon {
+    align-self: center;
+    margin-right: -2px;
+    font-size: 10px;
+}
 .hinge-tags .hg-sep {
     font-style: normal;
     opacity: .5;
@@ -269,6 +281,14 @@
     text-transform: uppercase;
     letter-spacing: .04em;
     color: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-ink));
+}
+.hinge-tags a.hg-hns {
+    text-decoration: none;
+}
+.hinge-tags a.hg-hns:hover,
+.hinge-tags a.hg-hns:focus-visible {
+    color: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-ink));
+    text-decoration: underline;
 }
 .hinge-tags .hg-hpath {
     color: var(--hg-muted);
