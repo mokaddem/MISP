@@ -18,13 +18,9 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
  * before it reaches here — this element draws what it is given and
  * makes no visibility decision of its own.
  *
- * **The galaxy is in the title and not on the chip.** It heads the
- * clusters on the Overview's card, where a value's whole attribution
- * is laid out and the groups are the point; in a table cell holding
- * 1.2 of them on average it would be a label repeating itself down the
- * column — the small-print kind the card dropped in the same pass.
- * `attachClusters` still orders by galaxy, so a cell holding several
- * reads in the card's order.
+ * Each cluster is a cluster chip, its galaxy on the rail since nothing
+ * else in the cell names it. `attachClusters` orders by galaxy, so a
+ * cell holding several reads in the card's order.
  *
  * **The reader's order runs before the fold.** Three clusters are
  * drawn and the rest fold, so which galaxy leads decides what is on
@@ -68,30 +64,27 @@ if (ValueLabelPriority::declares($plan, ValueLabelPriority::GALAXIES)) {
     );
 }
 
-$hiddenCount = max(0, count($clusters) - $maxVisible);
+$chips = array();
+foreach (array_values($clusters) as $cluster) {
+    $chips[] = array(
+        'id' => isset($cluster['id']) ? $cluster['id'] : null,
+        'value' => $cluster['name'],
+        'galaxy' => isset($cluster['galaxy']) ? $cluster['galaxy'] : '',
+    );
+}
+$hiddenCount = max(0, count($chips) - $maxVisible);
 ?>
 <div class="tag-container d-inline-flex flex-wrap align-items-center">
-    <?php foreach ($clusters as $index => $cluster): ?>
-        <span class="vp-galaxy<?= $index >= $maxVisible
-                  ? ' d-none extra-tag'
-                  : '' ?>"
-              title="<?= h(empty($cluster['galaxy'])
-                  ? $cluster['name']
-                  : sprintf(
-                      __('%1$s — in %2$s'),
-                      $cluster['name'],
-                      $cluster['galaxy']
-                  )) ?>">
-            <span class="misp-icon misp-icon-galaxy misp-simple"></span>
-            <span class="vp-galaxy-name">
-                <?= h($cluster['name']) ?>
-            </span>
-        </span>
-    <?php endforeach; ?>
+    <?= $this->TagChip->clusters(array_slice($chips, 0, $maxVisible)) ?>
+    <?= $this->TagChip->clusters(
+        array_slice($chips, $maxVisible),
+        array('class' => 'd-none extra-tag')
+    ) ?>
 
     <?php if ($hiddenCount > 0): ?>
         <span class="badge bg-secondary text-white me-1 mb-1 tag-expand"
               style="cursor:pointer;"
+              data-hidden="<?= (int)$hiddenCount ?>"
               onclick="toggleTags(this)">+<?= h($hiddenCount) ?></span>
     <?php endif; ?>
 </div>

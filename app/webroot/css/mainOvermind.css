@@ -4390,6 +4390,12 @@ tr.evt-extension-row td:first-child {
     font-weight: 600;
 }
 
+.ov-raw-hint-label.is-chip {
+    max-width: 100%;
+    font-family: inherit;
+    font-weight: inherit;
+}
+
 .ov-raw-hint-detail {
     flex: 1 1 auto;
     min-width: 0;

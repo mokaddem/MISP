@@ -371,6 +371,7 @@ class ValueHoverTool
         $first = $groups[0];
         return array(
             'name' => $first['name'],
+            'type' => $first['key'],
             'kind' => $first['key'] === null
                 ? null
                 : GalaxyCategory::kindOf($first['key']),

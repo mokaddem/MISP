@@ -1141,6 +1141,7 @@ class Event extends AppModel
             foreach ($event['GalaxyCluster'] ?? [] as $cluster) {
                 $type = $cluster['Galaxy']['type'] ?? $cluster['type'];
                 $galaxies[$type]['type'] = $type;
+                $galaxies[$type]['name'] = $cluster['Galaxy']['name'] ?? $type;
                 $galaxies[$type]['GalaxyCluster'][] = [
                     'value' => $cluster['value'],
                     'tag_name' => $cluster['tag_name'],

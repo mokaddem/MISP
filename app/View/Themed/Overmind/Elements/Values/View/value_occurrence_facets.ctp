@@ -132,37 +132,15 @@ foreach ($groups['tag'] as &$facet) {
 unset($facet);
 
 /*
- * A cluster row is the chip the Galaxies column draws, with its galaxy
- * beside it — the one place in the pane the galaxy is named in words.
- * The column puts it in the chip's title instead, because there it
- * would repeat down every row; here each cluster appears once.
- *
- * **Named on every row rather than heading runs of them**, which is
- * how the card groups them and is wrong here: a group's search box and
- * its `N more` fold both hide rows, so a heading row would strand or
- * vanish from the clusters it was heading. A row that carries its own
- * galaxy survives both. The qualifier takes the ellipsis when the
- * cluster's name is long — the name is what the reader is picking —
- * and the row's title carries both in full.
+ * A cluster row is the chip the Galaxies column draws, galaxy on the
+ * rail. Each row carries its own galaxy rather than heading runs of
+ * them, because the group's search box and `N more` fold hide rows.
  */
 foreach ($groups['galaxy'] as &$facet) {
-    $facet['html'] = '<span title="'
-        . h(empty($facet['galaxy'])
-            ? $facet['cluster']
-            : sprintf(
-                __('%1$s — in %2$s'),
-                $facet['cluster'],
-                $facet['galaxy']
-            ))
-        . '"><span class="vp-galaxy">'
-        . '<span class="misp-icon misp-icon-galaxy misp-simple"></span>'
-        . '<span class="vp-galaxy-name">' . h($facet['cluster'])
-        . '</span></span>'
-        . (empty($facet['galaxy'])
-            ? ''
-            : '<span class="vp-facet-galaxy">' . h($facet['galaxy'])
-                . '</span>')
-        . '</span>';
+    $facet['html'] = $this->TagChip->cluster(array(
+        'value' => $facet['cluster'],
+        'galaxy' => empty($facet['galaxy']) ? '' : $facet['galaxy'],
+    ));
 }
 unset($facet);
 

@@ -797,35 +797,6 @@ tr.vp-occ-deleted td {
     font-size: 0.75rem;
 }
 
-.vp-galaxy {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    max-width: 100%;
-    margin: 0 4px 4px 0;
-    padding: 4px 10px;
-    border: 1px solid var(--bs-border-color);
-    border-color: color-mix(in srgb, var(--galaxy) 40%,
-        var(--bs-border-color));
-    border-radius: 999px;
-    background: var(--bs-body-bg);
-    background: color-mix(in srgb, var(--galaxy) 8%, var(--bs-body-bg));
-    font-size: 0.75rem;
-}
-
-[data-misp-mode="dark"] .vp-galaxy {
-    background: color-mix(in srgb, var(--galaxy) 20%, var(--bs-body-bg));
-}
-
-.vp-galaxy > .misp-icon {
-    align-self: center;
-    color: var(--galaxy);
-}
-
-.vp-galaxy-name {
-    font-weight: 600;
-}
-
 /*
  * What a galaxy holds beyond the six the card draws. Words rather than
  * a `+N` chip: it is a statement about the group, not another cluster.
@@ -1980,18 +1951,6 @@ tr.vp-occ-deleted td {
  */
 .vp-panel .idx-col-value_cluster_list {
     min-width: 15rem;
-}
-
-.idx-col-value_cluster_list .vp-galaxy {
-    overflow: hidden;
-    max-width: 14rem;
-    white-space: nowrap;
-}
-
-.idx-col-value_cluster_list .vp-galaxy-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 /*
@@ -4035,17 +3994,6 @@ body[data-controller="values"] .vp-vc-hero-action:disabled {
  */
 .vp-facet-label > * {
     vertical-align: middle;
-}
-
-/*
- * The galaxy behind a cluster row, named once in the rail where the
- * Galaxies column can only put it in a chip's title — the column would
- * be repeating it down every row of a table.
- */
-.vp-facet-galaxy {
-    margin-left: 6px;
-    font-size: 0.68rem;
-    color: var(--bs-secondary-color);
 }
 
 .vp-facet-count {
@@ -6984,35 +6932,6 @@ th.vp-rel-num {
 
 .vp-claim-chips .badge {
     margin-bottom: 0 !important;
-}
-
-/*
- * A cluster is not a tag, and does not borrow the tag's colour: the
- * galaxy glyph and an outline say *this is a cluster* where a filled
- * chip would say *this is a label somebody attached*.
- */
-.vp-claim-cluster {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin: 0 3px 2px 0;
-    padding: 1px 7px;
-    border: 1px solid color-mix(in srgb, var(--vp-rel-human) 40%,
-        transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--vp-rel-human) 10%,
-        var(--bs-body-bg));
-    color: var(--vp-rel-human);
-    font-size: 0.63rem;
-    font-weight: 600;
-    line-height: 1.6;
-}
-
-[data-misp-mode="dark"] .vp-claim-cluster {
-    background: color-mix(in srgb, var(--vp-rel-human) 22%,
-        var(--bs-body-bg));
-    color: color-mix(in srgb, var(--vp-rel-human) 45%,
-        var(--bs-body-color));
 }
 
 /*

@@ -106,14 +106,11 @@ $tagChips = function ($tags) use ($view) {
  * @return string
  */
 $clusterChips = function ($clusters) use ($view) {
-    $out = '';
-    foreach ($clusters as $cluster) {
-        $out .= '<span class="vp-claim-cluster" title="'
-            . h($cluster['galaxy']) . '">'
-            . '<span class="misp-icon misp-icon-galaxy misp-simple"></span>'
-            . h($cluster['value']) . '</span>';
-    }
-    return $out;
+    return $view->TagChip->clusters($clusters, array(
+        'href' => function () {
+            return null;
+        },
+    ));
 };
 
 /**

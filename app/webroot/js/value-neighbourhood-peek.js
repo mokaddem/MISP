@@ -392,12 +392,24 @@
         body.appendChild(roles);
 
         var clusters = [];
+        var firstCluster = null;
         (c.Galaxy || []).forEach(function (g) {
-            (g.GalaxyCluster || []).forEach(function (cl) { clusters.push(cl.value); });
+            (g.GalaxyCluster || []).forEach(function (cl) {
+                if (!firstCluster) firstCluster = { id: cl.id, value: cl.value, galaxy: g.name };
+                clusters.push(cl.value);
+            });
         });
         var context = st.notes.length ? st.notes : clusters;
         if (context.length) {
-            var ctx = el('div', 'vn-context', context[0] + (context.length > 1 ? ' · +' + (context.length - 1) : ''));
+            var more = context.length > 1 ? ' · +' + (context.length - 1) : '';
+            var ctx;
+            if (!st.notes.length && window.TagChips) {
+                ctx = el('div', 'vn-context');
+                ctx.innerHTML = window.TagChips.cluster(firstCluster, { display: 'leaf' });
+                if (more) ctx.appendChild(document.createTextNode(more));
+            } else {
+                ctx = el('div', 'vn-context', context[0] + more);
+            }
             ctx.title = context.join('\n');
             body.appendChild(ctx);
         }

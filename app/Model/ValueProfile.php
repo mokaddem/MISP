@@ -16019,14 +16019,25 @@ class ValueProfile extends AppModel
             $options,
             array('profile' => $profile, 'context' => $context)
         ));
+        $card = ValueHoverTool::cardFor(
+            $envelope['verdict'],
+            $context,
+            $now,
+            ValueLabelPriority::planFor($profile)
+        );
+        if (!empty($card['galaxy']['type'])) {
+            $galaxy = ClassRegistry::init('Galaxy')->find('first', array(
+                'conditions' => array('Galaxy.type' => $card['galaxy']['type']),
+                'fields' => array('Galaxy.name'),
+                'recursive' => -1,
+            ));
+            $card['galaxy']['galaxy'] = empty($galaxy['Galaxy']['name'])
+                ? $card['galaxy']['type']
+                : $galaxy['Galaxy']['name'];
+        }
         return array(
             'value' => $value,
-            'card' => ValueHoverTool::cardFor(
-                $envelope['verdict'],
-                $context,
-                $now,
-                ValueLabelPriority::planFor($profile)
-            ),
+            'card' => $card,
         );
     }
 

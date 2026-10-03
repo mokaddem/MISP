@@ -465,13 +465,15 @@ if ($conflicts > 0) {
             ob_start();
             foreach ($shown as $cluster) {
                 ?>
-                <span class="vp-galaxy" title="<?= h($reach(
+                <span class="vp-tag" title="<?= h($reach(
                     $cluster['occurrences'],
                     $cluster['events']
                 )) ?>">
-                    <span class="vp-galaxy-name">
-                        <?= h($cluster['name']) ?>
-                    </span>
+                    <?= $this->TagChip->cluster(array(
+                        'id' => isset($cluster['id']) ? $cluster['id'] : null,
+                        'value' => $cluster['name'],
+                        'galaxy' => $galaxy['galaxy'],
+                    ), array('display' => 'leaf')) ?>
                 </span>
                 <?php
             }

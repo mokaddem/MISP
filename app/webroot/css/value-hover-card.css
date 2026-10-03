@@ -484,15 +484,7 @@
 /* ---- the way in ------------------------------------------------- */
 
 .vp-hc-foot { display: flex; align-items: center; gap: 6px; min-height: 25px; }
-.vp-hc-gx { display: inline-flex; align-items: baseline; gap: 5px; min-width: 0; }
-.vp-hc-gx-ico {
-    flex: none;
-    align-self: center;
-    font-size: 10px;
-    line-height: 1;
-    color: var(--vp-hc-lean);
-}
-.vp-hc-gx-n { font-size: 11.5px; font-weight: 700; letter-spacing: -0.1px; }
+.vp-hc-gx { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
 .vp-hc-gx-t {
     font-size: 8.5px;
     font-weight: 700;

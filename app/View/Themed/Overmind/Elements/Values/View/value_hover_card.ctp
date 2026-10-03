@@ -430,9 +430,12 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
         <div class="vp-hc-sec vp-hc-foot">
             <?php if ($card['galaxy'] !== null): ?>
                 <span class="vp-hc-gx">
-                    <i class="vp-hc-gx-ico fas fa-circle-nodes"
-                       aria-hidden="true"></i>
-                    <span class="vp-hc-gx-n"><?= h($card['galaxy']['name']) ?></span>
+                    <?= $this->TagChip->cluster(array(
+                        'value' => $card['galaxy']['name'],
+                        'galaxy' => isset($card['galaxy']['galaxy'])
+                            ? $card['galaxy']['galaxy']
+                            : '',
+                    ), array('display' => 'leaf')) ?>
                     <?php if (!empty($card['galaxy']['kind'])): ?>
                         <span class="vp-hc-gx-t"><?= h($card['galaxy']['kind']) ?></span>
                     <?php endif; ?>

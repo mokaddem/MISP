@@ -2,6 +2,14 @@
 $tag = Hash::extract($row, $field['data_path']);
 
 if (empty($tag)) {
+    // A taxonomy entry whose tag does not exist yet, dimmed
+    if (!empty($field['uncreated']) && !empty($row['tag'])) {
+        echo '<span class="opacity-50">' . $this->TagChip->chip([
+            'name' => $row['tag'],
+            'colour' => $row['colour'] ?? null,
+            'numerical_value' => $row['numerical_value'] ?? null,
+        ], ['searchUrl' => '']) . '</span>';
+    }
     return;
 }
 

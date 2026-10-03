@@ -369,6 +369,7 @@ class ValueContextTool
                 );
             }
             $galaxies[$galaxy]['clusters'][] = array(
+                'id' => isset($cluster['id']) ? (int)$cluster['id'] : null,
                 'name' => empty($cluster['value'])
                     ? $name
                     : $cluster['value'],

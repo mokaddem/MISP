@@ -213,6 +213,19 @@
         );
         const initial = readInitialCsv($value);
 
+        // Values restored from the CSV are bare tag names with no galaxy.
+        function clusterChip(data) {
+            if (!data.galaxy) {
+                return window.TagChips.chip({ name: data.value }, { searchUrl: '' });
+            }
+            return window.TagChips.cluster({
+                value: data.label,
+                galaxy: data.galaxy,
+                galaxy_id: data.galaxy_id,
+                iconClass: data.icon_class
+            }, { href: () => null });
+        }
+
         const ts = new window.TomSelect($select, {
             valueField: 'value',
             labelField: 'label',
@@ -266,8 +279,10 @@
                            'max-height:3em;overflow:hidden;">' +
                            escape(data.description) + '</div>')
                         : '';
-                    return '<div><strong>' + escape(data.label) +
-                        '</strong>' + desc + '</div>';
+                    return '<div class="py-1">' + clusterChip(data) + desc + '</div>';
+                },
+                item(data) {
+                    return '<div>' + clusterChip(data) + '</div>';
                 }
             },
             onChange(values) {
