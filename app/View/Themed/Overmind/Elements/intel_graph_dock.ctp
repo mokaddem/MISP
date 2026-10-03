@@ -53,7 +53,7 @@
         <div class="ig-so-canvas" data-ig-canvas></div>
         <div class="ig-so-callouts" data-ig-callouts aria-hidden="true"></div>
         <div class="ig-so-loading" data-ig-loading hidden role="status">
-            <div class="spinner-border spinner-border-sm" aria-hidden="true"></div>
+            <div class="misp-loader" aria-hidden="true"></div>
             <div data-ig-loading-text><?= __('Loading') ?></div>
             <div class="ig-so-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
         </div>

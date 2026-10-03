@@ -434,7 +434,7 @@
     }
     function showLoading(text) {
         loadingEl.hidden = false;
-        loadingEl.querySelector('.spinner-border').hidden = false;
+        loadingEl.querySelector('.misp-loader').hidden = false;
         loadingEl.querySelector('.ig-so-skeleton').hidden = false;
         find('[data-ig-loading-text]').textContent = text;
     }
@@ -445,7 +445,7 @@
         box.appendChild(icon('fas fa-triangle-exclamation text-danger me-1'));
         box.appendChild(document.createTextNode('The graph could not be drawn' + (err && err.status ? ' (' + err.status + ')' : '') + '. '));
         box.appendChild(button('btn btn-sm btn-outline-secondary ms-1', 'Try again', function () { mountActive(); }));
-        loadingEl.querySelector('.spinner-border').hidden = true;
+        loadingEl.querySelector('.misp-loader').hidden = true;
         loadingEl.querySelector('.ig-so-skeleton').hidden = true;
     }
 

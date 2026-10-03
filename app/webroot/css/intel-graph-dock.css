@@ -170,7 +170,6 @@
 }
 .ig-so-loading { align-items: center; justify-content: center; gap: .6rem; color: var(--bs-secondary-color); text-align: center; padding: 1rem; }
 .ig-so-loading[hidden], .ig-so-none[hidden] { display: none; }
-.ig-so-loading .spinner-border { color: var(--ig-so-accent); }
 .ig-so-skeleton { width: 70%; max-width: 15rem; display: grid; gap: .45rem; margin-top: .4rem; }
 .ig-so-skeleton span { height: .45rem; border-radius: var(--bs-border-radius-pill); background: var(--bs-secondary-bg); animation: ig-so-shimmer 1.2s ease-in-out infinite alternate; }
 .ig-so-skeleton span:nth-child(2) { width: 80%; } .ig-so-skeleton span:nth-child(3) { width: 55%; }

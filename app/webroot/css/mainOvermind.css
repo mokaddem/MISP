@@ -1215,24 +1215,10 @@ th .sort-icon::before {
     position: absolute;
     top: 1.25rem;
     left: 50%;
-    width: 1.75rem;
-    height: 1.75rem;
-    margin-left: -0.875rem;
-    border: 3px solid var(--bs-border-color);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: ajax-busy-spin 0.75s linear infinite;
-}
-
-@keyframes ajax-busy-spin {
-    to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .ajax-tab-content.is-loading::after,
-    .ajax-card.is-loading::after {
-        animation-duration: 2.4s;
-    }
+    width: 48px;
+    height: 48px;
+    margin-left: -24px;
+    background: url(../img/misp-loader.svg) center / contain no-repeat;
 }
 
 .nav-ajax.active {
