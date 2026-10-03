@@ -32,8 +32,6 @@ $type = $item['type'] ?? null;
             </span>
         </button>
     </li>
-<?php elseif ($type === 'header'): ?>
-    <li class="rc-heading" role="presentation"><?= h($item['label']) ?></li>
 <?php elseif ($type === 'bootstrapTheme'): ?>
     <li>
         <button type="button" class="rc-item rc-bstheme set-bootstrap-theme<?= $item['on'] ? ' is-on' : '' ?>" data-theme="<?= h($item['theme']) ?>" title="<?= h($item['description']) ?>"<?= $item['on'] ? ' aria-current="true"' : '' ?>>
@@ -71,6 +69,9 @@ $type = $item['type'] ?? null;
         <button type="button" class="rc-item rc-subtrigger" aria-expanded="false" aria-controls="<?= $subId ?>">
             <?= $this->element('navbar_glyph', ['item' => $item]) ?>
             <span class="rc-text"><?= h($item['label']) ?></span>
+            <?php if (!empty($item['value'])): ?>
+                <span class="rc-value"><?= h($item['value']) ?></span>
+            <?php endif; ?>
             <i class="rc-chev-r fas fa-chevron-right" aria-hidden="true"></i>
         </button>
         <ul class="rc-panel rc-flyout<?= $wide ? ' rc-wide' : '' ?>" id="<?= $subId ?>">

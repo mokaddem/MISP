@@ -1,6 +1,7 @@
 /* Overmind top navbar (Elements/navbar*.ctp, js/overmind-navbar.js).
-   Spacing on a 4/8px scale, radii from --bs-border-radius*. A theme
-   re-skins it by overriding the --rc-* tokens on .rc-nav. */
+   Spacing on a 4/8px scale, radii from --bs-border-radius*. A Bootstrap
+   theme re-skins it through the --misp-navbar-* properties its build emits;
+   without them it keeps Overmind's palette. */
 
 .rc-nav {
     /* brand palette */
@@ -14,43 +15,43 @@
     --rc-bar-h: 56px;
 
     /* the bar (dark in both modes) */
-    --rc-bar-bg: var(--rc-ink);
-    --rc-bar-edge: transparent;
-    --rc-bar-shadow: 0 1px 2px rgba(43, 27, 28, .18),
-        0 4px 12px -2px rgba(43, 27, 28, .22);
+    --rc-bar-bg: var(--misp-navbar-bg, var(--rc-ink));
+    --rc-bar-edge: var(--misp-navbar-edge, transparent);
+    --rc-bar-shadow: var(--misp-navbar-shadow, 0 1px 2px rgba(43, 27, 28, .18),
+        0 4px 12px -2px rgba(43, 27, 28, .22));
     --rc-bar-fg: rgba(255, 255, 255, .78);
     --rc-bar-fg-strong: #fff;
     --rc-bar-icon: rgba(255, 255, 255, .6);
     --rc-bar-hover: rgba(255, 255, 255, .08);
     --rc-bar-open: rgba(255, 255, 255, .13);
     --rc-bar-line: rgba(255, 255, 255, .16);
-    --rc-accent: var(--rc-sky);
-    --rc-ring-bar: var(--rc-sky);
-    --rc-count-bg: rgba(51, 195, 238, .2);
-    --rc-count-fg: #b3eafb;
+    --rc-accent: var(--misp-navbar-accent, var(--rc-sky));
+    --rc-ring-bar: var(--rc-accent);
+    --rc-count-bg: var(--misp-navbar-count-bg, rgba(51, 195, 238, .2));
+    --rc-count-fg: var(--misp-navbar-count-fg, #b3eafb);
 
     /* dropdown panels */
-    --rc-menu-bg: #fff;
-    --rc-menu-fg: #231b1c;
-    --rc-menu-muted: #5c6267;
-    --rc-menu-icon: #687076;
-    --rc-menu-border: rgba(43, 27, 28, .1);
-    --rc-menu-shadow: 0 1px 2px rgba(43, 27, 28, .06),
+    --rc-menu-bg: var(--misp-navbar-menu-bg, #fff);
+    --rc-menu-fg: var(--misp-navbar-menu-fg, #231b1c);
+    --rc-menu-muted: var(--misp-navbar-menu-muted, #5c6267);
+    --rc-menu-icon: var(--misp-navbar-menu-icon, #687076);
+    --rc-menu-border: var(--misp-navbar-menu-border, rgba(43, 27, 28, .1));
+    --rc-menu-shadow: var(--misp-navbar-menu-shadow, 0 1px 2px rgba(43, 27, 28, .06),
         0 6px 12px -4px rgba(43, 27, 28, .1),
-        0 18px 36px -12px rgba(12, 58, 74, .26);
-    --rc-hover-bg: rgba(24, 146, 177, .09);
-    --rc-hover-fg: var(--rc-abyss);
-    --rc-hover-icon: var(--rc-teal);
-    --rc-divider: rgba(43, 27, 28, .09);
-    --rc-ring: var(--rc-primary);
-    --rc-on-bg: rgba(24, 146, 177, .14);
-    --rc-on-fg: #0e5a72;
-    --rc-off-bg: rgba(43, 27, 28, .06);
-    --rc-off-fg: #5c6267;
-    --rc-track-off: #899096;
-    --rc-track-on: var(--rc-primary);
+        0 18px 36px -12px rgba(12, 58, 74, .26));
+    --rc-hover-bg: var(--misp-navbar-hover-bg, rgba(24, 146, 177, .09));
+    --rc-hover-fg: var(--misp-navbar-hover-fg, var(--rc-abyss));
+    --rc-hover-icon: var(--misp-navbar-hover-icon, var(--rc-teal));
+    --rc-divider: var(--misp-navbar-divider, rgba(43, 27, 28, .09));
+    --rc-ring: var(--misp-navbar-ring, var(--rc-primary));
+    --rc-on-bg: var(--misp-navbar-on-bg, rgba(24, 146, 177, .14));
+    --rc-on-fg: var(--misp-navbar-on-fg, #0e5a72);
+    --rc-off-bg: var(--misp-navbar-off-bg, rgba(43, 27, 28, .06));
+    --rc-off-fg: var(--misp-navbar-off-fg, #5c6267);
+    --rc-track-off: var(--misp-navbar-track-off, #899096);
+    --rc-track-on: var(--misp-navbar-track-on, var(--rc-primary));
     --rc-knob: #fff;
-    --rc-note-bg: rgba(43, 27, 28, .04);
+    --rc-note-bg: var(--misp-navbar-note-bg, rgba(43, 27, 28, .04));
     --rc-inset: transparent;
     --rc-scrim: rgba(24, 16, 17, .45);
 
@@ -61,32 +62,32 @@
 }
 
 [data-misp-mode="dark"] .rc-nav {
-    --rc-bar-bg: #181113;
-    --rc-bar-edge: rgba(255, 255, 255, .07);
-    --rc-bar-shadow: 0 1px 0 rgba(0, 0, 0, .45),
-        0 6px 18px -4px rgba(0, 0, 0, .6);
-    --rc-count-bg: rgba(51, 195, 238, .18);
+    --rc-bar-bg: var(--misp-navbar-bg, #181113);
+    --rc-bar-edge: var(--misp-navbar-edge, rgba(255, 255, 255, .07));
+    --rc-bar-shadow: var(--misp-navbar-shadow, 0 1px 0 rgba(0, 0, 0, .45),
+        0 6px 18px -4px rgba(0, 0, 0, .6));
+    --rc-count-bg: var(--misp-navbar-count-bg, rgba(51, 195, 238, .18));
 
-    --rc-menu-bg: #2a2f35;
-    --rc-menu-fg: #e9ecef;
-    --rc-menu-muted: #aab1b8;
-    --rc-menu-icon: #9aa2a9;
-    --rc-menu-border: rgba(255, 255, 255, .09);
-    --rc-menu-shadow: 0 1px 2px rgba(0, 0, 0, .3),
+    --rc-menu-bg: var(--misp-navbar-menu-bg, #2a2f35);
+    --rc-menu-fg: var(--misp-navbar-menu-fg, #e9ecef);
+    --rc-menu-muted: var(--misp-navbar-menu-muted, #aab1b8);
+    --rc-menu-icon: var(--misp-navbar-menu-icon, #9aa2a9);
+    --rc-menu-border: var(--misp-navbar-menu-border, rgba(255, 255, 255, .09));
+    --rc-menu-shadow: var(--misp-navbar-menu-shadow, 0 1px 2px rgba(0, 0, 0, .3),
         0 8px 16px -6px rgba(0, 0, 0, .45),
-        0 24px 48px -12px rgba(0, 0, 0, .65);
-    --rc-hover-bg: rgba(51, 195, 238, .12);
-    --rc-hover-fg: #fff;
-    --rc-hover-icon: var(--rc-sky);
-    --rc-divider: rgba(255, 255, 255, .08);
-    --rc-ring: var(--rc-sky);
-    --rc-on-bg: rgba(51, 195, 238, .16);
-    --rc-on-fg: #93ddf4;
-    --rc-off-bg: rgba(255, 255, 255, .07);
-    --rc-off-fg: #aab1b8;
-    --rc-track-off: #7b848c;
-    --rc-track-on: var(--rc-sky);
-    --rc-note-bg: rgba(255, 255, 255, .04);
+        0 24px 48px -12px rgba(0, 0, 0, .65));
+    --rc-hover-bg: var(--misp-navbar-hover-bg, rgba(51, 195, 238, .12));
+    --rc-hover-fg: var(--misp-navbar-hover-fg, #fff);
+    --rc-hover-icon: var(--misp-navbar-hover-icon, var(--rc-sky));
+    --rc-divider: var(--misp-navbar-divider, rgba(255, 255, 255, .08));
+    --rc-ring: var(--misp-navbar-ring, var(--rc-sky));
+    --rc-on-bg: var(--misp-navbar-on-bg, rgba(51, 195, 238, .16));
+    --rc-on-fg: var(--misp-navbar-on-fg, #93ddf4);
+    --rc-off-bg: var(--misp-navbar-off-bg, rgba(255, 255, 255, .07));
+    --rc-off-fg: var(--misp-navbar-off-fg, #aab1b8);
+    --rc-track-off: var(--misp-navbar-track-off, #7b848c);
+    --rc-track-on: var(--misp-navbar-track-on, var(--rc-sky));
+    --rc-note-bg: var(--misp-navbar-note-bg, rgba(255, 255, 255, .04));
     --rc-scrim: rgba(0, 0, 0, .55);
 }
 
@@ -391,7 +392,7 @@
     left: -12px;
     width: 12px;
 }
-.rc-sub.is-open > .rc-flyout { display: block; animation: rc-pop-x .14s ease-out; }
+.rc-sub.is-open > .rc-flyout { display: block; animation: rc-pop-x .1s ease-out; }
 .rc-sub.rc-flip > .rc-flyout { left: auto; right: calc(100% + 9px); }
 .rc-sub.rc-flip > .rc-flyout::before { left: auto; right: -12px; }
 .rc-flyout.rc-wide { min-width: 22rem; max-width: 24rem; }
@@ -468,17 +469,18 @@
 [aria-checked="true"] > .rc-switch::after { transform: translateX(12px); }
 
 /* Bootstrap theme picker */
-.rc-heading {
-    padding: 8px 12px 4px 8px;
+.rc-value {
+    flex: none;
+    margin-left: 16px;
     color: var(--rc-menu-muted);
-    font-size: .6875rem;
-    font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
+    font-size: .8125rem;
 }
+.rc-sub.is-open > .rc-item .rc-value,
+.rc-item:hover .rc-value { color: inherit; }
 .rc-bstheme:not(.is-on) .rc-ico { visibility: hidden; }
 .rc-bstheme.is-on { font-weight: 600; }
-.rc-bstheme.is-on .rc-ico { color: var(--rc-hover-icon); }
+.rc-bstheme.is-on .rc-ico { color: var(--rc-ring); }
+.rc-bstheme.is-on:hover .rc-ico { color: var(--rc-hover-icon); }
 .rc-mode {
     flex: none;
     margin-left: 16px;
@@ -565,15 +567,15 @@
         --rc-menu-icon: rgba(255, 255, 255, .58);
         --rc-hover-bg: rgba(255, 255, 255, .07);
         --rc-hover-fg: #fff;
-        --rc-hover-icon: var(--rc-sky);
+        --rc-hover-icon: var(--rc-accent);
         --rc-divider: rgba(255, 255, 255, .09);
-        --rc-ring: var(--rc-sky);
+        --rc-ring: var(--rc-accent);
         --rc-on-bg: rgba(51, 195, 238, .18);
         --rc-on-fg: #a3e4f8;
         --rc-off-bg: rgba(255, 255, 255, .08);
         --rc-off-fg: rgba(255, 255, 255, .68);
         --rc-track-off: rgba(255, 255, 255, .36);
-        --rc-track-on: var(--rc-sky);
+        --rc-track-on: var(--rc-accent);
         --rc-note-bg: rgba(255, 255, 255, .05);
         --rc-inset: rgba(255, 255, 255, .04);
 

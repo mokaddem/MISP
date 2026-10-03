@@ -81,7 +81,7 @@
         timers.sub = setTimeout(function () {
             if (li.classList.contains('rc-sub')) openSub(li);
             else if (openOne) closeSub(openOne);
-        }, openOne ? 160 : 60);
+        }, openOne ? 120 : 30);
     }
 
     function wirePointer(nav) {

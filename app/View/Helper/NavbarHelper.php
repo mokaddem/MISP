@@ -1030,7 +1030,11 @@ class NavbarHelper extends AppHelper {
         extract($context);
         $user_icon = !empty($me['Role']['perm_site_admin']) ? 'misp-icon misp-icon-user3 misp-simple' : 'misp-icon misp-icon-user1 misp-simple';
 
-        $profileChildren = $this->buildBootstrapThemeItems($context);
+        $profileChildren = [];
+        $themeMenu = $this->buildBootstrapThemeMenu($context);
+        if ($themeMenu !== null) {
+            $profileChildren[] = $themeMenu;
+        }
         // Only a Bootstrap theme with both a light and a dark palette has
         // anything to toggle.
         if ($context['darkModeToggle'] ?? true) {
@@ -1080,7 +1084,7 @@ class NavbarHelper extends AppHelper {
     }
 
 
-    private function buildBootstrapThemeItems(array $context)
+    private function buildBootstrapThemeMenu(array $context)
     {
         $current = $context['bootstrapTheme'] ?? null;
         $chosen = !empty($context['bootstrapThemeChosen']);
@@ -1091,7 +1095,11 @@ class NavbarHelper extends AppHelper {
         ];
 
         $items = [];
+        $currentLabel = null;
         foreach (MispTheme::getBootstrapThemes() as $name => $theme) {
+            if ($name === $current) {
+                $currentLabel = $theme['label'];
+            }
             if ($theme['hide_from_users'] && !($chosen && $name === $current)) {
                 continue;
             }
@@ -1106,12 +1114,11 @@ class NavbarHelper extends AppHelper {
             ];
         }
         if (count($items) < 2) {
-            return [];
+            return null;
         }
         $default = MispTheme::bootstrapTheme();
         array_unshift(
             $items,
-            ['type' => 'header', 'label' => __('Appearance')],
             [
                 'type' => 'bootstrapTheme',
                 'theme' => '',
@@ -1120,9 +1127,15 @@ class NavbarHelper extends AppHelper {
                 'modeIcon' => $modes[$default['mode']]['icon'],
                 'modeLabel' => $modes[$default['mode']]['label'],
                 'on' => !$chosen,
-            ]
+            ],
+            ['divider' => true]
         );
-        return $items;
+        return [
+            'label' => __('Theme'),
+            'icon' => 'fas fa-palette',
+            'value' => $currentLabel,
+            'children' => $items,
+        ];
     }
 
     /**

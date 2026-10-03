@@ -22,6 +22,7 @@
 
 // After variables-dark, so the colour defaults can read $body-bg-dark.
 @import "misp-colors";
+@import "misp-navbar";
 
 // Merged here and not before: Bootstrap's variables build $theme-colors from
 // the theme's $primary, $secondary..., which a replaced map would lose.
@@ -84,6 +85,12 @@ $misp-tokens-page: $misp-tokens;
     @each $name, $value in $misp-tokens-dark {
       --misp-#{$name}: #{$value};
     }
+  }
+}
+
+:root {
+  @each $name, $value in $misp-navbar-tokens {
+    --misp-navbar-#{$name}: #{$value};
   }
 }
 

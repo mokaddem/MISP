@@ -35,3 +35,6 @@ $danger-border-subtle-dark:    mix(#dc3545, $body-bg-dark, 45%);
 
 // The teal is under 4.5:1 for small labels on a dark card.
 $misp-accent-dark: tint-color($primary, 40%);
+
+// The navbar is drawn in Overmind's own palette.
+$misp-navbar-tokens: ();

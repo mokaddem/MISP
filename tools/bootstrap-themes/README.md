@@ -53,6 +53,10 @@ Create `themes/<name>/` with two files.
   `$misp-object: #8a7f7e;`. The full list is in `scss/_misp-colors.scss`.
 - A dark theme can instead set `$misp-lift-colors: true;`, which lightens
   every MISP colour that would fall below 3:1 on its background.
+- The top navbar takes the theme's primary as its bar, darkened until white
+  text reads on it, and the theme's dropdown colours for its menus. Set
+  `$misp-navbar-bg` or `$misp-navbar-accent` before `misp-bootstrap` to
+  change the bar; `scss/_misp-navbar.scss` has the full set.
 - The build warns when a MISP colour is below 3:1 against the theme's
   background. Either tune it, or accept it in `theme.json`:
   `"contrast_accepted": {"light": ["type"], "dark": ["object"]}`.
