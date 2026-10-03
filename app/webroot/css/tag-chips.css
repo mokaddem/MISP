@@ -35,6 +35,11 @@
     --hg-l-ink: 74%;
     --hg-l-mark: 62%;
 }
+/* The dashboard's dark overlay recolours widgets through its own token and
+   leaves the body text colour light-mode dark. */
+[data-theme="midnight"] .hinge-tags {
+    color: var(--misp-dash-text, inherit);
+}
 .hinge-tags .hg-chip {
     position: relative;
     display: inline-grid;
