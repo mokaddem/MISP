@@ -29,7 +29,7 @@ echo $this->element('genericElements/assetLoader', [
 
         <!-- Loader -->
         <div id="correlations-loader" class="text-center py-4 text-muted">
-            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <div class="misp-loader mb-2" role="status"></div>
             <?= h(__('Analyzing correlations…')) ?>
         </div>
 

@@ -53,7 +53,7 @@ $config = array(
 
     <div data-vn-peek>
         <div class="text-center py-4 text-muted small" data-vn-loading>
-            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            <div class="misp-loader misp-loader-sm mb-2" role="status"></div>
             <?= h(__('Reading the neighbourhood…')) ?>
         </div>
     </div>

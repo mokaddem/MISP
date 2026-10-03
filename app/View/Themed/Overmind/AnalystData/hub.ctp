@@ -110,7 +110,7 @@ if (!empty($selectedType) && $selectedType !== 'Graph' && !empty($me['Role']['pe
             <div class="tab-pane active" role="tabpanel">
                 <div id="adIndexContainer" class="ajax-tab-content"
                     data-url="<?= h($baseurl . '/analystData/index/' . $selectedType) ?>">
-                    <div class="text-center p-4"><div class="spinner-border"></div></div>
+                    <div class="p-4"><?= $this->element('genericElementsBS5/loader') ?></div>
                 </div>
             </div>
         </div>

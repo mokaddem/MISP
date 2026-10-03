@@ -358,7 +358,7 @@ $this->set('headerDescription', $headerDescription);
             <!-- Donut charts row  -->
             <div class="row g-4 mb-4" id="<?= $statsUid ?>-charts">
                 <div class="col-12 text-center py-3 text-muted">
-                    <div class="spinner-border spinner-border-sm"></div>
+                    <div class="misp-loader misp-loader-sm" role="status"></div>
                 </div>
             </div>
 

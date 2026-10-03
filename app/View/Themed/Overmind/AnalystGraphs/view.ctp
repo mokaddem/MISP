@@ -139,7 +139,7 @@ echo $this->element('genericElements/assetLoader', [
     <div class="card shadow-sm" id="ig-page-card">
         <div class="position-relative">
             <div id="ig-page-loader" class="text-center py-5 text-muted">
-                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <div class="misp-loader mb-2" role="status"></div>
                 <?= __('Building graph…') ?>
             </div>
             <div id="ig-page-graph" style="width:100%;min-height:480px;display:none;"></div>

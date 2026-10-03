@@ -6360,7 +6360,7 @@ function initIndexFilterDraft(root, opts) {
         if (busy && !overlay) {
             overlay = document.createElement('div');
             overlay.className = 'index-results-overlay';
-            overlay.innerHTML = '<div class="spinner-border text-accent" role="status"></div>';
+            overlay.innerHTML = '<div class="misp-loader" role="status"></div>';
             results.appendChild(overlay);
         } else if (!busy && overlay) {
             overlay.remove();

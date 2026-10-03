@@ -65,9 +65,9 @@
         box.style.height = (columns > 14 ? GRAPH_HEIGHT_WIDE : GRAPH_HEIGHT) + 'px';
         // The graph is laid out out of sight, with a note in its place.
         var loading = el('div', 'vn-graph-loading');
-        var spinner = el('span', 'spinner-border spinner-border-sm');
-        spinner.setAttribute('role', 'status');
-        loading.appendChild(spinner);
+        var loader = el('div', 'misp-loader misp-loader-sm');
+        loader.setAttribute('role', 'status');
+        loading.appendChild(loader);
         loading.appendChild(el('span', null, 'Drawing the graph…'));
         var canvas = el('div', 'vn-graph-canvas');
         canvas.style.visibility = 'hidden';

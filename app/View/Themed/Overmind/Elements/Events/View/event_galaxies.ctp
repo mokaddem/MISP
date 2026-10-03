@@ -65,7 +65,7 @@ $mayModify = $this->Acl->canModifyTag($data);
     <div id="<?= $uid ?>-body"
          data-collapse-tall="400">
         <div class="text-center py-4 text-muted" id="<?= $uid ?>-spinner">
-            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <div class="misp-loader misp-loader-sm" role="status"></div>
         </div>
     </div>
 

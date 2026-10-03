@@ -1119,7 +1119,7 @@ $openCard('screwdriver-wrench', '#495057', __('Maintenance & tools'),
     var submoduleTarget = root.querySelector('[data-dg-submodule-target]');
     if (submoduleTarget) {
         var loadSubmodules = function () {
-            submoduleTarget.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm"></div></div>';
+            submoduleTarget.innerHTML = '<div class="p-3"><div class="misp-loader misp-loader-sm" role="status"></div></div>';
             fetch(baseurl + '/servers/getSubmodulesStatus/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) { if (!r.ok) throw 0; return r.text(); })
                 .then(function (html) { submoduleTarget.innerHTML = html; })

@@ -34,8 +34,8 @@ $ajaxPlaceholder = function (array $card) {
         );
         return;
     }
-    echo '<div class="text-center p-4">';
-    echo '<div class="spinner-border"></div>';
+    echo '<div class="p-4">';
+    echo $this->element('genericElementsBS5/loader');
     echo '</div>';
 };
 

@@ -70,7 +70,7 @@ $fetchUrl = h($baseurl . '/audit_logs/eventIndexV2/' . $eventId);
     <!-- BODY -->
     <div id="<?= $uid ?>-body" class="p-3">
         <div class="d-flex align-items-center justify-content-center py-5 text-muted">
-            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <div class="misp-loader misp-loader-sm" role="status"></div>
         </div>
     </div>
 
@@ -302,7 +302,7 @@ $fetchUrl = h($baseurl . '/audit_logs/eventIndexV2/' . $eventId);
     function fetchPage(page) {
         body.innerHTML =
             '<div class="d-flex align-items-center justify-content-center py-5 text-muted">'
-            + '<div class="spinner-border spinner-border-sm" role="status"></div>'
+            + '<div class="misp-loader misp-loader-sm" role="status"></div>'
             + '</div>';
 
         fetch(buildUrl(page), {

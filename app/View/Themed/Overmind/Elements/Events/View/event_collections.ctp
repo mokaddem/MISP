@@ -38,7 +38,7 @@ $mayAdd    = $this->Acl->canAccess('collectionElements', 'addElementToCollection
     <!-- BODY -->
     <div id="<?= $uid ?>-body">
         <div class="text-center py-4 text-muted">
-            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <div class="misp-loader misp-loader-sm" role="status"></div>
         </div>
     </div>
 

@@ -200,7 +200,7 @@ function initCollectionPicker() {
         if (loaded) { return; }
         loaded = true;
         box.innerHTML = '<div class="text-center text-muted py-4">'
-            + '<div class="spinner-border spinner-border-sm me-2" role="status"></div>'
+            + '<div class="misp-loader misp-loader-sm mb-2" role="status"></div>'
             + cfg.loading + '</div>';
         fetch(cfg.url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) {

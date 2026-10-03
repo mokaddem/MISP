@@ -70,7 +70,7 @@
 
         <!-- Loader -->
         <div id="pivot-explorer-loader" class="text-center py-5 text-muted">
-            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <div class="misp-loader mb-2" role="status"></div>
             <?= h(__('Building graph…')) ?>
         </div>
 

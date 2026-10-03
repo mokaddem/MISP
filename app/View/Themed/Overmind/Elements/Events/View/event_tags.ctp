@@ -90,7 +90,7 @@ if (Configure::read('Plugin.AI_services_enable')
     <div id="<?= $uid ?>-body"
          data-collapse-tall="400">
         <div class="text-center py-4 text-muted">
-            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <div class="misp-loader misp-loader-sm" role="status"></div>
         </div>
     </div>
 
