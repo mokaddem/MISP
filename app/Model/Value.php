@@ -1268,6 +1268,16 @@ class Value extends AppModel
                     . ' AS to_ids_no',
                 'MAX(' . self::OBSERVED_AT . ') AS newest',
                 /*
+                 * When this organisation last wrote a `to_ids = 1` row,
+                 * which is when it last made the assertion — the row
+                 * date and not the observed date, because a false
+                 * positive filed after it is weighed against the
+                 * statement, not against the sighting the statement
+                 * was about.
+                 */
+                'MAX(CASE WHEN Attribute.to_ids = 1'
+                    . ' THEN Attribute.timestamp END) AS newest_flagged',
+                /*
                  * When this organisation first held the value, which is
                  * the relevance clock's occurrence half: the most
                  * recent of these across organisations is the last time
@@ -2190,10 +2200,15 @@ class Value extends AppModel
      * and "the events where this value was seen most recently" is the
      * one a person asking about an indicator today would pick.
      *
+     * `flagged` counts the occurrences with `to_ids = 1`: an event in
+     * which the reporter marked this value for detection, which is what
+     * lets the event's own attribution reach it.
+     *
      * @param array $user
      * @param string $value
      * @param array $options As conditionsFor, plus `limit`
-     * @return array event id => ['occurrences' => int, 'last' => int]
+     * @return array event id => ['occurrences' => int, 'last' => int,
+     *               'flagged' => int]
      */
     public function occurrenceEventsFor(array $user, $value,
         array $options = array()
@@ -2207,6 +2222,7 @@ class Value extends AppModel
                 'Attribute.event_id',
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
                 'MAX(Attribute.timestamp) AS last_seen',
+                'SUM(Attribute.to_ids) AS flagged',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -2222,6 +2238,7 @@ class Value extends AppModel
             $events[(int)$row['Attribute']['event_id']] = array(
                 'occurrences' => (int)$row[0]['occurrences'],
                 'last' => (int)$row[0]['last_seen'],
+                'flagged' => (int)$row[0]['flagged'],
             );
         }
         return $events;
@@ -2373,6 +2390,62 @@ class Value extends AppModel
                 'occurrences' => (int)$row[0]['occurrences'],
                 'last' => (int)$row[0]['last'],
             );
+        }
+        return $found;
+    }
+
+    /**
+     * Which of a few known tags this value's own occurrences carry, per
+     * event — the occurrence half of what a reporter stated about its
+     * claim.
+     *
+     * `ownTagsFor`'s join narrowed to the tag ids asked about, and to
+     * global tags only: a local tag is the host instance's note on
+     * somebody else's report, not the reporter's statement.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $eventIds Events the caller has already resolved
+     * @param array $tagIds
+     * @param array $options As conditionsFor
+     * @return array event id => [tag id, …]
+     */
+    public function statementTagsFor(array $user, $value,
+        array $eventIds, array $tagIds, array $options = array()
+    ) {
+        if (empty($eventIds) || empty($tagIds)) {
+            return array();
+        }
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array(
+            'Attribute.event_id' => array_values($eventIds),
+            'Attribute.deleted' => 0,
+            'AttributeTag.tag_id' => array_values($tagIds),
+            'AttributeTag.local' => 0,
+        );
+        $rows = $attributes->find('all', array(
+            'fields' => array('Attribute.event_id', 'AttributeTag.tag_id'),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'joins' => array(
+                array(
+                    'table' => 'attribute_tags',
+                    'alias' => 'AttributeTag',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'AttributeTag.attribute_id = Attribute.id',
+                    ),
+                ),
+            ),
+            'group' => array('Attribute.event_id', 'AttributeTag.tag_id'),
+        ));
+        $found = array();
+        foreach ($rows as $row) {
+            $found[(int)$row['Attribute']['event_id']][] =
+                (int)$row['AttributeTag']['tag_id'];
         }
         return $found;
     }

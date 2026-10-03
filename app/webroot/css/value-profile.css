@@ -2736,6 +2736,12 @@ tr.vp-occ-deleted td {
     color: var(--vp-ben);
 }
 
+/* Context-only reporters: no vote, so no hue and lighter ink. */
+.vp-vc-lean-context {
+    color: var(--vp-context-ink);
+    font-weight: 500;
+}
+
 /*
  * One track, filled from the threat side, with the benign side as the
  * ground it is filled against — `vp-shelf-track`'s geometry so the two

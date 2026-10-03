@@ -46,6 +46,9 @@ class ValueChangersTool
      */
     const MAX_ORGS = 25;
 
+    /** Above any real organisation id: a probe's made-up filer. */
+    const PROBE_ORG_ID = 2000000000;
+
     /**
      * How many of a signal's own units the quality probe will imagine.
      *
@@ -122,7 +125,9 @@ class ValueChangersTool
     private function leanChanger(array $verdict, array $context,
         $profile
     ) {
-        if ($verdict['lean'] === 'none') {
+        if ($verdict['lean'] === 'none'
+            && ($verdict['decided_by'] ?? null) !== 'no_voice'
+        ) {
             return null;
         }
         if ($this->disputedByLedger($verdict)) {
@@ -262,21 +267,36 @@ class ValueChangersTool
         $stance
     ) {
         $probe = $context;
+        $now = isset($context['now']) ? (int)$context['now'] : time();
         for ($added = 1; $added <= self::MAX_ORGS; $added++) {
-            $probe['orgs'][] = array(
-                'id' => 0,
-                'name' => __('Another organisation'),
-                'occurrences' => 1,
-                'to_ids_yes' => $stance === 'threat' ? 1 : 0,
-                'to_ids_no' => $stance === 'threat' ? 0 : 1,
-                'newest' => isset($context['now'])
-                    ? (int)$context['now']
-                    : time(),
-            );
-            $probe['occurrences']['total'] =
-                (int)$context['occurrences']['total'] + $added;
-            $probe['occurrences']['orgs'] =
-                (int)$context['occurrences']['orgs'] + $added;
+            if ($stance === 'threat') {
+                $probe['orgs'][] = array(
+                    'id' => 0,
+                    'name' => __('Another organisation'),
+                    'occurrences' => 1,
+                    'to_ids_yes' => 1,
+                    'to_ids_no' => 0,
+                    'newest' => $now,
+                );
+                $probe['occurrences']['total'] =
+                    (int)$context['occurrences']['total'] + $added;
+                $probe['occurrences']['orgs'] =
+                    (int)$context['occurrences']['orgs'] + $added;
+            } else {
+                /*
+                 * `to_ids = 0` is no voice, so the benign side
+                 * moves only when somebody says so: an organisation
+                 * outside the record filing a false positive. Its id
+                 * is past any real one, so it reads as unrated.
+                 */
+                $id = self::PROBE_ORG_ID + $added;
+                $probe['sightings']['by_org_fp'][$id] = 1;
+                $probe['sightings']['by_org_fp_last'][$id] = $now;
+                $probe['sightings']['fp_org_list'][] = array(
+                    'id' => $id,
+                    'name' => __('Another organisation'),
+                );
+            }
             $derived = $this->lean->leanFor($probe, $profile);
             if ($derived['lean'] !== $lean) {
                 return array(
@@ -352,41 +372,83 @@ class ValueChangersTool
             return null;
         }
         $target = $verdict['band'] === 'medium' ? 'high' : 'medium';
+        $enough = max(
+            (int)$this->thresholds($profile,
+                'quality_high_min_signals', 4),
+            (int)$verdict['signals']['fired']
+        );
         $reachable = ValueVerdictTool::qualityBand(
             $this->bandFloor($profile, $target),
-            max(
-                (int)$this->thresholds($profile,
-                    'quality_high_min_signals', 4),
-                (int)$verdict['signals']['fired']
-            ),
+            array('fired' => $enough, 'supporting' => $enough),
             $profile,
             $context
         );
         if ($reachable === $target) {
             return null;
         }
+        $ceiling = ValueVerdictTool::clampCeiling(
+            $this->section($profile, 'thresholds'),
+            $context
+        );
+        if ($ceiling !== null) {
+            $clamp = $ceiling['band'];
+        }
         /*
          * The sighting half is offered only where a sighting could be
          * read. On an over-correlating value the sightings signals are
          * never evaluated — the rail says so, one card away, in *Not
-         * counted* — so *or one sighting from anyone* would name an act
-         * that moves nothing, with the reason it moves nothing printed
-         * directly above it.
+         * counted* — so *or a sighting from an organisation that did
+         * not* would name an act that moves nothing, with the reason it
+         * moves nothing printed directly above it.
          */
+        if ($this->gradesAModule($context)) {
+            return array(
+                'axis' => 'quality',
+                'direction' => 'up',
+                'text' => sprintf(
+                    __('A second source: one more organisation'
+                        . ' reporting it, a sighting from an organisation'
+                        . ' that did not, or a graded enrichment module'
+                        . ' agreeing. More from the same source cannot'
+                        . ' lift it past %s.'),
+                    $clamp
+                ),
+            );
+        }
         return array(
             'axis' => 'quality',
             'direction' => 'up',
             'text' => sprintf(
                 $this->sightingsReadable($context)
                     ? __('A second source: one more organisation'
-                        . ' reporting it, or a sighting from anyone. More'
-                        . ' from the same source cannot lift it past %s.')
+                        . ' reporting it, or a sighting from an'
+                        . ' organisation that did not. More from the same'
+                        . ' source cannot lift it past %s.')
                     : __('A second source: one more organisation'
                         . ' reporting it. More from the same source'
                         . ' cannot lift it past %s.'),
                 $clamp
             ),
         );
+    }
+
+    /**
+     * Whether the profile grades any enrichment module, so that an
+     * agreeing verdict would count as outside corroboration.
+     *
+     * @param array $context
+     * @return bool
+     */
+    private function gradesAModule(array $context)
+    {
+        foreach ($context['enrichment']['trust']['factors'] ?? array()
+            as $factor
+        ) {
+            if ((float)$factor > 0.0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -473,13 +535,17 @@ class ValueChangersTool
             return null;
         }
         $quality = (int)$verdict['quality'];
-        $fired = (int)$verdict['signals']['fired'];
+        $signals = array(
+            'fired' => (int)$verdict['signals']['fired'],
+            'supporting' => (int)($verdict['signals']['supporting'] ?? 0),
+        );
         $removed = 0;
         foreach ($rows as $row) {
             $quality -= $row['contribution'];
-            $fired--;
+            $signals['fired']--;
+            $signals['supporting']--;
             $removed++;
-            $band = ValueVerdictTool::qualityBand($quality, $fired,
+            $band = ValueVerdictTool::qualityBand($quality, $signals,
                 $profile);
             if ($band !== 'high') {
                 return array(
@@ -524,7 +590,8 @@ class ValueChangersTool
         }
         $minimum = $this->thresholds($profile, 'quality_high_min_signals',
             4);
-        $short = (int)$minimum - (int)$verdict['signals']['fired'];
+        $short = (int)$minimum
+            - (int)($verdict['signals']['supporting'] ?? 0);
         if ($short <= 0) {
             return null;
         }
@@ -533,9 +600,9 @@ class ValueChangersTool
             'direction' => 'up',
             'text' => sprintf(
                 __('The points are already there; %1$d more of the'
-                    . ' profile\'s signals have to find something to'
-                    . ' say. A high band means %2$d independent'
-                    . ' readings agree, not one generous one.'),
+                    . ' profile\'s signals have to add points. A high'
+                    . ' band means %2$d independent readings agree, not'
+                    . ' one generous one.'),
                 $short,
                 (int)$minimum
             ),
@@ -745,6 +812,9 @@ class ValueChangersTool
         $held = array();
         foreach ($verdict['ledger'] as $group) {
             foreach ($group['signals'] as $row) {
+                if (isset($row['unit']) && $row['unit'] === false) {
+                    continue;
+                }
                 $held[$row['id']] = (int)$row['contribution'];
             }
         }
@@ -809,19 +879,17 @@ class ValueChangersTool
     {
         if ($stance === 'threat') {
             return $orgs === 1
-                ? __('One more organisation reporting it with to_ids'
-                    . ' set')
+                ? __('One more organisation flagging it for detection')
                 : sprintf(
-                    __('%d more organisations reporting it with to_ids'
-                        . ' set'),
+                    __('%d more organisations flagging it for'
+                        . ' detection'),
                     $orgs
                 );
         }
         return $orgs === 1
-            ? __('One more organisation holding it with to_ids unset')
+            ? __('One organisation filing it as a false positive')
             : sprintf(
-                __('%d more organisations holding it with to_ids'
-                    . ' unset'),
+                __('%d organisations filing it as a false positive'),
                 $orgs
             );
     }
@@ -839,6 +907,8 @@ class ValueChangersTool
                 return __('it would read as benign.');
             case 'contested':
                 return __('it would become contested.');
+            case 'unflagged':
+                return __('it would read as recorded for context only.');
         }
         return __('it would no longer lean either way.');
     }

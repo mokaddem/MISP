@@ -41,6 +41,15 @@
  * attribution. `galaxies.attribution` is the eligibility filter; a
  * profile declaring none counts every cluster, which is what a profile
  * written before the section existed needs.
+ *
+ * **The event's attribution reaches a flagged occurrence, at a
+ * discount.** Nearly every reporter attributes on the event
+ * rather than on each attribute, so the clusters on an event in which
+ * the reporter flagged this value `to_ids = 1` pay on a second row at
+ * `per_event_cluster`, capped by `event_cap`. Flagged is what keeps
+ * the caution above: it says this value is an indicator of the
+ * report's threat, which the resolver an APT29 sample touched is not.
+ * A cluster already on an occurrence is paid there and not again.
  */
 class AttributionGalaxy extends ValueSignalBase
 {
@@ -55,7 +64,8 @@ class AttributionGalaxy extends ValueSignalBase
     {
         $this->description = __(
             'Galaxy clusters attached to this value\'s own'
-            . ' occurrences.'
+            . ' occurrences, and, for less, to the events that flag'
+            . ' it for detection.'
         );
         $this->points_schema = array(
             'per_cluster' => array(
@@ -67,6 +77,18 @@ class AttributionGalaxy extends ValueSignalBase
                 'type' => 'int',
                 'default' => 21,
                 'label' => __('Most this signal may contribute'),
+            ),
+            'per_event_cluster' => array(
+                'type' => 'int',
+                'default' => 3,
+                'label' => __('Points per cluster on an event that'
+                    . ' flags it for detection'),
+            ),
+            'event_cap' => array(
+                'type' => 'int',
+                'default' => 9,
+                'label' => __('Most the events\' clusters may'
+                    . ' contribute'),
             ),
             'absent' => array(
                 'type' => 'int',
@@ -91,7 +113,15 @@ class AttributionGalaxy extends ValueSignalBase
             ? $galaxies['clusters']
             : array();
         $clusters = $this->eligible($galaxies, $carried);
-        if (empty($clusters)) {
+        $onFlagged = array_diff_key(
+            $this->eligible(
+                $galaxies,
+                $this->listIn($galaxies, 'on_flagged_events'),
+                $this->listIn($galaxies, 'event_types')
+            ),
+            $clusters
+        );
+        if (empty($clusters) && empty($onFlagged)) {
             if (!$this->absenceFires($config, $context, 'galaxies')) {
                 return null;
             }
@@ -127,14 +157,8 @@ class AttributionGalaxy extends ValueSignalBase
             if ($ruled === 0) {
                 $onEvents = $this->eligible(
                     $galaxies,
-                    isset($galaxies['on_events'])
-                        && is_array($galaxies['on_events'])
-                        ? $galaxies['on_events']
-                        : array(),
-                    isset($galaxies['event_types'])
-                        && is_array($galaxies['event_types'])
-                        ? $galaxies['event_types']
-                        : array()
+                    $this->listIn($galaxies, 'on_events'),
+                    $this->listIn($galaxies, 'event_types')
                 );
                 if (empty($onEvents)) {
                     $signal = __('No galaxy on any occurrence');
@@ -145,7 +169,8 @@ class AttributionGalaxy extends ValueSignalBase
                         count($onEvents)
                     );
                     $evidence = __('Its events are attributed to a'
-                        . ' threat; the value itself is not');
+                        . ' threat; the value is not, and is not'
+                        . ' flagged for detection in them');
                 }
             } elseif ($ruled === 1) {
                 $signal = __('One galaxy on the occurrences, and it'
@@ -164,6 +189,27 @@ class AttributionGalaxy extends ValueSignalBase
                 $context
             );
         }
+        $rows = array();
+        if (!empty($clusters)) {
+            $rows[] = $this->occurrenceRow($clusters, $config, $context);
+        }
+        if (!empty($onFlagged)) {
+            $rows[] = $this->eventRow($onFlagged, $config, $context);
+        }
+        return count($rows) === 1 ? $rows[0] : array('rows' => $rows);
+    }
+
+    /**
+     * The clusters on the value's own occurrences.
+     *
+     * @param array $clusters Eligible cluster name => occurrences
+     * @param array $config
+     * @param array $context
+     * @return array
+     */
+    private function occurrenceRow(array $clusters, array $config,
+        array $context
+    ) {
         arsort($clusters);
         $points = $this->capped(
             $this->points($config, 'per_cluster') * count($clusters),
@@ -192,6 +238,69 @@ class AttributionGalaxy extends ValueSignalBase
             implode(', ', array_slice($names, 0, 4)),
             $context
         );
+    }
+
+    /**
+     * The clusters on events that flag the value for detection.
+     *
+     * `unit` is false because `$unit` describes a cluster on an
+     * occurrence: the falsifier's arithmetic reads the occurrence row
+     * against `cap`, and this row has a cap of its own.
+     *
+     * @param array $clusters Eligible cluster name => flagged events
+     * @param array $config
+     * @param array $context
+     * @return array
+     */
+    private function eventRow(array $clusters, array $config,
+        array $context
+    ) {
+        arsort($clusters);
+        $points = $this->capped(
+            $this->points($config, 'per_event_cluster') * count($clusters),
+            $this->points($config, 'event_cap')
+        );
+        $names = array_keys($clusters);
+        $lead = $names[0];
+        $events = (int)$clusters[$lead];
+        $signal = count($names) === 1
+            ? sprintf(
+                __('Flagged for detection in %1$s attributed to %2$s'),
+                $events === 1
+                    ? __('an event')
+                    : sprintf(__('%d events'), $events),
+                $lead
+            )
+            : sprintf(
+                __('Flagged for detection in events attributed to %1$d'
+                    . ' clusters, led by %2$s'),
+                count($names),
+                $lead
+            );
+        $row = $this->row(
+            $points,
+            $signal,
+            implode(', ', array_slice($names, 0, 4)) . ' — '
+                . __('the reporter\'s attribution of the event, which'
+                    . ' counts for less than one of the value'),
+            $context
+        );
+        $row['unit'] = false;
+        return $row;
+    }
+
+    /**
+     * One map out of the context's galaxy half, or an empty one.
+     *
+     * @param array $galaxies
+     * @param string $key
+     * @return array
+     */
+    private function listIn(array $galaxies, $key)
+    {
+        return isset($galaxies[$key]) && is_array($galaxies[$key])
+            ? $galaxies[$key]
+            : array();
     }
 
     /**

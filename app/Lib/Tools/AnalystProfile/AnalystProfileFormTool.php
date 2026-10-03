@@ -637,9 +637,34 @@ class AnalystProfileFormTool
                                 . ' the organisations must be on the'
                                 . ' same side, and anything short of'
                                 . ' that either way reads as contested.'
+                                . ' An organisation that only recorded'
+                                . ' it with to_ids unset is on neither'
+                                . ' side; a value nobody flagged reads'
+                                . ' as unflagged.'
                             ),
                             'path' => array('thresholds',
                                 'lean_supermajority'),
+                        ),
+                        array(
+                            'key' => 'dispute_stale_factor',
+                            'label' => __('Weight of an old dispute'),
+                            'type' => 'float',
+                            'value' => isset(
+                                $section['dispute_stale_factor']
+                            )
+                                ? $section['dispute_stale_factor']
+                                : null,
+                            'default' => 0.5,
+                            'help' => __(
+                                'A false positive is a voice against the'
+                                . ' organisations asserting the value. One'
+                                . ' filed before another organisation'
+                                . ' reasserted the value counts this much'
+                                . ' of a voice: 1 counts it in full, 0'
+                                . ' not at all.'
+                            ),
+                            'path' => array('thresholds',
+                                'dispute_stale_factor'),
                         ),
                     ),
                 ),
@@ -695,10 +720,10 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 4,
                             'help' => __(
-                                'How many signals must fire before high'
-                                . ' is allowed at all, so one generous'
-                                . ' signal cannot buy the band on its'
-                                . ' own.'
+                                'How many signals must add points before'
+                                . ' high is allowed at all, so one'
+                                . ' generous signal cannot buy the band'
+                                . ' on its own.'
                             ),
                             'path' => array('thresholds',
                                 'quality_high_min_signals'),
@@ -719,25 +744,30 @@ class AnalystProfileFormTool
                     ),
                     'fields' => array(
                         array(
-                            'key' => 'max_orgs',
+                            'key' => 'max_voices',
                             'label' => __('Reported by at most'),
-                            'type' => 'int',
-                            'unit' => __('organisations'),
-                            'value' => isset($clamp['max_orgs'])
-                                ? $clamp['max_orgs']
-                                : null,
+                            'type' => 'float',
+                            'unit' => __('sources'),
+                            'value' => isset($clamp['max_voices'])
+                                ? $clamp['max_voices']
+                                : (isset($clamp['max_orgs'])
+                                    ? $clamp['max_orgs']
+                                    : null),
                             'default' => 1,
                             'help' => __(
-                                'More reporting organisations than this'
-                                . ' and the record is not thin, so it'
-                                . ' keeps the band its points earned.'
+                                'Each reporting organisation is one'
+                                . ' source, or less once you grade it:'
+                                . ' G counts for none and E for a'
+                                . ' quarter. A full source more than'
+                                . ' this and the record is not thin, so'
+                                . ' it keeps the band its points earned.'
                             ),
                             'path' => array('thresholds',
-                                'thin_record_clamp', 'max_orgs'),
+                                'thin_record_clamp', 'max_voices'),
                         ),
                         array(
                             'key' => 'max_sightings',
-                            'label' => __('Sighted at most'),
+                            'label' => __('Sighted by others at most'),
                             'type' => 'int',
                             'unit' => __('times'),
                             'value' => isset($clamp['max_sightings'])
@@ -745,9 +775,13 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 0,
                             'help' => __(
-                                'More sightings than this and it is not'
-                                . ' thin either — both conditions have'
-                                . ' to hold before the cap bites.'
+                                'Sightings from organisations that did not'
+                                . ' report the value, and graded'
+                                . ' enrichment verdicts agreeing with'
+                                . ' the reporters. More than this and'
+                                . ' it is not thin either — both'
+                                . ' conditions have to hold before the'
+                                . ' cap bites.'
                             ),
                             'path' => array('thresholds',
                                 'thin_record_clamp', 'max_sightings'),
@@ -785,8 +819,55 @@ class AnalystProfileFormTool
                         ),
                     ),
                 ),
+                array(
+                    'kind' => 'fields',
+                    'id' => 'thin_record_clamp_by_grade',
+                    'title' => __('The cap, by the reporter\'s grade'),
+                    'blurb' => __(
+                        'A thin record whose source you graded can be'
+                        . ' capped at a band of its own: one source'
+                        . ' graded A, uncorroborated, may be allowed to'
+                        . ' reach medium and no further. A grade left'
+                        . ' on the general cap takes the one above.'
+                    ),
+                    'fields' => $this->clampGradeFields($clamp),
+                ),
             ),
         );
+    }
+
+    /**
+     * One select per grade for `max_band_by_grade`.
+     *
+     * @param array $clamp The stored `thin_record_clamp`
+     * @return array
+     */
+    private function clampGradeFields(array $clamp)
+    {
+        $byGrade = isset($clamp['max_band_by_grade'])
+            && is_array($clamp['max_band_by_grade'])
+            ? $clamp['max_band_by_grade']
+            : array();
+        $fields = array();
+        foreach (ValueTrustTool::GRADES as $grade) {
+            $fields[] = array(
+                'key' => 'max_band_by_grade_' . $grade,
+                'label' => sprintf(__('Graded %1$s (%2$s)'), $grade,
+                    $this->gradeLabel($grade)),
+                'type' => 'select',
+                'options' => array_merge(
+                    array(array(
+                        'value' => '',
+                        'label' => __('the general cap'),
+                    )),
+                    ValueVerdictTool::BANDS
+                ),
+                'value' => isset($byGrade[$grade]) ? $byGrade[$grade] : null,
+                'path' => array('thresholds', 'thin_record_clamp',
+                    'max_band_by_grade', $grade),
+            );
+        }
+        return $fields;
     }
 
     /**
@@ -3046,11 +3127,12 @@ class AnalystProfileFormTool
      * that number was arrived at.
      *
      * **The rule: the largest positive value in a signal's `points`
-     * map.** A `cap` is always the largest positive value where one is
-     * declared, so the rule needs no knowledge of which key is the cap
-     * — checked against all eleven shipped signals, where it gives the
-     * cap for the six that have one and the single positive term for the
-     * five that do not.
+     * map, or the sum of its positive caps where that is larger.** A
+     * signal paying two capped rows — `attribution.galaxy`'s occurrence
+     * and event clusters (`cap`, `event_cap`), `enrichment.answer`'s
+     * verdicts and agreement (`cap`, `agreeing_cap`) — can reach both
+     * caps at once, and the largest term alone would under-report it.
+     * A cap is a key named `cap` or ending in `_cap`.
      *
      * **What it is: an upper bound, and only for a signal whose points
      * bound it.** A custom signal paying `per_x` with no cap is not
@@ -3092,8 +3174,9 @@ class AnalystProfileFormTool
                 ? $entry['points']
                 : array();
             $best = 0;
+            $caps = 0;
             $positive = false;
-            foreach ($points as $value) {
+            foreach ($points as $key => $value) {
                 if (!is_int($value) && !is_float($value)) {
                     continue;
                 }
@@ -3101,7 +3184,13 @@ class AnalystProfileFormTool
                     $best = $value;
                     $positive = true;
                 }
+                if ($value > 0 && ($key === 'cap'
+                    || substr((string)$key, -4) === '_cap')
+                ) {
+                    $caps += $value;
+                }
             }
+            $best = max($best, $caps);
             $perSignal[$id] = (int)$best;
             $bound += (int)$best;
             /*
@@ -3296,6 +3385,41 @@ class AnalystProfileFormTool
                     'The lean supermajority must be above 0.5 and at'
                     . ' most 1. A share at or below half is not a'
                     . ' majority, and one above 1 can never be met.'
+                );
+            }
+        }
+
+        $clampSection = isset($thresholds['thin_record_clamp'])
+            && is_array($thresholds['thin_record_clamp'])
+            ? $thresholds['thin_record_clamp']
+            : array();
+        if (isset($clampSection['max_voices'])
+            && (!is_numeric($clampSection['max_voices'])
+                || $clampSection['max_voices'] < 0)
+        ) {
+            $errors[] = __('The thin-record clamp\'s source count must be'
+                . ' a number of zero or more.');
+        }
+        foreach ($clampSection['max_band_by_grade'] ?? array()
+            as $grade => $band
+        ) {
+            if (!in_array($grade, ValueTrustTool::GRADES, true)
+                || !in_array($band, ValueVerdictTool::BANDS, true)
+            ) {
+                $errors[] = sprintf(
+                    __('The clamp by grade names `%1$s` → `%2$s`; it'
+                        . ' takes a grade A to G and a band.'),
+                    (string)$grade,
+                    is_scalar($band) ? (string)$band : gettype($band)
+                );
+            }
+        }
+        if (isset($thresholds['dispute_stale_factor'])) {
+            $factor = $thresholds['dispute_stale_factor'];
+            if (!is_numeric($factor) || $factor < 0 || $factor > 1) {
+                $errors[] = __(
+                    'The weight of an old dispute must be between 0'
+                    . ' and 1: it is a share of one voice.'
                 );
             }
         }
@@ -4188,6 +4312,10 @@ class AnalystProfileFormTool
                 $merged['enrichment']['locality_posture'],
                 $merged['enrichment']['cost_posture']
             );
+        }
+        // `max_voices` replaced `max_orgs`; a save drops the old key.
+        if (isset($merged['thresholds']['thin_record_clamp']['max_voices'])) {
+            unset($merged['thresholds']['thin_record_clamp']['max_orgs']);
         }
         $merged = $this->transposeModules($merged, $posted);
         $merged = $this->transposeTiers($merged, $posted);

@@ -1674,9 +1674,11 @@ class AnalystProfilesController extends AppController
         $verdict = $engine->verdictFor($user, $value,
             array('profile' => $row));
         $ledger = array();
-        foreach (ValueVerdictDiffTool::rowsById($verdict) as $id => $signalRow) {
-            if (isset($signalRow['contribution'])) {
-                $ledger[$id] = $signalRow['contribution'];
+        foreach (ValueVerdictDiffTool::rowsById($verdict) as $signalRow) {
+            if (isset($signalRow['contribution'], $signalRow['id'])) {
+                $id = $signalRow['id'];
+                $ledger[$id] = ($ledger[$id] ?? 0)
+                    + $signalRow['contribution'];
             }
         }
         $notCounted = array();

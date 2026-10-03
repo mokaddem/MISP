@@ -13,7 +13,7 @@
  * who has just been told what the three axes ask still does not know
  * what answers they may give. So each axis carries its own vocabulary,
  * in the chrome the rows use — the same chip, the same colour, the
- * same quiet treatment for the two leans that name no state.
+ * same quiet treatment for the leans that name no state.
  *
  * **Every word of that vocabulary is read from the engine, never
  * transcribed.** A note listing four leans a fifth release has made
@@ -38,20 +38,15 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 App::uses('ValueVerdictTool', 'Tools/ValueProfile');
 
 /*
- * The four leans, drawn exactly as `assessment.ctp` draws the one on a
+ * The leans, drawn exactly as `assessment.ctp` draws the one on a
  * row: a solid chip for the two that name a state, and a hollow mark
- * and no ground for the two that refuse to. A loud chip reading
+ * and no ground for the ones that refuse to. A loud chip reading
  * *Contested* in a legend teaches the wrong thing twice over.
  */
 $leans = array();
 foreach (array_keys(ValueLean::TREATMENTS) as $lean) {
     $leans[] = '<span class="vi-lean vi-lean--' . h(ValueLean::slug($lean))
-        . '">'
-        . (ValueLean::isDefinite($lean) ? '' : '<svg class="vi-leanmark"'
-            . ' width="8" height="8" viewBox="0 0 8 8"'
-            . ' aria-hidden="true"><rect x="1" y="1" width="6"'
-            . ' height="6" rx="1" fill="none" stroke="currentColor"'
-            . ' stroke-width="1.3"/></svg>')
+        . '">' . ValueLean::quietMark($lean)
         . h(ValueLean::label($lean)) . '</span>';
 }
 

@@ -8,6 +8,7 @@ App::uses('ValueRelationTool', 'Tools/ValueProfile');
 App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools/ValueProfile');
 App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueStatementTool', 'Tools/ValueProfile');
 App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
 App::uses('ValueRendererTool', 'Tools/ValueProfile');
 App::uses('ValueSignalLoader', 'Tools/ValueProfile');
@@ -490,6 +491,13 @@ class ValueProfile extends AppModel
      * not a permission, so that notice reads the same for every reader.
      */
     const EXTERNAL_EVENT_CAP = 25;
+
+    /**
+     * Event uuids per feed hit looked up for `feeds.reporters`. Twice
+     * the 52 events the most-hit cached value carried above; past it a
+     * feed is judged by the events read.
+     */
+    const FEED_PUBLISHER_UUID_CAP = 100;
 
     /**
      * Chronology rows one Timeline request renders.
@@ -3199,6 +3207,7 @@ class ValueProfile extends AppModel
                 'with_first_seen' => $summary['dated'],
             ),
             'orgs' => $this->verdictOrgs($user, $value, $options),
+            'trust' => $this->verdictTrust($profile),
             'corroboration' => ValueRelevanceTool::corroborationFrom(
                 $rows['rows'],
                 $context['sighted']
@@ -4501,6 +4510,12 @@ class ValueProfile extends AppModel
                 'scope' => $isServer ? 'server' : 'feed',
                 'events' => array_slice($events, 0, self::EXTERNAL_EVENT_CAP),
                 'events_total' => count($events),
+                // A MISP feed's events, by which `feeds.reporters`
+                // finds the local copies' creator.
+                'event_uuids' => !empty($source['uuid'])
+                    && is_array($source['uuid'])
+                    ? $source['uuid']
+                    : array(),
             );
             $scope = $isServer ? 'servers' : 'feeds';
             $presence['events'] += count($events);
@@ -16573,7 +16588,9 @@ class ValueProfile extends AppModel
                 $types,
                 $profile
             ),
-            'sightings' => array('total' => 0, 'fp' => 0),
+            'sightings' => array('total' => 0, 'fp' => 0,
+                'seen' => ValueStatsTool::seenFacts(array(), $now,
+                    self::VERDICT_RECENT_DAYS)),
             /*
              * The relevance clock's sighting half. Empty here and
              * filled by the row read below, so a value whose rows were
@@ -16591,8 +16608,10 @@ class ValueProfile extends AppModel
                 'types' => array(),
                 'attribution' => ValueLabelPriority::attribution($profile),
                 'on_events' => array(),
+                'on_flagged_events' => array(),
                 'event_types' => array(),
             ),
+            'statements' => array('events' => array()),
             'budget' => $budget,
             /*
              * What outside sources have said, and how far this profile
@@ -16628,15 +16647,19 @@ class ValueProfile extends AppModel
             'missing' => array(),
         );
 
-        $feeds = $this->verdictFeeds($user, $value, $exclusions, $plan);
+        $feeds = $this->verdictFeeds($user, $value, $exclusions, $plan,
+            array_column($context['orgs'], 'id'));
         $context['feeds'] = $feeds['facts'];
         if ($feeds['missing'] !== null) {
             $context['missing']['feeds'] = $feeds['missing'];
         }
-        if ($feeds['excluded'] > 0) {
-            $context['excluded']['feeds'] = $feeds['excluded'];
+        $feedsExcluded = $feeds['excluded']
+            + count($feeds['reporter_feeds']);
+        if ($feedsExcluded > 0) {
+            $context['excluded']['feeds'] = $feedsExcluded;
         }
-        $tallies = array('sources' => $feeds['excluded']);
+        $tallies = array('sources' => $feeds['excluded'],
+            'reporter_feeds' => $feeds['reporter_feeds']);
 
         /*
          * The row evidence, and the tier that skips it. A value MISP
@@ -16683,14 +16706,19 @@ class ValueProfile extends AppModel
                     ($context['excluded']['sightings'] ?? 0)
                     + $sightings['windowed'];
             }
+            $events = $this->verdictEvents($user, $value, $options,
+                $budget, $now);
             $context['galaxies'] = $this->verdictGalaxies(
                 $user,
                 $value,
                 $options,
                 $budget,
                 $now,
-                $profile
+                $profile,
+                $events
             );
+            $context['statements'] = $this->verdictStatements($user,
+                $value, $options, $events);
         }
 
         /*
@@ -16801,6 +16829,9 @@ class ValueProfile extends AppModel
                 'to_ids_yes' => (int)$row[0]['to_ids_yes'],
                 'to_ids_no' => (int)$row[0]['to_ids_no'],
                 'newest' => (int)$row[0]['newest'],
+                'newest_flagged' => empty($row[0]['newest_flagged'])
+                    ? null
+                    : (int)$row[0]['newest_flagged'],
                 // When this organisation joined — the relevance clock's
                 // occurrence half (`06-staleness.md` §3.3).
                 'oldest' => (int)$row[0]['oldest'],
@@ -17092,10 +17123,17 @@ class ValueProfile extends AppModel
      *
      * @param array $user
      * @param string $value
-     * @return array `facts` and `missing`
+     * @param ValueExclusionTool|null $exclusions
+     * @param array $plan
+     * @param array $reporters The value's reporting organisation ids,
+     *                         for `feeds.reporters`
+     * @return array `facts`, `missing`, `excluded` (mirrors folded)
+     *               and `reporter_feeds` (names of feeds folded into
+     *               their publisher)
      */
     private function verdictFeeds(array $user, $value,
-        $exclusions = null, array $plan = array()
+        $exclusions = null, array $plan = array(),
+        array $reporters = array()
     ) {
         $presence = $this->externalPresence($user, $value);
         $cached = isset($presence['cached'])
@@ -17104,7 +17142,19 @@ class ValueProfile extends AppModel
         $anyCache = !empty($cached['feeds']) || !empty($cached['servers']);
         $sources = $presence['sources'];
         $excluded = 0;
+        $reporterFeeds = array();
         if ($exclusions !== null) {
+            if (isset($plan['rules'][ValueExclusionTool::FEEDS_REPORTERS])
+                && !empty($reporters)
+            ) {
+                $own = $exclusions->applyToReporters(
+                    $this->feedPublishers($sources),
+                    $reporters,
+                    $plan
+                );
+                $sources = $own['sources'];
+                $reporterFeeds = $own['names'];
+            }
             $folded = $exclusions->applyToSources($sources, $plan);
             $sources = $folded['sources'];
             $excluded = $folded['excluded'];
@@ -17115,6 +17165,7 @@ class ValueProfile extends AppModel
         }
         return array(
             'excluded' => $excluded,
+            'reporter_feeds' => $reporterFeeds,
             'facts' => array(
                 'count' => count($sources),
                 'names' => $names,
@@ -17127,6 +17178,97 @@ class ValueProfile extends AppModel
                     . ' this instance, so external presence could not'
                     . ' be checked.'),
         );
+    }
+
+    /**
+     * The organisations each cached feed hit publishes as, for
+     * `feeds.reporters`.
+     *
+     * Three routes, because MISP records a feed's publisher three ways:
+     * a freetext or CSV feed's `orgc_id`, the creator of its fixed
+     * event, and — for a MISP feed, whose events keep their own
+     * creator when fetched — the creator of the local copies of the
+     * events the cache hit names. A freetext feed with neither an
+     * `orgc_id` nor a fixed event creates its events as whoever pulled
+     * it, which the row does not record, so it resolves to nobody.
+     *
+     * @param array $sources From `externalPresence`
+     * @return array The same sources, each feed carrying `publishers`
+     */
+    private function feedPublishers(array $sources)
+    {
+        $feedIds = array();
+        foreach ($sources as $source) {
+            if (($source['scope'] ?? 'feed') === 'feed') {
+                $feedIds[] = (int)$source['id'];
+            }
+        }
+        if (empty($feedIds)) {
+            return $sources;
+        }
+        $feeds = $this->model('Feed')->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Feed.id', 'Feed.orgc_id',
+                'Feed.fixed_event', 'Feed.event_id'),
+            'conditions' => array('Feed.id' => $feedIds),
+        ));
+        $byFeed = array();
+        $fixed = array();
+        foreach ($feeds as $feed) {
+            $id = (int)$feed['Feed']['id'];
+            $byFeed[$id] = array();
+            if (!empty($feed['Feed']['orgc_id'])) {
+                $byFeed[$id][] = (int)$feed['Feed']['orgc_id'];
+            }
+            if (!empty($feed['Feed']['fixed_event'])
+                && !empty($feed['Feed']['event_id'])
+            ) {
+                $fixed[(int)$feed['Feed']['event_id']][] = $id;
+            }
+        }
+        $event = $this->model('Event');
+        if (!empty($fixed)) {
+            $rows = $event->find('list', array(
+                'recursive' => -1,
+                'fields' => array('Event.id', 'Event.orgc_id'),
+                'conditions' => array('Event.id' => array_keys($fixed)),
+            ));
+            foreach ($rows as $eventId => $orgId) {
+                foreach ($fixed[(int)$eventId] as $id) {
+                    $byFeed[$id][] = (int)$orgId;
+                }
+            }
+        }
+        $uuids = array();
+        foreach ($sources as $source) {
+            foreach (array_slice($source['event_uuids'] ?? array(), 0,
+                self::FEED_PUBLISHER_UUID_CAP) as $uuid
+            ) {
+                $uuids[(string)$uuid][] = (int)$source['id'];
+            }
+        }
+        if (!empty($uuids)) {
+            $rows = $event->find('list', array(
+                'recursive' => -1,
+                'fields' => array('Event.uuid', 'Event.orgc_id'),
+                'conditions' => array(
+                    'Event.uuid' => array_map('strval', array_keys($uuids)),
+                ),
+            ));
+            foreach ($rows as $uuid => $orgId) {
+                foreach ($uuids[(string)$uuid] ?? array() as $id) {
+                    $byFeed[$id][] = (int)$orgId;
+                }
+            }
+        }
+        foreach ($sources as $i => $source) {
+            if (($source['scope'] ?? 'feed') === 'feed') {
+                $sources[$i]['publishers'] = array_values(array_unique(
+                    $byFeed[(int)$source['id']] ?? array()
+                ));
+            }
+        }
+        return $sources;
     }
 
     /**
@@ -17232,8 +17374,15 @@ class ValueProfile extends AppModel
                 ),
                 'by_org' => $attributed['by_org'],
                 'by_org_fp' => $attributed['by_org_fp'],
+                'by_org_fp_last' => $attributed['by_org_fp_last'],
                 'anonymous' => $attributed['anonymous'],
                 'anonymous_fp' => $attributed['anonymous_fp'],
+                'anonymous_fp_last' => $attributed['anonymous_fp_last'],
+                'seen' => ValueStatsTool::seenFacts(
+                    $rows,
+                    $now,
+                    self::VERDICT_RECENT_DAYS
+                ),
                 'recent' => $signals['recent'],
                 'recent_days' => $signals['recent_days'],
                 'first_stamp' => $signals['first_stamp'],
@@ -17296,21 +17445,18 @@ class ValueProfile extends AppModel
      * @param int $now
      * @param array|null $profile The profile in force, for the
      *                            eligibility list alone
+     * @param array|null $events From verdictEvents(), when the caller
+     *                           already has them
      * @return array
      */
     private function verdictGalaxies(array $user, $value,
-        array $options, array $budget, $now, $profile = null
+        array $options, array $budget, $now, $profile = null,
+        $events = null
     ) {
         $eligible = ValueLabelPriority::attribution($profile);
-        $events = $this->model('Value')
-            ->occurrenceEventsFor($user, $value, $options);
-        if (!empty($budget['window_days'])) {
-            $cut = $now - (int)$budget['window_days'] * 86400;
-            foreach ($events as $id => $event) {
-                if ((int)$event['last'] < $cut) {
-                    unset($events[$id]);
-                }
-            }
+        if ($events === null) {
+            $events = $this->verdictEvents($user, $value, $options,
+                $budget, $now);
         }
         $clusters = array();
         $techniques = array();
@@ -17322,6 +17468,7 @@ class ValueProfile extends AppModel
                 'types' => $types,
                 'attribution' => $eligible,
                 'on_events' => array(),
+                'on_flagged_events' => array(),
                 'event_types' => array(),
             );
         }
@@ -17368,16 +17515,22 @@ class ValueProfile extends AppModel
             $types[$key] = array_keys($set);
         }
         /*
-         * **Only when the occurrences carry nothing**, which is the
-         * only case the reading of it can reach: `attribution.galaxy`
-         * words its absence from this, and a value with a cluster of
-         * its own never asks. So a scored value pays for none of it,
-         * and the one that does pays a single `IN` against
-         * `event_tags`' own index over the ids already resolved above.
+         * Read when the occurrences carry nothing, for the absence
+         * wording, or when the reporter flagged the value in any of
+         * its events, for the event's discounted attribution. One `IN`
+         * against `event_tags`' own index over the ids resolved above.
          */
-        $onEvents = array('clusters' => array(), 'types' => array());
-        if (empty($clusters)) {
-            $onEvents = $this->verdictEventGalaxies($user, $events);
+        $flagged = array();
+        foreach ($events as $id => $event) {
+            if (!empty($event['flagged'])) {
+                $flagged[] = (int)$id;
+            }
+        }
+        $onEvents = array('clusters' => array(), 'types' => array(),
+            'flagged' => array());
+        if (empty($clusters) || !empty($flagged)) {
+            $onEvents = $this->verdictEventGalaxies($user, $events,
+                $flagged);
         }
         return array(
             'clusters' => $clusters,
@@ -17385,13 +17538,213 @@ class ValueProfile extends AppModel
             'types' => $types,
             'attribution' => $eligible,
             'on_events' => $onEvents['clusters'],
+            'on_flagged_events' => $onEvents['flagged'],
             'event_types' => $onEvents['types'],
         );
     }
 
     /**
+     * The events this value occurs in, cut to the evidence window.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @param array $budget
+     * @param int $now
+     * @return array As Value::occurrenceEventsFor
+     */
+    private function verdictEvents(array $user, $value, array $options,
+        array $budget, $now
+    ) {
+        $events = $this->model('Value')
+            ->occurrenceEventsFor($user, $value, $options);
+        if (!empty($budget['window_days'])) {
+            $cut = $now - (int)$budget['window_days'] * 86400;
+            foreach ($events as $id => $event) {
+                if ((int)$event['last'] < $cut) {
+                    unset($events[$id]);
+                }
+            }
+        }
+        return $events;
+    }
+
+    /**
+     * What each reporter stated about its own claim: the confidence and
+     * false-positive tags on the value's occurrences and on the events
+     * carrying them, read by `ValueStatementTool`.
+     *
+     * The statement belongs to the event's creator, which is who put a
+     * global tag on it. Local tags are left out at both levels — they
+     * are this instance's notes on somebody else's report.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @param array $events From verdictEvents()
+     * @return array `events`: event id => `org`, `last`, `flagged`,
+     *               `attribute` and `event` (each `name`, `number`)
+     */
+    private function verdictStatements(array $user, $value,
+        array $options, array $events
+    ) {
+        $empty = array('events' => array());
+        if (empty($events)) {
+            return $empty;
+        }
+        $tags = $this->statementTags();
+        if (empty($tags)) {
+            return $empty;
+        }
+        $eventIds = array_keys($events);
+        $onOccurrences = $this->model('Value')->statementTagsFor($user,
+            $value, $eventIds, array_keys($tags), $options);
+        $onEvents = array();
+        $rows = ClassRegistry::init('EventTag')->find('all', array(
+            'fields' => array('EventTag.event_id', 'EventTag.tag_id'),
+            'conditions' => array(
+                'EventTag.event_id' => $eventIds,
+                'EventTag.tag_id' => array_keys($tags),
+                'EventTag.local' => 0,
+            ),
+            'recursive' => -1,
+        ));
+        foreach ($rows as $row) {
+            $onEvents[(int)$row['EventTag']['event_id']][] =
+                (int)$row['EventTag']['tag_id'];
+        }
+        $stated = array_values(array_unique(array_merge(
+            array_keys($onOccurrences),
+            array_keys($onEvents)
+        )));
+        if (empty($stated)) {
+            return $empty;
+        }
+        $creators = ClassRegistry::init('Event')->find('list', array(
+            'recursive' => -1,
+            'fields' => array('Event.id', 'Event.orgc_id'),
+            'conditions' => array('Event.id' => $stated),
+        ));
+        $resolve = function (array $ids) use ($tags) {
+            $out = array();
+            foreach (array_unique($ids) as $id) {
+                if (isset($tags[$id])) {
+                    $out[] = $tags[$id];
+                }
+            }
+            return $out;
+        };
+        $out = array();
+        foreach ($stated as $id) {
+            $out[(int)$id] = array(
+                'org' => (int)($creators[$id] ?? 0),
+                'last' => (int)$events[$id]['last'],
+                'flagged' => !empty($events[$id]['flagged']),
+                'attribute' => $resolve($onOccurrences[$id] ?? array()),
+                'event' => $resolve($onEvents[$id] ?? array()),
+            );
+        }
+        return array('events' => $out);
+    }
+
+    /**
+     * The statement tags this instance holds, with their numbers.
+     *
+     * The tag's own `numerical_value` where it overrides its taxonomy,
+     * as MISP lets it, and the taxonomy entry's otherwise — the tag
+     * rows' copy is not kept filled.
+     *
+     * @return array tag id => `name`, `number`
+     */
+    private function statementTags()
+    {
+        $or = array();
+        foreach (ValueStatementTool::predicates() as $predicate) {
+            $or[] = array('Tag.name LIKE' => $predicate . '=%');
+        }
+        $rows = ClassRegistry::init('Tag')->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Tag.id', 'Tag.name', 'Tag.numerical_value'),
+            'conditions' => array('OR' => $or),
+        ));
+        if (empty($rows)) {
+            return array();
+        }
+        $numbers = $this->taxonomyNumbers();
+        $tags = array();
+        foreach ($rows as $row) {
+            $name = $row['Tag']['name'];
+            $parsed = ValueStatementTool::parse($name);
+            $number = $row['Tag']['numerical_value'];
+            if ($number === null && $parsed !== null) {
+                $number = $numbers[$parsed['tag']] ?? null;
+            }
+            $tags[(int)$row['Tag']['id']] = array(
+                'name' => $name,
+                'number' => $number === null ? null : (int)$number,
+            );
+        }
+        return $tags;
+    }
+
+    /**
+     * The statement taxonomies' entry numbers, keyed the way
+     * `ValueStatementTool::parse()` writes a tag.
+     *
+     * @return array
+     */
+    private function taxonomyNumbers()
+    {
+        $namespaces = array();
+        foreach (ValueStatementTool::predicates() as $predicate) {
+            $namespaces[] = explode(':', $predicate, 2)[0];
+        }
+        $rows = ClassRegistry::init('TaxonomyEntry')->find('all', array(
+            'recursive' => -1,
+            'fields' => array(
+                'Taxonomy.namespace',
+                'TaxonomyPredicate.value',
+                'TaxonomyEntry.value',
+                'TaxonomyEntry.numerical_value',
+            ),
+            'joins' => array(
+                array(
+                    'table' => 'taxonomy_predicates',
+                    'alias' => 'TaxonomyPredicate',
+                    'type' => 'INNER',
+                    'conditions' => array('TaxonomyPredicate.id'
+                        . ' = TaxonomyEntry.taxonomy_predicate_id'),
+                ),
+                array(
+                    'table' => 'taxonomies',
+                    'alias' => 'Taxonomy',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'Taxonomy.id = TaxonomyPredicate.taxonomy_id',
+                    ),
+                ),
+            ),
+            'conditions' => array(
+                'Taxonomy.namespace' => array_values(
+                    array_unique($namespaces)
+                ),
+                'TaxonomyEntry.numerical_value IS NOT NULL',
+            ),
+        ));
+        $numbers = array();
+        foreach ($rows as $row) {
+            $key = $row['Taxonomy']['namespace'] . ':'
+                . $row['TaxonomyPredicate']['value'] . '="'
+                . $row['TaxonomyEntry']['value'] . '"';
+            $numbers[$key] =
+                (int)$row['TaxonomyEntry']['numerical_value'];
+        }
+        return $numbers;
+    }
+
+    /**
      * The clusters named by the events this value occurs in, which are
-     * **not** an attribution of the value and are never scored.
+     * **not** an attribution of the value.
      *
      * A reader who has just seen *APT29* on the Overview's context card
      * and reads *"no galaxy on any occurrence"* two panels away is
@@ -17410,10 +17763,14 @@ class ValueProfile extends AppModel
      * report, which is how a verdict engine ends up calling Google's
      * resolver an actor's asset.
      *
-     * So this exists to let the ledger *say* the events are labelled,
-     * and for nothing else. It returns counts, the caller hands them to
-     * the signal's own eligibility filter, and no points ride on any of
-     * it.
+     * So the event tag alone pays nothing; it lets the ledger *say* the
+     * events are labelled. **The one exception is the event's
+     * attribution**: an event in which the reporter flagged this
+     * value `to_ids = 1` — this value,
+     * in this report, is an indicator of the report's threat — and
+     * `flagged` counts those events per cluster for
+     * `attribution.galaxy` to pay at its own discount. `8.8.8.8` in an
+     * APT29 report is context and is not flagged.
      *
      * **The cluster ACL still applies.** A galaxy tag names a cluster
      * the reader may not be allowed to know exists, so the names go
@@ -17431,20 +17788,31 @@ class ValueProfile extends AppModel
      *
      * @param array $user
      * @param array $events The windowed event set, keyed by id
-     * @return array `clusters` (name => events) and `types`
-     *               (name => galaxy types), the shape
-     *               `AttributionGalaxy::eligible()` reads
+     * @param array $flaggedIds The ids among them in which the value
+     *                          has a `to_ids = 1` occurrence
+     * @return array `clusters` (name => events), `flagged` (name =>
+     *               flagged events) and `types` (name => galaxy types),
+     *               the shape `AttributionGalaxy::eligible()` reads
      */
-    private function verdictEventGalaxies(array $user, array $events)
-    {
-        $empty = array('clusters' => array(), 'types' => array());
+    private function verdictEventGalaxies(array $user, array $events,
+        array $flaggedIds = array()
+    ) {
+        $empty = array('clusters' => array(), 'types' => array(),
+            'flagged' => array());
         if (empty($events)) {
             return $empty;
         }
+        $flaggedIds = array_map('intval', $flaggedIds);
+        $flaggedCount = empty($flaggedIds)
+            ? 'SUM(0) AS flagged'
+            : 'COUNT(DISTINCT CASE WHEN EventTag.event_id IN ('
+                . implode(',', $flaggedIds)
+                . ') THEN EventTag.event_id END) AS flagged';
         $rows = ClassRegistry::init('EventTag')->find('all', array(
             'fields' => array(
                 'Tag.name',
                 'COUNT(DISTINCT EventTag.event_id) AS events',
+                $flaggedCount,
             ),
             'conditions' => array(
                 'EventTag.event_id' => array_keys($events),
@@ -17469,10 +17837,12 @@ class ValueProfile extends AppModel
             $tags[$row['Tag']['name']] = array(
                 'tag' => array('is_galaxy' => true),
                 'count' => (int)$row[0]['events'],
+                'flagged' => (int)$row[0]['flagged'],
             );
         }
         $permitted = $this->galaxyClusters($user, $tags);
         $clusters = array();
+        $flagged = array();
         $types = array();
         foreach ($tags as $name => $tag) {
             if (!isset($permitted[$name])) {
@@ -17486,12 +17856,16 @@ class ValueProfile extends AppModel
             }
             $key = $parsed['cluster'];
             $clusters[$key] = ($clusters[$key] ?? 0) + $tag['count'];
+            if ($tag['flagged'] > 0) {
+                $flagged[$key] = ($flagged[$key] ?? 0) + $tag['flagged'];
+            }
             $types[$key][$parsed['type']] = true;
         }
         foreach ($types as $key => $set) {
             $types[$key] = array_keys($set);
         }
-        return array('clusters' => $clusters, 'types' => $types);
+        return array('clusters' => $clusters, 'types' => $types,
+            'flagged' => $flagged);
     }
 
     /**

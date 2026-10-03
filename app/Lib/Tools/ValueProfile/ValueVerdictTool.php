@@ -44,10 +44,10 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * says* and *how much record there is* are different axes, and
  * anchoring every row to the lean would fuse them again. A signal
  * declares which axis it is on and the polarity reaches only the
- * lean's; a signal with poles on both declares per row. Only two
- * shipped signals read the value — the warninglist's hits and
- * false-positive sightings; the `to_ids` stance reads it too, but that
- * one is not a ledger row at all.
+ * lean's; a signal with poles on both declares per row. Three
+ * shipped signals read the value — the warninglist's hits,
+ * false-positive sightings and enrichment verdicts; the `to_ids`
+ * stance reads it too, but that one is not a ledger row at all.
  *
  * **The sum is the quality by construction rather than by
  * convention.** There is no second code path
@@ -81,16 +81,18 @@ App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
  * scoring. One check cannot: **a lean whose anchored *lean* rows sum
  * below zero becomes contested**, because that is the record's own
  * reading of the value disputing the assertion the record itself makes.
+ * Rows from a signal whose evidence is already a voice in the stance
+ * count (`ValueSignalBase::$voice`) are left out of that sum.
  * That can only be known after the sum, so it is applied here — the
  * lean rows go back to threat-signed, the lean becomes contested, and
  * `decided_by` becomes `lean_disputed` so the band explaining the
  * reading stops naming the lean this check discarded.
  *
  * **It weighs the lean rows and not the whole ledger**, because
- * against the whole ledger a thin record would trip it — `−23` of
- * absence penalties on a single-source value with no galaxy, no
- * first-seen, no sighting, nothing recent and no feed — and ordinary
- * thin records would read as contradictions. A thin record is a lean
+ * against the whole ledger a thin record would trip it — the absence
+ * rows of a single-source value with no galaxy, no first-seen, no
+ * sighting, nothing recent and no feed can outweigh its one report —
+ * and ordinary thin records would read as contradictions. A thin record is a lean
  * with a low quality band and a full ledger.
  *
  * ## What is still an input
@@ -129,6 +131,7 @@ class ValueVerdictTool
         'threat' => 1,
         'benign' => -1,
         'contested' => 1,
+        'unflagged' => 1,
         'none' => 1,
     );
 
@@ -210,18 +213,31 @@ class ValueVerdictTool
          * no occurrence this viewer can see**, whatever lean the caller
          * forced — the lean's own first rule, stated here as a fact
          * about the context, because the absence keys would otherwise
-         * fire on emptiness: no warninglist hit (+6), no galaxy (−7),
-         * nobody sighted it (−4) are all true of a value that does not
-         * exist for this reader, and scoring them is the engine reading
+         * fire on emptiness: no warninglist hit, no galaxy, nobody
+         * sighted it are all true of a value that does not exist for
+         * this reader, and scoring them is the engine reading
          * its own blindness as evidence.
          */
         $occurrences = isset($context['occurrences']['total'])
             ? (int)$context['occurrences']['total']
             : 0;
-        if ($lean === 'none' || $occurrences === 0) {
+        /*
+         * `no_voice` is the exception: the record is there and every
+         * voice in it abstained. What it asserts is nothing, but how
+         * thick it is still holds — grading a reporter `G` zeroes its
+         * say, not the events it published.
+         */
+        $voiceless = ($derived['decided_by'] ?? null) === 'no_voice';
+        if (($lean === 'none' && !$voiceless) || $occurrences === 0) {
             return $this->nothingToAssess($derived, $polarity,
                 $context, $profile);
         }
+        /*
+         * The lean the rows are anchored to, for the one signal that
+         * pays for agreeing with it: an outside verdict confirming
+         * what the reporters assert is corroboration.
+         */
+        $context['lean'] = $lean;
         $entries = $this->signalEntries($profile);
 
         $rows = array();
@@ -230,6 +246,7 @@ class ValueVerdictTool
             'configured' => count($entries),
             'evaluated' => 0,
             'fired' => 0,
+            'supporting' => 0,
             'silent' => 0,
             'not_counted' => 0,
         );
@@ -272,13 +289,21 @@ class ValueVerdictTool
              * what `configured`, `evaluated` and `silent` are counting
              * beside it.
              */
+            $added = 0;
             foreach ($outcome['rows'] as $row) {
-                $rows[] = $this->anchor(
+                $anchored = $this->anchor(
                     $row,
                     $entry,
                     $outcome['signal'],
                     $polarity
                 );
+                if ($anchored['axis'] === self::AXIS_QUALITY) {
+                    $added += $anchored['contribution'];
+                }
+                $rows[] = $anchored;
+            }
+            if ($added > 0) {
+                $counts['supporting']++;
             }
             /*
              * And a signal may set some of its own evidence aside. The
@@ -318,15 +343,19 @@ class ValueVerdictTool
             self::AXIS_LEAN));
 
         /*
-         * The lean-disputed check. A **lean** ledger that sums below
-         * zero against the lean it was anchored to is a record
-         * disputing its own assertion, and the honest state for that
-         * is contested.
+         * The lean-disputed check. **Lean rows that are not voices**
+         * summing below zero against the lean they were anchored to
+         * are a record disputing its own assertion, and the honest
+         * state for that is contested. A false positive or an outside
+         * verdict has already been weighed against the reporters in
+         * the stance count; letting its points decide here as
+         * well is how one false positive outvoted ten organisations.
+         * On the shipped catalogue what is left is the warninglist.
          *
          * Weighing the whole ledger would let a thin record trip it:
-         * no galaxy, no first-seen, no sighting, nothing recent and no
-         * feed is `−23` of absence, and on an ordinary single-source
-         * value that outweighs the record it has. That is not a
+         * on an ordinary single-source value the absence rows — no
+         * galaxy, no first-seen, no sighting, nothing recent, no feed
+         * — can outweigh the record it has. That is not a
          * contradiction; it should read as *a lean with low quality
          * and a full ledger*.
          *
@@ -336,10 +365,22 @@ class ValueVerdictTool
          * value's shape; this check firing over the top of it would
          * replace `decided_by` and lose the rule's own sentence.
          *
+         * **And `unflagged` has no assertion to dispute**: a
+         * record that only holds the value as context is not
+         * contradicting itself when a list calls it infrastructure.
+         *
          * It cannot run twice: there is one branch, and it sets the
          * lean it would have been re-entered for.
          */
-        if ($leanWeight < 0 && $lean !== 'contested') {
+        $disputeWeight = $this->sum(array_filter(
+            $this->onAxis($rows, self::AXIS_LEAN),
+            function ($row) {
+                return empty($row['voice']);
+            }
+        ));
+        if ($disputeWeight < 0 && $lean !== 'contested'
+            && $lean !== 'unflagged'
+        ) {
             $rows = $this->reanchor($rows, $polarity);
             $leanWeight = $this->sum($this->onAxis($rows,
                 self::AXIS_LEAN));
@@ -356,6 +397,10 @@ class ValueVerdictTool
         }
         $ledger = $this->group($this->onAxis($rows,
             self::AXIS_QUALITY));
+        $context['outside_agreement'] = self::outsideAgreement(
+            $derived['stances'],
+            $lean
+        );
 
         return $this->verdict(array(
             'lean' => $lean,
@@ -367,7 +412,7 @@ class ValueVerdictTool
                 self::AXIS_LEAN),
             'band' => self::qualityBand(
                 $quality,
-                $counts['fired'],
+                $counts,
                 $profile,
                 $context
             ),
@@ -448,10 +493,37 @@ class ValueVerdictTool
             'tug' => $this->tug(array(), $polarity),
             'not_counted' => array(),
             'counts' => array('configured' => 0, 'evaluated' => 0,
-                'fired' => 0, 'silent' => 0, 'not_counted' => 0),
+                'fired' => 0, 'supporting' => 0, 'silent' => 0,
+                'not_counted' => 0),
             'context' => $context,
             'profile' => $profile,
         ));
+    }
+
+    /**
+     * The weight of the graded outside verdicts agreeing with the
+     * lean, each at most one source — what the clamp counts beside
+     * independent sightings. A contested lean has no side to
+     * agree with.
+     *
+     * @param array $stances
+     * @param string $lean
+     * @return float
+     */
+    private static function outsideAgreement(array $stances, $lean)
+    {
+        if ($lean !== 'threat' && $lean !== 'benign') {
+            return 0.0;
+        }
+        $total = 0.0;
+        foreach ($stances['disputes'] ?? array() as $voice) {
+            if (($voice['kind'] ?? null) === 'enrichment'
+                && ($voice['side'] ?? null) === $lean
+            ) {
+                $total += min(1.0, (float)$voice['weight']);
+            }
+        }
+        return $total;
     }
 
     /**
@@ -607,7 +679,7 @@ class ValueVerdictTool
              */
             'band_reason' => self::bandReason(
                 $parts['quality'],
-                $parts['counts']['fired'],
+                $parts['counts'],
                 $parts['profile'],
                 $parts['context']
             ),
@@ -636,6 +708,9 @@ class ValueVerdictTool
             'composition' => ValueStatsTool::verdictComposition($ledger),
             'not_counted' => $parts['not_counted'],
             'signals' => $parts['counts'],
+            // Graded outside verdicts agreeing with the lean.
+            'outside_agreement' => (float)($context['outside_agreement']
+                ?? 0.0),
             'profile' => $this->profileName($profile),
             'profile_id' => $profile === null
                 ? null
@@ -990,8 +1065,8 @@ class ValueVerdictTool
     }
 
     /**
-     * Turn a fired row into a ledger row: the group and the band come
-     * from the profile, the anchoring and the direction from the lean
+     * Turn a fired row into a ledger row: the group comes from the
+     * profile, the anchoring and the direction from the lean
      * — and the anchoring only where the row has a side to take.
      *
      * **The polarity reaches lean rows and nothing else.** A quality
@@ -1024,7 +1099,7 @@ class ValueVerdictTool
                 : self::AXIS_QUALITY);
         $contribution = (int)$row['contribution']
             * ($axis === self::AXIS_LEAN ? $polarity : 1);
-        return array(
+        $anchored = array(
             'kind' => !empty($entry['group'])
                 ? $entry['group']
                 : $signal->group,
@@ -1038,7 +1113,13 @@ class ValueVerdictTool
             'tab' => isset($row['tab']) ? $row['tab'] : $signal->tab,
             'as_of' => isset($row['as_of']) ? $row['as_of'] : '',
             'id' => $signal->id,
+            'voice' => !empty($signal->voice),
         );
+        // A row outside the signal's declared `$unit` (an event row).
+        if (isset($row['unit']) && $row['unit'] === false) {
+            $anchored['unit'] = false;
+        }
+        return $anchored;
     }
 
     /**
@@ -1132,10 +1213,14 @@ class ValueVerdictTool
      *
      * `quality_high_min_signals` is what stops one heavy row buying a
      * `high` band on its own: a value's quality is high when several
-     * independent readings agree, not when one signal is generous.
+     * independent readings agree, not when one signal is generous. It
+     * counts the quality signals that added points: an absence row or
+     * a lean row fires on nearly every value, so counting those would
+     * leave the guard with nothing to hold.
      *
      * @param int $quality
-     * @param int $fired
+     * @param array $signals `fired`, and `supporting` — the quality
+     *                       signals whose rows sum above zero
      * @param array|null $profile
      * @param array $context Needed for the thin-record clamp; an empty
      *                       array asks for the unclamped band, which
@@ -1143,10 +1228,10 @@ class ValueVerdictTool
      *                       clamp is what is holding a band down
      * @return string `none`, `low`, `medium` or `high`
      */
-    public static function qualityBand($quality, $fired, $profile,
-        array $context = array()
+    public static function qualityBand($quality, array $signals,
+        $profile, array $context = array()
     ) {
-        if ($fired === 0) {
+        if ((int)($signals['fired'] ?? 0) === 0) {
             return 'none';
         }
         $thresholds = self::section($profile, 'thresholds');
@@ -1158,7 +1243,9 @@ class ValueVerdictTool
         $minSignals = isset($thresholds['quality_high_min_signals'])
             ? (int)$thresholds['quality_high_min_signals']
             : 4;
-        if ($quality >= $high && $fired >= $minSignals) {
+        if ($quality >= $high
+            && (int)($signals['supporting'] ?? 0) >= $minSignals
+        ) {
             $band = 'high';
         } elseif ($quality >= $medium) {
             $band = 'medium';
@@ -1188,14 +1275,14 @@ class ValueVerdictTool
      * implementation of them.
      *
      * @param int $quality
-     * @param int $fired
+     * @param array $signals As `qualityBand()` takes them
      * @param array|null $profile
      * @param array $context
      * @return array `reason` — `no_signal`, `clamped`, `min_signals`
      *               or `points` — and `floors`, the numbers in force
      */
-    public static function bandReason($quality, $fired, $profile,
-        array $context = array()
+    public static function bandReason($quality, array $signals,
+        $profile, array $context = array()
     ) {
         $thresholds = self::section($profile, 'thresholds');
         $bands = isset($thresholds['quality_bands'])
@@ -1214,25 +1301,33 @@ class ValueVerdictTool
             'clamp_band' => isset($clamp['max_band'])
                 ? $clamp['max_band']
                 : null,
-            'clamp_orgs' => isset($clamp['max_orgs'])
-                ? (int)$clamp['max_orgs']
-                : null,
+            'clamp_voices' => isset($clamp['max_voices'])
+                ? (float)$clamp['max_voices']
+                : (isset($clamp['max_orgs'])
+                    ? (float)$clamp['max_orgs']
+                    : null),
             'clamp_sightings' => isset($clamp['max_sightings'])
                 ? (int)$clamp['max_sightings']
                 : null,
         );
 
-        if ((int)$fired === 0) {
+        if ((int)($signals['fired'] ?? 0) === 0) {
             return array('reason' => 'no_signal', 'floors' => $floors);
         }
-        $withContext = self::qualityBand($quality, $fired, $profile,
+        $withContext = self::qualityBand($quality, $signals, $profile,
             $context);
-        $unclamped = self::qualityBand($quality, $fired, $profile);
+        $unclamped = self::qualityBand($quality, $signals, $profile);
         if ($withContext !== $unclamped) {
             $floors['would_be'] = $unclamped;
+            $ceiling = self::clampCeiling($thresholds, $context);
+            $floors['clamp_grade'] = $ceiling === null
+                ? null
+                : $ceiling['grade'];
             return array('reason' => 'clamped', 'floors' => $floors);
         }
-        if ($quality >= $floors['high'] && $fired < $floors['min_signals']) {
+        if ($quality >= $floors['high']
+            && (int)($signals['supporting'] ?? 0) < $floors['min_signals']
+        ) {
             return array(
                 'reason' => 'min_signals',
                 'floors' => $floors,
@@ -1278,36 +1373,182 @@ class ValueVerdictTool
         if (empty($context)) {
             return $band;
         }
+        $ceiling = self::clampCeiling($thresholds, $context);
+        if ($ceiling === null) {
+            return $band;
+        }
+        $limit = array_search($ceiling['band'], self::BANDS, true);
+        $reached = array_search($band, self::BANDS, true);
+        if ($limit === false || $reached === false
+            || $reached <= $limit
+        ) {
+            return $band;
+        }
+        return $ceiling['band'];
+    }
+
+    /**
+     * The ceiling the clamp puts on this record, or null when the
+     * record is not thin.
+     *
+     * **Sources are voices**: each reporting organisation at its
+     * grade factor once the profile grades anybody, and **at most one
+     * each** — the question is how many sources there are, not how
+     * reliable they are, so an `A` is one source and a `G` none. The
+     * record is thin while it has less than `max_voices + 1` sources'
+     * worth: on whole numbers that is the old `orgs ≤ max_orgs`
+     * exactly, and it is what keeps a quarter-voice second source from
+     * lifting the clamp alone.
+     *
+     * **Corroboration is weighed the same way**, and has two kinds:
+     * type-0 sightings from organisations that did not report the
+     * value, and a graded outside verdict agreeing with the lean,
+     * which `assess()` leaves in `outside_agreement`.
+     *
+     * **The ceiling can depend on the grade.** `max_band_by_grade`
+     * names a band per grade, read for the heaviest reporter; a grade
+     * it does not name takes `max_band`.
+     *
+     * @param array $thresholds
+     * @param array $context
+     * @return array|null `band`, and `grade` when a grade set it
+     */
+    public static function clampCeiling(array $thresholds, array $context)
+    {
         $clamp = isset($thresholds['thin_record_clamp'])
             && is_array($thresholds['thin_record_clamp'])
             ? $thresholds['thin_record_clamp']
             : array();
         if (empty($clamp['max_band'])) {
-            return $band;
+            return null;
         }
-        $ceiling = array_search($clamp['max_band'], self::BANDS, true);
-        $reached = array_search($band, self::BANDS, true);
-        if ($ceiling === false || $reached === false
-            || $reached <= $ceiling
-        ) {
-            return $band;
-        }
-        $orgs = isset($context['occurrences']['orgs'])
-            ? (int)$context['occurrences']['orgs']
-            : 0;
-        $sightings = isset($context['sightings']['total'])
-            ? (int)$context['sightings']['total']
-            : 0;
-        $maxOrgs = isset($clamp['max_orgs'])
-            ? (int)$clamp['max_orgs']
-            : 1;
+        $maxVoices = isset($clamp['max_voices'])
+            && is_numeric($clamp['max_voices'])
+            ? (float)$clamp['max_voices']
+            : (isset($clamp['max_orgs']) && is_numeric($clamp['max_orgs'])
+                ? (float)$clamp['max_orgs']
+                : 1.0);
         $maxSightings = isset($clamp['max_sightings'])
-            ? (int)$clamp['max_sightings']
-            : 0;
-        if ($orgs <= $maxOrgs && $sightings <= $maxSightings) {
-            return $clamp['max_band'];
+            ? (float)$clamp['max_sightings']
+            : 0.0;
+        $sources = self::sourceVoices($context);
+        if (ValueLeanTool::atLeast($sources['voices'], $maxVoices + 1)) {
+            return null;
         }
-        return $band;
+        $corroboration = self::weightedCorroboration($context)
+            + (float)($context['outside_agreement'] ?? 0);
+        if (ValueLeanTool::atLeast($corroboration, $maxSightings + 1)) {
+            return null;
+        }
+        $byGrade = isset($clamp['max_band_by_grade'])
+            && is_array($clamp['max_band_by_grade'])
+            ? $clamp['max_band_by_grade']
+            : array();
+        $grade = $sources['grade'];
+        if ($grade !== null && isset($byGrade[$grade])
+            && in_array($byGrade[$grade], self::BANDS, true)
+        ) {
+            return array('band' => $byGrade[$grade], 'grade' => $grade);
+        }
+        return array('band' => $clamp['max_band'], 'grade' => null);
+    }
+
+    /**
+     * How many sources the record has, each counted at most once, and
+     * the grade of the heaviest.
+     *
+     * @param array $context
+     * @return array `voices` (float) and `grade` (string|null)
+     */
+    private static function sourceVoices(array $context)
+    {
+        $orgs = isset($context['orgs']) && is_array($context['orgs'])
+            ? $context['orgs']
+            : array();
+        if (empty($orgs)) {
+            return array(
+                'voices' => (float)($context['occurrences']['orgs'] ?? 0),
+                'grade' => null,
+            );
+        }
+        $weighted = !empty(ValueTrustTool::blockFrom($context)['in_force']);
+        $voices = 0.0;
+        $heaviest = -1.0;
+        $grade = null;
+        foreach ($orgs as $org) {
+            $id = (int)($org['id'] ?? 0);
+            $factor = $weighted ? ValueTrustTool::factor($context, $id) : 1.0;
+            $voices += min(1.0, $factor);
+            if ($weighted && $factor > $heaviest) {
+                $heaviest = $factor;
+                $grade = ValueTrustTool::gradeFor($context, $id);
+            }
+        }
+        return array('voices' => $voices, 'grade' => $grade);
+    }
+
+    /**
+     * `corroboratingSightings()`, each filer's sightings at its grade
+     * factor (at most one each) once the profile grades anybody.
+     *
+     * @param array $context
+     * @return float
+     */
+    private static function weightedCorroboration(array $context)
+    {
+        $byOrg = isset($context['sightings']['seen']['by_org'])
+            && is_array($context['sightings']['seen']['by_org'])
+            ? $context['sightings']['seen']['by_org']
+            : array();
+        $reporters = array();
+        foreach ($context['orgs'] ?? array() as $org) {
+            if (isset($org['id'])) {
+                $reporters[(int)$org['id']] = true;
+            }
+        }
+        $weighted = !empty(ValueTrustTool::blockFrom($context)['in_force']);
+        $total = 0.0;
+        foreach ($byOrg as $id => $n) {
+            if (isset($reporters[(int)$id])) {
+                continue;
+            }
+            $total += (int)$n * ($weighted
+                ? min(1.0, ValueTrustTool::factor($context, $id))
+                : 1.0);
+        }
+        return $total;
+    }
+
+    /**
+     * Type-0 sightings filed by organisations that did not report the
+     * value — what the clamp means by *corroborated*.
+     *
+     * A reporter sighting its own value is still one source, and a
+     * false positive or an expiration is not a sighting at all. An
+     * anonymised sighting is left out: its filer may be the reporter.
+     *
+     * @param array $context
+     * @return int
+     */
+    public static function corroboratingSightings(array $context)
+    {
+        $byOrg = isset($context['sightings']['seen']['by_org'])
+            && is_array($context['sightings']['seen']['by_org'])
+            ? $context['sightings']['seen']['by_org']
+            : array();
+        $reporters = array();
+        foreach ($context['orgs'] ?? array() as $org) {
+            if (isset($org['id'])) {
+                $reporters[(int)$org['id']] = true;
+            }
+        }
+        $count = 0;
+        foreach ($byOrg as $id => $n) {
+            if (!isset($reporters[(int)$id])) {
+                $count += (int)$n;
+            }
+        }
+        return $count;
     }
 
     /**

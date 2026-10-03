@@ -71,13 +71,22 @@
  * one key the lean derivation adds before any rule runs:
  *
  * ```
- * stances  ['threat_orgs','benign_orgs','orgs','threat_share',
- *           'supermajority']
+ * stances  ['threat_orgs','benign_orgs','orgs','reporters',
+ *           'unflagged_orgs','flagging_orgs',
+ *           'threat_voices','benign_voices','voices',
+ *           'threat_modules','benign_modules','threat_share',
+ *           'supermajority','listed_floor','weighted','abstained',
+ *           'disputes']
  * ```
  *
- * `threat_share` is the fraction of organisations holding at least one
- * `to_ids = 1` occurrence, counted per organisation rather than per
- * occurrence — one org spamming forty events is one vote. `supermajority`
+ * `threat_share` is the threat side's share of the voices: one per
+ * organisation rather than per occurrence — one org spamming forty
+ * events is one vote — at its reliability grade, with false positives
+ * and graded outside verdicts counted as voices too.
+ * `threat_orgs` and `benign_orgs`
+ * are headcounts of the organisations whose voice carries weight, for
+ * prose; `unflagged_orgs` counts the reporters that only recorded it
+ * as context (`to_ids = 0`), which is no voice. `supermajority`
  * is the profile's own threshold, resolved, so a rule written against
  * *"a supermajority"* means whatever the profile in force means by it.
  */

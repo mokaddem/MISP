@@ -5,9 +5,6 @@
  *
  * A draft event is a claim its own organisation has not yet stood
  * behind, so the same evidence in a published event is worth more.
- * *"5 of 7 events are published"* and *"121 of 137 events are
- * published"* land at +9 and +7 and share the `moderate` band: the
- * band tracks the signal rather than the number.
  *
  * **Scaled rather than banded**, because the ratio is the evidence: a
  * value published in five of seven events is not in the same position
@@ -15,11 +12,10 @@
  * that into three cases. `scale` is what full publication is worth and
  * the contribution is the ratio of it.
  *
- * **A published event is never worth zero.** Once anything is
- * published the row floors at one point, so a value in one published
- * event out of two hundred drafts reads as thin support rather than as
- * none — a zero-contribution row in a ledger that sums exactly is a
- * row a reader cannot act on.
+ * **No floor.** At the shipped scale the ratio rounds to zero
+ * only below one published event in eighteen, which no value on the
+ * dev instance reaches (2026-10-01); a value with one published event
+ * among many drafts reads `0`, between *none published* and the rest.
  */
 class ReportingPublishedRatio extends ValueSignalBase
 {
@@ -82,14 +78,9 @@ class ReportingPublishedRatio extends ValueSignalBase
                 $context
             );
         }
-        $scale = $this->points($config, 'scale');
-        $points = (int)round($scale * $published / $events);
-        // The floor follows the author's sign rather than assuming it.
-        if ($scale > 0) {
-            $points = max(1, $points);
-        } elseif ($scale < 0) {
-            $points = min(-1, $points);
-        }
+        $points = (int)round(
+            $this->points($config, 'scale') * $published / $events
+        );
         return $this->row(
             $points,
             sprintf(

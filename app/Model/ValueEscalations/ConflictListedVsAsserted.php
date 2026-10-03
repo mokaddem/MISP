@@ -26,6 +26,13 @@ App::uses('WarninglistCategory', 'Tools');
  * which is the point of stating it as a word rather than a number: this
  * rule fires exactly where the derivation would otherwise have called
  * the value a threat on the strength of the stances alone.
+ *
+ * **One flagger is not a supermajority of anything**, which is what
+ * `min_threat_orgs` is for. Reporters that only recorded the value as
+ * context leave the share's denominator, so a lone organisation
+ * flagging a resolver address reaches 100% on its own. A share cannot
+ * tell one organisation's mistake from a pattern; a headcount can, so
+ * below it the list decides and the value reads benign.
  */
 class ConflictListedVsAsserted extends ValueEscalationBase
 {
@@ -75,6 +82,11 @@ class ConflictListedVsAsserted extends ValueEscalationBase
                     . ' to its own threshold instead.'
                 ),
             ),
+            'min_threat_orgs' => array(
+                'type' => 'int',
+                'default' => 2,
+                'label' => __('Organisations asserting it, at least'),
+            ),
         );
     }
 
@@ -99,6 +111,9 @@ class ConflictListedVsAsserted extends ValueEscalationBase
         $threatOrgs = isset($context['stances']['threat_orgs'])
             ? (int)$context['stances']['threat_orgs']
             : 0;
+        if ($threatOrgs < $this->floor($config)) {
+            return null;
+        }
         return array(
             'prose' => sprintf(
                 __('A warninglist marks this as a false positive, yet'
@@ -113,5 +128,22 @@ class ConflictListedVsAsserted extends ValueEscalationBase
                 (int)round($share * 100)
             ),
         );
+    }
+
+    /**
+     * The fewest organisations asserting it for this rule to fire, or
+     * null when the entry does not guard a false-positive list. Below
+     * it the lean derivation lets the list decide.
+     *
+     * @param array $config
+     * @return int|null
+     */
+    public function floor(array $config)
+    {
+        $category = $this->when($config, 'warninglist_category');
+        if ($category !== WarninglistCategory::FALSE_POSITIVE) {
+            return null;
+        }
+        return (int)$this->when($config, 'min_threat_orgs');
     }
 }

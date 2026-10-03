@@ -34,7 +34,10 @@
  *
  * Absence fires as `no_hit`: *"no warninglist hit, 84 lists checked"*
  * — and the lists checked is half of it: a hit against nothing is only
- * meaningful beside how much was looked at.
+ * meaningful beside how much was looked at. It is worth `+1`, as the
+ * other absence rows are worth `−1`: it fires on nearly every
+ * value, so a larger weight is an offset on the quality rather than
+ * evidence that tells two values apart.
  */
 class LifecycleWarninglist extends ValueSignalBase
 {
@@ -52,8 +55,8 @@ class LifecycleWarninglist extends ValueSignalBase
      * per-row.** *Nothing matched, 8 lists checked* is the control
      * case: it says the value is on no list MISP ships, which is not
      * the same statement as *the value is a threat*. Anchored, it
-     * would become one — on a benign lean its `+6` would invert to
-     * `−6` and could, on its own, make an uncontested value read as
+     * would become one — on a benign lean its `+1` would invert to
+     * `−1` and could, on its own, make an uncontested value read as
      * disputed. It is a quality row: what it measures is that the
      * record survived the check.
      */
@@ -69,7 +72,7 @@ class LifecycleWarninglist extends ValueSignalBase
         $this->points_schema = array(
             'no_hit' => array(
                 'type' => 'int',
-                'default' => 6,
+                'default' => 1,
                 'label' => __('Points when nothing matched'),
             ),
             'false_positive_hit' => array(

@@ -101,8 +101,10 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     ) ?>
     <a href="#" class="wb-i" onclick="return false;"
        title="<?= h(__("The lean is counted from how many organisations"
-           . " reported this value as a threat and how many called it"
-           . " harmless. No points are involved.\n\n"
+           . " flagged this value for detection and how many said it is"
+           . " harmless, with a false positive or a warning. Recording"
+           . " it with to_ids unset is no vote. No points are"
+           . " involved.\n\n"
            . "Quality is the points: a plus means the record carries"
            . " something — widely reported, published, attributed — and"
            . " a minus that it does not, whichever way the lean came"
@@ -114,6 +116,10 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     <?php if ($lean['after'] === 'contested'): ?>
         <?= h(__('This value is contested, so the rows that read it'
             . ' render threat-signed.')) ?>
+    <?php elseif ($lean['after'] === 'unflagged'): ?>
+        <?= h(__('Nobody flagged this value for detection and nobody'
+            . ' called it harmless, so it reads as recorded for context;'
+            . ' the quality still scores the record.')) ?>
     <?php elseif ($lean['after'] === 'none'): ?>
         <?= h(__('This value has a lean of none, so there is no ledger'
             . ' at all.')) ?>

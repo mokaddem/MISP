@@ -168,9 +168,10 @@
      * Worst first: the states an analyst has to act on before the ones
      * they do not. *Nothing asserted* outranks *Asserted benign*
      * because an unknown value is work and a value the record settles
-     * is not.
+     * is not. *Unflagged* sits above it: the record holds it, and
+     * nobody has said what it is.
      */
-    var ORDER = { threat: 0, contested: 1, none: 2, benign: 3 };
+    var ORDER = { threat: 0, contested: 1, unflagged: 2, none: 3, benign: 4 };
 
     /*
      * The rail marks, monochrome and in `currentColor` — the state is

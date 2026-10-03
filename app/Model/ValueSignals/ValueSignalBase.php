@@ -45,9 +45,10 @@
  * );
  * ```
  *
- * `kind`, `direction` and `weight` are the engine's: the group comes
- * from the profile or from `$this->group`, the direction is the sign of
- * the anchored row, and the weight is the profile's editorial band.
+ * `kind`, `axis` and `direction` are the engine's: the group comes
+ * from the profile or from `$this->group`, the axis from `$this->axis`
+ * unless the row names one, and the direction is the sign of the
+ * anchored row.
  * `contribution` **must** be an integer — the engine rejects a float, a
  * string or an array, because the ledger summing exactly to its total
  * is the one thing that may not fail quietly.
@@ -70,14 +71,18 @@
  * types        [['type','count'], …]                     aggregate
  * occurrences  ['total','events','orgs','oldest','newest']  aggregate
  * orgs         [['id','name','occurrences','to_ids_yes',
- *                'to_ids_no','newest','oldest'], …]       aggregate
+ *                'to_ids_no','newest','newest_flagged',
+ *                'oldest'], …]                            aggregate
  * publication  ['events','published','unpublished']       aggregate
  * activity     ['months' => ['2025-07' => 3, …], 'active_months',
  *               'span_months','longest_run','gaps']       aggregate
  * temporal     ['occurrences','with_first_seen']              row
  * sightings    ['total','fp','expiration','orgs','fp_orgs',
  *               'fp_org_names','first_stamp','last_stamp',
- *               'recent','recent_days']                          row
+ *               'recent','recent_days','by_org_fp',
+ *               'by_org_fp_last','anonymous_fp','anonymous_fp_last',
+ *               'seen' => ['total','orgs','last_stamp','recent',
+ *                          'by_org','anonymous']]                row
  * galaxies     ['clusters' => ['APT28' => 2],
  *               'techniques' => ['T1071.001' => 3]]              row
  * warninglist  ['hits' => [['name','category'], …],
@@ -129,10 +134,10 @@ abstract class ValueSignalBase
      * `ValueVerdictTool` weighs when it asks whether a record disputes
      * its own assertion.
      *
-     * Two sources, and only those: the warninglist category and
-     * false-positive sightings. (`to_ids` stance is the third lean
-     * source and it is not a ledger row at all — it feeds the lean
-     * derivation directly.)
+     * Three shipped signals declare it: the warninglist's hits,
+     * false-positive sightings and enrichment verdicts. The `to_ids`
+     * stance also reads the value, but it feeds the lean derivation
+     * directly and is not a ledger row.
      */
     const AXIS_LEAN = 'lean';
 
@@ -246,6 +251,16 @@ abstract class ValueSignalBase
      * *no hit* does not.
      */
     public $axis = self::AXIS_QUALITY;
+
+    /**
+     * Whether this signal's evidence is already counted as voices in
+     * the lean's stance count.
+     *
+     * Its lean rows are still drawn, but they do not decide the
+     * lean-disputed check: a voice weighed against the reporters once
+     * must not get a second, unweighted say as a sum of points.
+     */
+    public $voice = false;
 
     /** The value-page tab a reader should go and argue with the row in. */
     public $tab = 'occurrences';

@@ -1,5 +1,7 @@
 <?php
 
+App::uses('ValueTrustTool', 'Tools/ValueProfile');
+
 /**
  * The assessment's second axis: does what the record asserts still
  * matter operationally, today?
@@ -166,6 +168,7 @@ class ValueRelevanceTool
     ) {
         return array(
             'state' => null,
+            'expired_by' => null,
             'reason' => $reason,
             'clock' => $clock,
             'ttl' => $ttl,
@@ -245,6 +248,7 @@ class ValueRelevanceTool
         if ($clock['at'] === null) {
             return array(
                 'state' => null,
+                'expired_by' => null,
                 'reason' => 'no_record',
                 'clock' => $clock,
                 'ttl' => $ttl,
@@ -323,9 +327,25 @@ class ValueRelevanceTool
             $section['aging_fraction'],
             $precision['uncertain']
         );
+        $runwayDays = $ttl['days'] - $elapsedDays;
+        $expiresAt = $clock['at'] + ($ttl['days'] * 86400);
+        /*
+         * A filed expiration is the end of the lifetime, stated rather
+         * than reached: expired from that day, whatever runway the
+         * clock had left.
+         */
+        $expiry = self::standingExpiry($context, $clock);
+        if ($expiry !== null) {
+            $state = 'expired';
+            $runway = 0.0;
+            $runwayDays = min($runwayDays,
+                -self::daysBetween($expiry['at'], $now));
+            $expiresAt = min($expiresAt, (int)$expiry['at']);
+        }
 
         return array(
             'state' => $state,
+            'expired_by' => $expiry,
             'reason' => null,
             'clock' => $clock,
             'ttl' => $ttl,
@@ -358,8 +378,8 @@ class ValueRelevanceTool
              * `aging` reads — and the date its lifetime ends is a fact
              * about the clock and the TTL that no assumption touches.
              */
-            'runway_days' => $ttl['days'] - $elapsedDays,
-            'expires_at' => $clock['at'] + ($ttl['days'] * 86400),
+            'runway_days' => $runwayDays,
+            'expires_at' => $expiresAt,
             'uncertain' => $precision['uncertain'],
             'uncertain_note' => $precision['note'],
             'aging_fraction' => $section['aging_fraction'],
@@ -1130,7 +1150,14 @@ class ValueRelevanceTool
         $next = 0;
         $count = count($stamps);
         $held = null;
+        $filed = isset($relevance['expired_by']['at'])
+            ? strtotime(date('Y-m-d', (int)$relevance['expired_by']['at']))
+            : null;
         foreach ($grid as $at) {
+            if ($filed !== null && $at >= $filed) {
+                $points[] = 0.0;
+                continue;
+            }
             while ($next < $count && $stamps[$next] <= $at) {
                 $held = $stamps[$next];
                 $next++;
@@ -1215,6 +1242,20 @@ class ValueRelevanceTool
                 ),
             );
         }
+        if ($relevance['state'] === 'expired'
+            && !empty($relevance['expired_by'])
+        ) {
+            return array(
+                'axis' => 'relevance',
+                'direction' => 'up',
+                'text' => sprintf(
+                    __('%1$s filed it as expired on %2$s. A sighting or'
+                        . ' a fresh report after that brings it back.'),
+                    $relevance['expired_by']['name'],
+                    date('Y-m-d', (int)$relevance['expired_by']['at'])
+                ),
+            );
+        }
         if ($relevance['state'] === 'expired') {
             return array(
                 'axis' => 'relevance',
@@ -1282,7 +1323,8 @@ class ValueRelevanceTool
      * **Type 0 only.** A false positive and an expiration are reports
      * that argue *against* the value; counting either as corroboration
      * would let a value be kept current by the community disputing it.
-     * The Sightings tab exists to make that line visible.
+     * The Sightings tab exists to make that line visible. Expirations
+     * are kept apart, each filer's newest, for standingExpiry().
      *
      * **Folded to one report a day, and whole-history.** The runway
      * series samples a day at a time, so a second sighting on a day
@@ -1311,13 +1353,21 @@ class ValueRelevanceTool
     ) {
         $days = array();
         $foreignDays = array();
+        $expirations = array();
         $undecidable = 0;
         foreach ($rows as $row) {
-            if ((int)($row['Sighting']['type'] ?? 0) !== 0) {
+            $type = (int)($row['Sighting']['type'] ?? 0);
+            $at = (int)($row['Sighting']['date_sighting'] ?? 0);
+            if ($type === 2 && $at > 0) {
+                $orgId = (int)($row['Sighting']['org_id'] ?? 0);
+                if (!isset($expirations[$orgId])
+                    || $at > $expirations[$orgId]['at']
+                ) {
+                    $expirations[$orgId] = self::sightingEntry($row, $at);
+                }
                 continue;
             }
-            $at = (int)($row['Sighting']['date_sighting'] ?? 0);
-            if ($at <= 0) {
+            if ($type !== 0 || $at <= 0) {
                 continue;
             }
             $day = strtotime(date('Y-m-d', $at));
@@ -1366,7 +1416,51 @@ class ValueRelevanceTool
                 ? null
                 : end($foreignDays),
             'undecidable' => $undecidable,
+            'expirations' => $expirations,
         );
+    }
+
+    /**
+     * The expiration that ends the value's relevance, if one stands.
+     *
+     * An organisation filing an expiration is saying *this is over*.
+     * It stands unless something later keeps the value alive: a type-0
+     * sighting from anybody, or the clock's own date — a fresh report
+     * or an independent corroboration after the filing, whichever the
+     * profile's clock runs on. A filer whose grade counts for nothing
+     * expires nothing.
+     *
+     * @param array $context
+     * @param array $clock From clockFor()
+     * @return array|null The filing, as sightingEntry() writes it
+     */
+    public static function standingExpiry(array $context, array $clock)
+    {
+        $expirations = $context['corroboration']['expirations'] ?? array();
+        if (empty($expirations) || !is_array($expirations)) {
+            return null;
+        }
+        $after = (int)($clock['at'] ?? 0);
+        $seen = $context['corroboration']['last_sightings'] ?? null;
+        if (is_array($seen)) {
+            $after = max($after, (int)$seen['at']);
+        }
+        $trust = ValueTrustTool::blockFrom($context);
+        $standing = null;
+        foreach ($expirations as $orgId => $entry) {
+            if ((int)$entry['at'] <= $after) {
+                continue;
+            }
+            if (!empty($trust['in_force'])
+                && ValueTrustTool::factor($context, (int)$orgId) <= 0.0
+            ) {
+                continue;
+            }
+            if ($standing === null || $entry['at'] > $standing['at']) {
+                $standing = $entry;
+            }
+        }
+        return $standing;
     }
 
     /**

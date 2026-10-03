@@ -99,6 +99,7 @@ $share = $total === 0
     ? 0.0
     : (float)(isset($stances['threat_share'])
         ? $stances['threat_share'] : 0.0);
+$context = (int)($stances['unflagged_orgs'] ?? 0);
 $supermajority = isset($stances['supermajority'])
     && is_numeric($stances['supermajority'])
     ? (float)$stances['supermajority']
@@ -106,10 +107,12 @@ $supermajority = isset($stances['supermajority'])
 ?>
 <div class="vp-vc-lean">
     <div class="vp-vc-lean-head"
-         title="<?= h(__('Organisations are counted per side, and a'
-             . ' supermajority on either side sets the reading. The'
-             . ' lean evidence weighs in only through the conflict'
-             . ' rules.')) ?>">
+         title="<?= h(__('Each organisation is one voice, at its'
+             . ' reliability grade once you grade anybody. False'
+             . ' positives and graded outside verdicts are voices'
+             . ' too, and a supermajority on either side sets the'
+             . ' reading. An organisation that only recorded it with'
+             . ' to_ids unset casts no vote.')) ?>">
         <i class="fas fa-scale-balanced vp-vc-lean-mark"></i>
         <?= h(__('Lean')) ?>
         <span class="vp-vc-axis-head-sub">
@@ -124,8 +127,9 @@ $supermajority = isset($stances['supermajority'])
         : ' vp-vc-band-split' ?>">
 
         <div class="vp-vc-band-bar">
-        <?php if ($total > 0): ?>
+        <?php if ($total > 0 || $context > 0): ?>
             <div class="vp-vc-lean-counts">
+                <?php if ($total > 0): ?>
                 <span class="vp-vc-lean-count vp-vc-lean-threat"
                       title="<?= h(__('Organisations with at least one'
                           . ' occurrence carrying to_ids.')) ?>">
@@ -139,8 +143,10 @@ $supermajority = isset($stances['supermajority'])
                     )) ?>
                 </span>
                 <span class="vp-vc-lean-count vp-vc-lean-benign"
-                      title="<?= h(__('Organisations whose occurrences'
-                          . ' all have to_ids unset.')) ?>">
+                      title="<?= h(__('Organisations that filed a false'
+                          . ' positive, or warned of one on their own'
+                          . ' report, and do not assert it.'))
+                      ?>">
                     <?= h(sprintf(
                         __n(
                             '%s reports it as harmless',
@@ -150,7 +156,26 @@ $supermajority = isset($stances['supermajority'])
                         $benign
                     )) ?>
                 </span>
+                <?php endif; ?>
+                <?php if ($context > 0): ?>
+                <span class="vp-vc-lean-count vp-vc-lean-context"
+                      title="<?= h(__('Organisations whose occurrences'
+                          . ' all have to_ids unset: recorded as'
+                          . ' context, not for detection. No vote'
+                          . ' either way.')) ?>">
+                    <?= h(sprintf(
+                        __n(
+                            '%s recorded it as context',
+                            '%s recorded it as context',
+                            $context
+                        ),
+                        $context
+                    )) ?>
+                </span>
+                <?php endif; ?>
             </div>
+        <?php endif; ?>
+        <?php if ($total > 0): ?>
 
             <?php
             /*
@@ -162,9 +187,8 @@ $supermajority = isset($stances['supermajority'])
             ?>
             <div class="vp-vc-lean-track"
                  title="<?= h(sprintf(
-                     __('%1$s of %2$s organisations assert a threat'),
-                     $threat,
-                     $total
+                     __('%s%% of the voices assert a threat'),
+                     (int)round($share * 100)
                  )) ?>">
                 <span class="vp-vc-lean-fill"
                       style="width: <?= (int)round($share * 100) ?>%;"

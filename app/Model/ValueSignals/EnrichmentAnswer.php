@@ -100,6 +100,9 @@ class EnrichmentAnswer extends ValueSignalBase
      */
     public $axis = self::AXIS_LEAN;
 
+    // Each counted verdict is a voice in the stance count.
+    public $voice = true;
+
     public $reads = array('enrichment');
 
     public $tab = 'enrichment';
@@ -122,6 +125,18 @@ class EnrichmentAnswer extends ValueSignalBase
                 'default' => 24,
                 'label' => __('Most this signal may contribute, across'
                     . ' every module'),
+            ),
+            'per_agreeing' => array(
+                'type' => 'int',
+                'default' => 6,
+                'label' => __('Quality points per verdict agreeing with'
+                    . ' the reporters, before the module\'s grade'),
+            ),
+            'agreeing_cap' => array(
+                'type' => 'int',
+                'default' => 12,
+                'label' => __('Most the agreeing verdicts may add to the'
+                    . ' quality'),
             ),
         );
         $this->config_schema = array(
@@ -168,6 +183,77 @@ class EnrichmentAnswer extends ValueSignalBase
      */
     public function evaluate(array $context, array $config)
     {
+        $read = $this->counted($context, $config);
+        if ($read === null) {
+            return null;
+        }
+        $per = $this->points($config, 'per_verdict');
+        $now = isset($context['now']) ? (int)$context['now'] : time();
+        $rows = array();
+        $notes = $read['not_counted'];
+        foreach ($read['counted'] as $verdict) {
+            $points = $per * $verdict['weight'];
+            if ($verdict['reading'] === ReputationRenderer::TOWARD_BENIGN) {
+                $points = -$points;
+            }
+            $age = max(0, $now - (int)$verdict['ran_at']);
+            $rows[] = $this->row(
+                $points,
+                sprintf(
+                    __('%1$s · %2$s'),
+                    $verdict['module'],
+                    $verdict['word']
+                ),
+                sprintf(
+                    __('asked %1$s · %2$s'),
+                    $this->agoPhrase((int)floor($age / 86400)),
+                    sprintf(
+                        __('graded %s'),
+                        $verdict['grade'] === null
+                            ? '?'
+                            : $verdict['grade']
+                    )
+                ),
+                $context,
+                $this->stampAsOf((int)$verdict['ran_at'], $context)
+            );
+        }
+
+        /*
+         * The cap is across every module and is applied after the
+         * rows are built, so it has to come off them rather than out
+         * of the total — the ledger sums its printed rows exactly, and
+         * a cap subtracted anywhere else would make the column and the
+         * number disagree.
+         */
+        $rows = $this->applyCap($rows, $this->points($config, 'cap'));
+        $rows = array_merge($rows, $this->applyCap(
+            $this->agreeing($read['counted'], $config, $context),
+            $this->points($config, 'agreeing_cap')
+        ));
+
+        if (empty($rows) && empty($notes)) {
+            return null;
+        }
+        return array('rows' => $rows, 'not_counted' => $notes);
+    }
+
+    /**
+     * The graded, in-window verdicts, and a note for every one set
+     * aside.
+     *
+     * The one reading both halves of the signal share: the ledger
+     * rows above, and the voices the lean counts (`voices()`). Two
+     * filters would be two answers to *which verdicts count*.
+     *
+     * @param array $context
+     * @param array $config
+     * @return array|null `counted` (each verdict plus `module`,
+     *                    `grade`, `factor`, `weight`) and
+     *                    `not_counted`, or null with nothing held
+     */
+    private function counted(array $context, array $config)
+    {
         $held = isset($context['enrichment']['runs'])
             && is_array($context['enrichment']['runs'])
             ? $context['enrichment']['runs']
@@ -195,11 +281,9 @@ class EnrichmentAnswer extends ValueSignalBase
         );
         $window = (int)$this->setting($config, 'window_hours');
         $now = isset($context['now']) ? (int)$context['now'] : time();
-        $per = $this->points($config, 'per_verdict');
 
-        $rows = array();
+        $counted = array();
         $notes = array();
-        $total = 0;
         foreach ($this->verdictsIn($held, $thresholds) as $verdict) {
             $age = max(0, $now - (int)$verdict['ran_at']);
             $module = (string)$verdict['module'];
@@ -230,54 +314,104 @@ class EnrichmentAnswer extends ValueSignalBase
                 ));
                 continue;
             }
-            $points = $per * $factor;
-            if (ReputationRenderer::isHedged($verdict)) {
-                /*
-                 * A source hedging is paid half rather than ignored or
-                 * believed outright — the one place the reading table
-                 * distinguishes *suspicious* from *malicious*.
-                 */
-                $points = $points / 2;
+            /*
+             * A source hedging is paid half rather than ignored or
+             * believed outright — the one place the reading table
+             * distinguishes *suspicious* from *malicious*.
+             */
+            $weight = ReputationRenderer::isHedged($verdict)
+                ? $factor / 2
+                : $factor;
+            $counted[] = $verdict + array(
+                'module' => $module,
+                'grade' => isset($trust['grades'][$module])
+                    ? $trust['grades'][$module]
+                    : null,
+                'factor' => $factor,
+                'weight' => $weight,
+            );
+        }
+        return array('counted' => $counted, 'not_counted' => $notes);
+    }
+
+    /**
+     * A quality row for each counted verdict agreeing with the lean:
+     * an outside source confirming what the reporters assert is
+     * the one corroboration a single-source record can get from
+     * outside MISP. A verdict disagreeing adds no quality — it is a
+     * voice against the lean, and that is weighed in the stance count.
+     *
+     * @param array $counted From `counted()`
+     * @param array $config
+     * @param array $context Carrying the `lean` the engine anchored to
+     * @return array
+     */
+    private function agreeing(array $counted, array $config,
+        array $context
+    ) {
+        $lean = isset($context['lean']) ? $context['lean'] : null;
+        if ($lean !== 'threat' && $lean !== 'benign') {
+            return array();
+        }
+        $per = $this->points($config, 'per_agreeing');
+        $rows = array();
+        foreach ($counted as $verdict) {
+            if ($verdict['reading'] !== $lean) {
+                continue;
             }
-            if ($verdict['reading'] === ReputationRenderer::TOWARD_BENIGN) {
-                $points = -$points;
-            }
-            $total += $points;
             $rows[] = $this->row(
-                $points,
+                $per * $verdict['weight'],
                 sprintf(
-                    __('%1$s · %2$s'),
-                    $module,
+                    __('%1$s agrees · %2$s'),
+                    $verdict['module'],
                     $verdict['word']
                 ),
                 sprintf(
-                    __('asked %1$s · %2$s'),
-                    $this->agoPhrase((int)floor($age / 86400)),
-                    sprintf(
-                        __('graded %s'),
-                        isset($trust['grades'][$module])
-                            ? $trust['grades'][$module]
-                            : '?'
-                    )
+                    __('an outside source confirming the reporters ·'
+                        . ' graded %s'),
+                    $verdict['grade'] === null ? '?' : $verdict['grade']
                 ),
                 $context,
-                $this->stampAsOf((int)$verdict['ran_at'], $context)
+                $this->stampAsOf((int)$verdict['ran_at'], $context),
+                self::AXIS_QUALITY
             );
         }
+        return $rows;
+    }
 
-        /*
-         * The cap is across every module and is applied after the
-         * rows are built, so it has to come off them rather than out
-         * of the total — the ledger sums its printed rows exactly, and
-         * a cap subtracted anywhere else would make the column and the
-         * number disagree.
-         */
-        $rows = $this->applyCap($rows, $this->points($config, 'cap'));
-
-        if (empty($rows) && empty($notes)) {
-            return null;
+    /**
+     * The verdicts the lean counts as voices: each graded,
+     * in-window verdict at its module's weight, on the side it argues.
+     *
+     * Public because the lean is decided before any signal scores,
+     * and it has to read the same verdicts the ledger will print.
+     *
+     * @param array $context
+     * @param array $config The signal's profile entry
+     * @return array `module`, `grade`, `word`, `side` (`threat` or
+     *               `benign`), `weight`, `ran_at`
+     */
+    public function voices(array $context, array $config)
+    {
+        $read = $this->counted($context, $config);
+        if ($read === null) {
+            return array();
         }
-        return array('rows' => $rows, 'not_counted' => $notes);
+        $voices = array();
+        foreach ($read['counted'] as $verdict) {
+            $voices[] = array(
+                'module' => $verdict['module'],
+                'grade' => $verdict['grade'],
+                'word' => $verdict['word'],
+                'side' => $verdict['reading']
+                    === ReputationRenderer::TOWARD_BENIGN
+                    ? 'benign'
+                    : 'threat',
+                'weight' => $verdict['weight'],
+                'ran_at' => (int)$verdict['ran_at'],
+            );
+        }
+        return $voices;
     }
 
     /**

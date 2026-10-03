@@ -43,6 +43,8 @@ class SightingsFalsePositive extends ValueSignalBase
      * false positive* pole to be read as an argument for threat.
      */
     public $axis = self::AXIS_LEAN;
+    // Each filer is a benign voice in the stance count.
+    public $voice = true;
     public $tab = 'sightings';
 
     public function __construct()

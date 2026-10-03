@@ -391,6 +391,11 @@ class ValueVerdictDiffTool
      * `ledger` alone — would miss the lean rows. One traversal, so the
      * next change to the ledger's shape has one place to reach.
      *
+     * A signal returning several rows — `attribution.galaxy`'s
+     * occurrence and event clusters, `enrichment.answer`'s verdicts —
+     * keys its second and later rows `id#2`, `id#3`, so every row is
+     * diffed and summed; each row keeps its own `id`.
+     *
      * @param array $verdict
      * @param string|null $axis One of `ValueVerdictTool`'s axis
      *                          constants to take only that ledger;
@@ -413,7 +418,7 @@ class ValueVerdictDiffTool
                     if ($id === null) {
                         continue;
                     }
-                    $rows[$id] = $row;
+                    $rows[self::rowKey($rows, $id)] = $row;
                 }
             }
         }
@@ -442,10 +447,29 @@ class ValueVerdictDiffTool
                 if ($id === null) {
                     continue;
                 }
-                $rows[$id] = $row;
+                $rows[self::rowKey($rows, $id)] = $row;
             }
         }
         return $rows;
+    }
+
+    /**
+     * The key for the next row of signal `$id`.
+     *
+     * @param array $rows The rows keyed so far
+     * @param string $id
+     * @return string
+     */
+    private static function rowKey(array $rows, $id)
+    {
+        if (!isset($rows[$id])) {
+            return $id;
+        }
+        $n = 2;
+        while (isset($rows[$id . '#' . $n])) {
+            $n++;
+        }
+        return $id . '#' . $n;
     }
 
     /**

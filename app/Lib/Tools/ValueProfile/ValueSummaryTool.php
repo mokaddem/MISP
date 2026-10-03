@@ -53,13 +53,17 @@ class ValueSummaryTool
          * are no ledger rows to list instead, so a sparse value is the
          * one that shows this sentence.
          */
-        if ($lean === 'none' || $lean === null) {
+        $decidedBy = isset($verdict['decided_by'])
+            ? $verdict['decided_by']
+            : null;
+        if (($lean === 'none' || $lean === null)
+            && $decidedBy !== 'no_voice'
+        ) {
             return __('Nothing you can see records this value, so there'
                 . ' is nothing to assess.');
         }
 
-        $clauses = array(self::leanClause($lean,
-            isset($verdict['decided_by']) ? $verdict['decided_by'] : null));
+        $clauses = array(self::leanClause($lean, $decidedBy));
         $quality = self::qualityClause($band);
         if ($quality === null) {
             /*
@@ -107,8 +111,16 @@ class ValueSummaryTool
                 return __('What is recorded here reads as a threat.');
             case 'benign':
                 return __('What is recorded here reads as benign.');
+            case 'unflagged':
+                // Never *benign*, never *unknown*.
+                return __('Recorded as context — nobody flagged it for'
+                    . ' detection.');
         }
         switch ($decidedBy) {
+            case 'no_voice':
+                return __('Nothing is asserted here: every organisation'
+                    . ' that reported it is graded to count for'
+                    . ' nothing.');
             case 'no_supermajority':
                 return __('What is recorded here contradicts itself: the'
                     . ' organisations that reported it do not agree.');

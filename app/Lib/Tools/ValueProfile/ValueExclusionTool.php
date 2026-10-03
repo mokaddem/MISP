@@ -27,8 +27,8 @@
  * - **A row filter** (`sightings.self`). Sighting rows do exist, and
  *   are filtered where they exist — before they are tallied, exactly
  *   as the evidence window already filters them.
- * - **A list fold** (`feeds.mirrored`). One already-fetched list,
- *   deduplicated.
+ * - **A list fold** (`feeds.reporters`, `feeds.mirrored`). One
+ *   already-fetched list, deduplicated.
  *
  * What the three share is the property that matters: every signal
  * sees the same evidence, because the filtering happens once, during
@@ -47,7 +47,7 @@
  *
  * Signals and conflict rules resolve to discovered classes because an
  * instance admin may want ones nobody shipped. An exclusion is
- * configuration the engine applies directly: the four shipped ids
+ * configuration the engine applies directly: the five shipped ids
  * operate at three different layers and could not honestly share an
  * interface — one contributes SQL, one filters rows, one folds a list.
  * A custom exclusion would need the expression language the design
@@ -55,9 +55,10 @@
  */
 class ValueExclusionTool
 {
-    /** The four ids a v1 profile may carry. */
+    /** The five ids a v1 profile may carry. */
     const SIGHTINGS_SELF = 'sightings.self';
     const FEEDS_MIRRORED = 'feeds.mirrored';
+    const FEEDS_REPORTERS = 'feeds.reporters';
     const ORGS_OWN = 'orgs.own';
     const EVIDENCE_WINDOW = 'evidence.window';
 
@@ -115,11 +116,11 @@ class ValueExclusionTool
     }
 
     /**
-     * The four ids described, so the editor can render a form for a
+     * The five ids described, so the editor can render a form for a
      * section that has no directory to read.
      *
      * Signals and conflict rules declare their own schemas on their own
-     * classes; an exclusion has no class, because the four operate at
+     * classes; an exclusion has no class, because the five operate at
      * three different layers and could not honestly share an interface
      * (see the class docblock). That leaves the editor with a choice
      * between a hardcoded list of its own and a declaration here, and
@@ -178,6 +179,20 @@ class ValueExclusionTool
                         'options' => array('provider', 'url'),
                     ),
                 ),
+            ),
+            self::FEEDS_REPORTERS => array(
+                'id' => self::FEEDS_REPORTERS,
+                'title' => __('Feeds from a reporter'),
+                'layer' => 'list_fold',
+                'description' => __(
+                    'A feed published by an organisation that already'
+                    . ' reports the value is that organisation\'s'
+                    . ' report again, so it is not counted as a feed.'
+                    . ' A feed is matched to its publisher by its'
+                    . ' creator organisation, its fixed event, or the'
+                    . ' local copies of the events it carries.'
+                ),
+                'schema' => array(),
             ),
             self::ORGS_OWN => array(
                 'id' => self::ORGS_OWN,
@@ -372,6 +387,54 @@ class ValueExclusionTool
     }
 
     /**
+     * `feeds.reporters` — a feed is not a second voice for its own
+     * publisher.
+     *
+     * A feed both cached and fetched into local events would count
+     * once as a reporting organisation, through the events' creator,
+     * and again in `lifecycle.feeds`. `publishers` is resolved by the
+     * caller; a feed whose publisher it could not resolve is kept,
+     * since a fold that guesses removes evidence.
+     *
+     * @param array $sources From `externalPresence`, each feed carrying
+     *                       `publishers` (organisation ids)
+     * @param array $reporters The value's reporting organisation ids
+     * @param array $plan
+     * @return array `sources`, `excluded` and `names`
+     */
+    public function applyToReporters(array $sources, array $reporters,
+        array $plan
+    ) {
+        if (!isset($plan['rules'][self::FEEDS_REPORTERS])
+            || empty($reporters)
+        ) {
+            return array('sources' => $sources, 'excluded' => 0,
+                'names' => array());
+        }
+        $reporters = array_flip(array_map('intval', $reporters));
+        $kept = array();
+        $names = array();
+        foreach ($sources as $source) {
+            $own = false;
+            if (($source['scope'] ?? 'feed') === 'feed') {
+                foreach ($source['publishers'] ?? array() as $orgId) {
+                    if (isset($reporters[(int)$orgId])) {
+                        $own = true;
+                        break;
+                    }
+                }
+            }
+            if ($own) {
+                $names[] = $source['name'] ?? '';
+            } else {
+                $kept[] = $source;
+            }
+        }
+        return array('sources' => $kept, 'excluded' => count($names),
+            'names' => $names);
+    }
+
+    /**
      * `feeds.mirrored` — feeds carrying the same upstream content
      * counted once.
      *
@@ -439,7 +502,8 @@ class ValueExclusionTool
      *
      * @param array $plan
      * @param array $tallies `sightings`, `sightings_undecidable`,
-     *                       `sources`, from the application above
+     *                       `sources`, `reporter_feeds` (names), from
+     *                       the application above
      * @return array
      */
     public function notes(array $plan, array $tallies)
@@ -475,6 +539,25 @@ class ValueExclusionTool
                 self::SIGHTINGS_SELF,
                 __('Self-sightings'),
                 $note
+            );
+        }
+        $own = isset($tallies['reporter_feeds'])
+            && is_array($tallies['reporter_feeds'])
+            ? array_values(array_filter($tallies['reporter_feeds']))
+            : array();
+        if (!empty($own)) {
+            $notes[] = $this->note(
+                self::FEEDS_REPORTERS,
+                __('Feeds from a reporter'),
+                sprintf(
+                    __('%1$s %2$s published by an organisation that'
+                        . ' already reports this value, so %3$s'
+                        . ' counted with its report rather than again'
+                        . ' as a feed.'),
+                    implode(', ', array_slice($own, 0, 4)),
+                    count($own) === 1 ? __('is') : __('are'),
+                    count($own) === 1 ? __('it is') : __('they are')
+                )
             );
         }
         $sources = (int)($tallies['sources'] ?? 0);
