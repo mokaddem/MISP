@@ -237,7 +237,7 @@
         opts = opts || {};
         var display = opts.display || 'full';
         var grouping = opts.group !== false && display === 'full';
-        var minGroup = opts.minGroup || 3;
+        var minGroup = opts.minGroup || 2;
         var wideAt = opts.wideAt || 8;
         var groups = [];
         var byKey = {};

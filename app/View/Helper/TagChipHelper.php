@@ -26,7 +26,7 @@ class TagChipHelper extends AppHelper
      *   canModifyLocal     may remove local tags
      *   display            'full' (default), 'leaf' or 'swatch'
      *   group              fuse shared prefixes into blocks (default true)
-     *   minGroup           members before a chain earns a block (3)
+     *   minGroup           members before a chain earns a block (2)
      *   wideAt             members before a block takes its own line (8)
      *   track              column track width in px for a wide block
      *   budget             one-line width budget in px (300)
@@ -38,7 +38,7 @@ class TagChipHelper extends AppHelper
         $options += [
             'display' => 'full',
             'group' => true,
-            'minGroup' => 3,
+            'minGroup' => 2,
             'wideAt' => 8,
             'track' => null,
             'class' => '',
