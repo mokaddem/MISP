@@ -182,26 +182,41 @@
     flex: none;
     align-self: center;
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    gap: 2px;
+    min-width: 40px;
+    height: 48px;
     margin-left: -4px;
+    padding: 0 4px;
     border-radius: var(--bs-border-radius);
+    color: var(--rc-bar-fg);
+    text-decoration: none;
     transition: background-color .12s;
 }
 .rc-brand img {
     display: block;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     filter: var(--rc-brand-filter);
 }
+.rc-version {
+    font-size: .625rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: .02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    opacity: .75;
+}
+.rc-brand:hover .rc-version { opacity: 1; }
 /* a hairline after the mark, centred in the bar gap */
 .rc-brand::after {
     content: "";
     position: absolute;
-    top: 8px;
-    bottom: 8px;
+    top: 12px;
+    bottom: 12px;
     right: -9px;
     width: 1px;
     background: var(--rc-bar-rule);

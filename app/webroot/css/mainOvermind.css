@@ -185,34 +185,20 @@ body[data-controller="users"][data-action="change_pw"] {
    Footer Custom CSS
 ======================================================= */
 
-.expansion {
-    position: relative;
+.ov-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem 1rem;
+    padding: .5rem 1rem;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .8125rem;
 }
-
-/* Triangle on right side */
-#triangle {
-    position: absolute;
-    right: 20px;
-    top: -10px;
-    width: 20px;
-    height: 20px;
-    background-color: #28191B;
-    transform: rotate(45deg);
-    cursor: pointer;
-    z-index: 11;
-}
-
-/* Shortcuts container (hidden by default) */
-.shortcutsListContainer {
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.35s ease;
-}
-
-/* Expanded state */
-.footer-expanded .shortcutsListContainer {
-    max-height: 150px;
-    padding: 10px;
+.ov-footer img {
+    max-height: 24px;
 }
 
 

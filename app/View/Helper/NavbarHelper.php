@@ -913,6 +913,23 @@ class NavbarHelper extends AppHelper {
             ],
             ['divider' => true],
             [
+                'label' => __('Server PGP public key'),
+                'url' => Configure::read('MISP.download_gpg_from_homedir')
+                    ? $baseurl . '/users/getGpgPublicKey'
+                    : $baseurl . '/gpg.asc',
+                'icon' => 'fas fa-key',
+                'requirement' => Configure::read('MISP.download_gpg_from_homedir')
+                    || is_file(WWW_ROOT . 'gpg.asc'),
+            ],
+            [
+                'label' => __('Server S/MIME certificate'),
+                'url' => $baseurl . '/public_certificate.pem',
+                'icon' => 'fas fa-certificate',
+                'requirement' => Configure::read('SMIME.enabled')
+                    && is_file(WWW_ROOT . 'public_certificate.pem'),
+            ],
+            ['divider' => true],
+            [
                 'type' => 'group',
                 'label' => __('Themes'),
                 'icon' => 'fas fa-palette',
