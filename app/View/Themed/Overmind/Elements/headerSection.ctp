@@ -423,20 +423,20 @@ if (!empty($headerActions)) {
             </div>
 
             <?php if (!$headerDescriptionTabbed && !empty($headerDescriptions[''])): ?>
-                <p class="text-muted mt-1" style="font-size:0.85rem;">
+                <p class="text-muted mt-1 mb-2" style="font-size:0.85rem;">
                     <?= $headerDescriptions[''] ?>
                 </p>
             <?php elseif ($headerDescriptionTabbed): ?>
                 <div>
                     <?php foreach ($headerDescriptions as $tabId => $text): ?>
                         <?php if ($tabId === ''): continue; endif; ?>
-                        <p class="text-muted mt-1 d-none" style="font-size:0.85rem;"
+                        <p class="text-muted mt-1 mb-2 d-none" style="font-size:0.85rem;"
                            data-header-tab="<?= h($tabId) ?>">
                             <?= $text ?>
                         </p>
                     <?php endforeach; ?>
                     <?php if (!empty($headerDescriptions[''])): ?>
-                        <p class="text-muted mt-1" style="font-size:0.85rem;"
+                        <p class="text-muted mt-1 mb-2" style="font-size:0.85rem;"
                            data-header-tab-fallback>
                             <?= $headerDescriptions[''] ?>
                         </p>
