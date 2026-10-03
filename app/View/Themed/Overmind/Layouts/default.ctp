@@ -84,6 +84,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 [$bootstrapTheme['css'], ['preload' => true]],
                 ['tom-select.bootstrap5.min', ['preload' => true]],
                 ['mainOvermind', ['preload' => true]],
+                ['overmind-navbar', ['preload' => true]],
                 ['fontawesome7.min', ['preload' => true]],
                 ['print', ['media' => 'print']],
                 ['misp-iconify', ['preload' => true]],
@@ -274,6 +275,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 'value-hover-card',
             ];
             if (!$isAuthPage) {
+                $bs5Js[] = 'overmind-navbar';
                 $bs5Js[] = 'onboarding';
                 $bs5Js[] = 'overmind-invaders';
             }

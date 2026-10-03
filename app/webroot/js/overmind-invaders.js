@@ -32,7 +32,7 @@
     // --- launcher ---------------------------------------------------------
 
     function bindLogo() {
-        var logo = document.querySelector('.navbar-brand .navbar-logo');
+        var logo = document.querySelector('.rc-brand img');
         if (!logo) { return; }
         var link = logo.closest('a');
         var count = 0, timer = null;

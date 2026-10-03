@@ -50,6 +50,7 @@ $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
             [$bootstrapTheme['css'], ['preload' => true]],
             ['tom-select.bootstrap5.min', ['preload' => true]],
             ['mainOvermind', ['preload' => true]],
+            ['overmind-navbar', ['preload' => true]],
             ['fontawesome7.min', ['preload' => true]],
             ['dashboard/dashboard.default', ['preload' => true]],
             ['dashboard/dashboard.midnight'],
@@ -144,6 +145,7 @@ $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
         'js' => [
             'bootstrap.bundle.min',
             'mispOvermind',
+            'overmind-navbar',
         ],
     ]);
     if (!empty($intelGraph)) {
