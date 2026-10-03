@@ -73,7 +73,7 @@ $config = array(
         var peekEl = card.querySelector('[data-vn-peek]');
 
         function theme() {
-            return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+            return document.documentElement.getAttribute('data-misp-mode') === 'dark' ? 'dark' : 'light';
         }
 
         function ready() {

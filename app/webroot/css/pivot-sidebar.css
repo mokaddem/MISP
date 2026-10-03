@@ -293,7 +293,7 @@
 
 /* Notes and opinions, as AnalystData/thread.ctp draws them: a group per kind
    under its accent, a card per item ruled in its own kind's accent. The page's
-   Bootstrap colours, which follow the same data-bs-theme pivotick does. */
+   Bootstrap colours, which follow the same theme pivotick does. */
 .pes-ad { display: flex; flex-direction: column; gap: 12px; margin-top: 2px; }
 .pes-ad-group { display: flex; flex-direction: column; gap: 6px; }
 .pes-ad-h { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;

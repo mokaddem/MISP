@@ -69,9 +69,9 @@
         var _event       = null;
 
         /* ── helpers ───────────────────────────────────────────── */
-        // Overmind's dark-mode toggle (mispOvermind.js) sets data-bs-theme on <html>.
+        // data-misp-mode on <html> is dark under Overmind's dark toggle and dark-only themes.
         function mispTheme() {
-            return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+            return document.documentElement.getAttribute('data-misp-mode') === 'dark' ? 'dark' : 'light';
         }
 
         function followMispTheme(graph, root) {
@@ -80,7 +80,7 @@
                 if (root.getAttribute('data-theme') === theme) return;
                 root.setAttribute('data-theme', theme);
                 window.MispPivotNodes.applyTheme(graph, theme);
-            }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+            }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-misp-mode'] });
         }
 
         function truncate(str, max) {

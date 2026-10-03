@@ -146,7 +146,7 @@
 }
 .vp-hc-lean-none { --vp-hc-lean: var(--vp-hc-unknown); --vp-hc-lean-ink: var(--vp-hc-unknown); }
 .vp-hc-lean-skel { --vp-hc-lean: var(--vp-hc-line); --vp-hc-lean-ink: var(--vp-hc-mute); }
-[data-bs-theme="dark"] .vp-hc {
+[data-misp-mode="dark"] .vp-hc {
     --vp-hc-mal-ink: var(--vp-mal-ink, #f1919b);
     --vp-hc-ben-ink: var(--vp-ben-ink, #8fd0a7);
     --vp-hc-conflict-ink: var(--vp-conflict-ink, #f0b657);

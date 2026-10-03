@@ -5,7 +5,7 @@
  * Callers write colours as `var(--something)` in the config exactly as
  * they would in a stylesheet; `VP.chart` resolves them against the
  * canvas at init, so a chart picks up the same variables the rest of
- * the page does, and resolves them again when `data-bs-theme` flips —
+ * the page does, and resolves them again when `data-misp-mode` flips —
  * the only way a canvas can follow a theme it cannot inherit.
  *
  * This element is the shape for a chart that is fully described by its
@@ -47,7 +47,7 @@ $chartLegendSkip = $chartLegendSkip ?? array();
     /*
      * `VP.chart` polls for the Chart global, resolves the config's
      * `var(--x)` colours against the canvas, and redraws when
-     * `data-bs-theme` flips. All three are wanted by every chart on the
+     * `data-misp-mode` flips. All three are wanted by every chart on the
      * page, so they live in value-profile.js rather than once per
      * fragment that happens to draw one.
      */

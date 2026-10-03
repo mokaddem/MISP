@@ -142,7 +142,7 @@
     color: var(--warninglist);
 }
 
-[data-bs-theme="dark"] .vp-warninglist-chip {
+[data-misp-mode="dark"] .vp-warninglist-chip {
     background: color-mix(in srgb, var(--warninglist) 22%,
         var(--bs-body-bg));
     color: var(--bs-body-color);
@@ -245,7 +245,7 @@ a.vp-fact:hover .vp-fact-value {
     font-size: 1rem;
 }
 
-[data-bs-theme="dark"] .vp-panel-glyph {
+[data-misp-mode="dark"] .vp-panel-glyph {
     background: color-mix(in srgb, var(--vp-panel-color) 28%,
         var(--bs-body-bg));
 }
@@ -646,7 +646,7 @@ tr.vp-occ-deleted td {
  * a visible warm grey in dark since 2026-09-22, so the same chip comes
  * out of a normal tint — this lands on the colour 45% used to.
  */
-[data-bs-theme="dark"] .vp-relation {
+[data-misp-mode="dark"] .vp-relation {
     background: color-mix(in srgb, var(--object) 15%, var(--bs-body-bg));
 }
 
@@ -682,7 +682,7 @@ tr.vp-occ-deleted td {
     opacity: 0.75;
 }
 
-[data-bs-theme="dark"] .vp-relation-desc {
+[data-misp-mode="dark"] .vp-relation-desc {
     background: var(--bs-secondary-bg);
 }
 
@@ -813,7 +813,7 @@ tr.vp-occ-deleted td {
     font-size: 0.75rem;
 }
 
-[data-bs-theme="dark"] .vp-galaxy {
+[data-misp-mode="dark"] .vp-galaxy {
     background: color-mix(in srgb, var(--galaxy) 20%, var(--bs-body-bg));
 }
 
@@ -955,7 +955,7 @@ tr.vp-occ-deleted td {
     color: var(--analystData);
 }
 
-[data-bs-theme="dark"] .vp-analyst-kind {
+[data-misp-mode="dark"] .vp-analyst-kind {
     color: color-mix(in srgb, var(--analystData) 55%, var(--bs-body-color));
 }
 
@@ -993,7 +993,7 @@ tr.vp-occ-deleted td {
     letter-spacing: 0.04em;
 }
 
-[data-bs-theme="dark"] .vp-disposition {
+[data-misp-mode="dark"] .vp-disposition {
     background: color-mix(in srgb, var(--vp-disposition-color) 22%,
         var(--bs-body-bg));
 }
@@ -1020,7 +1020,7 @@ tr.vp-occ-deleted td {
     font-weight: 600;
 }
 
-[data-bs-theme="dark"] .vp-disposition-quiet {
+[data-misp-mode="dark"] .vp-disposition-quiet {
     background: transparent;
 }
 
@@ -1178,7 +1178,7 @@ tr.vp-occ-deleted td {
     background: color-mix(in srgb, var(--sighting) 8%, var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-stat-primary {
+[data-misp-mode="dark"] .vp-stat-primary {
     background: color-mix(in srgb, var(--sighting) 28%, var(--bs-body-bg));
 }
 
@@ -1609,7 +1609,7 @@ tr.vp-occ-deleted td {
     --vp-rel-uncertain: var(--vp-unknown);
 }
 
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-rel-current: #67e8f9;
     --vp-rel-expired: var(--bs-secondary-color);
 }
@@ -2353,7 +2353,7 @@ tr.vp-occ-deleted td {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-vc-hero {
+[data-misp-mode="dark"] .vp-vc-hero {
     background: color-mix(in srgb, var(--vp-conflict) 14%,
         var(--bs-body-bg));
 }
@@ -2538,7 +2538,7 @@ tr.vp-occ-deleted td {
     color: var(--warninglist);
 }
 
-[data-bs-theme="dark"] .vp-vc-warninglist {
+[data-misp-mode="dark"] .vp-vc-warninglist {
     background: color-mix(in srgb, var(--warninglist) 16%,
         var(--bs-body-bg));
     color: var(--bs-body-color);
@@ -2890,7 +2890,7 @@ tr.vp-occ-deleted td {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-vc-clock {
+[data-misp-mode="dark"] .vp-vc-clock {
     background: color-mix(in srgb, var(--correlation) 9%,
         var(--bs-body-bg));
 }
@@ -3045,7 +3045,7 @@ tr.vp-occ-deleted td {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-vc-unresolved {
+[data-misp-mode="dark"] .vp-vc-unresolved {
     background: color-mix(in srgb, var(--vp-conflict) 9%,
         var(--bs-body-bg));
 }
@@ -3143,7 +3143,7 @@ tr.vp-occ-deleted td {
     color: var(--vp-conflict-ink);
 }
 
-[data-bs-theme="dark"] .vp-aside-conflict .vp-aside-head {
+[data-misp-mode="dark"] .vp-aside-conflict .vp-aside-head {
     background: color-mix(in srgb, var(--vp-conflict) 14%,
         var(--bs-body-bg));
 }
@@ -3312,7 +3312,7 @@ tr.vp-occ-deleted td {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-vc-agreeing .vp-vc-hero {
+[data-misp-mode="dark"] .vp-vc-agreeing .vp-vc-hero {
     background: color-mix(in srgb, var(--vp-vc-color) 12%,
         var(--bs-body-bg));
 }
@@ -3706,7 +3706,7 @@ tr.vp-occ-deleted td {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-ledger-table
+[data-misp-mode="dark"] .vp-ledger-table
     > tbody > tr.vp-ledger-conflict > td {
     background: color-mix(in srgb, var(--vp-conflict) 10%,
         var(--bs-body-bg));
@@ -4487,7 +4487,7 @@ th[aria-sort="descending"] .sort-icon::before,
     --vp-sight-nav: var(--bs-secondary-color);
 }
 
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-sight-org-1: #6d9cc9;
     --vp-sight-org-2: #8fd4cf;
     --vp-sight-org-3: #79c46f;
@@ -5098,7 +5098,7 @@ th[aria-sort="descending"] .sort-icon::before,
     --vp-rel-reference: #6d3fd1; /* --galaxy #8B5CF6, darkened */
 }
 
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-rel-co: #f0a95f;
     --vp-rel-near: #4fd6b0;
     --vp-rel-human: #e58cad;
@@ -5122,7 +5122,7 @@ th[aria-sort="descending"] .sort-icon::before,
     --vp-occ-attribute: #516e02;  /* --attribute #97CC04, darkened */
 }
 
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-occ-attribute: #97CC04;  /* --attribute, legible as it comes */
 }
 
@@ -5141,7 +5141,7 @@ th[aria-sort="descending"] .sort-icon::before,
     --vp-stance-on: #8a6000;  /* --bs-warning #ffc107, darkened */
 }
 
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-stance-on: #ffc107;  /* --bs-warning, legible as it comes */
 }
 
@@ -6068,7 +6068,7 @@ th[aria-sort="descending"] .sort-icon::before,
     mix-blend-mode: multiply;
 }
 
-[data-bs-theme="dark"] .vp-strip .vp-lane-span {
+[data-misp-mode="dark"] .vp-strip .vp-lane-span {
     mix-blend-mode: screen;
 }
 
@@ -6228,7 +6228,7 @@ th[aria-sort="descending"] .sort-icon::before,
     white-space: nowrap;
 }
 
-[data-bs-theme="dark"] .vp-rel-tag {
+[data-misp-mode="dark"] .vp-rel-tag {
     background: color-mix(in srgb, var(--vp-rel-color) 22%, var(--bs-body-bg));
 }
 
@@ -6380,7 +6380,7 @@ th[aria-sort="descending"] .sort-icon::before,
     background: color-mix(in srgb, var(--vp-rel-human) 8%, var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-rel-cap-complete {
+[data-misp-mode="dark"] .vp-rel-cap-complete {
     background: color-mix(in srgb, var(--vp-rel-human) 18%, var(--bs-body-bg));
 }
 
@@ -6494,7 +6494,7 @@ tr.vp-rel-k-external > td:first-child {
     text-decoration: none;
 }
 
-[data-bs-theme="dark"] .vp-external-event {
+[data-misp-mode="dark"] .vp-external-event {
     background: color-mix(in srgb, var(--vp-rel-external) 24%, var(--bs-body-bg));
 }
 
@@ -6689,7 +6689,7 @@ th.vp-rel-num {
     font-weight: 600;
 }
 
-[data-bs-theme="dark"] .vp-rel-score {
+[data-misp-mode="dark"] .vp-rel-score {
     background: color-mix(in srgb, var(--vp-rel-near) 24%, var(--bs-body-bg));
 }
 
@@ -6836,7 +6836,7 @@ th.vp-rel-num {
     color: var(--bs-warning-text-emphasis);
 }
 
-[data-bs-theme="dark"] .vp-claim-unresolved {
+[data-misp-mode="dark"] .vp-claim-unresolved {
     color: color-mix(in srgb, var(--bs-warning) 70%, var(--bs-body-color));
 }
 
@@ -7023,7 +7023,7 @@ th.vp-rel-num {
     line-height: 1.6;
 }
 
-[data-bs-theme="dark"] .vp-claim-cluster {
+[data-misp-mode="dark"] .vp-claim-cluster {
     background: color-mix(in srgb, var(--vp-rel-human) 22%,
         var(--bs-body-bg));
     color: color-mix(in srgb, var(--vp-rel-human) 45%,
@@ -7268,7 +7268,7 @@ th.vp-rel-num {
     --vp-e-warn-ink: var(--bs-warning-text-emphasis);
 }
 
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-e-accent: #a79dd4;
 }
 
@@ -7430,7 +7430,7 @@ th.vp-rel-num {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-e-railrow:hover {
+[data-misp-mode="dark"] .vp-e-railrow:hover {
     background: color-mix(in srgb, var(--vp-e-accent) 12%,
         var(--bs-body-bg));
 }
@@ -7447,8 +7447,8 @@ th.vp-rel-num {
     box-shadow: inset 3px 0 0 var(--vp-e-accent);
 }
 
-[data-bs-theme="dark"] .vp-e-railrow-on,
-[data-bs-theme="dark"] .vp-e-railrow-on:hover {
+[data-misp-mode="dark"] .vp-e-railrow-on,
+[data-misp-mode="dark"] .vp-e-railrow-on:hover {
     background: color-mix(in srgb, var(--vp-e-accent) 18%,
         var(--bs-body-bg));
 }
@@ -7539,7 +7539,7 @@ th.vp-rel-num {
                 var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-e-profile {
+[data-misp-mode="dark"] .vp-e-profile {
     background: color-mix(in srgb, var(--vp-e-accent) 10%,
                 var(--bs-body-bg));
 }
@@ -7612,7 +7612,7 @@ th.vp-rel-num {
     text-transform: uppercase;
 }
 
-[data-bs-theme="dark"] .vp-e-mine {
+[data-misp-mode="dark"] .vp-e-mine {
     background: color-mix(in srgb, var(--vp-e-accent) 38%,
                 var(--bs-body-bg));
 }
@@ -7704,11 +7704,11 @@ th.vp-rel-num {
     border-style: dashed;
 }
 
-[data-bs-theme="dark"] .vp-e-status-ok {
+[data-misp-mode="dark"] .vp-e-status-ok {
     background: color-mix(in srgb, var(--vp-e-ok) 22%, var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-e-status-timeout {
+[data-misp-mode="dark"] .vp-e-status-timeout {
     background: color-mix(in srgb, var(--bs-warning) 24%,
         var(--bs-body-bg));
 }
@@ -8179,7 +8179,7 @@ th.vp-rel-num {
 }
 
 /* Same rebalance as `.vp-relation`, rest and hover together. */
-[data-bs-theme="dark"] .vp-e-obj-head {
+[data-misp-mode="dark"] .vp-e-obj-head {
     background: color-mix(in srgb, var(--object) 14%, var(--bs-body-bg));
 }
 
@@ -8187,7 +8187,7 @@ th.vp-rel-num {
     background: color-mix(in srgb, var(--object) 18%, var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-e-obj-head:hover {
+[data-misp-mode="dark"] .vp-e-obj-head:hover {
     background: color-mix(in srgb, var(--object) 18%, var(--bs-body-bg));
 }
 
@@ -8466,7 +8466,7 @@ th.vp-rel-num {
     line-height: 1.55;
 }
 
-[data-bs-theme="dark"] .vp-e-partial {
+[data-misp-mode="dark"] .vp-e-partial {
     background: color-mix(in srgb, var(--bs-warning) 22%,
         var(--bs-body-bg));
 }
@@ -8790,8 +8790,8 @@ th.vp-rel-num {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vpa-row:hover > .vpa-cell,
-[data-bs-theme="dark"] .vpa-row:hover > .vpa-lane {
+[data-misp-mode="dark"] .vpa-row:hover > .vpa-cell,
+[data-misp-mode="dark"] .vpa-row:hover > .vpa-lane {
     background: color-mix(in srgb, var(--analystData) 18%,
         var(--bs-body-bg));
 }
@@ -9286,7 +9286,7 @@ th.vp-rel-num {
 }
 
 .vp-analyst-proposal .vp-analyst-kind,
-[data-bs-theme="dark"] .vp-analyst-proposal .vp-analyst-kind {
+[data-misp-mode="dark"] .vp-analyst-proposal .vp-analyst-kind {
     color: var(--vp-tl-proposal);
 }
 
@@ -9452,7 +9452,7 @@ th.vp-rel-num {
     text-decoration: underline;
 }
 
-[data-bs-theme="dark"] .vpa-replybtn {
+[data-misp-mode="dark"] .vpa-replybtn {
     color: color-mix(in srgb, var(--analystData) 55%, var(--bs-body-color));
 }
 
@@ -9513,7 +9513,7 @@ th.vp-rel-num {
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vpa-composer {
+[data-misp-mode="dark"] .vpa-composer {
     background: color-mix(in srgb, var(--analystData) 12%,
         var(--bs-body-bg));
 }
@@ -9656,7 +9656,7 @@ th.vp-rel-num {
  * ground where `#1d4ed8` manages 2.5, and 8.2 ΔE from its nearest
  * neighbour across the four vision models.
  */
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-tl-note: #c26189;
     --vp-tl-edit: #a2938f;
     --vp-tl-proposal: #6ea8fe;
@@ -10487,7 +10487,7 @@ a.vp-lane-tag:focus-visible {
  * panel adjusts is the width of the first track, and only inside
  * itself.
  *
- * No `[data-bs-theme="dark"]` counterpart, and that is not an
+ * No `[data-misp-mode="dark"]` counterpart, and that is not an
  * oversight. Every colour below resolves through a `--bs-*` token that
  * both themes define, including the per-action pair
  * `AuditActionMeta::style()` hands in, so there is nothing here for a
@@ -11106,7 +11106,7 @@ a.vp-lane-tag:focus-visible {
     list-style: none;
 }
 
-[data-bs-theme="dark"] .vpa-composer-fold > summary {
+[data-misp-mode="dark"] .vpa-composer-fold > summary {
     background: color-mix(in srgb, var(--analystData) 12%,
         var(--bs-body-bg));
 }

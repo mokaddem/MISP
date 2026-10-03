@@ -2274,7 +2274,7 @@
             });
             observer.observe(document.documentElement, {
                 attributes: true,
-                attributeFilter: ['data-bs-theme'],
+                attributeFilter: ['data-misp-mode'],
             });
         }
 

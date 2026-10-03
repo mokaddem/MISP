@@ -698,7 +698,7 @@
  * chip is the loudest thing on the page, and the lean is meant to be
  * read, not shouted.
  */
-[data-bs-theme="dark"] .vi-page {
+[data-misp-mode="dark"] .vi-page {
     --vi-mal-chip: var(--vp-mal, #dc3545);
     --vi-mal-chip-ink: #15181b;
     --vi-ben-chip: var(--vp-ben, #3c8c5c);
@@ -1731,8 +1731,8 @@
     font-size: 0.6rem;
 }
 
-[data-bs-theme="dark"] .vi-warnmark,
-[data-bs-theme="dark"] .vi-wlpill {
+[data-misp-mode="dark"] .vi-warnmark,
+[data-misp-mode="dark"] .vi-wlpill {
     background: color-mix(in srgb, var(--warninglist) 22%,
         var(--bs-body-bg));
     color: var(--bs-body-color);

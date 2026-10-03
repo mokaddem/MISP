@@ -407,8 +407,8 @@ input.num[type="number"]::-webkit-inner-spin-button {
  * agrees with a benign verdict as an objection to it, however the hue
  * pair above had been swapped for it.
  */
-[data-bs-theme="dark"] .d-up { color: var(--vp-dir-with-ink); }
-[data-bs-theme="dark"] .d-dn { color: var(--vp-dir-against-ink); }
+[data-misp-mode="dark"] .d-up { color: var(--vp-dir-with-ink); }
+[data-misp-mode="dark"] .d-dn { color: var(--vp-dir-against-ink); }
 
 /*
  * A cell holding a row that *weighs the record* rather than reads the

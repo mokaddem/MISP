@@ -115,7 +115,7 @@
     --vp-weighs-lacks: var(--bs-secondary-color);
 }
 
-[data-bs-theme="dark"] {
+[data-misp-mode="dark"] {
     --vp-conflict-ink: #f0b657;
     --vp-mal-ink: #f1919b;
     --vp-ben-ink: #8fd0a7;
