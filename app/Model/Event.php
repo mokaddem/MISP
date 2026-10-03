@@ -126,6 +126,7 @@ class Event extends AppModel
         'stix2' => array('json', 'Stix2Export', 'json'),
         'suricata' => array('txt', 'NidsSuricataExport', 'rules'),
         'text' => array('text', 'TextExport', 'txt'),
+        'xlsx' => array('xlsx', 'XlsxExport', 'xlsx'),
         'xml' => array('xml', 'XmlExport', 'xml'),
         'yara' => array('txt', 'YaraExport', 'yara'),
         'yara-json' => array('json', 'YaraExport', 'json')
@@ -514,7 +515,19 @@ class Event extends AppModel
         if (empty($this->data['Event']['uuid'])) {
             $this->data['Event']['uuid'] = CakeText::uuid();
         }
-        $this->__beforeSaveData = $this->data['Event'];
+        // remember the stored distribution/SG so afterSave can tell whether
+        // this save actually changed them and refresh the correlations if so
+        $this->__beforeSaveData = null;
+        if (!empty($this->data['Event']['id'])) {
+            $stored = $this->find('first', [
+                'recursive' => -1,
+                'conditions' => ['Event.id' => $this->data['Event']['id']],
+                'fields' => ['Event.distribution', 'Event.sharing_group_id'],
+            ]);
+            if (!empty($stored)) {
+                $this->__beforeSaveData = $stored['Event'];
+            }
+        }
 
         $trigger_id = 'event-before-save';
         if ($this->isTriggerCallable($trigger_id)) {
@@ -819,12 +832,14 @@ class Event extends AppModel
             return [];
         }
         // now look up the event data for these attributes
+        // the correlation row's distribution columns are a snapshot and carry no
+        // published flag, so scope the events themselves
+        $conditions = $this->createEventConditions($user);
+        $conditions['Event.id'] = $relatedEventIds;
         $relatedEvents =  $this->find(
             'all',
             [
-                'conditions' => [
-                    'Event.id' => $relatedEventIds
-                ],
+                'conditions' => $conditions,
                 'recursive' => -1,
                 'order' => 'date DESC',
                 'fields' => [
@@ -1710,14 +1725,14 @@ class Event extends AppModel
                 $data['EventReport'][$key] = $this->__updateEventReportForSync($report, $server);
                 if (empty($data['EventReport'][$key])) {
                     unset($data['EventReport'][$key]);
+                } else {
+                    $data['EventReport'][$key] = $this->__removeNonExportableTags($data['EventReport'][$key], 'EventReport', $server);
                 }
             }
             $data['EventReport'] = array_values($data['EventReport']);
         }
         if (isset($data['EventReport']) && empty($data['EventReport'])) {
             unset($data['EventReport']);
-        } else {
-            $data['EventReport'][$key] = $this->__removeNonExportableTags($data['EventReport'][$key], 'EventReport', $server);
         }
         return $data;
     }
@@ -1975,6 +1990,21 @@ class Event extends AppModel
                 'table' => 'event_reports',
                 'foreign_key' => 'event_id',
                 'value' => $id
+            ),
+            array(
+                'table' => 'event_graph',
+                'foreign_key' => 'event_id',
+                'value' => $id
+            ),
+            array(
+                'table' => 'shadow_attribute_correlations',
+                'foreign_key' => 'event_id',
+                'value' => $id
+            ),
+            array(
+                'table' => 'shadow_attribute_correlations',
+                'foreign_key' => '1_event_id',
+                'value' => $id
             )
         );
         if ($thread_id) {
@@ -2001,8 +2031,36 @@ class Event extends AppModel
             );
         }
 
+        // rows keyed by the event's reports or attributes rather than the event itself,
+        // looked up before the raw deletes below remove their parents
+        $reportIds = $this->EventReport->find('column', [
+            'conditions' => ['EventReport.event_id' => $id],
+            'fields' => ['EventReport.id'],
+        ]);
+        $AttachmentScan = $this->loadAttachmentScan();
+        $scanTypes = ['attachment', 'malware-sample'];
+        $scannedIds = [
+            AttachmentScan::TYPE_ATTRIBUTE => $this->Attribute->find('column', [
+                'conditions' => ['Attribute.event_id' => $id, 'Attribute.type' => $scanTypes],
+                'fields' => ['Attribute.id'],
+            ]),
+            AttachmentScan::TYPE_SHADOW_ATTRIBUTE => $this->ShadowAttribute->find('column', [
+                'conditions' => ['ShadowAttribute.event_id' => $id, 'ShadowAttribute.type' => $scanTypes],
+                'fields' => ['ShadowAttribute.id'],
+            ]),
+        ];
+
         $db = $this->getDataSource();
         $db->begin();
+        if (!empty($reportIds)) {
+            $this->EventReport->EventReportTag->deleteAll(['EventReportTag.event_report_id' => $reportIds], false);
+        }
+        foreach ($scannedIds as $type => $ids) {
+            if (!empty($ids)) {
+                $AttachmentScan->deleteAll(['AttachmentScan.type' => $type, 'AttachmentScan.attribute_id' => $ids], false);
+            }
+        }
+        ClassRegistry::init('FuzzyCorrelateSsdeep')->purge($id);
         $connection = $db->getConnection();
         foreach ($relations as $relation) {
             $query = $connection->prepare('DELETE FROM ' . $db->name($relation['table']) . ' WHERE ' . $db->name($relation['foreign_key']) . ' = :value');
@@ -2446,7 +2504,13 @@ class Event extends AppModel
      *   - category (string|null)
      *   - type (string|null)
      *   - toIDS (int|null, 1=yes, 2=no)
-     *   - searchFor (string|null) value substring search
+     *   - correlation, feed, warning, analystData (int|null, 1=has related
+     *     events / feed hits / warninglist hits / analyst data, 2=has none)
+     *   - tags (string|string[]|null) exact tag names
+     *   - galaxy (string|null) galaxy type, any of its clusters
+     *   - org (string|null) creator org name of the event a row belongs to
+     *   - searchFor (string|null) substring search over value, uuid and
+     *     comment
      *   - eventIds (int[]|null) extended / extending view: every event whose
      *     attributes belong in the list. $eventId stays the primary one.
      * @return array ['Attribute' => [...], 'total' => int]
@@ -2482,6 +2546,12 @@ class Event extends AppModel
                 'intval', (array)$options['eventIds']
             )));
 
+        // Creator org: only tells rows apart in an extended view, where the
+        // merged events can come from different organisations.
+        if (!empty($options['org'])) {
+            $eventIds = $this->__eventIdsOfOrg($eventIds, $options['org']);
+        }
+
         // Base conditions
         $conditions = [
             'Attribute.event_id' => $eventIds,
@@ -2499,6 +2569,17 @@ class Event extends AppModel
         } else {
             $conditions['Attribute.deleted'] = 0;
         }
+        if ($deleted !== 0 && !$user['Role']['perm_sync']) {
+            // soft-deleted data is only shown to the event owner, as in fetchEvent()
+            $ownDeleted = [
+                'Attribute.deleted' => 1,
+                $this->eventOwnerSubquery('Attribute') . ' = ' . (int)$user['org_id'],
+            ];
+            unset($conditions['Attribute.deleted']);
+            $conditions[] = $deleted === 1
+                ? ['OR' => ['Attribute.deleted' => 0, 'AND' => $ownDeleted]]
+                : $ownDeleted;
+        }
 
         // Optional filters
         if (!empty($options['category'])) {
@@ -2512,8 +2593,35 @@ class Event extends AppModel
                 $options['toIDS'] == 2 ? 0 : 1;
         }
         if (!empty($options['searchFor'])) {
-            $conditions['Attribute.value LIKE'] =
-                '%' . $options['searchFor'] . '%';
+            // Same reach as the classic event view's filter: a value, a UUID
+            // or a comment, so a deep link onto one attribute resolves as
+            // well as free text does. Appended at the top level, not under
+            // 'AND' - the ACL block below writes $conditions['AND'][0]['OR']
+            // by index and would overwrite anything sitting there.
+            $needle = '%' . $options['searchFor'] . '%';
+            $conditions[] = ['OR' => [
+                'Attribute.value LIKE' => $needle,
+                'Attribute.uuid LIKE' => $needle,
+                'Attribute.comment LIKE' => $needle,
+            ]];
+        }
+
+        $analystData = (int)($options['analystData'] ?? 0);
+        if ($analystData === 1 || $analystData === 2) {
+            $conditions[] = $this->Attribute->analystDataCondition(
+                $user,
+                $analystData === 1
+            );
+        }
+        if (!empty($options['tags'])) {
+            $conditions[] = $this->Attribute->tagCondition(
+                $options['tags'], null, $eventIds
+            );
+        }
+        if (!empty($options['galaxy'])) {
+            $conditions[] = $this->Attribute->tagCondition(
+                null, $options['galaxy'], $eventIds
+            );
         }
 
         // Proposals filter. The toggle narrows the list down to what carries
@@ -2542,6 +2650,39 @@ class Event extends AppModel
                 ]],
                 $attributeCondSelect . ' = ' . (int)$user['org_id'],
             ];
+            if (!empty($options['flatten'])) {
+                // object attributes are only in the list when flattening, and
+                // they still have to pass the object's own distribution ACL
+                $objectCondSelect = $this->eventOwnerSubquery('Object');
+                $objectAcl = $this->subQueryGenerator(
+                    $this->Object,
+                    [
+                        'fields' => ['Object.id'],
+                        'recursive' => -1,
+                        'conditions' => [
+                            'Object.event_id' => $eventIds,
+                            'OR' => [
+                                ['AND' => [
+                                    'Object.distribution >' => 0,
+                                    'Object.distribution !=' => 4,
+                                ]],
+                                ['AND' => [
+                                    'Object.distribution' => 4,
+                                    'Object.sharing_group_id' => $sgids,
+                                ]],
+                                $objectCondSelect . ' = ' . (int)$user['org_id'],
+                            ],
+                        ],
+                    ],
+                    'Attribute.object_id'
+                );
+                $conditions['AND'][] = [
+                    'OR' => [
+                        'Attribute.object_id' => 0,
+                        $objectAcl[0],
+                    ],
+                ];
+            }
         }
 
         // Warninglist filter. Kept last so the hit set is resolved against the
@@ -2551,6 +2692,22 @@ class Event extends AppModel
                 $this->__attributeIdsMatchingWarninglist(
                     $conditions,
                     (int)$options['warninglist']
+                );
+        }
+
+        // Yes/no filters on what __enrichAttributes() computes (1 = has, 2 =
+        // has not). Same reason as above for resolving them last.
+        $hitFilters = [];
+        foreach (['warning', 'feed', 'correlation'] as $hitKey) {
+            $hitValue = (int)($options[$hitKey] ?? 0);
+            if ($hitValue === 1 || $hitValue === 2) {
+                $hitFilters[$hitKey] = $hitValue === 1;
+            }
+        }
+        if (!empty($hitFilters)) {
+            $conditions['Attribute.id'] =
+                $this->__attributeIdsMatchingHits(
+                    $user, $eventId, $conditions, $hitFilters
                 );
         }
 
@@ -2870,6 +3027,174 @@ class Event extends AppModel
     }
 
     /**
+     * Ids of the attributes selected by $conditions whose warninglist, feed
+     * and correlation hits match $wanted, a map of 'warning' / 'feed' /
+     * 'correlation' => whether the attribute must have one.
+     *
+     * @param array $user
+     * @param int $eventId primary event, the one correlations are seen from
+     * @param array $conditions Attribute conditions of the caller's query
+     * @param array $wanted
+     * @return array Attribute ids; [-1] when nothing matches
+     */
+    private function __attributeIdsMatchingHits(
+        array $user,
+        $eventId,
+        array $conditions,
+        array $wanted
+    ) {
+        $ids = [];
+        $this->__scanAttributeHits(
+            $user, $eventId, $conditions, array_keys($wanted),
+            function (array $attribute, array $hits) use ($wanted, &$ids) {
+                foreach ($wanted as $key => $mustHave) {
+                    if ($hits[$key] !== $mustHave) {
+                        return;
+                    }
+                }
+                $ids[] = $attribute['id'];
+            }
+        );
+        return empty($ids) ? [-1] : $ids;
+    }
+
+    /**
+     * Ids of the objects holding at least one attribute selected by
+     * $conditions with a warninglist, feed or correlation hit, per kind.
+     *
+     * @param array $user
+     * @param int $eventId primary event, the one correlations are seen from
+     * @param array $conditions Attribute conditions
+     * @param array $keys among 'warning', 'feed', 'correlation'
+     * @return array key => object ids
+     */
+    private function __objectIdsWithHits(
+        array $user,
+        $eventId,
+        array $conditions,
+        array $keys
+    ) {
+        $objectIds = array_fill_keys($keys, []);
+        $this->__scanAttributeHits(
+            $user, $eventId, $conditions, $keys,
+            function (array $attribute, array $hits) use ($keys, &$objectIds) {
+                foreach ($keys as $key) {
+                    if ($hits[$key]) {
+                        $objectIds[$key][$attribute['object_id']] = true;
+                    }
+                }
+            }
+        );
+        return array_map('array_keys', $objectIds);
+    }
+
+    /**
+     * Walk the attributes selected by $conditions and hand each one, with its
+     * warninglist / feed / correlation hits for the asked $keys, to $onRow.
+     *
+     * Like __attributeIdsMatchingWarninglist(), the hits are computed in PHP
+     * (warninglists, the redis feed cache, the correlation ACL), so the
+     * candidates are walked in id-ordered batches to keep memory bounded on a
+     * very large event.
+     *
+     * @param array $user
+     * @param int $eventId primary event, the one correlations are seen from
+     * @param array $conditions Attribute conditions
+     * @param array $keys among 'warning', 'feed', 'correlation'
+     * @param callable $onRow function (array $attribute, array $hits)
+     * @return void
+     */
+    private function __scanAttributeHits(
+        array $user,
+        $eventId,
+        array $conditions,
+        array $keys,
+        callable $onRow
+    ) {
+        $keys = array_flip($keys);
+        if (isset($keys['warning']) && !isset($this->Warninglist)) {
+            $this->Warninglist = ClassRegistry::init('Warninglist');
+        }
+        $sgids = isset($keys['correlation'])
+            ? $this->SharingGroup->authorizedIds($user)
+            : [];
+
+        $lastId = 0;
+        do {
+            $batchConditions = $conditions;
+            $batchConditions['Attribute.id >'] = $lastId;
+            $batch = $this->Attribute->find('all', [
+                'conditions' => $batchConditions,
+                'fields' => [
+                    'Attribute.id',
+                    'Attribute.object_id',
+                    'Attribute.type',
+                    'Attribute.value',
+                    'Attribute.to_ids',
+                    'Attribute.disable_correlation',
+                ],
+                'order' => ['Attribute.id' => 'ASC'],
+                'limit' => 5000,
+                'recursive' => -1,
+            ]);
+            if (empty($batch)) {
+                break;
+            }
+            $flat = array_column($batch, 'Attribute');
+            unset($batch);
+            $lastId = (int)end($flat)['id'];
+
+            if (isset($keys['warning'])) {
+                $this->Warninglist->attachWarninglistToAttributes($flat);
+            }
+            if (isset($keys['feed'])) {
+                $flat = $this->__attachFeedAndServerHits(
+                    $flat, $user, $eventId
+                );
+            }
+            $correlations = isset($keys['correlation'])
+                ? $this->Attribute->Correlation->getAttributeCorrelations(
+                    $user, $eventId, $sgids, array_column($flat, 'id')
+                )
+                : [];
+
+            foreach ($flat as $attribute) {
+                $onRow($attribute, [
+                    'warning' => !empty($attribute['warnings']),
+                    'feed' => !empty($attribute['Feed'])
+                        || !empty($attribute['Server'])
+                        || !empty($attribute['FeedHit']),
+                    'correlation' => !empty($correlations[$attribute['id']]),
+                ]);
+            }
+        } while (count($flat) === 5000);
+    }
+
+    /**
+     * The events of $eventIds created by the organisation named $orgName.
+     *
+     * @param array $eventIds
+     * @param string $orgName
+     * @return array event ids; [-1] when none
+     */
+    private function __eventIdsOfOrg(array $eventIds, $orgName)
+    {
+        return $this->find('column', [
+            'fields' => ['Event.id'],
+            'conditions' => [
+                'Event.id' => $eventIds,
+                'Orgc.name' => $orgName,
+            ],
+            'joins' => [[
+                'table' => 'organisations',
+                'alias' => 'Orgc',
+                'type' => 'INNER',
+                'conditions' => ['Orgc.id = Event.orgc_id'],
+            ]],
+        ]) ?: [-1];
+    }
+
+    /**
      * Conditions selecting the standalone "new attribute" proposals of an
      * event view (ShadowAttribute.old_id = 0), narrowed by the same column
      * filters as the attribute list itself.
@@ -2900,9 +3225,29 @@ class Event extends AppModel
         if (!empty($options['type'])) {
             $conditions['ShadowAttribute.type'] = $options['type'];
         }
+        if (isset($options['toIDS']) && $options['toIDS'] != 0) {
+            $conditions['ShadowAttribute.to_ids'] =
+                $options['toIDS'] == 2 ? 0 : 1;
+        }
+        // A proposal carries no tag, hit or analyst data of its own, so a
+        // filter asking for one leaves it out.
+        $requiresSomething = !empty($options['tags'])
+            || !empty($options['galaxy']);
+        foreach (['correlation', 'feed', 'warning', 'analystData'] as $key) {
+            if ((int)($options[$key] ?? 0) === 1) {
+                $requiresSomething = true;
+            }
+        }
+        if ($requiresSomething) {
+            $conditions['ShadowAttribute.id'] = -1;
+        }
         if (!empty($options['searchFor'])) {
-            $conditions['ShadowAttribute.value1 LIKE'] =
-                '%' . $options['searchFor'] . '%';
+            $needle = '%' . $options['searchFor'] . '%';
+            $conditions[] = ['OR' => [
+                'ShadowAttribute.value1 LIKE' => $needle,
+                'ShadowAttribute.uuid LIKE' => $needle,
+                'ShadowAttribute.comment LIKE' => $needle,
+            ]];
         }
         return $conditions;
     }
@@ -3032,6 +3377,110 @@ class Event extends AppModel
     }
 
     /**
+     * Object conditions for the attribute filters of the objects index.
+     *
+     * category / type / tags / galaxy must all hold for one same attribute.
+     * The yes/no filters ask whether any attribute of the object has the
+     * property, so "No" keeps an object none of whose attributes has it.
+     *
+     * @param array $user
+     * @param int $eventId primary event, the one correlations are seen from
+     * @param array $eventIds
+     * @param array $attrScope conditions on the attributes an object shows
+     * @param array $options fetchPaginatedObjects() options
+     * @return array conditions to add to the object query
+     */
+    private function __objectAttributeFilterConditions(
+        array $user,
+        $eventId,
+        array $eventIds,
+        array $attrScope,
+        array $options
+    ) {
+        $holding = function (array $attrConditions, $negate = false) {
+            return $this->subQueryGenerator(
+                $this->Attribute,
+                [
+                    'fields' => ['Attribute.object_id'],
+                    'conditions' => $attrConditions,
+                ],
+                'Object.id',
+                $negate
+            )[0];
+        };
+        $conditions = [];
+
+        $matching = $attrScope;
+        foreach (['category', 'type'] as $key) {
+            if (!empty($options[$key])) {
+                $matching['Attribute.' . $key] = $options[$key];
+            }
+        }
+        if (!empty($options['tags'])) {
+            $matching[] = $this->Attribute->tagCondition(
+                $options['tags'], null, $eventIds
+            );
+        }
+        if (!empty($options['galaxy'])) {
+            $matching[] = $this->Attribute->tagCondition(
+                null, $options['galaxy'], $eventIds
+            );
+        }
+        if ($matching !== $attrScope) {
+            $conditions[] = $holding($matching);
+        }
+
+        $yesNo = function ($key) use ($options) {
+            $value = (int)($options[$key] ?? 0);
+            return ($value === 1 || $value === 2) ? $value === 1 : null;
+        };
+
+        $toIds = $yesNo('toIDS');
+        if ($toIds !== null) {
+            $conditions[] = $holding(
+                $attrScope + ['Attribute.to_ids' => 1],
+                !$toIds
+            );
+        }
+
+        $analystData = $yesNo('analystData');
+        if ($analystData !== null) {
+            $ownData = $this->Attribute->analystDataCondition(
+                $user, $analystData, 'Object', 'Object.uuid'
+            );
+            $attrScopeWithData = $attrScope;
+            $attrScopeWithData[] = $this->Attribute->analystDataCondition(
+                $user, true
+            );
+            $attributesData = $holding($attrScopeWithData, !$analystData);
+            $conditions[] = '(' . $ownData
+                . ($analystData ? ' OR ' : ' AND ')
+                . $attributesData . ')';
+        }
+
+        $hitWanted = [];
+        foreach (['warning', 'feed', 'correlation'] as $key) {
+            if ($yesNo($key) !== null) {
+                $hitWanted[$key] = $yesNo($key);
+            }
+        }
+        if (!empty($hitWanted)) {
+            $withHits = $this->__objectIdsWithHits(
+                $user, $eventId, $attrScope, array_keys($hitWanted)
+            );
+            foreach ($hitWanted as $key => $mustHave) {
+                if ($mustHave) {
+                    $conditions[] = ['Object.id' => $withHits[$key] ?: [-1]];
+                } elseif (!empty($withHits[$key])) {
+                    $conditions[] = ['NOT' => ['Object.id' => $withHits[$key]]];
+                }
+            }
+        }
+
+        return $conditions;
+    }
+
+    /**
      * Fetch paginated objects for a given event, with
      * distribution-based ACL on both the object and its
      * nested attributes. Includes attribute tags and
@@ -3047,7 +3496,14 @@ class Event extends AppModel
      *   - deleted (int, 0/1/2)
      *   - name (string|null) object template name filter
      *   - meta-category (string|null)
-     *   - searchFor (string|null) search in object attribute values
+     *   - searchFor (string|null) substring search over the object's own
+     *     uuid / name / comment and its attributes' values and uuids
+     *   - category, type, tags, galaxy: an object stays when one of its
+     *     attributes matches them all
+     *   - toIDS, correlation, feed, warning, analystData (1=at least one of
+     *     its attributes has it, 2=none has; analyst data counts the object's
+     *     own as well)
+     *   - org (string|null) creator org name of the object's event
      *   - eventIds (int[]|null) extended / extending view: every event whose
      *     objects belong in the list
      * @return array ['Object' => [...], 'total' => int]
@@ -3082,6 +3538,10 @@ class Event extends AppModel
             : array_values(array_unique(array_map(
                 'intval', (array)$options['eventIds']
             )));
+        // Creator org: only tells objects apart in an extended view.
+        if (!empty($options['org'])) {
+            $eventIds = $this->__eventIdsOfOrg($eventIds, $options['org']);
+        }
 
         // Object-level conditions
         $conditions = [
@@ -3129,8 +3589,33 @@ class Event extends AppModel
                 $options['meta-category'];
         }
 
-        // Object distribution ACL for non-site-admins
         $sgids = $this->SharingGroup->authorizedIds($user);
+        // The attributes an object is judged on: the ones it shows.
+        $attrScope = [
+            'Attribute.event_id' => $eventIds,
+            'Attribute.object_id !=' => 0,
+            'Attribute.deleted' => $attrDeleted,
+        ];
+        if (!$isSiteAdmin) {
+            $attrScope[] = ['OR' => [
+                ['AND' => [
+                    'Attribute.distribution >' => 0,
+                    'Attribute.distribution !=' => 4,
+                ]],
+                ['AND' => [
+                    'Attribute.distribution' => 4,
+                    'Attribute.sharing_group_id' => $sgids,
+                ]],
+                $this->eventOwnerSubquery('Attribute') . ' = ' . (int)$user['org_id'],
+            ]];
+        }
+        foreach ($this->__objectAttributeFilterConditions(
+            $user, $eventId, $eventIds, $attrScope, $options
+        ) as $condition) {
+            $conditions[] = $condition;
+        }
+
+        // Object distribution ACL for non-site-admins
         if (!$isSiteAdmin) {
             $objectCondSelect = $this->eventOwnerSubquery('Object');
             $conditions['AND'][0]['OR'] = [
@@ -3164,10 +3649,13 @@ class Event extends AppModel
             'Object.last_seen',
         ];
 
-        // If searchFor is set, we need to find objects that
-        // have at least one attribute matching the search term.
-        // We do this via a subquery on the object IDs.
+        // If searchFor is set, keep the objects that match it themselves or
+        // hold at least one attribute that does - the latter through a
+        // subquery on the object IDs. Matching a UUID on either side is what
+        // lets a deep link onto one object, or onto one of its attributes,
+        // land on it.
         if (!empty($options['searchFor'])) {
+            $needle = '%' . $options['searchFor'] . '%';
             $db = $this->getDataSource();
             $subQuery = $db->buildStatement([
                 'fields' => ['DISTINCT Attribute.object_id'],
@@ -3176,12 +3664,18 @@ class Event extends AppModel
                 'conditions' => [
                     'Attribute.event_id' => $eventIds,
                     'Attribute.object_id !=' => 0,
-                    'Attribute.value1 LIKE' =>
-                        '%' . $options['searchFor'] . '%',
+                    'OR' => [
+                        'Attribute.value1 LIKE' => $needle,
+                        'Attribute.uuid LIKE' => $needle,
+                    ],
                 ],
             ], $this->Attribute);
-            $conditions[] =
-                'Object.id IN (' . $subQuery . ')';
+            $conditions[] = ['OR' => [
+                'Object.uuid LIKE' => $needle,
+                'Object.name LIKE' => $needle,
+                'Object.comment LIKE' => $needle,
+                'Object.id IN (' . $subQuery . ')',
+            ]];
         }
 
         // Count total (for pagination metadata)
@@ -3389,6 +3883,36 @@ class Event extends AppModel
         }
         unset($obj);
 
+        /*
+         * References, in one query for the whole page rather than one per object:
+         * the card header shows how many an object carries and what they point at.
+         */
+        $references = $this->Object->ObjectReference->find('all', [
+            'recursive' => -1,
+            'conditions' => [
+                'ObjectReference.object_id' => $objectIds,
+                'ObjectReference.deleted' => 0,
+            ],
+            'fields' => [
+                'ObjectReference.object_id',
+                'ObjectReference.referenced_id',
+                'ObjectReference.referenced_uuid',
+                'ObjectReference.referenced_type',
+                'ObjectReference.relationship_type',
+                'ObjectReference.comment',
+            ],
+            'order' => ['ObjectReference.id' => 'ASC'],
+        ]);
+        $referencesByObject = [];
+        foreach ($references as $reference) {
+            $row = $reference['ObjectReference'];
+            $referencesByObject[$row['object_id']][] = $row;
+        }
+        foreach ($flat as $objId => &$obj) {
+            $obj['ObjectReference'] = $referencesByObject[$objId] ?? [];
+        }
+        unset($obj);
+
         // Move each object-attribute's is_galaxy tags into a ['Galaxy'] array
         $galaxyMap = [];
         $galaxyFlat = [];
@@ -3515,6 +4039,46 @@ class Event extends AppModel
     }
 
     /**
+     * Attach feed hits, and server hits for the users allowed to see them.
+     *
+     * @param array $attributes Flat array of attributes
+     * @param array $user
+     * @param int $eventId
+     * @return array
+     */
+    private function __attachFeedAndServerHits(
+        array $attributes,
+        array $user,
+        $eventId
+    ) {
+        if (!isset($this->Feed)) {
+            $this->Feed = ClassRegistry::init('Feed');
+        }
+        $eventShell = ['Event' => ['id' => $eventId]];
+        $attributes = $this->Feed->attachFeedCorrelations(
+            $attributes, $user,
+            $eventShell, false, 'Feed'
+        );
+        if (
+            $user['Role']['perm_site_admin'] ||
+            $user['org_id'] == Configure::read(
+                'MISP.host_org_id'
+            ) ||
+            Configure::read(
+                'MISP.show_server_correlations_for_all_users',
+                false
+            )
+        ) {
+            $attributes = $this->Feed
+                ->attachFeedCorrelations(
+                    $attributes, $user,
+                    $eventShell, false, 'Server'
+                );
+        }
+        return $attributes;
+    }
+
+    /**
      * Enrich a flat array of attributes with warninglist
      * hits, feed/server correlations, attribute
      * correlations, and sighting data.
@@ -3553,31 +4117,9 @@ class Event extends AppModel
             $attributes
         );
 
-        // Feed and server correlations
-        if (!isset($this->Feed)) {
-            $this->Feed = ClassRegistry::init('Feed');
-        }
-        $eventShell = ['Event' => ['id' => $eventId]];
-        $attributes = $this->Feed->attachFeedCorrelations(
-            $attributes, $user,
-            $eventShell, false, 'Feed'
+        $attributes = $this->__attachFeedAndServerHits(
+            $attributes, $user, $eventId
         );
-        if (
-            $user['Role']['perm_site_admin'] ||
-            $user['org_id'] == Configure::read(
-                'MISP.host_org_id'
-            ) ||
-            Configure::read(
-                'MISP.show_server_correlations_for_all_users',
-                false
-            )
-        ) {
-            $attributes = $this->Feed
-                ->attachFeedCorrelations(
-                    $attributes, $user,
-                    $eventShell, false, 'Server'
-                );
-        }
 
         // Attribute correlations
         $attributeIds = array_column($attributes, 'id');
@@ -4793,7 +5335,7 @@ class Event extends AppModel
                 $attributeCondSelect . ' = ' . (int)$user['org_id']
             );
 
-            $conditionsObjects['AND'][0]['OR'] = array(
+            $objectAclCondition = array('OR' => array(
                 array('AND' => array(
                     'Object.distribution >' => 0,
                     'Object.distribution !=' => 4,
@@ -4803,7 +5345,8 @@ class Event extends AppModel
                     'Object.sharing_group_id' => $sgids,
                 )),
                 $objectCondSelect . ' = ' . (int)$user['org_id']
-            );
+            ));
+            $conditionsObjects['AND'][0] = $objectAclCondition;
 
             $conditionsEventReport['AND'][0]['OR'] = array(
                 array('AND' => array(
@@ -4983,6 +5526,30 @@ class Event extends AppModel
             );
         }
         if ($flatten) {
+            if (!$isSiteAdmin) {
+                // flattened object attributes still have to pass the object ACL that the
+                // dropped Object contain would have enforced - that condition only. The
+                // rest of the contain (soft-delete state, the distribution filters) says
+                // which objects are listed, not which attributes may be seen.
+                $objectAcl = $this->subQueryGenerator(
+                    $this->Object,
+                    array(
+                        'fields' => array('Object.id'),
+                        'recursive' => -1,
+                        'conditions' => array(
+                            'Object.id = Attribute.object_id',
+                            $objectAclCondition,
+                        ),
+                    ),
+                    'Attribute.object_id'
+                );
+                $params['contain']['Attribute']['conditions']['AND'][] = array(
+                    'OR' => array(
+                        'Attribute.object_id' => 0,
+                        $objectAcl[0],
+                    ),
+                );
+            }
             unset($params['contain']['Object']);
         }
         if ($options['noEventReports']) {
@@ -7181,6 +7748,7 @@ class Event extends AppModel
             if (!empty($data['Event']['EventTag'])) {
                 $toSave = [];
                 foreach ($data['Event']['EventTag'] as $et) {
+                    unset($et['id'], $et[$this->EventTag->alias]);
                     $et['event_id'] = $this->id;
                     $toSave[] = $et;
                 }
@@ -10194,6 +10762,7 @@ class Event extends AppModel
                             }
                         }
                     }
+                    unset($attribute[$model->alias]);
                     $saved_attribute = $model->save($attribute, ['parentEvent' => $event]);
                     if ($saved_attribute) {
                         $results[] = $saved_attribute;
@@ -10456,6 +11025,7 @@ class Event extends AppModel
                     $attribute = $this->Attribute->onDemandEncrypt($attribute);
                 }
                 $attribute['event_id'] = $id;
+                unset($attribute[$this->Attribute->alias]);
                 if ($this->Attribute->save($attribute)) {
                     $saved_attributes++;
                     if (!empty($attribute['Tag'])) {
@@ -10572,6 +11142,7 @@ class Event extends AppModel
                             // initialObject matching, never to target this save) so it cannot
                             // redirect save() onto an arbitrary object row in another event.
                             unset($object['id']);
+                            unset($object[$this->Object->alias]);
                             if ($this->Object->save($object)) {
                                 $object_id = $this->Object->id;
                                 foreach ($object['Attribute'] as $object_attribute) {
@@ -10595,6 +11166,7 @@ class Event extends AppModel
                         // New object only; strip any client id so it cannot redirect save()
                         // onto an arbitrary object row (no fieldList here).
                         unset($object['id']);
+                        unset($object[$this->Object->alias]);
                         if ($this->Object->save($object)) {
                             $object_id = $this->Object->id;
                             $saved_objects++;
@@ -10677,6 +11249,7 @@ class Event extends AppModel
                 // not strip it) - matching the attribute and object loops above.
                 unset($report['id']);
                 $report['event_id'] = $id;
+                unset($report[$this->EventReport->alias]);
                 if ($this->EventReport->save($report)) {
                     $saved_reports++;
                 } else {
@@ -10871,6 +11444,7 @@ class Event extends AppModel
         // cannot redirect save() onto an arbitrary attribute (object_id/event_id are forced
         // above, but the primary key is not, and there is no fieldList here).
         unset($attribute['id']);
+        unset($attribute[$this->Attribute->alias]);
         $attribute_save = $this->Attribute->save($attribute, ['parentEvent' => $event]);
         if ($attribute_save) {
             if (!empty($attribute['Tag'])) {

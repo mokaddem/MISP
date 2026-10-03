@@ -16,6 +16,15 @@ $disabledReason = $filter_bar['disabled'] ?? null;
  * caller, which keeps the bar exactly as it is today.
  */
 $scopeNote = $filter_bar['scope_note'] ?? null;
+
+// A mass_* key holds the path of the modal the button opens (selected ids appended).
+$massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
+    return sprintf(
+        "multiSelectItems('%s', '', '%s')",
+        h($baseurl . $filter_bar[$key]),
+        $size
+    );
+};
 ?>
 <div id="multiSelectToolbar"
      class="mt-2 d-none">
@@ -100,7 +109,7 @@ $scopeNote = $filter_bar['scope_note'] ?? null;
                     class="btn btn-secondary btn-sm d-none"
                     title="<?= __('Edit selected attributes') ?>"
                     aria-label="<?= __('Edit selected attributes') ?>"
-                    onclick="multiSelectItems('#', '')">
+                    onclick="<?= $massOpen('mass_edit', 'lg') ?>">
                 <i class="fas fa-edit text-white"></i>
                 <span class="text-white"> <?= __('Edit') ?></span>
             </button>
@@ -111,7 +120,7 @@ $scopeNote = $filter_bar['scope_note'] ?? null;
                     class="btn btn-tag btn-sm d-none"
                     title="<?= __('Add Tag on selected attributes') ?>"
                     aria-label="<?= __('Add Tag on selected attributes') ?>"
-                    onclick="multiSelectItems('#', '')">
+                    onclick="<?= $massOpen('mass_tag', 'xl') ?>">
                 <span class="misp-icon misp-icon-tag misp-simple text-white"></span>
                 <span class="text-white"> <?= __('Tag') ?></span>
             </button>
@@ -129,11 +138,11 @@ $scopeNote = $filter_bar['scope_note'] ?? null;
         <?php endif; ?>
 
         <?php if (!empty($filter_bar['mass_cluster'])): ?>
-            <button id="mass-cluster-button",
+            <button id="mass-cluster-button"
                     class="btn btn-galaxy btn-sm d-none"
                     title="<?= __('Add Cluster on selected attributes') ?>"
                     aria-label="<?= __('Add Cluster to selected attributes') ?>"
-                    onclick="multiSelectItems('#', '')">
+                    onclick="<?= $massOpen('mass_cluster', 'xl') ?>">
                 <span class="misp-icon misp-icon-galaxy misp-simple text-white"></span>
                 <span class="text-white"> <?= __('Cluster') ?></span>
             </button>
@@ -155,7 +164,7 @@ $scopeNote = $filter_bar['scope_note'] ?? null;
                     class="btn btn-object btn-sm d-none"
                     title="<?= __('Group selected Attributes into an Object') ?>"
                     aria-label="<?= __('Group selected Attributes into an Object') ?>"
-                    onclick="multiSelectItems('#', '')">
+                    onclick="<?= $massOpen('mass_object', 'xl') ?>">
                 <span class="misp-icon misp-icon-object misp-simple text-white"></span>
                 <span class="text-white"> <?= __('Object') ?></span>
             </button>
@@ -164,9 +173,9 @@ $scopeNote = $filter_bar['scope_note'] ?? null;
         <?php if (!empty($filter_bar['mass_relationship'])): ?>
             <button id="mass-relationship-button"
                     class="btn btn-correlation btn-sm d-none"
-                    title="<?= __('Create new relationship for selected entities') ?>"
-                    aria-label="<?= __('Create new relationship for selected entities') ?>"
-                    onclick="multiSelectItems('#', '')">
+                    title="<?= __('Create new relationship for selected attributes') ?>"
+                    aria-label="<?= __('Create new relationship for selected attributes') ?>"
+                    onclick="<?= $massOpen('mass_relationship', 'lg') ?>">
                 <i class="fas fa-diagram-project text-white"></i>
                 <span class="text-white"> <?= __('Relationship') ?></span>
             </button>
@@ -258,13 +267,14 @@ $scopeNote = $filter_bar['scope_note'] ?? null;
         <?php endif; ?>
 
         <?php if (!empty($filter_bar['soft_delete'])): ?>
+            <?php // The confirmation modal soft-deletes unless told to delete for good. ?>
             <button id="multi-soft-delete-button"
-                    class="btn btn-warning btn-sm d-none"
-                    title="<?= __('Soft-delete selected items') ?>"
-                    aria-label="<?= __('Soft-delete selected items') ?>"
+                    class="btn btn-danger btn-sm d-none"
+                    title="<?= __('Delete selected items') ?>"
+                    aria-label="<?= __('Delete selected items') ?>"
                     onclick="multiSelectItems('<?= h($baseurl . $item_url . $filter_bar['soft_delete']) ?>', '')">
-                <i class="fas fa-trash"></i>
-                <span> <?= __('Soft-delete') ?></span>
+                <i class="fas fa-trash text-white"></i>
+                <span class="text-white"> <?= __('Delete') ?></span>
             </button>
         <?php endif; ?>
 

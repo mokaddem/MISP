@@ -1,4 +1,5 @@
 <?php
+App::uses('MispAttribute', 'Model');
 App::uses('ValueUrlTool', 'Tools/ValueProfile');
 
 $attribute = Hash::extract($row, $field['data_path']);
@@ -60,6 +61,13 @@ if ($vpHoverValue !== null) {
         . $vpValueHtml . '</span>';
 }
 
+// The thumbnails are the default-size ones getThumbnail() caches (webp twice as
+// large, for a sharp render); the CSS sizes them down.
+$pictureUrl = null;
+if (($attribute['type'] ?? '') === 'attachment' && !$isProposalRow && !empty($attribute['id'])
+    && Validation::extension((string)$attribute['value'], MispAttribute::IMAGE_EXTENSIONS)) {
+    $pictureUrl = $baseurl . '/attributes/viewPicture/' . (int)$attribute['id'];
+}
 
 $renderPropActions = function ($pid) use ($canModifyProposal, $baseurl) {
     if (!$canModifyProposal) {
@@ -138,6 +146,20 @@ $renderPropActions = function ($pid) use ($canModifyProposal, $baseurl) {
                 <span><?= h($attribute['comment']) ?></span>
             </div>
         </div>
+    <?php endif; ?>
+
+    <?php if ($pictureUrl !== null): ?>
+        <a href="<?= h($pictureUrl) ?>" target="_blank" rel="noopener"
+           class="ov-attr-thumb d-inline-block align-self-start lh-1 rounded focus-ring"
+           title="<?= __('Open the full image') ?>">
+            <picture>
+                <source srcset="<?= h($pictureUrl) ?>/webp" type="image/webp">
+                <?php // A picture the server cannot serve (a soft-deleted row) leaves no broken frame. ?>
+                <img src="<?= h($pictureUrl) ?>/1" alt="<?= h($attribute['value']) ?>"
+                     class="img-thumbnail object-fit-contain"
+                     loading="lazy" onerror="this.closest('.ov-attr-thumb').remove()">
+            </picture>
+        </a>
     <?php endif; ?>
 
     <!-- Pending proposals (edits / deletions) on this attribute -->

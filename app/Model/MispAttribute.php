@@ -305,6 +305,9 @@ class MispAttribute extends AppModel
     ];
 
     // skip Correlation for the following types
+    // An attachment whose file name carries one of these is shown as a picture
+    const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
     const NON_CORRELATING_TYPES = [
         'comment',
         'http-method',
@@ -366,6 +369,7 @@ class MispAttribute extends AppModel
         'stix2' => array('json', 'Stix2Export', 'json'),
         'suricata' => array('txt', 'NidsSuricataExport', 'rules'),
         'text' => array('txt', 'TextExport', 'txt'),
+        'xlsx' => array('xlsx', 'XlsxExport', 'xlsx'),
         'xml' => array('xml', 'XmlExport', 'xml'),
         'yara' => array('txt', 'YaraExport', 'yara'),
         'yara-json' => array('json', 'YaraExport', 'json')
@@ -1137,7 +1141,7 @@ class MispAttribute extends AppModel
     public function isImage(array $attribute)
     {
         return $attribute['type'] === 'attachment' &&
-            Validation::extension($attribute['value'], ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+            Validation::extension($attribute['value'], self::IMAGE_EXTENSIONS);
     }
 
     /**
@@ -1901,6 +1905,116 @@ class MispAttribute extends AppModel
         return $attribute;
     }
 
+    /**
+     * Condition keeping the attributes that carry (or, with $has false, do
+     * not carry) a note, an opinion or a relationship the user can see — the
+     * same set the analyst data column counts. $objectType and $uuidField
+     * point it at another kind of parent, an object for instance.
+     *
+     * @param array $user
+     * @param bool $has
+     * @param string $objectType the analyst data's object_type
+     * @param string|null $uuidField column holding that object's uuid
+     * @return string
+     */
+    public function analystDataCondition(array $user, $has, $objectType = 'Attribute', $uuidField = null)
+    {
+        $sgids = empty($user['Role']['perm_site_admin'])
+            ? $this->SharingGroup->authorizedIds($user)
+            : null;
+        $subQueries = [];
+        foreach (['Note', 'Opinion', 'Relationship'] as $type) {
+            $Model = ClassRegistry::init($type);
+            $typeConditions = [$type . '.object_type' => $objectType];
+            if ($sgids !== null) {
+                $typeConditions['OR'] = [
+                    $type . '.orgc_uuid' => $user['Organisation']['uuid'],
+                    $type . '.org_uuid' => $user['Organisation']['uuid'],
+                    $type . '.distribution' => [1, 2, 3],
+                    'AND' => [
+                        $type . '.distribution' => 4,
+                        $type . '.sharing_group_id' => $sgids,
+                    ],
+                ];
+            }
+            $subQueries[] = $this->subQueryGenerator(
+                $Model,
+                [
+                    'fields' => [$type . '.object_uuid'],
+                    'conditions' => $typeConditions,
+                ],
+                $uuidField ?? $this->alias . '.uuid',
+                !$has
+            )[0];
+        }
+        return '(' . implode($has ? ' OR ' : ' AND ', $subQueries) . ')';
+    }
+
+    /**
+     * Condition keeping the attributes tagged with $tagNames (exact names) or,
+     * with $galaxyType, with any cluster of that galaxy.
+     *
+     * @param array|string|null $tagNames
+     * @param string|null $galaxyType
+     * @param array|null $eventIds scope of the attribute_tags lookup
+     * @return string
+     */
+    public function tagCondition($tagNames, $galaxyType = null, $eventIds = null)
+    {
+        $tagConditions = [];
+        if (!empty($tagNames)) {
+            $tagConditions['Tag.name'] = $tagNames;
+        }
+        if (!empty($galaxyType)) {
+            $tagConditions['Tag.name LIKE'] =
+                'misp-galaxy:' . $galaxyType . '="%';
+        }
+        if ($eventIds !== null) {
+            $tagConditions['AttributeTag.event_id'] = $eventIds;
+        }
+        return $this->subQueryGenerator(
+            $this->AttributeTag,
+            [
+                'fields' => ['AttributeTag.attribute_id'],
+                'conditions' => $tagConditions,
+                'joins' => [[
+                    'table' => 'tags',
+                    'alias' => 'Tag',
+                    'type' => 'INNER',
+                    'conditions' => ['Tag.id = AttributeTag.tag_id'],
+                ]],
+            ],
+            $this->alias . '.id'
+        )[0];
+    }
+
+    /**
+     * Option lists of the attribute indexes' "More filters" panel, shared by
+     * the global index and the event view so both offer the same choices.
+     *
+     * @return array view var name => [value => label], each led by ''
+     */
+    public function indexFilterOptions()
+    {
+        $categoryKeys = array_keys($this->categoryDefinitions);
+        $typeKeys = array_keys($this->typeDefinitions);
+        sort($typeKeys);
+        return [
+            'categoryOptions' => ['' => '']
+                + array_combine($categoryKeys, $categoryKeys),
+            'typeOptions' => ['' => ''] + array_combine($typeKeys, $typeKeys),
+            'tagOptions' => ['' => ''] + $this->AttributeTag->Tag->find('list', [
+                'fields' => ['Tag.name', 'Tag.name'],
+                'conditions' => ['Tag.is_galaxy' => 0],
+                'order' => ['Tag.name' => 'ASC'],
+            ]),
+            'galaxyOptions' => ['' => ''] + ClassRegistry::init('Galaxy')->find('list', [
+                'fields' => ['Galaxy.type', 'Galaxy.name'],
+                'order' => ['Galaxy.name' => 'ASC'],
+            ]),
+        ];
+    }
+
     public function buildConditions($user)
     {
         $cacheKey = ($user['Role']['perm_site_admin']
@@ -2179,6 +2293,10 @@ class MispAttribute extends AppModel
             // 1. Deletion status - still not convinced by this one, but let's try. May move this further down the line, perhaps after 2.
             if (isset($options['deleted']) && $options['deleted'] === 'only') {
                 $conditions['AND'][] = ['Attribute.deleted' => 1];
+                if (!$user['Role']['perm_sync']) {
+                    // soft-deleted data is only shown to the event owner, as in fetchEvent()
+                    $conditions['AND'][] = ['Event.org_id' => $user['org_id']];
+                }
             } elseif (!$user['Role']['perm_sync'] || empty($options['deleted'])) {
                 $conditions['AND'][] = ['Attribute.deleted' => 0];
             }
@@ -2918,7 +3036,7 @@ class MispAttribute extends AppModel
             if (!isset($attribute['distribution'])) {
                 $attribute['distribution'] = $defaultDistribution;
             }
-            unset($attribute['Attachment']);
+            unset($attribute['Attachment'], $attribute[$this->alias]);
             $this->create();
             $currentSave = $this->save($attribute);
             $saveResult = $saveResult && $currentSave;
@@ -3214,7 +3332,7 @@ class MispAttribute extends AppModel
             if (!empty($attribute['AttributeTag'])) {
                 $toSave = [];
                 foreach ($attribute['AttributeTag'] as $at) {
-                    unset($at['id']);
+                    unset($at['id'], $at[$this->AttributeTag->alias]);
                     $at['attribute_id'] = $this->id;
                     $at['event_id'] = $eventId;
                     $toSave[] = $at;
@@ -3367,6 +3485,7 @@ class MispAttribute extends AppModel
 
         // run the before validation massage at this point so we can skip validation in round 2
         foreach ($attributes as $k => $attribute) {
+            unset($attribute[$this->alias]);
             $attributes[$k] = $this->beforeValidateMassage($attribute);
         }
 
@@ -3821,7 +3940,11 @@ class MispAttribute extends AppModel
         if (empty($exportTool->mock_query_only)) {
             $elementCounter = $this->__iteratedFetch($user, $params, $loop, $tmpfile, $exportTool, $exportToolParams, $maxLimit, $skippedElementsCounter);
         }
-        $tmpfile->write($exportTool->footer($exportToolParams));
+        $footer = $exportTool->footer($exportToolParams);
+        if ($footer instanceof TmpFileTool) {
+            return $footer; // export built the whole file itself
+        }
+        $tmpfile->write($footer);
         return $tmpfile;
     }
 

@@ -2496,7 +2496,8 @@ class EventsController extends AppController
             'page', 'limit', 'sort', 'direction',
             'deleted', 'category', 'type', 'toIDS',
             'searchFor', 'flatten', 'proposal',
-            'warninglist',
+            'warninglist', 'correlation', 'feed', 'warning', 'analystData',
+            'tags', 'galaxy', 'org',
         ];
         foreach ($paramKeys as $key) {
             if (isset($namedParams[$key])) {
@@ -2621,10 +2622,7 @@ class EventsController extends AppController
             'recursive' => -1,
         ]));
 
-        $categoryKeys = array_keys($this->Event->Attribute->categoryDefinitions);
-        $this->set('categoryOptions', array_combine($categoryKeys, $categoryKeys));
-        $typeKeys = array_keys($this->Event->Attribute->typeDefinitions);
-        $this->set('typeOptions', array_combine($typeKeys, $typeKeys));
+        $this->__setAttributeFilterOptions($extensionSet);
 
         $this->layout = false;
     }
@@ -2664,6 +2662,8 @@ class EventsController extends AppController
         $paramKeys = [
             'page', 'limit', 'sort', 'direction',
             'deleted', 'name', 'meta-category', 'searchFor', 'proposal',
+            'category', 'type', 'tags', 'galaxy', 'org', 'toIDS',
+            'correlation', 'feed', 'warning', 'analystData',
         ];
         foreach ($paramKeys as $key) {
             if (isset($namedParams[$key])) {
@@ -2740,7 +2740,49 @@ class EventsController extends AppController
             ],
             'recursive' => -1,
         ]));
+        $this->__setAttributeFilterOptions($extensionSet);
+        $this->loadModel('ObjectTemplate');
+        $templateNames = $this->ObjectTemplate->find('column', [
+            'fields' => ['ObjectTemplate.name'],
+            'conditions' => ['ObjectTemplate.active' => 1],
+            'unique' => true,
+            'order' => ['ObjectTemplate.name' => 'ASC'],
+        ]);
+        $this->set('templateOptions', array_combine($templateNames, $templateNames));
+        $metaCategories = $this->ObjectTemplate->find('column', [
+            'fields' => ['ObjectTemplate.meta-category'],
+            'conditions' => ['ObjectTemplate.active' => 1],
+            'unique' => true,
+            'order' => ['ObjectTemplate.meta-category' => 'ASC'],
+        ]);
+        $this->set('metaCategoryOptions', array_combine($metaCategories, $metaCategories));
         $this->layout = false;
+    }
+
+    /**
+     * Option lists of the "More filters" panel of an event's attribute and
+     * object tabs. Creator Org is only offered when the extended view mixes
+     * events of several organisations.
+     *
+     * @param array $extensionSet see Event::getExtensionEventSet()
+     * @return void
+     */
+    private function __setAttributeFilterOptions(array $extensionSet)
+    {
+        $this->set($this->Event->Attribute->indexFilterOptions());
+        $orgNames = array_values($this->Event->Orgc->find('list', [
+            'fields' => ['Orgc.id', 'Orgc.name'],
+            'conditions' => [
+                'Orgc.id' => array_column($extensionSet['events'], 'orgc_id'),
+            ],
+            'order' => ['Orgc.name' => 'ASC'],
+        ]));
+        $this->set(
+            'orgOptions',
+            count($orgNames) > 1
+                ? ['' => ''] + array_combine($orgNames, $orgNames)
+                : []
+        );
     }
 
     /**
@@ -3049,6 +3091,9 @@ class EventsController extends AppController
         /* Custom Tags: tags that do not belong to any taxonomy */
         $customTags = $tagModel->getCustomTagsForPicker($user);
 
+        /* One category per enabled taxonomy, with its enabled tags */
+        $taxonomies = $tagModel->getTaxonomiesForPicker($allTags);
+
         /* Tag Collections: each expands to its member tags */
         $this->loadModel('TagCollection');
         $collRaw = $this->TagCollection->fetchTagCollection($user, [
@@ -3102,6 +3147,7 @@ class EventsController extends AppController
         $this->set('allTags',           $allTags);
         $this->set('customTags',        $customTags);
         $this->set('tagCollections',    $tagCollections);
+        $this->set('taxonomies',        $taxonomies);
         $this->set('currentGlobalTags', $currentGlobalTags);
         $this->set('currentLocalTags',  $currentLocalTags);
         $this->set('eventId',           $eventId);
@@ -3895,9 +3941,6 @@ class EventsController extends AppController
      * metadata and a count of unique correlating values per
      * related event.
      *
-     * ACL is enforced via the correlation table itself —
-     * all distribution / sharing group checks happen there.
-     *
      * @param int|string $id Event ID or UUID
      */
     public function viewRelatedEvents($id = null)
@@ -3935,10 +3978,10 @@ class EventsController extends AppController
         }
 
         // Fetch event metadata for related events
+        $conditions = $this->Event->createEventConditions($user);
+        $conditions['Event.id'] = $relatedEventIds;
         $relatedEvents = $this->Event->find('all', [
-            'conditions' => [
-                'Event.id' => $relatedEventIds,
-            ],
+            'conditions' => $conditions,
             'recursive' => -1,
             'order' => 'Event.date DESC',
             'fields' => [
@@ -4559,7 +4602,7 @@ class EventsController extends AppController
             $fingerprint = null;
             if (!empty($this->request->data)) {
                 if (empty($this->request->data['Event'])) {
-                    $this->request->data['Event'] = $this->request->data;
+                    $this->request->data = array('Event' => $this->request->data);
                 }
                 if (!empty($this->request->data['Event']['filecontent'])) {
                     $data = $this->request->data['Event']['filecontent'];
@@ -5309,7 +5352,7 @@ class EventsController extends AppController
     {
         if ($this->request->is(['post', 'put', 'delete'])) {
             if (isset($this->request->data['id'])) {
-                $this->request->data['Event'] = $this->request->data;
+                $this->request->data = array('Event' => $this->request->data);
             }
             if (!isset($id) && isset($this->request->data['Event']['id'])) {
                 $idList = $this->request->data['Event']['id'];
@@ -5895,7 +5938,8 @@ class EventsController extends AppController
                 'attack-sightings' => __('Attack matrix by sightings'),
                 'context' => __('Aggregated context data'),
                 'context-markdown' => __('Aggregated context data as Markdown'),
-                'csv' => __('CSV'),
+                'xlsx' => __('XLSX (Excel)'),
+                'csv' => __('CSV (NOT FOR EXCEL)'),
                 'hashes' => __('Hashes'),
                 'hosts' => __('Hosts file'),
                 'json' => __('MISP JSON'),
@@ -6978,9 +7022,25 @@ class EventsController extends AppController
                 'requiresPublished' => false,
                 'checkbox' => false,
             ),
+            'xlsx' => array(
+                'url' => $this->baseurl . '/events/restSearch/returnFormat:xlsx/to_ids:1/published:1/includeContext:0/eventid:' . $id,
+                'text' => __('XLSX (Excel)'),
+                'requiresPublished' => false,
+                'checkbox' => true,
+                'checkbox_text' => __('Include non-IDS marked attributes'),
+                'checkbox_set' => $this->baseurl . '/events/restSearch/returnFormat:xlsx/to_ids:1||0/published:1||0/includeContext:0/eventid:' . $id,
+            ),
+            'xlsx_with_context' => array(
+                'url' => $this->baseurl . '/events/restSearch/returnFormat:xlsx/to_ids:1/published:1/includeContext:1/eventid:' . $id,
+                'text' => __('XLSX (Excel) with additional context'),
+                'requiresPublished' => false,
+                'checkbox' => true,
+                'checkbox_text' => __('Include non-IDS marked attributes'),
+                'checkbox_set' => $this->baseurl . '/events/restSearch/returnFormat:xlsx/to_ids:1||0/published:1||0/includeContext:1/eventid:' . $id,
+            ),
             'csv' => array(
                 'url' => $this->baseurl . '/events/restSearch/returnFormat:csv/to_ids:1/published:1/includeContext:0/eventid:' . $id,
-                'text' => 'CSV',
+                'text' => __('CSV (NOT FOR EXCEL)'),
                 'requiresPublished' => false,
                 'checkbox' => true,
                 'checkbox_text' => __('Include non-IDS marked attributes'),
@@ -6988,7 +7048,7 @@ class EventsController extends AppController
             ),
             'csv_with_context' => array(
                 'url' => $this->baseurl . '/events/restSearch/returnFormat:csv/to_ids:1/published:1/includeContext:1/eventid:' . $id,
-                'text' => __('CSV with additional context'),
+                'text' => __('CSV with additional context (NOT FOR EXCEL)'),
                 'requiresPublished' => false,
                 'checkbox' => true,
                 'checkbox_text' => __('Include non-IDS marked attributes'),
@@ -7058,9 +7118,15 @@ class EventsController extends AppController
                     unset($exports[$k]);
                 }
             }
+            $exports['xlsx'] = array(
+                'url' => $this->baseurl . '/events/restSearch/returnFormat:xlsx/includeContext:0/eventid:' . $id,
+                'text' => __('XLSX (Excel) (event not published, IDS flag ignored)'),
+                'requiresPublished' => false,
+                'checkbox' => false,
+            );
             $exports['csv'] = array(
                 'url' => $this->baseurl . '/events/restSearch/returnFormat:csv/includeContext:0/eventid:' . $id,
-                'text' => __('CSV (event not published, IDS flag ignored)'),
+                'text' => __('CSV (NOT FOR EXCEL, event not published, IDS flag ignored)'),
                 'requiresPublished' => false,
                 'checkbox' => false,
             );
