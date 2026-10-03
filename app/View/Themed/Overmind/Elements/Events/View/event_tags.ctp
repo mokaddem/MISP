@@ -169,6 +169,9 @@ if (Configure::read('Plugin.AI_services_enable')
             item.classList.toggle('d-none', !show);
             if (show) { visible++; }
         });
+        body.querySelectorAll('.hg-group').forEach(function (group) {
+            group.classList.toggle('d-none', !group.querySelector('[data-tag-item]:not(.d-none)'));
+        });
 
         var noMatch = items.length > 0 && visible === 0;
         if (tagList)  { tagList.classList.toggle('d-none', noMatch); }

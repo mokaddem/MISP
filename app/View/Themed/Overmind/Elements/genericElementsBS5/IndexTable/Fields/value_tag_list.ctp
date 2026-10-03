@@ -155,21 +155,22 @@ if (ValueLabelPriority::declares($plan, ValueLabelPriority::TAXONOMIES)) {
 
 $hiddenCount = max(0, count($chips) - $maxVisible);
 ?>
-<div class="tag-container d-inline-flex flex-wrap align-items-center">
-    <?php foreach ($chips as $index => $chip): ?>
-        <?= $this->element('genericElementsBS5/Badges/tag', array(
-            'tag' => $chip['tag'],
-            'local' => $chip['local'],
-            'hiddenClass' => $index >= $maxVisible
-                ? 'd-none extra-tag'
-                : '',
-            'showFavourite' => false,
-        )) ?>
-    <?php endforeach; ?>
+<?php
+$rows = array_map(function ($chip) {
+    return ['Tag' => $chip['tag'], 'local' => $chip['local']];
+}, array_values($chips));
+?>
+<div class="tag-container d-inline-flex flex-wrap align-items-center gap-1">
+    <?= $this->TagChip->collection(array_slice($rows, 0, $maxVisible), ['searchUrl' => '']) ?>
+    <?= $this->TagChip->collection(array_slice($rows, $maxVisible), [
+        'searchUrl' => '',
+        'class' => 'd-none extra-tag',
+    ]) ?>
 
     <?php if ($hiddenCount > 0): ?>
         <span class="badge bg-secondary text-white me-1 mb-1 tag-expand"
               style="cursor:pointer;"
+              data-hidden="<?= (int)$hiddenCount ?>"
               onclick="toggleTags(this)">+<?= h($hiddenCount) ?></span>
     <?php endif; ?>
 </div>

@@ -861,7 +861,7 @@ function toggleTags(badge) {
     const isHidden = hiddenTags[0].classList.contains('d-none');
     hiddenTags.forEach(g => g.classList.toggle('d-none'));
 
-    badge.textContent = isHidden ? '−' : '+' + hiddenTags.length;
+    badge.textContent = isHidden ? '−' : '+' + (badge.dataset.hidden || hiddenTags.length);
 }
 
 /**
