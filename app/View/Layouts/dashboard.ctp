@@ -18,7 +18,6 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width">
-    <meta name="misp-tag-palettes" content="<?= h(implode(' ', $this->TagChip->semanticNamespaces())) ?>">
     <link rel="shortcut icon" href="<?= $baseurl ?>/img/favicon.png">
     <title><?= h($title_for_layout), ' - ', h(Configure::read('MISP.title_text') ?: 'MISP') ?></title>
     <?php echo $this->element('dashboard/theme_boot'); /* DD-51 no-FOUC light/dark boot */ ?>
@@ -30,7 +29,6 @@
             ['font-awesome', ['preload' => true]],
             ['chosen.min', ['preload' => true]],
             ['main', ['preload' => true]],
-            ['tag-chips', ['preload' => true]],
             ['dashboard/dashboard.default', ['preload' => true]],
             ['dashboard/dashboard.midnight'],
             // misp-iconify icon set (generated CSS copied from the
@@ -46,7 +44,6 @@
         $js = [
             ['jquery', ['preload' => true]],
             ['chosen.jquery.min', ['preload' => true]],
-            ['tag-chips', ['preload' => true]],
         ];
         if (!empty($additionalCss)) {
             $css = array_merge($css, $additionalCss);

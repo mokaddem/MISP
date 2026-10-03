@@ -95,18 +95,7 @@ if (empty($event)):
             $overflow   = count($eTags) - $maxVisible;
         ?>
         <div class="d-flex flex-wrap gap-1 align-items-center">
-            <?php foreach ($shown as $et):
-                $tag     = $et['Tag'] ?? [];
-                $colour  = $tag['colour'] ?? '#adb5bd';
-                $txtCol  = $this->TextColour->getTextColour($colour);
-            ?>
-            <span class="badge"
-                  style="background:<?= h($colour) ?>; color:<?= h($txtCol) ?>;
-                         font-size:.65rem; font-weight:500;
-                         padding:.25em .5em; letter-spacing:.01em;">
-                <?= h($tag['name'] ?? '') ?>
-            </span>
-            <?php endforeach; ?>
+            <?= $this->TagChip->collection($shown, ['searchUrl' => '']) ?>
             <?php if ($overflow > 0): ?>
             <span class="text-muted" style="font-size:.7rem;">
                 +<?= $overflow ?> <?= __('more') ?>
