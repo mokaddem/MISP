@@ -1698,10 +1698,23 @@
  */
 .vi-warnmark {
     flex: 0 0 auto;
-    font-size: 0.7rem;
-    line-height: 1;
-    color: var(--vp-conflict-ink);
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    padding: 1px 5px;
+    border: 1px solid var(--warninglist);
+    border-radius: 999px;
+    background: var(--warninglist-soft);
+    color: var(--warninglist);
+    font-size: 0.6rem;
+    line-height: 1.4;
     cursor: help;
+}
+
+[data-bs-theme="dark"] .vi-warnmark {
+    background: color-mix(in srgb, var(--warninglist) 22%,
+        var(--bs-body-bg));
+    color: var(--bs-body-color);
 }
 
 .vi-c-types {

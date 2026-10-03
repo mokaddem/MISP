@@ -301,7 +301,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
 <?php if ($warningNote !== null): ?>
         <span class="vi-warnmark" title="<?= h($warningNote) ?>"
               role="img" aria-label="<?= h($warningNote) ?>"
-              >&#9888;</span>
+              ><i class="fas fa-list-check" aria-hidden="true"></i></span>
 <?php endif; ?>
     </span>
     <span class="vi-c-types"><?= h($typesText) ?></span>
