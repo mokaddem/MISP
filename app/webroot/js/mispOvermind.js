@@ -3018,34 +3018,10 @@ function distBadgeHtml(level, withLabel, labels) {
 }
 
 /*******************************
- * tagTextColour / tagBadgeStyle
- * The client-side mirror of TextColourHelper::getTextColour() and of the
- * badge styling in Elements/genericElementsBS5/Badges/tag.ctp — a tag drawn
- * by JavaScript has to come out looking exactly like one drawn by PHP.
- * @param {string} hex  Tag colour, '#rrggbb'
- *******************************/
-function tagTextColour(hex) {
-    hex = hex || '#0088cc';
-    var r = parseInt(hex.slice(1, 3), 16);
-    var g = parseInt(hex.slice(3, 5), 16);
-    var b = parseInt(hex.slice(5, 7), 16);
-    return ((2 * r) + b + (3 * g)) / 6 < 127 ? 'white' : 'black';
-}
-
-function tagBadgeStyle(colour) {
-    colour = colour || '#0088cc';
-    return 'background-color:' + colour + '; color:' + tagTextColour(colour) + ';'
-        + ' filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5));'
-        + ' background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%,'
-        + ' rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%);'
-        + ' text-align:left; white-space:normal; word-wrap:break-word;';
-}
-
-/*******************************
  * initTagPickerSection
  * The tag picker used everywhere in the theme: category buttons, a TomSelect
- * search over the current category, and the picked tags drawn below as real
- * MISP badges with a remove cross. Drives both the standalone edit-tags modal
+ * search over the current category, and the picked tags drawn below as tag
+ * chips with a remove cross. Drives both the standalone edit-tags modal
  * (Modals/tag_picker.ctp, one section per locality) and the in-form field
  * (Forms/tag_picker_field.ctp).
  *
@@ -3055,7 +3031,7 @@ function tagBadgeStyle(colour) {
  * @param {Element}  root      Section container
  * @param {object}   catData   {<cat>: [{id,name,colour}], collections: [{id,name,tags:[…]}]}
  * @param {Array}    initTags  Pre-selected [{id,name,colour}]
- * @param {object}   [options] localMarker: draw the local user glyph on badges;
+ * @param {object}   [options] localMarker: flag the chips as local tags;
  *                             onChange: called with the selected id array
  * @return {{ids: function}} the current selection
  *******************************/
@@ -3086,36 +3062,25 @@ function initTagPickerSection(root, catData, initTags, options) {
         keys.sort(function (a, b) {
             return selected[a].name.localeCompare(selected[b].name);
         });
-        keys.forEach(function (id) {
+        selEl.innerHTML = TagChips.collection(keys.map(function (id) {
             var t = selected[id];
-
-            var wrap = document.createElement('div');
-            wrap.className = 'd-inline-flex align-items-center';
-
-            var badge = document.createElement('span');
-            badge.className = 'badge me-1 mb-1 d-inline-flex align-items-center gap-1';
-            badge.style.cssText = tagBadgeStyle(t.colour);
-
-            var txt = document.createElement('span');
-            if (options.localMarker) {
-                txt.innerHTML = '<i class="fas fa-user me-1"></i>';
-            }
-            txt.appendChild(document.createTextNode(t.name));
-
-            var x = document.createElement('i');
-            x.className = 'fas fa-times';
-            x.style.cssText = 'cursor:pointer; opacity:.8;';
-            x.setAttribute('role', 'button');
+            return { id: t.id, name: t.name, colour: t.colour, local: !!options.localMarker };
+        }), { searchUrl: '' });
+        selEl.querySelectorAll('.hg-unit').forEach(function (unit) {
+            var chip = unit.querySelector('[data-tag-id]');
+            if (!chip) { return; }
+            var id = chip.getAttribute('data-tag-id');
+            var x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'hg-act';
             x.setAttribute('aria-label', 'Remove');
+            x.title = 'Remove';
+            x.innerHTML = '&times;';
             x.addEventListener('click', function () {
                 delete selected[id];
                 render();
             });
-
-            badge.appendChild(txt);
-            badge.appendChild(x);
-            wrap.appendChild(badge);
-            selEl.appendChild(wrap);
+            unit.appendChild(x);
         });
         if (typeof options.onChange === 'function') { options.onChange(ids()); }
     }
@@ -3143,12 +3108,9 @@ function initTagPickerSection(root, catData, initTags, options) {
                 + '<span class="badge bg-light text-muted ms-auto">'
                 + (item.count || 0) + '</span></div>';
         }
-        var col = item.colour || '#0088cc';
-        return '<div class="d-flex align-items-center gap-2 py-1">'
-            + '<span style="display:inline-block;width:10px;height:10px;'
-            + 'border-radius:2px;flex-shrink:0;background:' + escape(col) + ';"></span>'
-            + '<span class="text-truncate">'
-            + escape(item.name) + '</span></div>';
+        return '<div class="py-1">'
+            + TagChips.chip({ name: item.name, colour: item.colour }, { searchUrl: '' })
+            + '</div>';
     }
 
     var ts = new TomSelect(pickerEl, {

@@ -98,7 +98,21 @@
         var n = parseInt(m[1], 16);
         return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
     }
+    function hingeChip(name, colour, suffix, title) {
+        var wrap = document.createElement('span');
+        wrap.innerHTML = window.TagChips.chip({ name: name, colour: colour }, { searchUrl: '' });
+        var chip = wrap.firstChild;
+        if (suffix) {
+            var small = document.createElement('small');
+            small.className = 'hg-n';
+            small.textContent = suffix;
+            chip.querySelector('.hg-tail').appendChild(small);
+        }
+        if (title) chip.querySelector('.hg-chip').title = title;
+        return chip;
+    }
     function tagChip(name, colour, suffix) {
+        if (window.TagChips) return hingeChip(name, colour, suffix);
         var c = rgb(colour) || [110, 110, 110];
         var lum = (c[0] * 299 + c[1] * 587 + c[2] * 114) / 1000;
         var chip = h('span', 'pes-chip' + (lum > 225 ? ' is-pale' : ''), name);
@@ -1344,6 +1358,12 @@
         }
         function tagChip(parent, name, colour, opts) {
             opts = opts || {};
+            if (window.TagChips) {
+                var chip = hingeChip(name, colour, has(opts.count) ? '×' + opts.count : null,
+                    opts.title ? name + ' — ' + opts.title : null);
+                parent.appendChild(chip);
+                return chip;
+            }
             var c = el('span', 'pesq-chip is-tag' + (opts.lead ? ' is-lead' : ''), parent);
             var sw = el('i', 'pesq-sw', c);
             sw.style.background = colour || 'transparent';

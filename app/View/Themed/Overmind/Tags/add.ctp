@@ -125,8 +125,7 @@ echo $this->Form->create('Tag', [
                           style="font-size:.6rem; letter-spacing:.1em;">
                         <?= __('Preview') ?>
                     </span>
-                    <span class="badge d-inline-flex align-items-center"
-                          id="TagPreview"></span>
+                    <span id="TagPreview"></span>
                 </div>
 
             </div>
@@ -248,19 +247,13 @@ echo $this->Form->create('Tag', [
     var localEl = document.getElementById('TagLocalOnly');
     var form = document.getElementById('tagForm');
 
-    /* Preview drawn with the shared helper, so it matches the badge the
-     * index and the pickers render for a saved tag. */
     function refreshPreview() {
         if (!previewEl) { return; }
-        var name = (nameEl && nameEl.value.trim()) || NAME_EMPTY;
-        previewEl.style.cssText = tagBadgeStyle(colourEl ? colourEl.value : null);
-        previewEl.textContent = '';
-        if (localEl && localEl.checked) {
-            var icon = document.createElement('i');
-            icon.className = 'fas fa-user me-1';
-            previewEl.appendChild(icon);
-        }
-        previewEl.appendChild(document.createTextNode(name));
+        previewEl.innerHTML = TagChips.chip({
+            name: (nameEl && nameEl.value.trim()) || NAME_EMPTY,
+            colour: colourEl ? colourEl.value : null,
+            local: !!(localEl && localEl.checked)
+        }, { searchUrl: '' });
     }
 
     function setColour(value) {

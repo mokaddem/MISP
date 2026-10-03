@@ -4174,6 +4174,17 @@ tr.evt-extension-row td:first-child {
 
 .ov-md-tag > i { margin-right: .3rem; }
 
+.ov-md-tag.is-chip {
+    margin: 0 .1rem;
+    padding: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.ov-md-tag.is-chip .hinge-tags { vertical-align: middle; }
+
 .ov-md-picture {
     display: block;
     margin: .75rem 0;

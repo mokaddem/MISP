@@ -1671,7 +1671,9 @@ function constructAttributeRow(attribute, fromObject) {
         )
     })
     var $tags = $('<div/>')
-    if (attribute.AttributeTag !== undefined) {
+    if (attribute.AttributeTag !== undefined && window.TagChips) {
+        $tags.append(TagChips.collection(attribute.AttributeTag, {searchUrl: ''}))
+    } else if (attribute.AttributeTag !== undefined) {
         attribute.AttributeTag.forEach(function(attributeTag) {
             var tag = attributeTag.Tag
             var $tag = $('<div/>').append(
@@ -1796,6 +1798,9 @@ function getTagRepresentation(tagData) {
 }
 
 function constructTagHtml(tagName, tagColour, additionalCSS) {
+    if (window.TagChips) {
+        return $(TagChips.chip({name: tagName, colour: tagColour}, {searchUrl: ''}))
+    }
     additionalCSS = additionalCSS === undefined ? {} : additionalCSS
     var $tag = $('<span/>').text(tagName)
         .addClass('tag')
