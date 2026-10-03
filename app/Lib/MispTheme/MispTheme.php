@@ -83,6 +83,10 @@ class MispTheme
 
     const BOOTSTRAP_THEME_MODES = ['light', 'dark', 'both'];
 
+    // theme: the bar in the theme's colours; builtin: its own palette;
+    // rail: the rail navbar (Elements/navbar_rail.ctp).
+    const BOOTSTRAP_THEME_NAVBARS = ['theme', 'builtin', 'rail'];
+
     /** @var array|null */
     private static $bootstrapThemes = null;
 
@@ -114,7 +118,7 @@ class MispTheme
                 'description' => $meta['description'] ?? '',
                 'mode' => $meta['mode'],
                 'hide_from_users' => !empty($meta['hide_from_users']),
-                'navbar' => ($meta['navbar'] ?? 'theme') === 'builtin' ? 'builtin' : 'theme',
+                'navbar' => in_array($meta['navbar'] ?? null, self::BOOTSTRAP_THEME_NAVBARS, true) ? $meta['navbar'] : 'theme',
             ];
         }
         ksort($themes);

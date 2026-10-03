@@ -53,9 +53,12 @@
             var d = config.distributionLevels[level];
             if (!d) return null;
             var b = el('span', 'badge d-inline-flex align-items-center px-2 py-1');
-            b.style.backgroundColor = d.bg;
-            b.style.color = d.color;
-            b.style.border = '1px solid ' + d.color + '20';
+            var tone = function (role, value) {
+                return d.token ? 'var(--misp-' + d.token + '-' + role + ', ' + value + ')' : value;
+            };
+            b.style.backgroundColor = tone('bg', d.bg);
+            b.style.color = tone('fg', d.color);
+            b.style.border = '1px solid ' + tone('border', d.color + '20');
             b.style.fontWeight = '500';
             b.title = d.label;
             b.appendChild(icon(d.icon));

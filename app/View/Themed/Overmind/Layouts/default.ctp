@@ -25,6 +25,8 @@ $useBootstrap5 = OvermindPages::isMigrated($currentController, $currentAction);
 // Overmind pages which own the whole viewport (no navbar, no footer, no header strip)
 $isAuthPage  = $useBootstrap5 && OvermindPages::isAuthPage($currentController, $currentAction);
 
+$useRail = $useBootstrap5 && $bootstrapTheme['navbar'] === 'rail';
+
 
 $isLegacyFullViewportPage = !$useBootstrap5
     && OvermindPages::normalise($currentController) === 'workflows'
@@ -70,7 +72,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
 
 
 <!DOCTYPE html>
-<html lang="<?= h($htmlLang) ?>" data-misp-mode="<?= h($initialMode) ?>">
+<html lang="<?= h($htmlLang) ?>"<?= $useRail && !$isAuthPage ? ' class="misp-railed"' : '' ?> data-misp-mode="<?= h($initialMode) ?>" data-misp-theme="<?= h($bootstrapTheme['name']) ?>">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -85,7 +87,8 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 [$bootstrapTheme['css'], ['preload' => true]],
                 ['tom-select.bootstrap5.min', ['preload' => true]],
                 ['mainOvermind', ['preload' => true]],
-                ['overmind-navbar', ['preload' => true]],
+                // The rail's styles come with the theme.
+                $useRail ? null : ['overmind-navbar', ['preload' => true]],
                 ['fontawesome7.min', ['preload' => true]],
                 ['print', ['media' => 'print']],
                 ['misp-iconify', ['preload' => true]],
@@ -100,6 +103,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 ['value-hover-card', ['preload' => true]],
                 ['tag-chips', ['preload' => true]],
             ];
+            $css = array_values(array_filter($css));
             $js = [
                 ['tom-select.complete.min', ['preload' => true]],
                 ['tag-chips', ['preload' => true]],
@@ -178,7 +182,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                         'bootstrapTheme' => $bootstrapTheme['name'],
                         'bootstrapThemeChosen' => !empty($bootstrapTheme['userChoice']),
                     ];
-                    echo $this->element('navbar', [
+                    echo $this->element($useRail ? 'navbar_rail' : 'navbar', [
                         'menus' => $this->Navbar->build($context),
                         'baseurl' => $baseurl,
                         'me' => $me ?? null,
@@ -281,7 +285,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 'value-hover-card',
             ];
             if (!$isAuthPage) {
-                $bs5Js[] = 'overmind-navbar';
+                $bs5Js[] = $useRail ? 'overmind-rail' : 'overmind-navbar';
                 $bs5Js[] = 'onboarding';
                 $bs5Js[] = 'overmind-invaders';
             }

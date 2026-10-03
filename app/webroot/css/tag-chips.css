@@ -13,17 +13,17 @@
 .hinge-tags {
     --hg-l-ink: 28%;
     --hg-l-mark: 48%;
-    --hg-surface: #ffffff;
-    --hg-text: #14140f;
-    --hg-muted: #6b6b63;
-    --hg-faint: #9b9b92;
-    --hg-border: #dededa;
-    --hg-border-strong: #c2c2bc;
+    --hg-surface: var(--misp-chip-surface, #ffffff);
+    --hg-text: var(--misp-chip-text, #14140f);
+    --hg-muted: var(--misp-chip-muted, #6b6b63);
+    --hg-faint: var(--misp-chip-faint, #9b9b92);
+    --hg-border: var(--misp-chip-border, #dededa);
+    --hg-border-strong: var(--misp-chip-border-strong, #c2c2bc);
     --hg-track: color-mix(in srgb, var(--hg-text) 12%, var(--hg-surface));
     --hg-tint: 14%;
     --hg-shadow: 0 1px 2px rgba(20, 20, 15, .14), 0 0 1px rgba(20, 20, 15, .1);
-    --hg-raised: #ffffff;
-    --hg-raised-border: #dededa;
+    --hg-raised: var(--misp-chip-raised, #ffffff);
+    --hg-raised-border: var(--misp-chip-raised-border, #dededa);
     --hg-raised-shadow: 0 1px 3px rgba(20, 20, 15, .2), 0 0 1px rgba(20, 20, 15, .16);
     --hg-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     display: inline-flex;
@@ -43,16 +43,16 @@
 [data-theme="midnight"] .hinge-tags {
     --hg-l-ink: 74%;
     --hg-l-mark: 62%;
-    --hg-surface: #1d1d18;
-    --hg-text: #f0f0ea;
-    --hg-muted: #a3a39a;
-    --hg-faint: #75756d;
-    --hg-border: #33332c;
-    --hg-border-strong: #4a4a42;
+    --hg-surface: var(--misp-chip-surface, #1d1d18);
+    --hg-text: var(--misp-chip-text, #f0f0ea);
+    --hg-muted: var(--misp-chip-muted, #a3a39a);
+    --hg-faint: var(--misp-chip-faint, #75756d);
+    --hg-border: var(--misp-chip-border, #33332c);
+    --hg-border-strong: var(--misp-chip-border-strong, #4a4a42);
     --hg-tint: 22%;
     --hg-shadow: none;
-    --hg-raised: #2a2a24;
-    --hg-raised-border: #46463e;
+    --hg-raised: var(--misp-chip-raised, #2a2a24);
+    --hg-raised-border: var(--misp-chip-raised-border, #46463e);
     --hg-raised-shadow: 0 1px 2px rgba(0, 0, 0, .45);
 }
 .hinge-tags .hg-chip {

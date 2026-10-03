@@ -770,12 +770,18 @@ echo $this->element('genericElements/assetLoader', [
             distBadge.className =
                 'rounded-2 d-flex align-items-center justify-content-center'
                 + ' flex-shrink-0 mt-1';
+            var distTone = function (role, value) {
+                return dist.token
+                    ? 'var(--misp-' + dist.token + '-' + role + ', ' + value + ')'
+                    : value;
+            };
             distBadge.style.cssText = 'width:34px;height:34px;'
-                + 'background:' + dist.bg + ';'
-                + 'border:1px solid ' + dist.color + '33;';
+                + 'background:' + distTone('bg', dist.bg) + ';'
+                + 'border:1px solid ' + distTone('border', dist.color + '33') + ';';
             if (dist.label) distBadge.title = dist.label;
             distBadge.innerHTML = '<i class="' + dist.icon
-                + '" style="color:' + dist.color + ';font-size:.85rem;"></i>';
+                + '" style="color:' + distTone('fg', dist.color)
+                + ';font-size:.85rem;"></i>';
 
             /* header row - the link no longer spans it, the pill is a button */
             var header = document.createElement('div');

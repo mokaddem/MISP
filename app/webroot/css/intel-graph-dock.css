@@ -24,11 +24,11 @@
    nor for the count below 1366px: the slot's title and the dock's head carry
    them (F6). */
 @media (min-width: 1200px) and (max-width: 1599.98px) {
-    [data-intel-graph-name] { display: none !important; }
+    .rc-nav [data-intel-graph-name] { display: none !important; }
 }
 @media (min-width: 1200px) and (max-width: 1365.98px) {
-    [data-intel-graph-count] { display: none !important; }
-    [data-intel-graph-toggle] .ig-slot-side { display: none; }
+    .rc-nav [data-intel-graph-count] { display: none !important; }
+    .rc-nav [data-intel-graph-toggle] .ig-slot-side { display: none; }
 }
 
 /* the panel */

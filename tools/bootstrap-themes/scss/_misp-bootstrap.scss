@@ -138,3 +138,5 @@ $misp-tokens-page: $misp-tokens;
 @if $misp-theme-mode == "both" {
   @include misp-warn-contrast($body-bg-dark, "dark");
 }
+
+@import "misp-surfaces";

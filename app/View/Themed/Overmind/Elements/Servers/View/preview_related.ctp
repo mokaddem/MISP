@@ -70,9 +70,9 @@ $distMap = $this->DistributionLevel->all();
                        style="transition:background .15s;">
 
                         <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 mt-1"
-                             style="width:34px;height:34px;background:<?= $dist['bg'] ?>;border:1px solid <?= $dist['color'] ?>33;"
+                             style="width:34px;height:34px;background:<?= $this->DistributionLevel->themed($dist, 'bg') ?>;border:1px solid <?= $this->DistributionLevel->themed($dist, 'border', '33') ?>;"
                              title="<?= h($dist['label']) ?>">
-                            <i class="<?= h($dist['icon']) ?>" style="color:<?= $dist['color'] ?>;font-size:.85rem;"></i>
+                            <i class="<?= h($dist['icon']) ?>" style="color:<?= $this->DistributionLevel->themed($dist, 'fg') ?>;font-size:.85rem;"></i>
                         </div>
 
                         <div class="flex-fill overflow-hidden">

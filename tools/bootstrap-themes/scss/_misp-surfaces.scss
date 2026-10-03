@@ -1,0 +1,210 @@
+// Surfaces MISP templates paint inline, emitted as --misp-<name>. Templates
+// read them as var(--misp-<name>, <Overmind's value>), so a theme that leaves
+// them out (Overmind) renders exactly as the template was written.
+//
+//   tone-<hue>-bg / -fg / -border   pastel tile, its glyph or text, its edge;
+//                                   <hue> is blue, indigo, purple, pink, red,
+//                                   orange, yellow, green, teal, cyan or gray
+//   tone-<hue>-solid                the hue itself, for dots, tracks and rings
+//   surface, surface-sunken, surface-hover
+//                                   a panel, a well inside one, a hovered row
+//   line, line-strong               rules and edges; a switch's off track
+//   ink, ink-muted                  text on those surfaces
+//   dist-<level>-bg / -fg / -border distribution badge, <level> 0-5 or unknown
+//   chip-surface, chip-raised, chip-raised-border, chip-text, chip-muted,
+//   chip-faint, chip-border, chip-border-strong
+//                                   tag and galaxy cluster chips (tag-chips.css)
+//   index-check-bg, index-check-border, index-check-all, index-actions-bg
+//                                   the index tables' row checkboxes
+//   login-bg, login-card-bg, login-heading, login-logo-filter
+//                                   the sign-in page; the filter is applied to
+//                                   MISP's own logo, whose lettering is dark
+//
+// Read by templates but not emitted here, for a theme to set if it wants:
+//   modal-header-bg, modal-header-line  the accented strip atop add/edit forms
+//
+// Each value is derived from the theme's Bootstrap palette. To change one, set
+// it in $misp-surface-overrides (or -dark) before misp-bootstrap, or declare
+// the custom property in the theme's own CSS. A theme that wants none of them
+// sets $misp-surface-tokens and $misp-surface-tokens-dark to ().
+
+$misp-surface-overrides: () !default;
+$misp-surface-overrides-dark: () !default;
+
+$misp-dist-connected: #8b5e3c !default;
+
+// A dark-only theme's dark palette is its base one.
+$_dark-only: $misp-theme-mode == "dark";
+$_d-body-bg: $body-bg-dark;
+$_d-emphasis: $body-emphasis-color-dark;
+$_d-secondary-color: $body-secondary-color-dark;
+$_d-tertiary-color: $body-tertiary-color-dark;
+$_d-secondary-bg: $body-secondary-bg-dark;
+$_d-tertiary-bg: $body-tertiary-bg-dark;
+@if $_dark-only {
+  $_d-body-bg: $body-bg;
+  $_d-emphasis: $body-emphasis-color;
+  $_d-secondary-color: $body-secondary-color;
+  $_d-tertiary-color: $body-tertiary-color;
+  $_d-secondary-bg: $body-secondary-bg;
+  $_d-tertiary-bg: $body-tertiary-bg;
+}
+
+// Bootstrap's own subtle formulas, for hues it has no theme colour for.
+@function _misp-tone($color, $dark) {
+  @if $dark {
+    @return (
+      "bg": shade-color($color, 80%),
+      "fg": tint-color($color, 40%),
+      "border": shade-color($color, 40%)
+    );
+  }
+  @return (
+    "bg": tint-color($color, 80%),
+    "fg": shade-color($color, 60%),
+    "border": tint-color($color, 60%)
+  );
+}
+
+// The theme colour's own subtle trio, as the theme tuned it.
+@function _misp-theme-tone($name, $dark) {
+  $tones: (
+    "primary":   ($primary-bg-subtle, $primary-text-emphasis, $primary-border-subtle,
+                  $primary-bg-subtle-dark, $primary-text-emphasis-dark, $primary-border-subtle-dark),
+    "secondary": ($secondary-bg-subtle, $secondary-text-emphasis, $secondary-border-subtle,
+                  $secondary-bg-subtle-dark, $secondary-text-emphasis-dark, $secondary-border-subtle-dark),
+    "success":   ($success-bg-subtle, $success-text-emphasis, $success-border-subtle,
+                  $success-bg-subtle-dark, $success-text-emphasis-dark, $success-border-subtle-dark),
+    "info":      ($info-bg-subtle, $info-text-emphasis, $info-border-subtle,
+                  $info-bg-subtle-dark, $info-text-emphasis-dark, $info-border-subtle-dark),
+    "warning":   ($warning-bg-subtle, $warning-text-emphasis, $warning-border-subtle,
+                  $warning-bg-subtle-dark, $warning-text-emphasis-dark, $warning-border-subtle-dark),
+    "danger":    ($danger-bg-subtle, $danger-text-emphasis, $danger-border-subtle,
+                  $danger-bg-subtle-dark, $danger-text-emphasis-dark, $danger-border-subtle-dark)
+  );
+  $t: map-get($tones, $name);
+  $offset: 0;
+  @if $dark {
+    $offset: 3;
+  }
+  @return (
+    "bg": nth($t, 1 + $offset),
+    "fg": nth($t, 2 + $offset),
+    "border": nth($t, 3 + $offset)
+  );
+}
+
+// A hue backed by a theme colour takes that colour's tuned trio. Its solid is
+// the colour, lifted to 3:1 against the page if it falls short.
+@function _misp-hue-tone($hue, $dark, $page) {
+  $themed: ("red": "danger", "yellow": "warning", "green": "success",
+            "cyan": "info", "gray": "secondary");
+  $solids: ("red": $danger, "yellow": $warning, "green": $success,
+            "cyan": $info, "gray": $secondary, "blue": $blue,
+            "indigo": $indigo, "purple": $purple, "pink": $pink,
+            "orange": $orange, "teal": $teal);
+  $solid: misp-readable-for(map-get($solids, $hue), $page);
+  @if map-has-key($themed, $hue) {
+    @return map-merge(_misp-theme-tone(map-get($themed, $hue), $dark), ("solid": $solid));
+  }
+  @return map-merge(_misp-tone(map-get($solids, $hue), $dark), ("solid": $solid));
+}
+
+@function _misp-surface-tokens($dark) {
+  $page: $body-bg;
+  $sunken: $body-tertiary-bg;
+  $raised: $body-secondary-bg;
+  $text: $body-emphasis-color;
+  $muted: $body-secondary-color;
+  $faint: $body-tertiary-color;
+  $logo-filter: none;
+  @if $dark {
+    $page: $_d-body-bg;
+    $sunken: $_d-tertiary-bg;
+    $raised: $_d-secondary-bg;
+    $text: $_d-emphasis;
+    $muted: $_d-secondary-color;
+    $faint: $_d-tertiary-color;
+    // The lettering is near-black: flip lightness, keep the hues.
+    $logo-filter: invert(1) hue-rotate(180deg);
+  }
+
+  $tokens: ();
+  $hues: "blue", "indigo", "purple", "pink", "red", "orange", "yellow",
+         "green", "teal", "cyan", "gray";
+  @each $hue in $hues {
+    @each $role, $value in _misp-hue-tone($hue, $dark, $page) {
+      $tokens: map-merge($tokens, ("tone-#{$hue}-#{$role}": $value));
+    }
+  }
+
+  $levels: (
+    "0": _misp-theme-tone("danger", $dark),
+    "1": _misp-tone($orange, $dark),
+    "2": _misp-tone($misp-dist-connected, $dark),
+    "3": _misp-theme-tone("success", $dark),
+    "4": _misp-tone($blue, $dark),
+    "5": _misp-tone($purple, $dark),
+    "unknown": _misp-theme-tone("secondary", $dark)
+  );
+  @each $level, $tone in $levels {
+    @each $role, $value in $tone {
+      $tokens: map-merge($tokens, ("dist-#{$level}-#{$role}": $value));
+    }
+  }
+
+  $login-top: $primary;
+  $login-mid: shade-color($primary, 25%);
+  $login-end: shade-color($primary, 65%);
+  @if $dark {
+    $login-top: mix($primary, $page, 45%);
+    $login-mid: mix($primary, $page, 15%);
+    $login-end: shade-color($page, 30%);
+  }
+
+  @return map-merge($tokens, (
+    "surface":            $page,
+    "surface-sunken":     $sunken,
+    "surface-hover":      $raised,
+    "line":               mix($text, $page, 16%),
+    "line-strong":        mix($text, $page, 30%),
+    "ink":                $text,
+    "ink-muted":          $muted,
+    "chip-surface":       $page,
+    "chip-raised":        $raised,
+    "chip-raised-border": mix($text, $page, 26%),
+    "chip-text":          $text,
+    "chip-muted":         $muted,
+    "chip-faint":         $faint,
+    "chip-border":        mix($text, $page, 16%),
+    "chip-border-strong": mix($text, $page, 30%),
+    "index-check-bg":     $page,
+    "index-check-border": $muted,
+    "index-check-all":    $orange,
+    "index-actions-bg":   $page,
+    "login-bg":           linear-gradient(180deg, $login-top 0%, $login-mid 50%, $login-end 100%),
+    "login-card-bg":      $page,
+    "login-heading":      $text,
+    "login-logo-filter":  $logo-filter
+  ));
+}
+
+$misp-surface-tokens: map-merge(_misp-surface-tokens($_dark-only), $misp-surface-overrides) !default;
+$misp-surface-tokens-dark: map-merge(_misp-surface-tokens(true), $misp-surface-overrides-dark) !default;
+
+@if length($misp-surface-tokens) > 0 {
+  :root,
+  [data-bs-theme="light"] {
+    @each $name, $value in $misp-surface-tokens {
+      --misp-#{$name}: #{$value};
+    }
+  }
+}
+
+@if $enable-dark-mode and length($misp-surface-tokens-dark) > 0 {
+  @include color-mode(dark, true) {
+    @each $name, $value in $misp-surface-tokens-dark {
+      --misp-#{$name}: #{$value};
+    }
+  }
+}

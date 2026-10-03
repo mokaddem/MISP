@@ -2969,14 +2969,26 @@ var DIST_MAP = {
     4: { icon: 'misp-icon misp-icon-sharing-group misp-simple', bg: '#6a96ee', color: '#0e146d' },
     5: { icon: 'fas fa-code-fork',                              bg: '#e6b7df', color: '#380f33' },
 };
+var DIST_UNKNOWN = { icon: 'fas fa-question', bg: '#f1f1f1', color: '#333' };
+
+/* A distribution colour as the theme's --misp-dist-* token over this value. */
+function distTone(level, role, value) {
+    var token = DIST_MAP[level] ? 'dist-' + level : 'dist-unknown';
+    return 'var(--misp-' + token + '-' + role + ', ' + value + ')';
+}
+
+function distBadgeStyle(level, cfg, alpha) {
+    return 'background:' + distTone(level, 'bg', cfg.bg) + ';'
+        + 'color:' + distTone(level, 'fg', cfg.color) + ';'
+        + 'border:1px solid ' + distTone(level, 'border', cfg.color + alpha) + ';';
+}
 
 function renderDistOption(data, escape) {
-    var cfg = DIST_MAP[parseInt(data.value, 10)]
-        || { icon: 'fas fa-question', bg: '#f1f1f1', color: '#333' };
+    var level = parseInt(data.value, 10);
+    var cfg = DIST_MAP[level] || DIST_UNKNOWN;
     return '<div class="d-flex align-items-center gap-2 py-1">'
         + '<span class="badge d-inline-flex align-items-center px-2 py-1" style="'
-            + 'background:' + cfg.bg + ';color:' + cfg.color + ';'
-            + 'border:1px solid ' + cfg.color + '33;">'
+            + distBadgeStyle(level, cfg, '33') + '">'
         + '<i class="' + cfg.icon + '"></i>'
         + '</span>'
         + '<span>' + escape(data.text) + '</span>'
@@ -2984,12 +2996,11 @@ function renderDistOption(data, escape) {
 }
 
 function renderDistSelected(data, escape) {
-    var cfg = DIST_MAP[parseInt(data.value, 10)]
-        || { icon: 'fas fa-question', bg: '#f1f1f1', color: '#333' };
+    var level = parseInt(data.value, 10);
+    var cfg = DIST_MAP[level] || DIST_UNKNOWN;
     return '<div class="d-flex align-items-center gap-1">'
         + '<span class="badge d-inline-flex align-items-center px-1" style="'
-            + 'background:' + cfg.bg + ';color:' + cfg.color + ';'
-            + 'border:1px solid ' + cfg.color + '33; font-size:.65rem;">'
+            + distBadgeStyle(level, cfg, '33') + ' font-size:.65rem;">'
         + '<i class="' + cfg.icon + '"></i>'
         + '</span>'
         + '<span>' + escape(data.text) + '</span>'
@@ -3004,11 +3015,11 @@ function renderDistSelected(data, escape) {
  * @param {object}  labels     Map of level → label string (e.g. distLevels from PHP)
  */
 function distBadgeHtml(level, withLabel, labels) {
-    var d   = DIST_MAP[level] || DIST_MAP[0];
+    var key = DIST_MAP[level] ? level : 0;
+    var d   = DIST_MAP[key];
     var lbl = (withLabel && labels && labels[level]) ? labels[level] : '';
     return '<span class="badge d-inline-flex align-items-center gap-1 px-2 py-1"'
-        + ' style="background:' + d.bg + ';color:' + d.color
-        + ';border:1px solid ' + d.color + '30;font-weight:500;">'
+        + ' style="' + distBadgeStyle(key, d, '30') + 'font-weight:500;">'
         + '<i class="' + d.icon + '"></i>'
         + (lbl ? '<span class="ms-1" style="font-size:.7rem;">' + escapeHtml(lbl) + '</span>' : '')
         + '</span>';
@@ -3547,7 +3558,8 @@ function choiceBadge(entry, small) {
     badge.style.color = entry.tone || 'inherit';
     /* `33` is 20% alpha on the tone — the border every distribution badge in
        the theme wears. */
-    badge.style.border = '1px solid ' + (entry.tone || 'transparent') + '33';
+    badge.style.border = '1px solid '
+        + (entry.toneBorder || (entry.tone || 'transparent') + '33');
     if (small) { badge.style.fontSize = '.65rem'; }
 
     var icon = document.createElement('i');
@@ -3607,7 +3619,8 @@ function initChoiceSelects(container) {
             glyphs[node.dataset.choiceIcon] = {
                 icon: node.dataset.icon,
                 tone: node.dataset.tone,
-                toneBg: node.dataset.toneBg
+                toneBg: node.dataset.toneBg,
+                toneBorder: node.dataset.toneBorder
             };
         });
 

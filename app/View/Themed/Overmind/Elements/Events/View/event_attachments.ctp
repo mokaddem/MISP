@@ -15,7 +15,7 @@ $mayModify = $this->Acl->canModifyEvent($data);
             <!-- Icon + title + count -->
             <div class="d-flex align-items-center gap-2 me-auto">
                 <div class="rounded-2 d-flex align-items-center justify-content-center"
-                     style="width:36px;height:36px;background:#fff3cd;">
+                     style="width:36px;height:36px;background:var(--misp-tone-yellow-bg, #fff3cd);">
                     <i class="fas fa-paperclip" style="color:#F59E0B; font-size:1rem;"></i>
                 </div>
                 <div>

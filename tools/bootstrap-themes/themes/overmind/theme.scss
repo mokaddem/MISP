@@ -1,4 +1,7 @@
 @import "../../scss/misp-functions";
 @import "overmind-variables";
+// The templates' own values are Overmind's palette.
+$misp-surface-tokens: ();
+$misp-surface-tokens-dark: ();
 @import "../../scss/misp-bootstrap";
 @import "overmind";

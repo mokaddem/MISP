@@ -15,7 +15,7 @@ const fontOut = path.join(root, 'app/webroot/fonts/themes');
 const fontUrlPrefix = '../../fonts/themes/';
 
 const MODES = ['light', 'dark', 'both'];
-const NAVBARS = ['theme', 'builtin'];
+const NAVBARS = ['theme', 'builtin', 'rail'];
 
 // Bootstrap 5.3 itself triggers these; anything else is ours and should show.
 const SILENCED = ['import', 'global-builtin', 'color-functions'];

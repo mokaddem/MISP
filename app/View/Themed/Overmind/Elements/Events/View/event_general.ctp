@@ -7,17 +7,17 @@ $eventTags= $data['EventTag']  ?? [];
 $user     = $data['User']       ?? [];
 
 $analysisStops = [
-    ['value' => 0, 'title' => __('Initial'),   'tone' => '#0d6efd', 'sub' => __('Raw intelligence')],
-    ['value' => 1, 'title' => __('Ongoing'),   'tone' => '#fd7e14', 'sub' => __('Under investigation')],
-    ['value' => 2, 'title' => __('Completed'), 'tone' => '#198754', 'sub' => __('Verified & closed')],
+    ['value' => 0, 'title' => __('Initial'),   'tone' => 'var(--misp-tone-blue-solid, #0d6efd)', 'sub' => __('Raw intelligence')],
+    ['value' => 1, 'title' => __('Ongoing'),   'tone' => 'var(--misp-tone-orange-solid, #fd7e14)', 'sub' => __('Under investigation')],
+    ['value' => 2, 'title' => __('Completed'), 'tone' => 'var(--misp-tone-green-solid, #198754)', 'sub' => __('Verified & closed')],
 ];
 
 /* Lowest risk first — the ids themselves run the other way (1 is High). */
 $threatStops = [
-    ['value' => 4, 'title' => __('Undefined'), 'tone' => '#41464b', 'sub' => __('No risk')],
-    ['value' => 3, 'title' => __('Low'),       'tone' => '#ffc107', 'sub' => __('Opportunistic')],
-    ['value' => 2, 'title' => __('Medium'),    'tone' => '#fd7e14', 'sub' => __('Targeted campaign')],
-    ['value' => 1, 'title' => __('High'),      'tone' => '#dc3545', 'sub' => __('Active exploitation')],
+    ['value' => 4, 'title' => __('Undefined'), 'tone' => 'var(--misp-tone-gray-solid, #41464b)', 'sub' => __('No risk')],
+    ['value' => 3, 'title' => __('Low'),       'tone' => 'var(--misp-tone-yellow-solid, #ffc107)', 'sub' => __('Opportunistic')],
+    ['value' => 2, 'title' => __('Medium'),    'tone' => 'var(--misp-tone-orange-solid, #fd7e14)', 'sub' => __('Targeted campaign')],
+    ['value' => 1, 'title' => __('High'),      'tone' => 'var(--misp-tone-red-solid, #dc3545)', 'sub' => __('Active exploitation')],
 ];
 
 $analysisLevel  = (int)($event['analysis']        ?? 0);
@@ -302,7 +302,7 @@ $this->set('headerDescription', $headerDescription);
                     <?php endif; ?>
                     <?php if (!empty($event['protected']) && $event['protected'] === true): ?>
                         <span class="badge d-inline-flex align-items-center px-2 py-1"
-                              style="background:#fff3cd;color:#856404;border:1px solid #856404;font-weight:500;"
+                              style="background:var(--misp-tone-yellow-bg, #fff3cd);color:var(--misp-tone-yellow-fg, #856404);border:1px solid var(--misp-tone-yellow-fg, #856404);font-weight:500;"
                               data-bs-toggle="tooltip"
                               title="<?= __('Protected events can only be updated by signatories') ?>">
                             <i class="fas fa-shield-alt me-1"></i>
@@ -310,7 +310,7 @@ $this->set('headerDescription', $headerDescription);
                         </span>
                     <?php else: ?>
                         <span class="badge d-inline-flex align-items-center px-2 py-1"
-                              style="background:#e2e3e5;color:#41464b;border:1px solid #41464b;font-weight:500;"
+                              style="background:var(--misp-tone-gray-bg, #e2e3e5);color:var(--misp-tone-gray-fg, #41464b);border:1px solid var(--misp-tone-gray-fg, #41464b);font-weight:500;"
                               data-bs-toggle="tooltip"
                               title="<?= __('Unprotected events can be updated by any user with write access to the event') ?>">
                             <i class="fas fa-shield-alt me-1"></i>

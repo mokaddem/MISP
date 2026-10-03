@@ -35,9 +35,10 @@ $bootstrapTheme = $bootstrapTheme ?? MispTheme::bootstrapTheme($me ?? null);
 // The dashboard's dark appearance is its own midnight overlay, not the
 // Bootstrap dark palette, so a theme with both palettes renders light here.
 $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
+$useRail = $bootstrapTheme['navbar'] === 'rail';
 ?>
 <!DOCTYPE html>
-<html lang="<?= Configure::read('Config.language') === 'eng' ? 'en' : Configure::read('Config.language') ?>" data-misp-mode="<?= h($initialMode) ?>">
+<html lang="<?= Configure::read('Config.language') === 'eng' ? 'en' : Configure::read('Config.language') ?>"<?= $useRail ? ' class="misp-railed"' : '' ?> data-misp-mode="<?= h($initialMode) ?>" data-misp-theme="<?= h($bootstrapTheme['name']) ?>">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -52,7 +53,8 @@ $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
             ['tom-select.bootstrap5.min', ['preload' => true]],
             ['mainOvermind', ['preload' => true]],
             ['tag-chips', ['preload' => true]],
-            ['overmind-navbar', ['preload' => true]],
+            // The rail's styles come with the theme.
+            $useRail ? null : ['overmind-navbar', ['preload' => true]],
             ['fontawesome7.min', ['preload' => true]],
             ['dashboard/dashboard.default', ['preload' => true]],
             ['dashboard/dashboard.midnight'],
@@ -70,6 +72,7 @@ $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
             ['dashboard/overmind', ['preload' => true]],
             ['print', ['media' => 'print']],
         ];
+        $css = array_values(array_filter($css));
         if (Configure::read('MISP.custom_css')) {
             $css[] = preg_replace('/\.css$/i', '', Configure::read('MISP.custom_css'));
         }
@@ -116,7 +119,7 @@ $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
                     'bootstrapThemeChosen' => !empty($bootstrapTheme['userChoice']),
                 ];
                 $menus = $this->Navbar->build($context);
-                echo $this->element('navbar', [
+                echo $this->element($useRail ? 'navbar_rail' : 'navbar', [
                     'menus' => $menus,
                     'baseurl' => $baseurl,
                     'me' => $me ?? null,
@@ -149,7 +152,7 @@ $initialMode = $bootstrapTheme['mode'] === 'dark' ? 'dark' : 'light';
         'js' => [
             'bootstrap.bundle.min',
             'mispOvermind',
-            'overmind-navbar',
+            $useRail ? 'overmind-rail' : 'overmind-navbar',
         ],
     ]);
     if (!empty($intelGraph)) {

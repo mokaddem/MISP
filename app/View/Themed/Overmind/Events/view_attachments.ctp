@@ -48,6 +48,21 @@ $extMap = [
 
 $malwareCfg = ['icon'=>'fa-virus', 'bg'=>'#f8d7da', 'color'=>'#842029', 'mime'=>'application/zip'];
 $defaultCfg = ['icon'=>'fa-file',  'bg'=>'#e2e3e5', 'color'=>'#41464b', 'mime'=>'application/octet-stream'];
+
+// The theme's --misp-tone-<hue>-* token for each tile colour above.
+$toneHues = [
+    '#cfe2ff' => 'blue', '#f8d7da' => 'red', '#d1e7dd' => 'green',
+    '#d0f4de' => 'green', '#d4e8c4' => 'green', '#fff3cd' => 'yellow',
+    '#e2e3e5' => 'gray', '#fce4d6' => 'orange', '#ffe5d0' => 'orange',
+    '#e9d7f5' => 'purple',
+];
+$tone = function (array $cfg, $role) use ($toneHues) {
+    $value = $role === 'bg' ? $cfg['bg'] : $cfg['color'];
+    if (!isset($toneHues[$cfg['bg']])) {
+        return $value;
+    }
+    return sprintf('var(--misp-tone-%s-%s, %s)', $toneHues[$cfg['bg']], $role, $value);
+};
 ?>
 
 <div data-attachment-count="<?= count($attachments) ?>">
@@ -115,9 +130,9 @@ $defaultCfg = ['icon'=>'fa-file',  'bg'=>'#e2e3e5', 'color'=>'#41464b', 'mime'=>
                             <div class="rounded-2 d-flex align-items-center
                                         justify-content-center flex-shrink-0"
                                  style="width:40px;height:40px;
-                                        background-color:<?= h($cfg['bg']) ?>;">
+                                        background-color:<?= h($tone($cfg, 'bg')) ?>;">
                                 <i class="fas <?= h($cfg['icon']) ?>"
-                                   style="color:<?= h($cfg['color']) ?>;
+                                   style="color:<?= h($tone($cfg, 'fg')) ?>;
                                           font-size:1.15rem;">
                                 </i>
                             </div>
@@ -130,8 +145,8 @@ $defaultCfg = ['icon'=>'fa-file',  'bg'=>'#e2e3e5', 'color'=>'#41464b', 'mime'=>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <!-- Extension badge -->
                                     <span class="badge rounded-pill fw-semibold px-2"
-                                          style="background-color:<?= h($cfg['bg']) ?>;
-                                                 color:<?= h($cfg['color']) ?>;
+                                          style="background-color:<?= h($tone($cfg, 'bg')) ?>;
+                                                 color:<?= h($tone($cfg, 'fg')) ?>;
                                                  font-size:.65rem;letter-spacing:.04em;">
                                         .<?= h($extUpper) ?>
                                     </span>

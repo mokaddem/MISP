@@ -40,11 +40,11 @@ $distMap = $this->DistributionLevel->all();
             <div class="rounded-2 d-flex align-items-center
                         justify-content-center flex-shrink-0 mt-1"
                  style="width:34px;height:34px;
-                        background:<?= $dist['bg'] ?>;
-                        border:1px solid <?= $dist['color'] ?>33;"
+                        background:<?= $this->DistributionLevel->themed($dist, 'bg') ?>;
+                        border:1px solid <?= $this->DistributionLevel->themed($dist, 'border', '33') ?>;"
                  title="<?= h($dist['label']) ?>">
                 <i class="<?= h($dist['icon']) ?>"
-                   style="color:<?= $dist['color'] ?>;
+                   style="color:<?= $this->DistributionLevel->themed($dist, 'fg') ?>;
                           font-size:.85rem;"></i>
             </div>
 
@@ -72,7 +72,7 @@ $distMap = $this->DistributionLevel->all();
             <?php if ($corrCount > 0): ?>
             <!-- Correlation count badge -->
             <span class="badge rounded-pill flex-shrink-0 align-self-center"
-                  style="background:#dbeafe;color:#1e40af;
+                  style="background:var(--misp-tone-blue-bg, #dbeafe);color:var(--misp-tone-blue-fg, #1e40af);
                          font-size:.72rem;"
                   title="<?= __n(
                       '%s shared correlation',
