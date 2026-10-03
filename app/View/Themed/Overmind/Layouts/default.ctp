@@ -75,6 +75,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="misp-tag-palettes" content="<?= h(implode(' ', $this->TagChip->semanticNamespaces())) ?>">
     <link rel="shortcut icon" href="<?= $baseurl ?>/img/faviconOvermind.png">
     <title><?= h($title_for_layout) .  ' - ' . h(Configure::read('MISP.title_text') ?: 'MISP') ?></title>
     <?php
@@ -97,9 +98,11 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                  */
                 ['value-palette', ['preload' => true]],
                 ['value-hover-card', ['preload' => true]],
+                ['tag-chips', ['preload' => true]],
             ];
             $js = [
                 ['tom-select.complete.min', ['preload' => true]],
+                ['tag-chips', ['preload' => true]],
             ];
         } else {
             $css = [
@@ -109,11 +112,13 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 ['font-awesome', ['preload' => true]],
                 ['chosen.min', ['preload' => true]],
                 ['main', ['preload' => true]],
+                ['tag-chips', ['preload' => true]],
                 ['print', ['media' => 'print']],
             ];
             $js = [
                 ['jquery', ['preload' => true]],
                 ['chosen.jquery.min', ['preload' => true]],
+                ['tag-chips', ['preload' => true]],
             ];
         }
         if (Configure::read('MISP.custom_css')) {

@@ -163,17 +163,15 @@
             ValueLabelPriority::TAXONOMIES
         );
     }
-    foreach ($tags as $tag) {
-        $tagData .= $this->element('rich_tag', [
-            'tag' => $tag,
-            'tagAccess' => $tagAccess,
-            'localTagAccess' => $localTagAccess,
-            'searchUrl' => $searchUrl,
-            'scope' => $scope,
-            'id' => $id ?? null,
-            'tag_display_style' => $tag_display_style
-        ]);
-    }
+    $tagData .= $this->TagChip->collection($tags, [
+        'scope' => $scope,
+        'id' => $id ?? null,
+        'searchUrl' => $searchUrl,
+        'canModifyAll' => $full,
+        'canModifyLocal' => $fullLocal,
+        'display' => $this->TagChip->displayFromStyle($tag_display_style),
+        'track' => $tagTrack ?? null,
+    ]);
     if (!empty($buttonData)) {
         $tagData .= '<span style="white-space:nowrap">' . implode('', $buttonData) . '</span>';
     }

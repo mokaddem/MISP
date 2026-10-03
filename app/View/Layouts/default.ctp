@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width">
+    <meta name="misp-tag-palettes" content="<?= h(implode(' ', $this->TagChip->semanticNamespaces())) ?>">
     <link rel="shortcut icon" href="<?= $baseurl ?>/img/favicon.png">
     <title><?= h($title_for_layout), ' - ', h(Configure::read('MISP.title_text') ?: 'MISP') ?></title>
     <?php
@@ -14,6 +15,7 @@
             ['font-awesome', ['preload' => true]],
             ['chosen.min', ['preload' => true]],
             ['main', ['preload' => true]],
+            ['tag-chips', ['preload' => true]],
             ['print', ['media' => 'print']],
         ];
         if (Configure::read('MISP.custom_css')) {
@@ -22,6 +24,7 @@
         $js = [
             ['jquery', ['preload' => true]],
             ['chosen.jquery.min', ['preload' => true]],
+            ['tag-chips', ['preload' => true]],
         ];
         if (!empty($additionalCss)) {
             $css = array_merge($css, $additionalCss);
