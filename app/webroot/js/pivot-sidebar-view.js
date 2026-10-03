@@ -98,9 +98,20 @@
         var n = parseInt(m[1], 16);
         return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
     }
+    function noHref() { return null; }
     function hingeChip(name, colour, suffix, title) {
+        return hinge(window.TagChips.chip({ name: name, colour: colour }, { searchUrl: '' }), suffix, title);
+    }
+    // 'leaf' where the galaxy is already named beside the chip, 'full' where not
+    function hingeCluster(value, galaxy, opts) {
+        opts = opts || {};
+        return hinge(window.TagChips.cluster({ value: value, galaxy: galaxy || '', local: opts.local },
+                                             { display: opts.display || 'leaf', href: noHref }),
+                     opts.suffix, opts.title);
+    }
+    function hinge(html, suffix, title) {
         var wrap = document.createElement('span');
-        wrap.innerHTML = window.TagChips.chip({ name: name, colour: colour }, { searchUrl: '' });
+        wrap.innerHTML = html;
         var chip = wrap.firstChild;
         if (suffix) {
             var small = document.createElement('small');
@@ -122,7 +133,8 @@
         if (suffix) add(chip, h('small', '', suffix));
         return chip;
     }
-    function clusterChip(value, suffix) {
+    function clusterChip(value, suffix, galaxy, local) {
+        if (window.TagChips) return hingeCluster(value, galaxy, { suffix: suffix, local: local });
         var chip = h('span', 'pes-chip is-cluster', value);
         chip.title = value;
         if (suffix) add(chip, h('small', '', suffix));
@@ -249,7 +261,7 @@
         });
         (labels.galaxies || []).forEach(function (g) {
             if (g.priority !== 'pinned' && g.priority !== 'preferred') return;
-            var line = g.clusters.slice(0, 2).map(function (c) { return clusterChip(c.value); });
+            var line = g.clusters.slice(0, 2).map(function (c) { return clusterChip(c.value, null, g.label, c.local); });
             var first = g.clusters[0];
             var why = g.label || g.key;
             if (first.detail && first.detail.synonyms && first.detail.synonyms.length) {
@@ -538,7 +550,7 @@
         (vm.shared.galaxies || []).forEach(function (c) {
             var profiled = c.priority === 'pinned' || c.priority === 'preferred';
             if (!profiled && c.count !== total) return;
-            N.push(profiled ? 'context' : 'reach', { hue: 'galaxy', mark: 'star', line: [clusterChip(c.name)], pill: c.priority,
+            N.push(profiled ? 'context' : 'reach', { hue: 'galaxy', mark: 'star', line: [clusterChip(c.name, null, c.galaxy)], pill: c.priority,
                            why: { text: (c.galaxy || '') + ' · ' + (c.count === total ? 'all ' + total + ' carry it' : c.count + ' of ' + total + (c.count === 1 ? ' carries it' : ' carry it')) },
                            figNode: shareFig(c.count) });
         });
@@ -618,9 +630,13 @@
             prov.appendChild(document.createTextNode(vm.provenance.label));
         }
 
+        var clusterTitle = vm.entity === 'cluster' && window.TagChips && vm.card.value;
         if (vm.entity === 'tag') {
             var t = add(text, h('div', 'pes-title'));
             add(t, tagChip(vm.card.name, vm.card.colour));
+        } else if (clusterTitle) {
+            var ct = add(text, h('div', 'pes-title'));
+            add(ct, hingeCluster(vm.card.value, vm.card.galaxy, { display: 'full' }));
         } else {
             var title = add(text, h('div', 'pes-title', vm.title || kindLabel(vm)));
             title.title = vm.title || '';
@@ -629,7 +645,7 @@
                 if (vm.profile) valueCard(title, vm, vm.profile.b64);
             }
         }
-        var sub = subtitle(vm);
+        var sub = clusterTitle ? null : subtitle(vm);
         if (sub) add(text, h('div', 'pes-sub', sub));
 
         var strip = cardStrip(vm);
@@ -876,7 +892,9 @@
             add(gh, h('span', 'pes-group-name', g.label || g.key));
             if (g.priority) add(gh, tierPill(g.priority));
             var chips = add(box, h('div', 'pes-chips'));
-            g.clusters.forEach(function (c) { add(chips, clusterChip(c.value, c.count > 1 ? '×' + c.count : null)); });
+            g.clusters.forEach(function (c) {
+                add(chips, clusterChip(c.value, c.count > 1 ? '×' + c.count : null, g.label, c.local));
+            });
             g.clusters.forEach(function (c) {
                 if (c.detail && c.detail.description) {
                     var p = add(box, h('div', 'pes-meaning'));
@@ -1374,6 +1392,13 @@
         }
         function clusterChip(parent, name, opts) {
             opts = opts || {};
+            if (window.TagChips) {
+                var chip = hingeCluster(name, opts.galaxy, {
+                    display: 'full', suffix: has(opts.count) ? '×' + opts.count : null
+                });
+                parent.appendChild(chip);
+                return chip;
+            }
             var c = el('span', 'pesq-chip is-galaxy', parent);
             mispIcon('galaxy', c);
             el('span', 'pesq-chip-t', c, name);
@@ -1452,7 +1477,7 @@
                     var g = el('div', 'pesq-share', parent);
                     list.forEach(function (l) {
                         if (l.k === 'tag') tagChip(g, l.name, l.colour);
-                        else clusterChip(g, l.name, { title: (l.galaxy ? l.galaxy + ': ' : '') + l.name });
+                        else clusterChip(g, l.name, { galaxy: l.galaxy, title: (l.galaxy ? l.galaxy + ': ' : '') + l.name });
                         el('span', 'pesq-share-n', g, l.count + '/' + total);
                         var bar = el('div', 'pesq-bar' + (l.count === total ? ' is-all' : ''), g);
                         el('b', '', bar).style.width = Math.round(l.count / total * 100) + '%';
@@ -1465,7 +1490,8 @@
                     var b = el('div', 'pesq-block', ev);
                     subHead(b, 'On one node only', null, String(once.length));
                     chipList(b, once, 6, function (box, l) {
-                        if (l.k === 'tag') tagChip(box, l.name, l.colour); else clusterChip(box, l.name);
+                        if (l.k === 'tag') tagChip(box, l.name, l.colour);
+                        else clusterChip(box, l.name, { galaxy: l.galaxy });
                     });
                 }
             });
