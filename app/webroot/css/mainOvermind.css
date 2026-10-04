@@ -717,33 +717,38 @@ th .sort-icon::before {
    Drag and Drop CSS
 ======================================================= */
 .pem-dropzone {
-    border: 1.5px dashed var(--bs-border-color);
+    border: 1.5px dashed var(--misp-line-strong, var(--bs-border-color));
     border-radius: var(--bs-border-radius);
     padding: 1.25rem 1rem;
     text-align: center;
     cursor: pointer;
-    background: var(--bs-light);
+    background: var(--misp-surface-sunken, var(--bs-light));
     transition: background .15s, border-color .15s;
     position: relative;
 }
 .pem-dropzone:hover,
+.pem-dropzone:focus-visible,
+.pem-dropzone.pem-drag-over {
+    /* without theme tokens both operands are --bs-primary-bg-subtle */
+    background: color-mix(in srgb, var(--misp-graph-accent, var(--bs-primary-bg-subtle)) 20%,
+        var(--misp-surface, var(--bs-primary-bg-subtle)));
+    border-color: var(--misp-graph-accent, var(--bs-primary));
+}
+.pem-dropzone:hover,
 .pem-dropzone:focus-visible {
-    background: var(--bs-primary-bg-subtle);
-    border-color: var(--bs-primary);
     outline: none;
 }
-.pem-dropzone.pem-drag-over {
-    background: var(--bs-primary-bg-subtle);
-    border-color: var(--bs-primary);
-}
 .pem-dropzone.pem-has-file {
-    background: var(--bs-success-bg-subtle);
-    border-color: var(--bs-success);
+    background: var(--misp-tone-green-bg, var(--bs-success-bg-subtle));
+    border-color: var(--misp-tone-green-solid, var(--bs-success));
 }
 .pem-icon { font-size: 1.25rem; color: var(--bs-secondary-color); display: block; margin-bottom: .35rem; }
 .pem-hint { font-size: .8125rem; color: var(--bs-secondary-color); }
-.pem-filename { font-size: .8125rem; font-weight: 600; color: var(--bs-success); margin-top: .35rem; }
-.pem-remove-btn { color: var(--bs-danger); cursor: pointer; background: none; border: none; padding: 0 0 0 4px; vertical-align: middle; }
+.pem-dropzone:hover :is(.pem-icon, .pem-hint),
+.pem-dropzone:focus-visible :is(.pem-icon, .pem-hint),
+.pem-dropzone.pem-drag-over :is(.pem-icon, .pem-hint) { color: var(--misp-ink, var(--bs-secondary-color)); }
+.pem-filename { font-size: .8125rem; font-weight: 600; color: var(--misp-tone-green-fg, var(--bs-success)); margin-top: .35rem; }
+.pem-remove-btn { color: var(--misp-tone-red-fg, var(--bs-danger)); cursor: pointer; background: none; border: none; padding: 0 0 0 4px; vertical-align: middle; }
 
 /* =======================================================
    To be sorted
