@@ -3947,6 +3947,39 @@ tr.evt-extension-row td:first-child {
 }
 
 /* ==========================================================================
+   Format badge — a dark "terminal" chip for feed and export formats
+   ========================================================================== */
+
+.badge.misp-format-badge {
+    --fmt-bg: #242424;
+    --fmt-fg: #f0f0f0;
+    --fmt-edge: #1892B1;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.75rem;
+    background-color: var(--fmt-bg);
+    color: var(--fmt-fg);
+    border-left: 3px solid var(--fmt-edge);
+    padding: 0.35em 0.65em;
+    letter-spacing: 0.02em;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+}
+.misp-format-badge > .fa-terminal {
+    font-size: 0.65rem;
+    color: var(--fmt-edge);
+}
+:root:not([data-misp-theme="overmind"]) .misp-format-badge {
+    --fmt-bg: color-mix(in srgb, var(--misp-ink) 86%, var(--misp-surface));
+    --fmt-fg: var(--misp-surface);
+    --fmt-edge: color-mix(in srgb, var(--misp-accent) 65%, var(--misp-surface));
+}
+:root[data-misp-mode="dark"] .badge.misp-format-badge {
+    --fmt-bg: var(--misp-surface-sunken);
+    --fmt-fg: var(--misp-ink);
+    --fmt-edge: var(--misp-accent);
+    box-shadow: 0 0 0 1px var(--misp-line);
+}
+
+/* ==========================================================================
    Index results — ajax reload
    ==========================================================================
    A filter bar with deferred apply swaps `.index-results` in place instead of
