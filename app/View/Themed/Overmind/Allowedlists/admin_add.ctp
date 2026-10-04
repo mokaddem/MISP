@@ -33,7 +33,7 @@ echo $this->Form->create('Allowedlist', [
             <?= $this->Form->text('name', [
                 'id' => 'AllowedlistName',
                 'class' => 'w-100 border-0 bg-transparent fs-5 py-1 font-monospace',
-                'style' => 'border-bottom:1px solid #d8dde3 !important;'
+                'style' => 'border-bottom:1px solid var(--misp-field-line, #d8dde3) !important;'
                     . ' outline:none;',
                 'placeholder' => '/8.8.8.8/',
                 'autocomplete' => 'off',
@@ -102,7 +102,7 @@ echo $this->Form->create('Allowedlist', [
 
     function refresh() {
         var value = nameEl.value.trim();
-        nameEl.style.setProperty('border-bottom-color', '#d8dde3', 'important');
+        nameEl.style.setProperty('border-bottom-color', 'var(--misp-field-line, #d8dde3)', 'important');
         if (!value) { setStatus(null); return; }
         setStatus(DELIMITED.test(value) ? 'ok' : 'warn',
                   DELIMITED.test(value) ? LOOKS_VALID : LOOKS_OFF);
@@ -115,7 +115,7 @@ echo $this->Form->create('Allowedlist', [
         if (nameEl.value.trim()) { return; }
         e.preventDefault();
         e.stopPropagation();
-        nameEl.style.setProperty('border-bottom-color', '#dc3545', 'important');
+        nameEl.style.setProperty('border-bottom-color', 'var(--misp-tone-red-solid, #dc3545)', 'important');
         setStatus('error', NAME_REQUIRED);
         nameEl.focus();
     });
