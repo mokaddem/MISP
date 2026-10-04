@@ -89,7 +89,7 @@ echo $this->Form->create('Task', array_merge(
                     $sel = ($tName === $typeSel);
                     $bdr = $sel
                         ? 'border-color:var(--bs-primary) !important;background:rgba(24,146,177,.08);'
-                        : 'border-color:#d8dde3;';
+                        : 'border-color:var(--misp-field-line, #d8dde3);';
                 ?>
                 <div class="col type-card-col" style="cursor:pointer;" data-value="<?= h($tName) ?>">
                     <div class="border rounded p-2 d-flex align-items-center gap-2 h-100"
@@ -363,7 +363,7 @@ echo $this->Form->create('Task', array_merge(
         cardRow.querySelectorAll('.type-card-col').forEach(function (card) {
             card.addEventListener('click', function () {
                 cardRow.querySelectorAll('.type-card-col > div').forEach(function (d) {
-                    d.style.borderColor = '#d8dde3';
+                    d.style.borderColor = 'var(--misp-field-line, #d8dde3)';
                     d.style.background = '';
                 });
                 var inner = card.querySelector('div');

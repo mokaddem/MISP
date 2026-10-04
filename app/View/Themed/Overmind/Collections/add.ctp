@@ -72,7 +72,7 @@ echo $this->Form->create('Collection', [
             <?= $this->Form->text('name', [
                 'id' => 'CollectionName',
                 'class' => 'w-100 border-0 bg-transparent fs-5 py-1',
-                'style' => 'border-bottom:1px solid #d8dde3 !important;'
+                'style' => 'border-bottom:1px solid var(--misp-field-line, #d8dde3) !important;'
                     . ' outline:none;',
                 'maxlength' => 60,
                 'placeholder' => __('e.g. APTX phishing campaign assets'),
@@ -122,7 +122,7 @@ echo $this->Form->create('Collection', [
             <?= $this->Form->textarea('description', [
                 'class' => 'form-control',
                 'rows' => 3,
-                'style' => 'border-color:#d8dde3;',
+                'style' => 'border-color:var(--misp-field-line, #d8dde3);',
                 'placeholder' => __('Briefly describe what this collection is for and what kind of assets it contains…'),
             ]) ?>
         </div>
@@ -254,7 +254,7 @@ echo $this->Form->create('Collection', [
         var errorId = 'collectionNameError';
 
         var showError = function () {
-            nameEl.style.setProperty('border-bottom-color', '#dc3545', 'important');
+            nameEl.style.setProperty('border-bottom-color', 'var(--misp-tone-red-solid, #dc3545)', 'important');
             if (!document.getElementById(errorId)) {
                 var msg = document.createElement('div');
                 msg.id = errorId;
@@ -270,7 +270,7 @@ echo $this->Form->create('Collection', [
         };
 
         var clearError = function () {
-            nameEl.style.setProperty('border-bottom-color', '#d8dde3', 'important');
+            nameEl.style.setProperty('border-bottom-color', 'var(--misp-field-line, #d8dde3)', 'important');
             var msg = document.getElementById(errorId);
             if (msg) { msg.remove(); }
         };

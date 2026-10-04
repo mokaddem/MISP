@@ -42,7 +42,7 @@ echo $this->Form->create('CollectionElement', [
             <?= $this->Form->text('element_uuid', [
                 'id' => 'CollectionElementElementUuid',
                 'class' => 'w-100 border-0 bg-transparent fs-5 py-1 font-monospace',
-                'style' => 'border-bottom:1px solid #d8dde3 !important;'
+                'style' => 'border-bottom:1px solid var(--misp-field-line, #d8dde3) !important;'
                     . ' outline:none;',
                 'maxlength' => 36,
                 'placeholder' => 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX',
@@ -97,7 +97,7 @@ echo $this->Form->create('CollectionElement', [
             <?= $this->Form->textarea('description', [
                 'class' => 'form-control',
                 'rows' => 3,
-                'style' => 'border-color:#d8dde3;',
+                'style' => 'border-color:var(--misp-field-line, #d8dde3);',
                 'placeholder' => __('Briefly describe why this element belongs to the collection…'),
             ]) ?>
         </div>
@@ -172,7 +172,7 @@ echo $this->Form->create('CollectionElement', [
         var errorId = 'collectionElementUuidError';
 
         var showError = function (message) {
-            uuidEl.style.setProperty('border-bottom-color', '#dc3545', 'important');
+            uuidEl.style.setProperty('border-bottom-color', 'var(--misp-tone-red-solid, #dc3545)', 'important');
             var msg = document.getElementById(errorId);
             if (!msg) {
                 msg = document.createElement('div');
@@ -190,7 +190,7 @@ echo $this->Form->create('CollectionElement', [
         };
 
         var clearError = function () {
-            uuidEl.style.setProperty('border-bottom-color', '#d8dde3', 'important');
+            uuidEl.style.setProperty('border-bottom-color', 'var(--misp-field-line, #d8dde3)', 'important');
             var msg = document.getElementById(errorId);
             if (msg) { msg.remove(); }
         };

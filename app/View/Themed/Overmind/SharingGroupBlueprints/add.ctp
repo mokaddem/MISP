@@ -60,7 +60,7 @@ echo $this->Form->create('SharingGroupBlueprint', [
             <?= $this->Form->text('name', [
                 'id' => 'BlueprintName',
                 'class' => 'w-100 border-0 bg-transparent fs-5 py-1',
-                'style' => 'border-bottom:1px solid #d8dde3 !important;'
+                'style' => 'border-bottom:1px solid var(--misp-field-line, #d8dde3) !important;'
                     . ' outline:none;',
                 'placeholder' => __('e.g. European financial institutions'),
                 'autocomplete' => 'off',
@@ -292,7 +292,7 @@ echo $this->Form->create('SharingGroupBlueprint', [
                 msg.appendChild(document.createTextNode(L.nameRequired));
                 nameEl.parentNode.insertBefore(msg, nameEl.nextSibling);
             }
-            nameEl.style.setProperty('border-bottom-color', '#dc3545', 'important');
+            nameEl.style.setProperty('border-bottom-color', 'var(--misp-tone-red-solid, #dc3545)', 'important');
             e.preventDefault();
             e.stopPropagation();
             nameEl.focus();
@@ -301,7 +301,7 @@ echo $this->Form->create('SharingGroupBlueprint', [
         if (nameEl) {
             nameEl.addEventListener('input', function () {
                 if (!nameEl.value.trim()) { return; }
-                nameEl.style.setProperty('border-bottom-color', '#d8dde3', 'important');
+                nameEl.style.setProperty('border-bottom-color', 'var(--misp-field-line, #d8dde3)', 'important');
                 var msg = document.getElementById('BlueprintNameError');
                 if (msg) { msg.remove(); }
             });
