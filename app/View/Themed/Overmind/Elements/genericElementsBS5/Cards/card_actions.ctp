@@ -49,10 +49,10 @@ $renderDivider = function (array $spec) {
     <!-- HEADER -->
     <div class="p-3 border-bottom">
         <div class="d-flex align-items-center gap-2">
-            <div class="rounded-2 d-flex align-items-center justify-content-center"
-                 style="width:36px;height:36px;background:#ccfbf1;">
+            <div class="misp-icon-tile rounded-2 d-flex align-items-center justify-content-center"
+                 style="width:36px;height:36px;--tile:#0f766e;--tile-bg:#ccfbf1;">
                 <i class="fas fa-bolt"
-                   style="color:#0f766e;font-size:1rem;"></i>
+                   style="font-size:1rem;"></i>
             </div>
             <div class="fw-bold lh-1"><?= __('Quick action') ?></div>
         </div>

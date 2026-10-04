@@ -5150,3 +5150,25 @@ tr.evt-extension-row td:first-child {
 [data-misp-mode="dark"] .ov-obj-rel-badge {
     background: rgba(var(--bs-object-rgb), .28);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Icon tiles
+   ═══════════════════════════════════════════════════════════ */
+
+/* The markup passes the hue (--tile) and Overmind's light pastel (--tile-bg);
+   elsewhere the hue tints the card and the glyph is moved toward the text. */
+.misp-icon-tile {
+    background: var(--tile-bg);
+    color: var(--tile);
+}
+
+:root:not([data-misp-theme="overmind"]) .misp-icon-tile,
+:root[data-misp-mode="dark"] .misp-icon-tile {
+    background: color-mix(in srgb, var(--tile) 18%, transparent);
+    color: color-mix(in oklab, var(--tile) 60%, var(--misp-ink, var(--bs-emphasis-color)));
+    color: oklch(from var(--tile) min(l, .55) c h);
+}
+
+:root[data-misp-mode="dark"] .misp-icon-tile {
+    color: oklch(from var(--tile) max(l, .74) c h);
+}

@@ -15,9 +15,9 @@ $urlAdd    = $baseurl . '/sightings/add/' . $safeId;
     <!-- ── Header ── -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h5 class="d-flex align-items-center gap-2 fw-semibold mb-0">
-            <span class="d-inline-flex align-items-center justify-content-center rounded-2"
-                  style="width:32px;height:32px;background:#fbceff;">
-                <span class="misp-icon misp-icon-sighting misp-simple" style="color:#890096;font-size:.85rem;"></span>
+            <span class="misp-icon-tile d-inline-flex align-items-center justify-content-center rounded-2"
+                  style="width:32px;height:32px;--tile:#890096;--tile-bg:#fbceff;">
+                <span class="misp-icon misp-icon-sighting misp-simple" style="font-size:.85rem;"></span>
             </span>
             <?= __('Sightings') ?>
         </h5>

@@ -16,9 +16,9 @@ $mayModify = $this->Acl->canModifyTag($data);
 
             <!-- Icon + title + count -->
             <div class="d-flex align-items-center gap-2 me-auto">
-                <div class="rounded-2 d-flex align-items-center justify-content-center"
-                     style="width:36px;height:36px;background:#e9d8fc;">
-                    <span class="misp-icon misp-icon-galaxy misp-simple" style="color:#7C3AED;"></span>
+                <div class="misp-icon-tile rounded-2 d-flex align-items-center justify-content-center"
+                     style="width:36px;height:36px;--tile:#7C3AED;--tile-bg:#e9d8fc;">
+                    <span class="misp-icon misp-icon-galaxy misp-simple"></span>
                 </div>
                 <div>
                     <div class="fw-bold lh-1"><?= __('Galaxy Clusters') ?></div>
