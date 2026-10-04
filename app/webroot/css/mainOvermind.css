@@ -2053,6 +2053,24 @@ tr.evt-extension-row td:first-child {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Sightings graph
+   ═══════════════════════════════════════════════════════════ */
+
+#graphContent .axis path,
+#graphContent .axis line {
+    stroke: var(--misp-graph-grid-label, #000);
+}
+
+#graphContent .axis text {
+    fill: var(--misp-graph-grid-label, #000);
+}
+
+#graphContent .axis .sightingsCountLabel,
+#graphContent .sightingsLegendLabel {
+    fill: var(--misp-graph-label, #000);
+}
+
+/* ═══════════════════════════════════════════════════════════
    Categories & Types
    ═══════════════════════════════════════════════════════════ */
 
