@@ -85,6 +85,8 @@ emits each `--misp-<name>` from the theme's Bootstrap palette, light and dark.
 | `tone-<hue>-solid` | the hue itself, e.g. `#198754` for "Completed", `#4cd964` for a switch's on track | the theme colour (red, yellow, green, cyan, gray) or Bootstrap's hue, lifted to 3:1 on the page |
 | `surface`, `surface-sunken`, `surface-hover` | `#fff`, `#f8fafc` / `#f8f9fa`, `#f8fafc` | body bg, tertiary bg, secondary bg |
 | `line`, `line-strong` | `#ddd`, `#e6ecf2`, `#d8dde3` ...; `#c7d0d9` | text mixed into body bg at 16%, 30% |
+| `field-line` | `#d8dde3` | the theme's `$input-border-color`, so inline field edges match `.form-control` |
+| `check-off-line`, `check-off-icon` | `#dee2e6`, `#adb5bd` | text mixed into body bg at 30%; at 55%, lifted to 3:1 |
 | `ink`, `ink-muted` | `#334`; `#667`, `#888`, `#6c757d` ... | emphasis text, secondary text |
 | `dist-0-*` (organisation only) | `#f8d7da` / `#842029` | danger subtle trio |
 | `dist-1-*` (this community) | `#ffe5b4` / `#b45309` | subtle formula on `$orange` |
@@ -120,9 +122,11 @@ theme sets them.
 To change a token, put it in `$misp-surface-overrides` (or
 `$misp-surface-overrides-dark`) before `misp-bootstrap`, e.g.
 `$misp-surface-overrides: ("login-card-bg": #fdfbf6);`, or declare the custom
-property in the theme's own CSS. Overmind sets `$misp-surface-tokens` and
-`$misp-surface-tokens-dark` to `()`, so its pages draw the templates' own
-values.
+property in the theme's own CSS. Overmind sets `$misp-surface-tokens` to
+`()`, so its light pages draw the templates' own values. Its dark palette
+emits the derived tokens except `chip-*` and `login-*`, which it lists in
+`$misp-surface-skip-dark`: the chips carry their own dark values and the
+sign-in card stays light.
 
 ## Fonts
 

@@ -9,6 +9,8 @@
 //   surface, surface-sunken, surface-hover
 //                                   a panel, a well inside one, a hovered row
 //   line, line-strong               rules and edges; a switch's off track
+//   field-line                      a form field's edge, as .form-control draws it
+//   check-off-line, check-off-icon  a checkbox card's edge and glyph when off
 //   ink, ink-muted                  text on those surfaces
 //   dist-<level>-bg / -fg / -border distribution badge, <level> 0-5 or unknown
 //   chip-surface, chip-raised, chip-raised-border, chip-text, chip-muted,
@@ -35,10 +37,12 @@
 // Each value is derived from the theme's Bootstrap palette. To change one, set
 // it in $misp-surface-overrides (or -dark) before misp-bootstrap, or declare
 // the custom property in the theme's own CSS. A theme that wants none of them
-// sets $misp-surface-tokens and $misp-surface-tokens-dark to ().
+// sets $misp-surface-tokens and $misp-surface-tokens-dark to (). One that
+// wants only some lists the others' name prefixes in $misp-surface-skip-dark.
 
 $misp-surface-overrides: () !default;
 $misp-surface-overrides-dark: () !default;
+$misp-surface-skip-dark: () !default;
 
 $misp-dist-connected: #8b5e3c !default;
 
@@ -225,6 +229,9 @@ $_d-tertiary-bg: $body-tertiary-bg-dark;
     "surface-hover":      $raised,
     "line":               mix($text, $page, 16%),
     "line-strong":        mix($text, $page, 30%),
+    "field-line":         $input-border-color,
+    "check-off-line":     mix($text, $page, 30%),
+    "check-off-icon":     misp-readable-for(mix($text, $page, 55%), $page),
     "ink":                $text,
     "ink-muted":          $muted,
     "chip-surface":       $page,
@@ -247,7 +254,18 @@ $_d-tertiary-bg: $body-tertiary-bg-dark;
 }
 
 $misp-surface-tokens: map-merge(_misp-surface-tokens($_dark-only), $misp-surface-overrides) !default;
-$misp-surface-tokens-dark: map-merge(_misp-surface-tokens(true), $misp-surface-overrides-dark) !default;
+@function _misp-skip-tokens($tokens, $prefixes) {
+  @each $name, $value in $tokens {
+    @each $prefix in $prefixes {
+      @if str-index($name, $prefix) == 1 {
+        $tokens: map-remove($tokens, $name);
+      }
+    }
+  }
+  @return $tokens;
+}
+
+$misp-surface-tokens-dark: _misp-skip-tokens(map-merge(_misp-surface-tokens(true), $misp-surface-overrides-dark), $misp-surface-skip-dark) !default;
 
 @if length($misp-surface-tokens) > 0 {
   :root,
