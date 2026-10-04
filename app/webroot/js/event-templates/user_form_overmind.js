@@ -275,7 +275,8 @@
             render: {
                 option(data, escape) {
                     const desc = data.description
-                        ? ('<div style="color:#888;font-size:11px;' +
+                        ? ('<div style="color:var(--misp-ink-muted, #888);' +
+                           'font-size:11px;' +
                            'max-height:3em;overflow:hidden;">' +
                            escape(data.description) + '</div>')
                         : '';

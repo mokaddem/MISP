@@ -4976,29 +4976,34 @@ function checkNoticeList(type) {
 
             var wrap = document.createElement('div');
             wrap.className = 'd-flex align-items-start gap-2 rounded-2 p-2 mt-1';
-            wrap.style.cssText = 'background:rgba(13,110,253,.06);'
-                + 'border:1px solid rgba(13,110,253,.25);font-size:.8rem;';
+            var blue = 'var(--misp-tone-blue-solid, #0d6efd)';
+            var blueFg = 'var(--misp-tone-blue-fg, var(--primary))';
+            var muted = 'var(--misp-ink-muted, #666)';
+            wrap.style.cssText =
+                'background:color-mix(in srgb, ' + blue + ' 6%, transparent);'
+                + 'border:1px solid color-mix(in srgb, ' + blue
+                + ' 25%, transparent);font-size:.8rem;';
 
             /* innerHTML for static structure; textContent set below to avoid XSS */
             wrap.innerHTML =
                 '<i class="fas fa-circle-info flex-shrink-0"'
-                + ' style="color:var(--primary);margin-top:.15rem;"></i>'
+                + ' style="color:' + blueFg + ';margin-top:.15rem;"></i>'
                 + '<div class="flex-fill" style="min-width:0;overflow:hidden;">'
                     + '<div class="d-flex align-items-center gap-1"'
                     + ' style="min-width:0;overflow:hidden;">'
                         + '<a class="fw-semibold text-decoration-none flex-shrink-0"'
-                        + ' style="color:var(--primary);"></a>'
+                        + ' style="color:' + blueFg + ';"></a>'
                         + '<span class="notice-preview" style="flex:1;min-width:0;'
                         + 'overflow:hidden;white-space:nowrap;'
-                        + 'text-overflow:ellipsis;color:#666;"></span>'
+                        + 'text-overflow:ellipsis;color:' + muted + ';"></span>'
                         + '<button type="button" style="background:none;border:none;'
-                        + 'padding:0;color:var(--primary);cursor:pointer;'
+                        + 'padding:0;color:' + blueFg + ';cursor:pointer;'
                         + 'flex-shrink:0;">'
                         + '<i class="fas fa-chevron-down"'
                         + ' style="font-size:.7rem;"></i></button>'
                     + '</div>'
-                    + '<div class="notice-full"'
-                    + ' style="display:none;color:#666;margin-top:.2rem;"></div>'
+                    + '<div class="notice-full" style="display:none;color:'
+                    + muted + ';margin-top:.2rem;"></div>'
                 + '</div>';
 
             var link    = wrap.querySelector('a');
@@ -5122,21 +5127,27 @@ function initAttributeForm(currentDist, isEdit) {
     }
 
     /* Checkbox-card colours for Batch / IDS / Correlation */
+    var OFF_LINE = 'var(--misp-check-off-line, #dee2e6)';
+    var OFF_ICON = 'var(--misp-check-off-icon, #adb5bd)';
+    var ON_BLUE = 'var(--misp-tone-blue-solid, #0d6efd)';
+    var ON_YELLOW = 'var(--misp-tone-yellow-solid, #ffc107)';
+    var ON_GREEN = 'var(--misp-tone-green-solid, #198754)';
     var CARD_CFG = {
         AttributeBatchImport: {
             card: 'card-batch', icon: 'icon-batch',
-            on:  { border: '#0d6efd', color: '#0d6efd', iconClass: null },
-            off: { border: '#dee2e6', color: '#adb5bd', iconClass: null }
+            on:  { border: ON_BLUE, color: ON_BLUE, iconClass: null },
+            off: { border: OFF_LINE, color: OFF_ICON, iconClass: null }
         },
         AttributeToIds: {
             card: 'card-ids', icon: 'icon-ids',
-            on:  { border: '#ffc107', color: '#ffc107', iconClass: null },
-            off: { border: '#dee2e6', color: '#adb5bd', iconClass: null }
+            on:  { border: ON_YELLOW, color: ON_YELLOW, iconClass: null },
+            off: { border: OFF_LINE, color: OFF_ICON, iconClass: null }
         },
         AttributeDisableCorrelation: {
             card: 'card-correl', icon: 'icon-correl',
-            on:  { border: '#dee2e6', color: '#adb5bd', iconClass: 'fas fa-link-slash' },
-            off: { border: '#198754', color: '#198754', iconClass: 'fas fa-link' }
+            on:  { border: OFF_LINE, color: OFF_ICON,
+                   iconClass: 'fas fa-link-slash' },
+            off: { border: ON_GREEN, color: ON_GREEN, iconClass: 'fas fa-link' }
         }
     };
 
@@ -5266,7 +5277,7 @@ function initAttributeForm(currentDist, isEdit) {
 
         function showError(message) {
             lastValid = false;
-            valueEl.style.borderColor = '#dc3545';
+            valueEl.style.borderColor = 'var(--misp-tone-red-solid, #dc3545)';
             var msg = document.getElementById(errorId);
             if (!msg) {
                 msg = document.createElement('div');
@@ -5285,7 +5296,7 @@ function initAttributeForm(currentDist, isEdit) {
 
         function clearError() {
             lastValid = true;
-            valueEl.style.borderColor = '#d8dde3';
+            valueEl.style.borderColor = 'var(--misp-field-line, #d8dde3)';
             var msg = document.getElementById(errorId);
             if (msg) { msg.remove(); }
         }
