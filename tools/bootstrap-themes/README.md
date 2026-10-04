@@ -82,12 +82,12 @@ emits each `--misp-<name>` from the theme's Bootstrap palette, light and dark.
 | Token | Overmind (the template's fallback) | Derived for other themes |
 |---|---|---|
 | `tone-<hue>-bg` / `-fg` / `-border` | the tile's own pastel, e.g. `#fff3cd` / `#856404` | red, yellow, green, cyan, gray: the danger, warning, success, info, secondary subtle trio; blue, indigo, purple, pink, orange, teal: Bootstrap's subtle formula on that colour |
-| `tone-<hue>-solid` | the hue itself, e.g. `#198754` for "Completed", `#4cd964` for a switch's on track | the theme colour (red, yellow, green, cyan, gray) or Bootstrap's hue, lifted to 3:1 on the page |
+| `tone-<hue>-solid` | the hue itself, e.g. `#198754` for "Completed", `#4cd964` for a switch's on track | the theme colour (red, yellow, green, cyan, gray) or Bootstrap's hue, lifted to 3:1 on the page, its wells and panels, and the theme's modal |
 | `surface`, `surface-sunken`, `surface-hover` | `#fff`, `#f8fafc` / `#f8f9fa`, `#f8fafc` | body bg, tertiary bg, secondary bg |
 | `line`, `line-strong` | `#ddd`, `#e6ecf2`, `#d8dde3` ...; `#c7d0d9` | text mixed into body bg at 16%, 30% |
 | `field-line` | `#d8dde3` | the theme's `$input-border-color`, so inline field edges match `.form-control` |
 | `check-off-line`, `check-off-icon` | `#dee2e6`, `#adb5bd` | text mixed into body bg at 30%; at 55%, lifted to 3:1 |
-| `ink`, `ink-muted` | `#334`; `#667`, `#888`, `#6c757d` ... | emphasis text, secondary text |
+| `ink`, `ink-muted` | `#334`; `#667`, `#888`, `#6c757d` ... | emphasis text; secondary text, lifted to 4.5:1 on those same surfaces where it falls short |
 | `dist-0-*` (organisation only) | `#f8d7da` / `#842029` | danger subtle trio |
 | `dist-1-*` (this community) | `#ffe5b4` / `#b45309` | subtle formula on `$orange` |
 | `dist-2-*` (connected) | `#e7d3c3` / `#5a3e2b` | subtle formula on `$misp-dist-connected` (`#8b5e3c`) |

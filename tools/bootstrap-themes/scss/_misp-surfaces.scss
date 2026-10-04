@@ -107,16 +107,61 @@ $_d-tertiary-bg: $body-tertiary-bg-dark;
   );
 }
 
+// $color as it shows over $bg, its alpha resolved.
+@function _misp-over($color, $bg) {
+  @if alpha($color) >= 1 {
+    @return $color;
+  }
+  @return mix(rgba($color, 1), $bg, alpha($color) * 100%);
+}
+
+// Text that already reads at 4.5:1 on every surface is kept. Otherwise it is
+// resolved over the first surface and tinted, or shaded, until it does.
+@function _misp-text-on($color, $surfaces) {
+  $ok: true;
+  @each $bg in $surfaces {
+    @if contrast-ratio(_misp-over($color, $bg), $bg) < 4.5 {
+      $ok: false;
+    }
+  }
+  @if $ok {
+    @return $color;
+  }
+  $base: _misp-over($color, nth($surfaces, 1));
+  $lighten: luminance(nth($surfaces, 1)) < .5;
+  $step: 0%;
+  $result: $base;
+  @while $step < 100% {
+    $worst: 21;
+    @each $bg in $surfaces {
+      $worst: min($worst, contrast-ratio($result, $bg));
+    }
+    @if $worst >= 4.5 {
+      @return $result;
+    }
+    $step: $step + 5%;
+    @if $lighten {
+      $result: tint-color($base, $step);
+    } @else {
+      $result: shade-color($base, $step);
+    }
+  }
+  @return $result;
+}
+
 // A hue backed by a theme colour takes that colour's tuned trio. Its solid is
-// the colour, lifted to 3:1 against the page if it falls short.
-@function _misp-hue-tone($hue, $dark, $page) {
+// the colour, lifted to 3:1 against each surface it falls short on.
+@function _misp-hue-tone($hue, $dark, $surfaces) {
   $themed: ("red": "danger", "yellow": "warning", "green": "success",
             "cyan": "info", "gray": "secondary");
   $solids: ("red": $danger, "yellow": $warning, "green": $success,
             "cyan": $info, "gray": $secondary, "blue": $blue,
             "indigo": $indigo, "purple": $purple, "pink": $pink,
             "orange": $orange, "teal": $teal);
-  $solid: misp-readable-for(map-get($solids, $hue), $page);
+  $solid: map-get($solids, $hue);
+  @each $bg in $surfaces {
+    $solid: misp-readable-for($solid, $bg);
+  }
   @if map-has-key($themed, $hue) {
     @return map-merge(_misp-theme-tone(map-get($themed, $hue), $dark), ("solid": $solid));
   }
@@ -142,11 +187,23 @@ $_d-tertiary-bg: $body-tertiary-bg-dark;
     $logo-filter: invert(1) hue-rotate(180deg);
   }
 
+  // What tokens are painted on: the page, its wells and panels, and a modal
+  // when the theme gives this mode one of its own.
+  $surfaces: ($page,);
+  @each $bg in ($sunken, $raised) {
+    @if type-of($bg) == color {
+      $surfaces: append($surfaces, _misp-over($bg, $page));
+    }
+  }
+  @if type-of($modal-content-bg) == color and $dark == $_dark-only {
+    $surfaces: append($surfaces, _misp-over($modal-content-bg, $page));
+  }
+
   $tokens: ();
   $hues: "blue", "indigo", "purple", "pink", "red", "orange", "yellow",
          "green", "teal", "cyan", "gray";
   @each $hue in $hues {
-    @each $role, $value in _misp-hue-tone($hue, $dark, $page) {
+    @each $role, $value in _misp-hue-tone($hue, $dark, $surfaces) {
       $tokens: map-merge($tokens, ("tone-#{$hue}-#{$role}": $value));
     }
   }
@@ -233,7 +290,7 @@ $_d-tertiary-bg: $body-tertiary-bg-dark;
     "check-off-line":     mix($text, $page, 30%),
     "check-off-icon":     misp-readable-for(mix($text, $page, 55%), $page),
     "ink":                $text,
-    "ink-muted":          $muted,
+    "ink-muted":          _misp-text-on($muted, $surfaces),
     "chip-surface":       $page,
     "chip-raised":        $raised,
     "chip-raised-border": mix($text, $page, 26%),
