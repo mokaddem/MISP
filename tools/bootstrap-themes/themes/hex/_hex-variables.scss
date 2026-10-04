@@ -264,3 +264,58 @@ $misp-accent-dark: $hx-link-dark;
 // that still carries rc-nav.
 $misp-navbar-bg: $hx-abyss;
 $misp-navbar-brand-filter: none;
+
+// Correlation graph in the mark's blues: sky events, teal rules and the
+// brand primary on the period handles.
+$misp-surface-overrides: (
+  "graph-node-source":      $success,
+  "graph-node-attribute":   $warning,
+  "graph-node-target":      $hx-sky,
+  "graph-node-org":         $hx-field-line,
+  "graph-link-attribute":   tint-color($warning, 70%),
+  "graph-link-target":      tint-color($hx-sky, 55%),
+  "graph-link-org":         rgba($hx-teal, .16),
+  "graph-label":            $hx-ink,
+  "graph-label-source":     $hx-abyss,
+  "graph-label-org":        rgba($hx-muted, .8),
+  "graph-label-org-linked": $hx-abyss,
+  "graph-lane":             rgba($hx-primary, .04),
+  "graph-lane-line":        rgba($hx-teal, .2),
+  "graph-axis":             rgba($hx-teal, .5),
+  "graph-grid":             rgba($hx-teal, .16),
+  "graph-grid-label":       $hx-muted,
+  "graph-leader":           rgba($hx-teal, .35),
+  "graph-accent":           $hx-primary,
+  "graph-accent-ink":       $hx-teal,
+  "graph-marker":           $hx-field-line,
+  "graph-marker-hover":     $hx-abyss,
+  "graph-current":          $success,
+  "graph-current-ink":      #fff,
+  "graph-current-on":       #fff
+);
+$misp-surface-overrides-dark: (
+  "graph-node-source":      #4FD1A5,
+  "graph-node-attribute":   #F0B544,
+  "graph-node-target":      $hx-sky,
+  "graph-node-org":         $hx-muted-dark,
+  "graph-link-attribute":   mix(#F0B544, $hx-surface-dark, 45%),
+  "graph-link-target":      mix($hx-sky, $hx-surface-dark, 50%),
+  "graph-link-org":         rgba($hx-muted-dark, .18),
+  "graph-label":            $hx-text-dark,
+  "graph-label-source":     #fff,
+  "graph-label-org":        rgba($hx-muted-dark, .8),
+  "graph-label-org-linked": $hx-head-dark,
+  "graph-lane":             rgba($hx-sky, .05),
+  "graph-lane-line":        rgba($hx-sky, .2),
+  "graph-axis":             rgba($hx-sky, .5),
+  "graph-grid":             rgba($hx-sky, .15),
+  "graph-grid-label":       $hx-muted-dark,
+  "graph-leader":           rgba($hx-muted-dark, .45),
+  "graph-accent":           $hx-sky,
+  "graph-accent-ink":       #A6E6F8,
+  "graph-marker":           $hx-field-line-dark,
+  "graph-marker-hover":     $hx-head-dark,
+  "graph-current":          #4FD1A5,
+  "graph-current-ink":      $hx-abyss,
+  "graph-current-on":       $hx-abyss
+);

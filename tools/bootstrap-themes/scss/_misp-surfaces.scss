@@ -19,6 +19,15 @@
 //   login-bg, login-card-bg, login-heading, login-logo-filter
 //                                   the sign-in page; the filter is applied to
 //                                   MISP's own logo, whose lettering is dark
+//   graph-*                         the event's correlation graph and its
+//                                   timeline: node-<kind> and link-<kind> for
+//                                   source, attribute, target and org; label,
+//                                   label-source, label-halo, label-org(-linked);
+//                                   lane, lane-line, axis, grid, grid-label,
+//                                   leader; accent and accent-ink for the
+//                                   period handles; marker(-hover); current,
+//                                   current-ink, current-on for this event;
+//                                   font and font-display
 //
 // Read by templates but not emitted here, for a theme to set if it wants:
 //   modal-header-bg, modal-header-line  the accented strip atop add/edit forms
@@ -161,6 +170,54 @@ $_d-tertiary-bg: $body-tertiary-bg-dark;
     $login-mid: mix($primary, $page, 15%);
     $login-end: shade-color($page, 30%);
   }
+
+  $g-current: $success;
+  $g-accent: misp-readable-for($primary, $page);
+  $g-target: tint-color(misp-readable-for($blue, $page), 45%);
+  $g-org: mix($text, $page, 35%);
+  $g-link-attribute: tint-color($yellow, 65%);
+  $g-link-target: tint-color($blue, 50%);
+  $g-accent-ink: shade-color($g-accent, 30%);
+  $g-current-ink: shade-color($g-current, 70%);
+  @if contrast-ratio($g-current, #fff) >= 4.5 {
+    $g-current-ink: #fff;
+  }
+  @if $dark {
+    $g-target: tint-color(misp-readable-for($blue, $page), 20%);
+    $g-org: mix($text, $page, 50%);
+    $g-link-attribute: mix($yellow, $page, 60%);
+    $g-link-target: mix($blue, $page, 65%);
+    $g-accent-ink: tint-color($g-accent, 35%);
+  }
+  $tokens: map-merge($tokens, (
+    "graph-node-source":       $g-current,
+    "graph-node-attribute":    $orange,
+    "graph-node-target":       $g-target,
+    "graph-node-org":          $g-org,
+    "graph-link":              $g-accent,
+    "graph-link-attribute":    $g-link-attribute,
+    "graph-link-target":       $g-link-target,
+    "graph-link-org":          rgba($muted, .22),
+    "graph-label":             $text,
+    "graph-label-source":      $text,
+    "graph-label-halo":        rgba($page, .96),
+    "graph-label-org":         rgba($muted, .65),
+    "graph-label-org-linked":  $text,
+    "graph-lane":              rgba($g-current, .05),
+    "graph-lane-line":         rgba($text, .1),
+    "graph-axis":              rgba($text, .32),
+    "graph-grid":              rgba($text, .12),
+    "graph-grid-label":        mix($text, $page, 70%),
+    "graph-leader":            rgba($text, .35),
+    "graph-accent":            $g-accent,
+    "graph-accent-ink":        $g-accent-ink,
+    "graph-marker":            mix($text, $page, 40%),
+    "graph-marker-hover":      mix($text, $page, 80%),
+    "graph-current":           $g-current,
+    "graph-current-ink":       $g-current-ink,
+    "graph-current-on":        color-contrast($g-current),
+    "graph-font":              var(--bs-body-font-family)
+  ));
 
   @return map-merge($tokens, (
     "surface":            $page,

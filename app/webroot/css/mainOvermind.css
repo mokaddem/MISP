@@ -1422,7 +1422,7 @@ tr.evt-extension-row td:first-child {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: #61707e;
+    color: var(--misp-ink-muted, #61707e);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -1475,7 +1475,7 @@ tr.evt-extension-row td:first-child {
 
 .sankey-toggle input:focus + .sankey-toggle-switch {
     box-shadow: inset 0 0 0 1px rgba(56, 73, 91, 0.08),
-                0 0 0 3px rgba(76, 217, 100, 0.18);
+                0 0 0 3px color-mix(in srgb, var(--misp-tone-green-solid, #4cd964) 18%, transparent);
 }
 
 /* Display options are grouped on one rail rather than floating loose */
@@ -1487,7 +1487,7 @@ tr.evt-extension-row td:first-child {
     border: 1px solid var(--misp-line, #e2e9f1);
     border-radius: 12px;
     background: var(--misp-surface-sunken, #f8fafc);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--misp-surface, #fff) 60%, transparent);
 }
 
 .sankey-toggle-group-icon {
@@ -1539,6 +1539,175 @@ tr.evt-extension-row td:first-child {
 
 .sankey-toggle-disabled .sankey-toggle-switch {
     background: var(--misp-line, #d8dfe6);
+}
+
+/* Graph marks: --misp-graph-* tokens, Overmind's light palette as fallback */
+.corr-graph-icon {
+    width: 36px;
+    height: 36px;
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 15%, transparent);
+    color: var(--misp-graph-accent, #428bca);
+    font-size: 1rem;
+}
+
+.sankey-node-bar {
+    fill: var(--misp-graph-link, #428bca);
+}
+
+.sankey-node-source > .sankey-node-bar {
+    fill: var(--misp-graph-node-source, #6fbe80);
+}
+
+.sankey-node-attribute > .sankey-node-bar {
+    fill: var(--misp-graph-node-attribute, #f39a1f);
+}
+
+.sankey-node-target > .sankey-node-bar {
+    fill: var(--misp-graph-node-target, #8fbfe8);
+}
+
+.sankey-node-org > .sankey-node-bar {
+    fill: var(--misp-graph-node-org, #b7c5d6);
+}
+
+.sankey-link {
+    stroke: var(--misp-graph-link, #428bca);
+}
+
+.sankey-link-attribute {
+    stroke: var(--misp-graph-link-attribute, #f6e8a6);
+}
+
+.sankey-link-target {
+    stroke: var(--misp-graph-link-target, #7ec8f3);
+}
+
+.sankey-link-org {
+    stroke: var(--misp-graph-link-org, rgba(116, 147, 179, 0.22));
+}
+
+.sankey-leader {
+    stroke: var(--misp-graph-leader, rgba(74, 92, 112, 0.45));
+}
+
+.sankey-labels {
+    font-family: var(--misp-graph-font, sans-serif);
+    font-size: 10px;
+}
+
+.sankey-label {
+    fill: var(--misp-graph-label, #000);
+    transition: fill 200ms ease;
+}
+
+.sankey-label-source {
+    fill: var(--misp-graph-label-source, #21486f);
+    paint-order: stroke;
+    stroke: var(--misp-graph-label-halo, rgba(255, 255, 255, 0.96));
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+.sankey-label-org {
+    fill: var(--misp-graph-label-org, rgba(86, 105, 125, 0.48));
+}
+
+.sankey-label-org.is-linked {
+    fill: var(--misp-graph-label-org-linked, #31465b);
+}
+
+.sankey-grid-lane {
+    fill: var(--misp-graph-lane, rgba(84, 142, 94, 0.035));
+    stroke: var(--misp-graph-lane-line, rgba(71, 109, 79, 0.12));
+}
+
+.sankey-grid-axis {
+    stroke: var(--misp-graph-axis, rgba(63, 88, 70, 0.34));
+}
+
+.sankey-grid-line {
+    stroke: var(--misp-graph-grid, rgba(63, 88, 70, 0.18));
+}
+
+.sankey-grid-line.is-edge {
+    stroke: var(--misp-graph-axis, rgba(63, 88, 70, 0.28));
+}
+
+.sankey-grid-stub {
+    stroke: var(--misp-graph-axis, rgba(63, 88, 70, 0.42));
+}
+
+.sankey-grid-label {
+    font: 700 10px var(--misp-graph-font-display, var(--misp-graph-font, sans-serif));
+    fill: var(--misp-graph-grid-label, #44515f);
+}
+
+.sankey-current-node {
+    fill: var(--misp-graph-current, #6fbe80);
+}
+
+.sankey-current-star {
+    font: 700 10px sans-serif;
+    fill: var(--misp-graph-current-on, #fff);
+}
+
+.sankey-current-label {
+    font: 700 10px var(--misp-graph-font, sans-serif);
+    fill: var(--misp-graph-label, #26313d);
+}
+
+/* Overmind emits no --misp-* tokens, so its dark mode supplies them here */
+[data-misp-theme="overmind"][data-misp-mode="dark"] .corr-graph {
+    --misp-surface: var(--bs-body-bg);
+    --misp-surface-sunken: var(--bs-tertiary-bg);
+    --misp-surface-hover: var(--bs-secondary-bg);
+    --misp-line: var(--bs-border-color);
+    --misp-line-strong: #4a5d66;
+    --misp-ink: var(--bs-emphasis-color);
+    --misp-ink-muted: var(--bs-secondary-color);
+
+    --misp-graph-node-org: #8496a3;
+    --misp-graph-link-attribute: #a89a52;
+    --misp-graph-link-target: #4d97c9;
+    --misp-graph-link-org: rgba(149, 163, 179, 0.2);
+    --misp-graph-leader: rgba(211, 221, 225, 0.35);
+    --misp-graph-label: var(--bs-body-color);
+    --misp-graph-label-source: var(--bs-emphasis-color);
+    --misp-graph-label-halo: rgba(26, 36, 41, 0.96);
+    --misp-graph-label-org: rgba(211, 221, 225, 0.55);
+    --misp-graph-label-org-linked: var(--bs-emphasis-color);
+    --misp-graph-lane: rgba(111, 190, 128, 0.05);
+    --misp-graph-lane-line: rgba(211, 221, 225, 0.1);
+    --misp-graph-axis: rgba(211, 221, 225, 0.32);
+    --misp-graph-grid: rgba(211, 221, 225, 0.12);
+    --misp-graph-grid-label: var(--bs-secondary-color);
+    --misp-graph-accent: #5fa8e0;
+    --misp-graph-accent-ink: #a3cff2;
+    --misp-graph-marker: #607686;
+    --misp-graph-marker-hover: #b4c7d6;
+    --misp-graph-current-ink: #0f2c18;
+
+    --misp-dist-0-bg: var(--bs-danger-bg-subtle);
+    --misp-dist-0-fg: var(--bs-danger-text-emphasis);
+    --misp-dist-0-border: var(--bs-danger-border-subtle);
+    --misp-dist-1-bg: color-mix(in srgb, #fd7e14 18%, var(--bs-body-bg));
+    --misp-dist-1-fg: #feb272;
+    --misp-dist-1-border: color-mix(in srgb, #fd7e14 45%, var(--bs-body-bg));
+    --misp-dist-2-bg: color-mix(in srgb, #8b5e3c 25%, var(--bs-body-bg));
+    --misp-dist-2-fg: #d2b39b;
+    --misp-dist-2-border: color-mix(in srgb, #8b5e3c 55%, var(--bs-body-bg));
+    --misp-dist-3-bg: var(--bs-success-bg-subtle);
+    --misp-dist-3-fg: var(--bs-success-text-emphasis);
+    --misp-dist-3-border: var(--bs-success-border-subtle);
+    --misp-dist-4-bg: color-mix(in srgb, #0d6efd 20%, var(--bs-body-bg));
+    --misp-dist-4-fg: #8bb9fe;
+    --misp-dist-4-border: color-mix(in srgb, #0d6efd 45%, var(--bs-body-bg));
+    --misp-dist-5-bg: color-mix(in srgb, #6f42c1 22%, var(--bs-body-bg));
+    --misp-dist-5-fg: #c5b3e6;
+    --misp-dist-5-border: color-mix(in srgb, #6f42c1 50%, var(--bs-body-bg));
+    --misp-dist-unknown-bg: var(--bs-secondary-bg-subtle);
+    --misp-dist-unknown-fg: var(--bs-secondary-text-emphasis);
+    --misp-dist-unknown-border: var(--bs-secondary-border-subtle);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1636,12 +1805,12 @@ tr.evt-extension-row td:first-child {
     width: 2px;
     height: 13px;
     border-radius: 1px;
-    background: #94a9bd;
+    background: var(--misp-graph-marker, #94a9bd);
     pointer-events: auto;
 }
 
 .event-timeline-marker:hover {
-    background: #52708c;
+    background: var(--misp-graph-marker-hover, #52708c);
     opacity: 1;
 }
 
@@ -1650,9 +1819,9 @@ tr.evt-extension-row td:first-child {
     position: absolute;
     top: 20px;
     bottom: 0;
-    background: rgba(66, 139, 202, 0.12);
-    border-left: 1px solid rgba(66, 139, 202, 0.45);
-    border-right: 1px solid rgba(66, 139, 202, 0.45);
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 12%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--misp-graph-accent, #428bca) 45%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--misp-graph-accent, #428bca) 45%, transparent);
     border-radius: 3px;
     pointer-events: none;
     z-index: 1;
@@ -1681,7 +1850,7 @@ tr.evt-extension-row td:first-child {
     width: 2px;
     height: 34px;
     margin-left: -1px;
-    background: rgba(66, 139, 202, 0.55);
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 55%, transparent);
 }
 
 .event-timeline-handle::after {
@@ -1693,9 +1862,9 @@ tr.evt-extension-row td:first-child {
     height: 13px;
     margin-left: -6.5px;
     border-radius: 50%;
-    background: #428bca;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px rgba(66, 139, 202, 0.45);
+    background: var(--misp-graph-accent, #428bca);
+    border: 2px solid var(--misp-surface, #fff);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--misp-graph-accent, #428bca) 45%, transparent);
     transition: transform 120ms ease;
 }
 
@@ -1710,7 +1879,7 @@ tr.evt-extension-row td:first-child {
 }
 
 .event-timeline-handle:focus-visible::after {
-    box-shadow: 0 0 0 3px rgba(66, 139, 202, 0.35);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--misp-graph-accent, #428bca) 35%, transparent);
 }
 
 .event-timeline-reset {
@@ -1718,17 +1887,17 @@ tr.evt-extension-row td:first-child {
     align-items: center;
     gap: 4px;
     padding: 1px 8px;
-    border: 1px solid rgba(66, 139, 202, 0.35);
+    border: 1px solid color-mix(in srgb, var(--misp-graph-accent, #428bca) 35%, transparent);
     border-radius: 999px;
-    background: rgba(66, 139, 202, 0.1);
-    color: #2f6c9e;
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 10%, transparent);
+    color: var(--misp-graph-accent-ink, #2f6c9e);
     font-size: 10px;
     font-weight: 700;
     cursor: pointer;
 }
 
 .event-timeline-reset:hover {
-    background: rgba(66, 139, 202, 0.2);
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 20%, transparent);
 }
 
 .event-timeline-current-marker {
@@ -1736,7 +1905,7 @@ tr.evt-extension-row td:first-child {
     top: 0;
     bottom: 0;
     width: 0;
-    border-left: 2px dashed rgba(111, 190, 128, 0.95);
+    border-left: 2px dashed color-mix(in srgb, var(--misp-graph-current, #6fbe80) 95%, transparent);
     pointer-events: none;
     z-index: 2;
 }
@@ -1749,8 +1918,8 @@ tr.evt-extension-row td:first-child {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #6fbe80;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+    background: var(--misp-graph-current, #6fbe80);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--misp-surface, #fff) 95%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1779,10 +1948,10 @@ tr.evt-extension-row td:first-child {
     align-items: center;
     gap: 6px;
     padding: 2px 9px;
-    border: 1px solid rgba(66, 139, 202, 0.28);
+    border: 1px solid color-mix(in srgb, var(--misp-graph-accent, #428bca) 28%, transparent);
     border-radius: 999px;
-    background: rgba(66, 139, 202, 0.1);
-    color: #2f6c9e;
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 10%, transparent);
+    color: var(--misp-graph-accent-ink, #2f6c9e);
     font-size: 0.72rem;
     font-weight: 700;
     line-height: 1.45;
@@ -1791,18 +1960,18 @@ tr.evt-extension-row td:first-child {
 }
 
 .corr-attr-toggle:hover {
-    background: rgba(66, 139, 202, 0.2);
-    border-color: rgba(66, 139, 202, 0.45);
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 20%, transparent);
+    border-color: color-mix(in srgb, var(--misp-graph-accent, #428bca) 45%, transparent);
 }
 
 .corr-attr-toggle:focus-visible {
-    outline: 2px solid rgba(66, 139, 202, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--misp-graph-accent, #428bca) 50%, transparent);
     outline-offset: 1px;
 }
 
 .corr-attr-toggle.is-expanded {
-    background: rgba(66, 139, 202, 0.22);
-    border-color: rgba(66, 139, 202, 0.5);
+    background: color-mix(in srgb, var(--misp-graph-accent, #428bca) 22%, transparent);
+    border-color: color-mix(in srgb, var(--misp-graph-accent, #428bca) 50%, transparent);
 }
 
 .corr-attr-toggle-chevron {
@@ -1837,15 +2006,15 @@ tr.evt-extension-row td:first-child {
     transform: translateX(-50%);
     padding: 2px 8px;
     border-radius: 999px;
-    background: rgba(111, 190, 128, 0.96);
-    color: #1d4b29;
+    background: color-mix(in srgb, var(--misp-graph-current, #6fbe80) 96%, transparent);
+    color: var(--misp-graph-current-ink, #1d4b29);
     font-size: 10px;
     font-weight: 700;
     line-height: 1.2;
     white-space: nowrap;
     pointer-events: none;
     z-index: 2;
-    box-shadow: 0 2px 8px rgba(29, 75, 41, 0.18);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--misp-graph-current-ink, #1d4b29) 18%, transparent);
     rotate: -22deg;
     transform-origin: center bottom;
 }

@@ -334,3 +334,33 @@ $hr-opacity:      1;
 // The navbar: the reference's slate bar with gold as the active marker.
 $misp-navbar-bg:     $sc-bar;
 $misp-navbar-accent: $sc-gold-bright;
+
+// Correlation graph: this event in command gold, its values in readout teal,
+// the events they reach in the frame blue, on a blue-ruled lane.
+$misp-surface-overrides: (
+  "graph-node-source":      $sc-gold-bright,
+  "graph-node-attribute":   $teal,
+  "graph-node-target":      $sc-blue-bright,
+  "graph-node-org":         $sc-glow,
+  "graph-link-attribute":   mix($sc-gold, $sc-hull, 40%),
+  "graph-link-target":      mix($sc-blue, $sc-hull, 60%),
+  "graph-link-org":         rgba($sc-glow, .18),
+  "graph-label":            $sc-text,
+  "graph-label-source":     $sc-amber,
+  "graph-label-org":        rgba($sc-muted, .75),
+  "graph-label-org-linked": $sc-ice,
+  "graph-lane":             rgba($sc-blue, .06),
+  "graph-lane-line":        rgba($sc-blue-line, .4),
+  "graph-axis":             rgba($sc-blue-line, .85),
+  "graph-grid":             rgba($sc-blue-line, .3),
+  "graph-grid-label":       $sc-glow,
+  "graph-leader":           rgba($sc-glow, .4),
+  "graph-accent":           $sc-blue-bright,
+  "graph-accent-ink":       $sc-ice,
+  "graph-marker":           mix($sc-blue-line, $sc-void, 75%),
+  "graph-marker-hover":     $sc-ice,
+  "graph-current":          $sc-gold-bright,
+  "graph-current-ink":      $sc-void,
+  "graph-current-on":       $sc-void,
+  "graph-font-display":     inspect($sc-display)
+);

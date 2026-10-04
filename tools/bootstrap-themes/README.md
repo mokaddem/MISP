@@ -102,6 +102,11 @@ emits each `--misp-<name>` from the theme's Bootstrap palette, light and dark.
 | `login-bg` | teal gradient | primary shaded to 65% (dark: primary mixed into the page) |
 | `login-card-bg`, `login-heading` | `#ffffff`, `#28191B` | body bg, emphasis text |
 | `login-logo-filter` | `none` | `none`; dark `invert(1) hue-rotate(180deg)` |
+| `graph-node-*`, `graph-link-*` (`source`, `attribute`, `target`, `org`) | the correlation graph's green, orange, blue and grey | success, orange, blue; links tinted (dark: mixed into the page) |
+| `graph-label*`, `graph-lane*`, `graph-axis`, `graph-grid*`, `graph-leader` | near-black labels, green-grey rules | emphasis text, years at 70%, publishers in secondary text; rules are text at 10-35% |
+| `graph-accent`, `graph-accent-ink` | `#428bca`, `#2f6c9e` | primary, lifted to 3:1; shaded (dark: tinted) for text |
+| `graph-marker*`, `graph-current*` | `#94a9bd`; `#6fbe80` / `#1d4b29` | text mixed into body bg; success and a readable ink |
+| `graph-font`, `graph-font-display` | `sans-serif` | the body font; a theme may set a display face for the years |
 
 The `-fg` of a distribution level is its text and glyph colour; `-border` is
 its edge. MISP's own logo has near-black lettering, so on a dark card the

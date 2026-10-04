@@ -379,3 +379,33 @@ $thumbnail-border-color: $neon-line;
 
 $placeholder-opacity-max: .3;
 $placeholder-opacity-min: .12;
+
+// Correlation graph: this event in mint, its values in the magenta accent,
+// the events they reach in cyan, on an indigo-ruled lane.
+$misp-surface-overrides: (
+  "graph-node-source":      $neon-mint,
+  "graph-node-attribute":   $neon-pink,
+  "graph-node-target":      $neon-cyan,
+  "graph-node-org":         $neon-dim,
+  "graph-link-attribute":   mix($neon-pink, $neon-surface, 40%),
+  "graph-link-target":      mix($neon-cyan, $neon-surface, 45%),
+  "graph-link-org":         rgba($neon-violet, .18),
+  "graph-label":            $neon-ink,
+  "graph-label-source":     $neon-mint,
+  "graph-label-org":        rgba($neon-dim, .75),
+  "graph-label-org-linked": $neon-ink,
+  "graph-lane":             rgba($neon-primary, .06),
+  "graph-lane-line":        rgba($neon-primary, .35),
+  "graph-axis":             rgba($neon-primary, .8),
+  "graph-grid":             rgba($neon-primary, .22),
+  "graph-grid-label":       $neon-violet,
+  "graph-leader":           rgba($neon-dim, .4),
+  "graph-accent":           $neon-primary,
+  "graph-accent-ink":       tint-color($neon-primary, 45%),
+  "graph-marker":           $gray-700,
+  "graph-marker-hover":     $neon-cyan,
+  "graph-current":          $neon-mint,
+  "graph-current-ink":      $neon-void,
+  "graph-current-on":       $neon-void,
+  "graph-font-display":     inspect($neon-font-hud)
+);

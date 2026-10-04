@@ -385,3 +385,33 @@ $misp-accent:      $fac-orange;
 $misp-accent-dark: $fac-orange;
 // The MISP mark, tinted to the accent orange.
 $fac-brand-filter: brightness(0) saturate(100%) invert(62%) sepia(91%) saturate(1500%) hue-rotate(3deg) brightness(103%);
+
+// Correlation graph: this event on the green "go", its values in the orange
+// accent, the events they reach in link sky, steel for the publishers; the
+// period handles light orange like a hovered control.
+$misp-surface-overrides: (
+  "graph-node-source":      $fac-go,
+  "graph-node-attribute":   $fac-orange,
+  "graph-node-target":      $fac-sky,
+  "graph-node-org":         $fac-steel,
+  "graph-link-attribute":   mix($fac-orange, $fac-panel, 45%),
+  "graph-link-target":      mix($fac-sky, $fac-panel, 50%),
+  "graph-link-org":         rgba($fac-muted, .18),
+  "graph-label":            $fac-text,
+  "graph-label-source":     $fac-cream,
+  "graph-label-org":        rgba($fac-muted, .75),
+  "graph-label-org-linked": $fac-cream,
+  "graph-lane":             rgba($fac-orange, .04),
+  "graph-lane-line":        rgba($fac-rim, .45),
+  "graph-axis":             $fac-rim,
+  "graph-grid":             rgba($fac-rim, .35),
+  "graph-grid-label":       $fac-muted,
+  "graph-leader":           rgba($fac-muted, .4),
+  "graph-accent":           $fac-hot,
+  "graph-accent-ink":       $fac-hot-glow,
+  "graph-marker":           $fac-steel-lo,
+  "graph-marker-hover":     $fac-steel-hi,
+  "graph-current":          $fac-go,
+  "graph-current-ink":      $fac-ink,
+  "graph-current-on":       $fac-ink
+);

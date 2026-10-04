@@ -229,3 +229,34 @@ $breadcrumb-active-color:       $fathom-ink-soft;
 $misp-navbar-bg:           $fathom-margin;
 $misp-navbar-accent:       $fathom-ink;
 $misp-navbar-brand-filter: none;
+
+// Correlation graph as a chart: this event marked in the chart's magenta,
+// flows in land and shoal tints, a ruled neatline, years lettered in mono
+// like soundings.
+$misp-surface-overrides: (
+  "graph-node-source":      $fathom-magenta,
+  "graph-node-attribute":   $misp-correlation,
+  "graph-node-target":      tint-color($fathom-navy, 35%),
+  "graph-node-org":         $fathom-rule-strong,
+  "graph-link-attribute":   shade-color($fathom-tan, 12%),
+  "graph-link-target":      $fathom-shoal-deep,
+  "graph-link-org":         rgba($fathom-rule-strong, .2),
+  "graph-label":            $fathom-ink,
+  "graph-label-source":     $fathom-magenta,
+  "graph-label-org":        rgba($fathom-ink-soft, .75),
+  "graph-label-org-linked": $fathom-ink,
+  "graph-lane":             rgba($fathom-shoal, .4),
+  "graph-lane-line":        rgba($fathom-ink, .3),
+  "graph-axis":             rgba($fathom-ink, .6),
+  "graph-grid":             rgba($fathom-ink, .14),
+  "graph-grid-label":       $fathom-ink-soft,
+  "graph-leader":           rgba($fathom-ink, .35),
+  "graph-accent":           $fathom-navy,
+  "graph-accent-ink":       $primary-text-emphasis,
+  "graph-marker":           $fathom-rule-strong,
+  "graph-marker-hover":     $fathom-ink,
+  "graph-current":          $fathom-magenta,
+  "graph-current-ink":      #fff,
+  "graph-current-on":       #fff,
+  "graph-font-display":     inspect($font-family-monospace)
+);
