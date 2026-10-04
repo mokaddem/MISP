@@ -8,6 +8,9 @@
     --pvt-selection-stroke-color: var(--pvt-misp-primary);
     --pvt-node-selected-color: var(--pvt-misp-primary);
     --pvt-badge-color: var(--pvt-misp-primary);
+    /* A theme's body font and size never reach the graph and its panels. */
+    font-family: system-ui, sans-serif;
+    font-size: 1rem;
 }
 
 /* A stand-in for edges into a closed object dashes like the edges it
