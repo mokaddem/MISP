@@ -32,9 +32,10 @@ $distMap = $this->DistributionLevel->all();
     ?>
         <a href="<?= h($baseurl) ?>/events/view2/<?= $evId ?>"
            class="d-flex align-items-start gap-3 px-3 py-2
-                  text-decoration-none text-dark border-bottom
+                  text-decoration-none border-bottom
                   related-event-row"
-           style="transition:background .15s;">
+           style="transition:background .15s;
+                  color:var(--misp-ink, var(--bs-body-color));">
 
             <!-- Distribution badge -->
             <div class="rounded-2 d-flex align-items-center
@@ -92,5 +93,5 @@ $distMap = $this->DistributionLevel->all();
 </div>
 
 <style>
-.related-event-row:hover { background: #f8fafc; }
+.related-event-row:hover { background: var(--misp-surface-hover, #f8fafc); }
 </style>
