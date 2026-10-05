@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('EventReportRailCards', 'Tools/RailCards');
 App::uses('AnalystData', 'Model');
 
 /**
@@ -84,6 +85,15 @@ class EventReportsController extends AppController
         $report = $this->EventReport->simpleFetchById($this->Auth->user(), $reportId);
         if ($this->_isRest()) {
             return $this->RestResponse->viewData($report, $this->response->type());
+        }
+        if ($this->theme === 'Overmind' && !$ajax) {
+            $user = $this->Auth->user();
+            $railCards = new EventReportRailCards();
+            $this->set('railCards', RailCard::byId([
+                $railCards->outline($report),
+                $railCards->mentions($user, $report),
+                $railCards->siblings($user, $report),
+            ]));
         }
         $this->set('ajax', $ajax);
         $this->set('id', $reportId);
