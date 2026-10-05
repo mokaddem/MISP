@@ -753,6 +753,7 @@ class ACLComponent extends Component
             'getOrgLogo' => array('*'),
             'getUUIDs' => array('perm_sync'),
             'index' => ['organisation_index'],
+            'railCard' => array('*'),
             'view' => array('*'),
         ),
         'pages' => array(
