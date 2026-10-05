@@ -27,7 +27,7 @@ echo $this->element('Objects/index', [
 // The tab badge counts the event's objects, so a filtered load leaves it alone.
 $filterKeys = [
     'deleted', 'name', 'meta-category', 'searchFor', 'proposal', 'category', 'type', 'tags',
-    'galaxy', 'org', 'toIDS', 'correlation', 'feed', 'warning', 'analystData', 'narrower',
+    'galaxy', 'org', 'toIDS', 'correlation', 'feed', 'warning', 'analystData', 'narrower', 'seen',
 ];
 $filtered = array_intersect_key(
     array_filter($this->request->params['named'] ?? [], function ($value) {

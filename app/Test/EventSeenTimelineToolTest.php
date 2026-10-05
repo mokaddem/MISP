@@ -202,6 +202,7 @@ class EventSeenTimelineToolTest extends TestCase
             return [
                 'starts' => [100 => $attributes], 'ends' => [101 => $attributes],
                 'attributes' => $attributes, 'objects' => $objects, 'undated' => 1,
+                'undated_attributes' => 1, 'undated_objects' => 0,
                 'facets' => ['types' => $types, 'objects' => [], 'categories' => []],
             ];
         };
@@ -213,6 +214,8 @@ class EventSeenTimelineToolTest extends TestCase
         $this->assertSame([100 => 5], $merged['starts']);
         $this->assertSame(5, $merged['attributes']);
         $this->assertSame(2, $merged['undated']);
+        $this->assertSame(2, $merged['undated_attributes']);
+        $this->assertSame(0, $merged['undated_objects']);
         $this->assertSame(['ip-dst' => 3, 'domain' => 2], $merged['facets']['types']);
         $this->assertSame([7 => 3, 9 => 3], $merged['facets']['events']);
     }

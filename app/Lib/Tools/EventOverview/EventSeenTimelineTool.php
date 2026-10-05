@@ -91,6 +91,8 @@ class EventSeenTimelineTool
                 'objects' => $merged['objects'],
                 'dated' => $merged['attributes'] + $merged['objects'],
                 'undated' => $merged['undated'],
+                'undated_attributes' => $merged['undated_attributes'],
+                'undated_objects' => $merged['undated_objects'],
                 'outside' => $histogram['outside'] ?? 0,
             ],
             'facets' => array_map(function ($counts) {
@@ -149,7 +151,7 @@ class EventSeenTimelineTool
     private function tally(array $user, array $event)
     {
         $scope = $this->overview->scope($user, $event);
-        return $this->overview->cached('timeline-v2', $event, $scope, function () use ($user, $event) {
+        return $this->overview->cached('timeline-v3', $event, $scope, function () use ($user, $event) {
             return $this->computeTally($this->acl($user, [(int)$event['id']]));
         });
     }
@@ -158,6 +160,7 @@ class EventSeenTimelineTool
     {
         $tally = [
             'starts' => [], 'ends' => [], 'attributes' => 0, 'objects' => 0, 'undated' => 0,
+            'undated_attributes' => 0, 'undated_objects' => 0,
             'facets' => ['types' => [], 'objects' => [], 'categories' => []],
         ];
         $loose = $this->looseFrom($acl);
@@ -174,6 +177,7 @@ class EventSeenTimelineTool
                     if ($r['d'] === null) {
                         if ($key === 'starts') {
                             $tally['undated'] += (int)$r['n'];
+                            $tally['undated_' . $kind] += (int)$r['n'];
                         }
                         continue;
                     }
@@ -212,6 +216,7 @@ class EventSeenTimelineTool
     {
         $merged = [
             'starts' => [], 'ends' => [], 'attributes' => 0, 'objects' => 0, 'undated' => 0,
+            'undated_attributes' => 0, 'undated_objects' => 0,
             'facets' => ['types' => [], 'objects' => [], 'categories' => [], 'events' => []],
         ];
         foreach ($tallies as $eventId => $tally) {
@@ -220,8 +225,8 @@ class EventSeenTimelineTool
                     $merged[$key][$day] = ($merged[$key][$day] ?? 0) + $n;
                 }
             }
-            foreach (['attributes', 'objects', 'undated'] as $key) {
-                $merged[$key] += $tally[$key];
+            foreach (['attributes', 'objects', 'undated', 'undated_attributes', 'undated_objects'] as $key) {
+                $merged[$key] += $tally[$key] ?? 0;
             }
             foreach ($tally['facets'] as $facet => $counts) {
                 foreach ($counts as $name => $n) {

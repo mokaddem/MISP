@@ -2507,6 +2507,7 @@ class Event extends AppModel
      *   - toIDS (int|null, 1=yes, 2=no)
      *   - correlation, feed, warning, analystData (int|null, 1=has related
      *     events / feed hits / warninglist hits / analyst data, 2=has none)
+     *   - seen (int|null, 1=has a first or last seen date, 2=has neither)
      *   - tags (string|string[]|null) exact tag names
      *   - galaxy (string|null) galaxy type, any of its clusters
      *   - org (string|null) creator org name of the event a row belongs to
@@ -2617,6 +2618,10 @@ class Event extends AppModel
         $narrower = (int)($options['narrower'] ?? 0);
         if ($narrower === 1 || $narrower === 2) {
             $conditions[] = $this->__narrowerAttributeCondition($eventId, $narrower === 1);
+        }
+        $seen = (int)($options['seen'] ?? 0);
+        if ($seen === 1 || $seen === 2) {
+            $conditions[] = $this->__seenCondition('Attribute', $seen === 1);
         }
         if (!empty($options['tags'])) {
             $conditions[] = $this->Attribute->tagCondition(
@@ -3246,6 +3251,10 @@ class Event extends AppModel
         if ($requiresSomething) {
             $conditions['ShadowAttribute.id'] = -1;
         }
+        $seen = (int)($options['seen'] ?? 0);
+        if ($seen === 1 || $seen === 2) {
+            $conditions[] = $this->__seenCondition('ShadowAttribute', $seen === 1);
+        }
         if (!empty($options['searchFor'])) {
             $needle = '%' . $options['searchFor'] . '%';
             $conditions[] = ['OR' => [
@@ -3469,6 +3478,18 @@ class Event extends AppModel
         return $wanted ? $match : ['NOT' => $match];
     }
 
+    /**
+     * A row carrying a first or a last seen date or, $dated false, neither.
+     */
+    private function __seenCondition($alias, $dated)
+    {
+        $either = ['OR' => [
+            $alias . '.first_seen IS NOT NULL',
+            $alias . '.last_seen IS NOT NULL',
+        ]];
+        return $dated ? $either : ['NOT' => $either];
+    }
+
     private function __objectAttributeFilterConditions(
         array $user,
         $eventId,
@@ -3536,6 +3557,19 @@ class Event extends AppModel
             }
         }
 
+        // Dated as the Timeline tab dates an object: by its own seen dates or
+        // by any of the attributes it shows.
+        $seen = $yesNo('seen');
+        if ($seen !== null) {
+            $datedAttributes = $attrScope;
+            $datedAttributes[] = $this->__seenCondition('Attribute', true);
+            $match = ['OR' => [
+                $this->__seenCondition('Object', true),
+                $holding($datedAttributes),
+            ]];
+            $conditions[] = $seen ? $match : ['NOT' => $match];
+        }
+
         $analystData = $yesNo('analystData');
         if ($analystData !== null) {
             $ownData = $this->Attribute->analystDataCondition(
@@ -3596,6 +3630,8 @@ class Event extends AppModel
      *   - toIDS, correlation, feed, warning, analystData (1=at least one of
      *     its attributes has it, 2=none has; analyst data counts the object's
      *     own as well)
+     *   - seen (int|null, 1=the object or one of its attributes has a first
+     *     or last seen date, 2=none has)
      *   - org (string|null) creator org name of the object's event
      *   - eventIds (int[]|null) extended / extending view: every event whose
      *     objects belong in the list

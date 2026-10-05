@@ -2603,7 +2603,7 @@ class EventsController extends AppController
             'page', 'limit', 'sort', 'direction',
             'deleted', 'category', 'type', 'toIDS',
             'searchFor', 'flatten', 'proposal',
-            'warninglist', 'correlation', 'feed', 'warning', 'analystData', 'narrower',
+            'warninglist', 'correlation', 'feed', 'warning', 'analystData', 'narrower', 'seen',
             'tags', 'galaxy', 'org',
         ];
         foreach ($paramKeys as $key) {
@@ -2771,7 +2771,7 @@ class EventsController extends AppController
             'page', 'limit', 'sort', 'direction',
             'deleted', 'name', 'meta-category', 'searchFor', 'proposal',
             'category', 'type', 'tags', 'galaxy', 'org', 'toIDS',
-            'correlation', 'feed', 'warning', 'analystData', 'narrower',
+            'correlation', 'feed', 'warning', 'analystData', 'narrower', 'seen',
         ];
         foreach ($paramKeys as $key) {
             if (isset($namedParams[$key])) {
