@@ -65,44 +65,6 @@ $tone = function (array $cfg, $role) use ($toneHues) {
 };
 ?>
 
-<?php if (!empty($compact)): ?>
-    <?php if (empty($attachments)): ?>
-        <div class="eo-empty" data-attachment-count="0"><span><?= __('No attachments on this event.') ?></span></div>
-    <?php else: ?>
-        <ul class="eo-files" data-attachment-count="<?= count($attachments) ?>">
-            <?php foreach ($attachments as $att):
-                $isMalware = $att['type'] === 'malware-sample';
-                $filename = $isMalware ? explode('|', $att['value'], 2)[0] : $att['value'];
-                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                $cfg = $isMalware ? $malwareCfg : ($extMap[$ext] ?? $defaultCfg);
-            ?>
-                <li>
-                    <span class="eo-file-tile" style="background:<?= h($tone($cfg, 'bg')) ?>;color:<?= h($tone($cfg, 'fg')) ?>;">
-                        <i class="fas <?= h($cfg['icon']) ?>"></i>
-                    </span>
-                    <div class="min-w-0 flex-grow-1">
-                        <div class="eo-file-name text-truncate">
-                            <?= h($filename) ?>
-                            <?php if ($isMalware): ?>
-                                <span class="eo-malware"><i class="fas fa-biohazard"></i><?= __('Malware sample') ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <div class="eo-muted small text-truncate">
-                            <?= h($att['category']) ?><?= $att['comment'] !== '' ? ' · ' . h($att['comment']) : '' ?>
-                        </div>
-                    </div>
-                    <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                       href="<?= h($baseurl . '/attributes/download/' . $att['id']) ?>"
-                       title="<?= h(__('Download %s', $filename)) ?>" aria-label="<?= h(__('Download %s', $filename)) ?>">
-                        <i class="fas fa-download"></i>
-                    </a>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-    <?php endif; ?>
-    <?php return; ?>
-<?php endif; ?>
-
 <div data-attachment-count="<?= count($attachments) ?>">
 
 <?php if (empty($attachments)): ?>

@@ -63,7 +63,12 @@ $ownerDiffers = !empty($org['id']) && (int)$org['id'] !== (int)($orgc['id'] ?? 0
         <div class="min-w-0">
             <a class="eo-org-name text-truncate" href="<?= h($baseurl . '/organisations/view/' . ($orgc['id'] ?? '')) ?>"><?= h($orgc['name'] ?? '') ?></a>
             <?php if ($ownerDiffers): ?>
-                <div class="eo-org-held text-truncate"><?= h(__('held here by %s', $org['name'] ?? '')) ?></div>
+                <div class="eo-org-held text-truncate">
+                    <?= __(
+                        'held here by %s',
+                        sprintf('<a href="%s">%s</a>', h($baseurl . '/organisations/view/' . (int)$org['id']), h($org['name'] ?? ''))
+                    ) ?>
+                </div>
             <?php endif; ?>
             <?php if (!empty($data['User']['email'])): ?>
                 <div class="eo-org-held text-truncate" title="<?= h(__('Event creator')) ?>">

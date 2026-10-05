@@ -3959,7 +3959,6 @@ class EventsController extends AppController
 
         $this->set('attachments', $attachments);
         $this->set('event',       $event);
-        $this->set('compact', !empty($this->request->params['named']['compact']));
         $this->layout = false;
     }
 

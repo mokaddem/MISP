@@ -63,7 +63,7 @@
                     'Events/View/overview_band',
                     'Events/View/overview_story',
                     'Events/View/overview_facts',
-                    'Events/View/overview_attachments',
+                    'Events/View/event_attachments',
                     'Events/View/overview_assessment',
                     'Events/View/overview_details',
                 ],

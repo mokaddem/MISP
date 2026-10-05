@@ -22,16 +22,6 @@ if ($canEdit) {
     $actions[] = ['divider' => true, 'label' => __('Content')];
 
     $actions[] = [
-        'url' => "$baseurl/events/edit/$eventId",
-        'onclick' => $modal("$baseurl/events/edit/$eventId"),
-        'icon' => 'fas fa-pen',
-        'label' => __('Edit Event'),
-        'pinned' => true,
-        'short' => __('Edit'),
-        'entity' => 'event'
-    ];
-
-    $actions[] = [
         'url' => "$baseurl/events/delete/$eventId",
         'onclick' => $modal("$baseurl/events/delete/$eventId", 'md'),
         'icon' => 'fas fa-trash',
@@ -81,6 +71,16 @@ if ($canEdit) {
         'add' => true,
         'short' => __('Report'),
         'entity' => 'report'
+    ];
+
+    $actions[] = [
+        'url' => "$baseurl/events/edit/$eventId",
+        'onclick' => $modal("$baseurl/events/edit/$eventId"),
+        'icon' => 'fas fa-pen',
+        'label' => __('Edit Event'),
+        'pinned' => true,
+        'short' => __('Edit'),
+        'entity' => 'event'
     ];
 
     $actions[] = ['divider' => true, 'label' => __('Import & enrichment')];

@@ -34,7 +34,7 @@ $tabFor = function (array $group) {
             </div>
         </div>
         <div class="eo-figure eo-figure-ids">
-            <i class="fas fa-shield eo-ids-icon" title="<?= h(__('Flagged for detection (to_ids)')) ?>"></i>
+            <i class="fas fa-shield-halved text-warning eo-ids-icon" title="<?= h(__('Flagged for detection (to_ids)')) ?>"></i>
             <b><?= $n($ids) ?></b> <?= __('detection-ready') ?> <span class="eo-muted"><?= h(__('of %s', $n($total))) ?></span>
         </div>
     </div>
@@ -119,13 +119,4 @@ $tabFor = function (array $group) {
         <?php endif; ?>
     <?php endif; ?>
 
-    <div class="eo-card-foot">
-        <span class="eo-muted small" data-eo-filter-state></span>
-        <a href="#tab-attributes" class="btn btn-sm btn-outline-attribute ms-auto" data-eo-tab="attributes">
-            <i class="misp-icon misp-icon-attribute misp-simple me-1"></i><?= __('Attributes') ?>
-        </a>
-        <a href="#tab-objects" class="btn btn-sm btn-outline-object" data-eo-tab="objects">
-            <i class="misp-icon misp-icon-object misp-simple me-1"></i><?= __('Objects') ?>
-        </a>
-    </div>
 </div>

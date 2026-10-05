@@ -58,9 +58,6 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
                     <button type="button" class="btn btn-sm btn-report" data-eo-report-open>
                         <i class="fas fa-book-open me-1"></i><?= __('Read in full') ?>
                     </button>
-                    <a href="#tab-reports" class="btn btn-sm btn-outline-report ms-auto" data-eo-tab="reports">
-                        <i class="misp-icon misp-icon-report misp-simple me-1"></i><?= __('All reports') ?>
-                    </a>
                 </div>
             <?php else: ?>
                 <div class="eo-empty">

@@ -55,14 +55,6 @@
                 inventory.getAttribute('data-eo-narrower-tab') || 'objects'
             );
         }
-        var files = el.querySelector('[data-attachment-count]');
-        var figure = document.querySelector('[data-eo-attachment-figure]');
-        if (files && figure && el.closest('#attachment-card')) {
-            var n = parseInt(files.getAttribute('data-attachment-count'), 10) || 0;
-            figure.textContent = n === 0 ? 'No files' : n + (n === 1 ? ' file' : ' files');
-            var all = document.querySelector('[data-eo-download-all]');
-            if (all) all.disabled = n === 0;
-        }
     }
 
     function fillNarrower(count, tab) {
@@ -117,7 +109,7 @@
     }
 
     function reloadCards() {
-        document.querySelectorAll('#eo-context-card, #eo-inventory-card, #attachment-card [data-eo-fragment]')
+        document.querySelectorAll('#eo-context-card, #eo-inventory-card')
             .forEach(loadFragment);
     }
 
@@ -169,9 +161,7 @@
         var tab = e.target.closest('[data-eo-tab]');
         if (tab) {
             e.preventDefault();
-            var id = tab.getAttribute('data-eo-tab');
-            if (id === 'objects' || id === 'attributes') openFiltered(id, null);
-            else showTab(id);
+            showTab(tab.getAttribute('data-eo-tab'));
             return;
         }
         var narrower = e.target.closest('[data-eo-narrower]');
@@ -187,20 +177,6 @@
             rollup.disabled = true;
             card.setAttribute('data-eo-fragment', rollup.getAttribute('data-eo-rollup'));
             loadFragment(card);
-            return;
-        }
-        var downloadAll = e.target.closest('[data-eo-download-all]');
-        if (downloadAll) {
-            document.querySelectorAll('#attachment-card .eo-files a[href]').forEach(function (link, i) {
-                setTimeout(function () {
-                    var a = document.createElement('a');
-                    a.href = link.getAttribute('href');
-                    a.download = '';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }, i * 400);
-            });
             return;
         }
         var open = e.target.closest('[data-eo-report-open]');
@@ -407,7 +383,7 @@
     /* ── boot ───────────────────────────────────────────────── */
     function boot() {
         if (!document.querySelector('.eo-band')) return;
-        document.querySelectorAll('#eo-context-card, #eo-inventory-card, #attachment-card [data-eo-fragment]')
+        document.querySelectorAll('#eo-context-card, #eo-inventory-card')
             .forEach(loadFragment);
         document.querySelectorAll('[data-eo-fragment-lazy]').forEach(function (el) {
             var holder = el.closest('.collapse');
