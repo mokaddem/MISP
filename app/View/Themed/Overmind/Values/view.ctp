@@ -79,31 +79,13 @@ if (!empty($profile['value2_note'])) {
  * ------------------------------------------------------------------
  * Everything on this page that would write is rendered visibly disabled
  * rather than silently dead. Grouping is switched off so each control
- * keeps its own button: with five of them, folding the writes behind a
- * caret would hide what the page deliberately shows as unavailable.
+ * keeps its own button: folding the writes behind a caret would hide
+ * what the page deliberately shows as unavailable.
  */
 $noWrites = __(
     'Disabled in this pass — the Value Profile page does not write to'
     . ' the database yet.'
 );
-
-$exportTargets = array(
-    array('label' => __('STIX 2.1'), 'icon' => 'shield-halved'),
-    array('label' => __('Suricata'), 'icon' => 'shield'),
-    array('label' => __('Zeek'), 'icon' => 'network-wired'),
-    array('label' => __('RPZ'), 'icon' => 'ban'),
-    array('label' => __('CSV'), 'icon' => 'file-csv'),
-    array('type' => 'divider'),
-    array('label' => __('Copy the restSearch query'), 'icon' => 'code'),
-);
-foreach ($exportTargets as &$target) {
-    if (!empty($target['type'])) {
-        continue;
-    }
-    $target['class'] = 'disabled';
-    $target['title'] = $noWrites;
-}
-unset($target);
 
 $headerActions = array(
     array(
@@ -149,20 +131,6 @@ $headerActions = array(
             )))),
         )
         : null,
-    array(
-        'type' => 'navigate',
-        'label' => __('Watch'),
-        'icon' => 'bell',
-        'class' => 'btn btn-outline-dark disabled',
-        'title' => $noWrites,
-    ),
-    array(
-        'type' => 'dropdown',
-        'label' => __('Export'),
-        'icon' => 'file-export',
-        'class' => 'btn btn-outline-dark',
-        'children' => $exportTargets,
-    ),
 );
 $headerActions = array_values(array_filter($headerActions));
 
