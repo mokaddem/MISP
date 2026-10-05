@@ -158,12 +158,6 @@
             openFiltered(filter.getAttribute('data-eo-filter-tab') || 'objects', { type: filter.getAttribute('data-eo-filter-types') });
             return;
         }
-        var tab = e.target.closest('[data-eo-tab]');
-        if (tab) {
-            e.preventDefault();
-            showTab(tab.getAttribute('data-eo-tab'));
-            return;
-        }
         var narrower = e.target.closest('[data-eo-narrower]');
         if (narrower) {
             e.preventDefault();
@@ -308,10 +302,10 @@
         };
         var message = card.querySelector('[data-eo-graph-message]');
         var sub = card.querySelector('[data-eo-graph-sub]');
-        var note = card.querySelector('[data-eo-graph-note]');
         var buttons = card.querySelectorAll('[data-eo-graph-mode]');
         var structureSub = '';
         var saved = null;
+        var savedCount = 0;
         var savedMounted = false;
 
         function say(text) {
@@ -325,7 +319,10 @@
             buttons.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-eo-graph-mode') === mode); });
             Object.keys(canvases).forEach(function (k) { canvases[k].classList.toggle('d-none', k !== mode); });
             message.classList.toggle('d-none', mode === 'saved' || !message.textContent);
-            sub.textContent = mode === 'saved' && saved ? fmt(card.getAttribute('data-eo-text-saved'), [saved.name || saved.uuid]) : structureSub;
+            sub.textContent = mode === 'saved' && saved
+                ? fmt(card.getAttribute('data-eo-text-saved'), [saved.name || saved.uuid])
+                    + (savedCount > 1 ? ' · ' + fmt(card.getAttribute('data-eo-text-saved-count'), [savedCount]) : '')
+                : structureSub;
             if (mode === 'saved' && saved && !savedMounted && window.IntelGraph) {
                 savedMounted = true;
                 window.IntelGraph.mount(canvases.saved, { graph: saved.uuid, ui: { mode: 'viewer' } })
@@ -373,7 +370,8 @@
                 saved = drawn[0] || graphs[0];
                 var button = card.querySelector('[data-eo-graph-mode="saved"]');
                 button.disabled = false;
-                if (note) note.textContent = graphs.length > 1 ? graphs.length + ' saved graphs' : '';
+                button.title = button.getAttribute('data-eo-title-ready');
+                savedCount = graphs.length;
                 // An empty saved graph stays one click away rather than hiding the structure.
                 if (drawn.length) select('saved');
             }, function () { /* no saved graphs to offer */ });

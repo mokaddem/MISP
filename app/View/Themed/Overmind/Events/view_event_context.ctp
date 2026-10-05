@@ -186,7 +186,7 @@ foreach ($rows as $items) {
         <?php endif; ?>
         <span class="ms-auto d-inline-flex flex-wrap justify-content-end gap-1">
             <?php if ($aiTagsUrl !== null): ?>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-tour="event-tags-ai"
+                <button type="button" class="btn btn-sm btn-outline-tag" data-tour="event-tags-ai"
                         onclick="openModal('<?= h($aiTagsUrl) ?>', 'lg')" title="<?= h(__('Recommend tags with AI')) ?>">
                     <i class="fas fa-robot me-1"></i><?= __('AI') ?>
                 </button>

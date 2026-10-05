@@ -82,18 +82,26 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
              data-eo-text-empty="<?= h(__('No object references another one in this event.')) ?>"
              data-eo-text-failed="<?= h(__('The graph could not be drawn.')) ?>"
              data-eo-text-counts="<?= h(__('%1$s objects, %2$s references')) ?>"
-             data-eo-text-saved="<?= h(__('Saved graph: %s')) ?>">
+             data-eo-text-saved="<?= h(__('Saved graph: %s')) ?>"
+             data-eo-text-saved-count="<?= h(__('%s saved graphs')) ?>">
             <div class="eo-card-head">
                 <div class="misp-icon-tile eo-tile" style="--tile:var(--bs-correlation);--tile-bg:color-mix(in srgb, var(--bs-correlation) 12%, transparent);">
                     <i class="fas fa-circle-nodes"></i>
                 </div>
                 <div class="min-w-0 me-auto">
-                    <div class="eo-card-title"><?= __('Object graph') ?></div>
+                    <div class="eo-card-title"><?= __('Event graph') ?></div>
                     <div class="eo-card-sub text-truncate" data-eo-graph-sub>&nbsp;</div>
                 </div>
-                <div class="btn-group btn-group-sm eo-switch" role="group" aria-label="<?= h(__('Graph source')) ?>">
-                    <button type="button" class="btn btn-outline-secondary" data-eo-graph-mode="saved" disabled><?= __('Saved graph') ?></button>
-                    <button type="button" class="btn btn-outline-secondary active" data-eo-graph-mode="structure"><?= __('Structure') ?></button>
+                <div class="eo-switch" role="group" aria-label="<?= h(__('Graph source')) ?>">
+                    <button type="button" data-eo-graph-mode="saved" disabled
+                            title="<?= h(__('No saved graph on this event')) ?>"
+                            data-eo-title-ready="<?= h(__('Show the saved graph')) ?>">
+                        <i class="fas fa-bookmark"></i><?= __('Saved graph') ?>
+                    </button>
+                    <button type="button" class="active" data-eo-graph-mode="structure"
+                            title="<?= h(__('Show how the objects reference each other')) ?>">
+                        <i class="fas fa-sitemap"></i><?= __('Structure') ?>
+                    </button>
                 </div>
             </div>
             <div class="eo-graph-stage">
@@ -103,12 +111,6 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
                 <div class="eo-graph-canvas" data-eo-graph-canvas="structure"></div>
                 <div class="eo-graph-canvas d-none" data-eo-graph-canvas="saved"></div>
                 <div class="eo-graph-message d-none" data-eo-graph-message></div>
-            </div>
-            <div class="eo-card-foot">
-                <span class="eo-muted small" data-eo-graph-note></span>
-                <a href="#tab-pivot-explorer" class="btn btn-sm btn-outline-correlation ms-auto" data-eo-tab="pivot-explorer">
-                    <i class="fas fa-up-right-from-square me-1"></i><?= __('Open in Pivot Explorer') ?>
-                </a>
             </div>
         </div>
     </div>
