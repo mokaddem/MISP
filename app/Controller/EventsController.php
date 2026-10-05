@@ -3973,7 +3973,7 @@ class EventsController extends AppController
         $rollups = [];
         foreach ($setIds ?? [$selfId] as $memberId) {
             $member = $memberId === $selfId ? $event : $this->__overviewEvent($memberId);
-            $part = $tool->rollup($user, $member['Event'], $force);
+            $part = $tool->rollupSplit($user, $member['Event'], $force);
             if ($part === null) {
                 $rollups = null;
                 break;
@@ -3996,7 +3996,7 @@ class EventsController extends AppController
             }
             list($rollupTags, $rollupClusters) = $this->__rollupLabels(array_keys($tagIds), $user);
             foreach ($rollups as $memberId => $part) {
-                foreach ($part as $tagId => $count) {
+                foreach ($part as $tagId => $counts) {
                     if (empty($rollupTags[$tagId]) || !empty($rollupTags[$tagId]['hide_tag'])) {
                         continue;
                     }
@@ -4006,7 +4006,8 @@ class EventsController extends AppController
                         }
                         $hits[$tagId] = ['cluster' => $rollupClusters[$tagId], 'event' => [], 'indicators' => []];
                     }
-                    $hits[$tagId]['indicators'][$memberId] = $count;
+                    $hits[$tagId]['indicators'][$memberId] = $counts[0] + $counts[1];
+                    $hits[$tagId]['loose'][$memberId] = $counts[0];
                 }
             }
         }

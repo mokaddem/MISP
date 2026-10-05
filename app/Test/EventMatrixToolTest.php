@@ -81,7 +81,7 @@ class EventMatrixToolTest extends TestCase
         $recon = $this->cluster(self::ATTACK, 4, 'Phishing for Information - T1598', 'T1598', ['attack-PRE:reconnaissance']);
         $galaxies = EventMatrixTool::compact([
             $this->hit($link, [13], [13 => 2]),
-            $this->hit($phishing, [], [13 => 4]),
+            ['loose' => [13 => 3]] + $this->hit($phishing, [], [13 => 4]),
             $this->hit($exfilMobile, [], [13 => 16]),
             $this->hit($recon, [13]),
         ], 13);
@@ -98,6 +98,8 @@ class EventMatrixToolTest extends TestCase
         $this->assertSame('Phishing', $phishingGroup['label']);
         $this->assertSame('indicators', $phishingGroup['own']['state']);
         $this->assertSame(4, $phishingGroup['own']['indicators']);
+        $this->assertSame(3, $phishingGroup['own']['loose']);
+        $this->assertSame(3, $phishingGroup['loose']);
         $this->assertSame('Spearphishing Link', $phishingGroup['subs'][0]['label']);
         $this->assertSame(6, $phishingGroup['indicators']);
     }

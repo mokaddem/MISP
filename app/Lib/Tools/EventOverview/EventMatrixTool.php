@@ -268,6 +268,7 @@ class EventMatrixTool
             'state' => $hit === null ? 'idle' : $hit['state'],
             'onEvent' => $hit !== null && $hit['onEvent'],
             'indicators' => $hit === null ? 0 : $hit['indicators'],
+            'loose' => $hit === null ? 0 : $hit['loose'],
             'foreign' => $hit !== null && $hit['foreign'],
             'origins' => $hit === null ? [] : $hit['origins'],
             'cluster' => [
@@ -311,6 +312,9 @@ class EventMatrixTool
                 if ((int)$count > 0) {
                     $cell['indicatorOrigins'][(int)$eventId] = ($cell['indicatorOrigins'][(int)$eventId] ?? 0) + (int)$count;
                 }
+            }
+            foreach ((array)($hit['loose'] ?? []) as $count) {
+                $cell['loose'] += (int)$count;
             }
             $byGalaxy[$galaxyId]['cells'][$key] = $cell;
         }
@@ -395,6 +399,7 @@ class EventMatrixTool
             ],
             'eventOrigins' => [],
             'indicatorOrigins' => [],
+            'loose' => 0,
         ];
     }
 
@@ -469,11 +474,13 @@ class EventMatrixTool
         $members = array_merge($own === null ? [] : [$own], $subs);
         $onEvent = false;
         $indicators = 0;
+        $loose = 0;
         $foreign = true;
         $origins = [];
         foreach ($members as $member) {
             $onEvent = $onEvent || $member['onEvent'];
             $indicators += $member['indicators'];
+            $loose += $member['loose'];
             $foreign = $foreign && $member['foreign'];
             $origins = array_merge($origins, $member['origins']);
         }
@@ -485,6 +492,7 @@ class EventMatrixTool
             'state' => $onEvent ? 'event' : 'indicators',
             'onEvent' => $onEvent,
             'indicators' => $indicators,
+            'loose' => $loose,
             'foreign' => $foreign,
             'origins' => $origins,
             'own' => $own,
@@ -500,6 +508,7 @@ class EventMatrixTool
             'state' => $cell['state'],
             'onEvent' => $cell['onEvent'],
             'indicators' => $cell['indicators'],
+            'loose' => $cell['loose'],
             'foreign' => $cell['foreign'],
             'origins' => $cell['origins'],
             'cluster' => $cell['cluster'],

@@ -35,8 +35,8 @@
     $this->set('headerActions', $headerActions);
 
     echo $this->element('genericElements/assetLoader', [
-        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min', 'event-overview'],
-        'css' => ['event-overview'],
+        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min', 'event-overview', 'event-matrix'],
+        'css' => ['event-overview', 'misp-matrix'],
     ]);
 
     // Extended / extending view: say so, and carry the mode into every lazy
@@ -68,6 +68,7 @@
                 ],
                 'right' => [
                     'Events/View/event_actions',
+                    'Events/View/event_matrix',
                     'Events/View/event_sightings',
                     'Events/View/event_related',
                     'Events/View/event_warninglists',

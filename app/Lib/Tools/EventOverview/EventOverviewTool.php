@@ -418,9 +418,28 @@ class EventOverviewTool
      */
     public function rollup(array $user, array $event, $force = false)
     {
+        $split = $this->rollupSplit($user, $event, $force);
+        if ($split === null) {
+            return null;
+        }
+        return array_map(function ($counts) {
+            return $counts[0] + $counts[1];
+        }, $split);
+    }
+
+    /**
+     * rollup(), split by where the indicators sit.
+     *
+     * @param array $user
+     * @param array $event
+     * @param bool $force
+     * @return array|null tag id => [loose attributes, attributes in objects]
+     */
+    public function rollupSplit(array $user, array $event, $force = false)
+    {
         $scope = $this->scope($user, $event);
         $allowCompute = $force || (int)($event['attribute_count'] ?? 0) <= self::ROLLUP_LIMIT;
-        return $this->cached('rollup', $event, $scope, function () use ($scope, $event) {
+        return $this->cached('rollup-split', $event, $scope, function () use ($scope, $event) {
             return $this->computeRollup($scope, (int)$event['id']);
         }, $allowCompute);
     }
@@ -454,7 +473,8 @@ class EventOverviewTool
                 continue;
             }
             $tagId = (int)$r['tag_id'];
-            $counts[$tagId] = ($counts[$tagId] ?? 0) + (int)$r['n'];
+            $counts[$tagId] = $counts[$tagId] ?? [0, 0];
+            $counts[$tagId][$loose ? 0 : 1] += (int)$r['n'];
         }
         return $counts;
     }

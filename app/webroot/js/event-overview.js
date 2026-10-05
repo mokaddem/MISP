@@ -178,7 +178,9 @@
             if (!card) return;
             rollup.disabled = true;
             card.setAttribute('data-eo-fragment', rollup.getAttribute('data-eo-rollup'));
-            loadFragment(card);
+            loadFragment(card).then(function () {
+                document.dispatchEvent(new CustomEvent('misp:overview-rolled-up', { detail: { source: 'context' } }));
+            });
             return;
         }
         var tab = e.target.closest('[data-eo-tab]');
@@ -481,6 +483,8 @@
         }
     }
 
+    window.MispEventOverview = { openFiltered: openFiltered };
+
     function boot() {
         reopenTab();
         if (!document.querySelector('.eo-band')) return;
@@ -499,6 +503,11 @@
         document.addEventListener('mouseover', onHover);
         document.addEventListener('mouseout', onLeave);
         document.addEventListener('misp:attributes-changed', reloadCards);
+        document.addEventListener('misp:overview-rolled-up', function (e) {
+            if (e.detail && e.detail.source !== 'context') {
+                document.querySelectorAll('#eo-context-card').forEach(loadFragment);
+            }
+        });
         initReport();
         initGraph();
     }
