@@ -1,11 +1,11 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 
 /**
  * Rail cards for a galaxy cluster. $cluster is the output of
  * GalaxyCluster::fetchIfAuthorized($user, $id, 'view', true, true).
  */
-class GalaxyClusterRailCards
+class GalaxyClusterRailCards extends LazyRailCards
 {
     const FACT_KEYS = [
         'synonyms', 'country', 'cfr-suspected-state-sponsor', 'attribution-confidence',
@@ -34,47 +34,17 @@ class GalaxyClusterRailCards
     const ACTIVITY_MONTHS = 12;
     const ACTIVITY_ROW_CAP = 100000;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/galaxy_clusters/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'cluster-activity' => ['activity', __('Activity'), 'fas fa-chart-column'],
-            'cluster-latest' => ['list', __('Latest events'), 'misp-icon misp-icon-event misp-simple'],
+            'cluster-activity' => ['activity', __('Activity'), 'fas fa-chart-column', 'activity'],
+            'cluster-latest' => ['list', __('Latest events'), 'misp-icon misp-icon-event misp-simple', 'latest'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $clusterId
-     * @return array
-     */
-    public function slot($cardId, $clusterId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/galaxy_clusters/railCard/' . (int)$clusterId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $user
-     * @param array $cluster
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $user, array $cluster)
-    {
-        switch ($cardId) {
-            case 'cluster-activity':
-                return $this->activity($user, $cluster);
-            case 'cluster-latest':
-                return $this->latest($user, $cluster);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -261,7 +231,7 @@ class GalaxyClusterRailCards
             }
             $count = $EventTag->countForTag($tagId, $user);
         }
-        list(, $title, $icon) = $this->heads()['cluster-latest'];
+        list(, $title, $icon) = $this->head('cluster-latest');
         return RailCard::rows(
             'cluster-latest',
             $title,
@@ -312,7 +282,7 @@ class GalaxyClusterRailCards
         }
         $series = RailCard::series($perMonth, 'month', self::ACTIVITY_MONTHS);
         $total = array_sum(array_column($series, 'count'));
-        list(, $title, $icon) = $this->heads()['cluster-activity'];
+        list(, $title, $icon) = $this->head('cluster-activity');
         return RailCard::activity(
             'cluster-activity',
             $title,

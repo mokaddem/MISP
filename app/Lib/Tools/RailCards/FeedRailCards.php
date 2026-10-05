@@ -1,54 +1,27 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 App::uses('RedisTool', 'Tools');
 
 /**
  * Rail cards for a feed. $feed is ['Feed' => [...]] as FeedsController::view
  * loads it, with cached_elements set.
  */
-class FeedRailCards
+class FeedRailCards extends LazyRailCards
 {
     const STALE_AFTER = 86400;
     const OVERLAP_LIMIT = 5;
     const FETCH_LIMIT = 5;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/feeds/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'feed-fetches' => ['list', __('Last fetches'), 'fas fa-download'],
+            'feed-fetches' => ['list', __('Last fetches'), 'fas fa-download', 'fetches'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $feedId
-     * @return array
-     */
-    public function slot($cardId, $feedId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/feeds/railCard/' . (int)$feedId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $feed
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $feed)
-    {
-        switch ($cardId) {
-            case 'feed-fetches':
-                return $this->fetches($feed);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -176,7 +149,7 @@ class FeedRailCards
                 'tone' => in_array($tone, ['warn', 'danger'], true) ? $tone : null,
             ];
         }
-        list(, $title, $icon) = $this->heads()['feed-fetches'];
+        list(, $title, $icon) = $this->head('feed-fetches');
         return RailCard::rows(
             'feed-fetches',
             $title,

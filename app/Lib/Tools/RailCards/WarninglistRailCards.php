@@ -1,51 +1,25 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 
 /**
  * Rail cards for a warninglist. $warninglist is ['Warninglist' => [...]]
  * without its entries, which can number in the millions.
  */
-class WarninglistRailCards
+class WarninglistRailCards extends LazyRailCards
 {
     const READ_CAP = 100000;
     const TLD_LIMIT = 5;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/warninglists/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'warninglist-inventory' => ['inventory', __('Contents'), 'fas fa-list-check'],
+            'warninglist-inventory' => ['inventory', __('Contents'), 'fas fa-list-check', 'inventory'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $warninglistId
-     * @return array
-     */
-    public function slot($cardId, $warninglistId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/warninglists/railCard/' . (int)$warninglistId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $warninglist
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $warninglist)
-    {
-        if ($cardId === 'warninglist-inventory') {
-            return $this->inventory($warninglist);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -116,7 +90,7 @@ class WarninglistRailCards
                 'more' => max(0, count($tlds) - self::TLD_LIMIT),
             ];
         }
-        list(, $title, $icon) = $this->heads()['warninglist-inventory'];
+        list(, $title, $icon) = $this->head('warninglist-inventory');
         return RailCard::inventory(
             'warninglist-inventory',
             $title,

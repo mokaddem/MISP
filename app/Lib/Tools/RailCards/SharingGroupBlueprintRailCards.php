@@ -1,50 +1,24 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 
 /**
  * Rail cards for a sharing group blueprint. $blueprint is
  * ['SharingGroupBlueprint' => [...]] as its view loads it.
  */
-class SharingGroupBlueprintRailCards
+class SharingGroupBlueprintRailCards extends LazyRailCards
 {
     const CHANGE_LIMIT = 8;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/sharing_group_blueprints/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'blueprint-pending' => ['list', __('If run now'), 'fas fa-code-compare'],
+            'blueprint-pending' => ['list', __('If run now'), 'fas fa-code-compare', 'pending'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $blueprintId
-     * @return array
-     */
-    public function slot($cardId, $blueprintId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/sharing_group_blueprints/railCard/' . (int)$blueprintId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $blueprint
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $blueprint)
-    {
-        if ($cardId === 'blueprint-pending') {
-            return $this->pending($blueprint);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -64,7 +38,7 @@ class SharingGroupBlueprintRailCards
             'org_id' => $b['org_id'],
             'id' => 1,
         ];
-        list(, $title, $icon) = $this->heads()['blueprint-pending'];
+        list(, $title, $icon) = $this->head('blueprint-pending');
         try {
             $wanted = $Blueprint->evaluateSharingGroupBlueprint($blueprint, $owner)['orgs'] ?? [];
         } catch (Exception $e) {

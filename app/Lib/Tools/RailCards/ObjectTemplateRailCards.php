@@ -1,51 +1,24 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 
 /**
  * Rail cards for an object template. $template is ['ObjectTemplate' => [...]]
  * as ObjectTemplatesController::view loads it.
  */
-class ObjectTemplateRailCards
+class ObjectTemplateRailCards extends LazyRailCards
 {
     const TYPE_LIMIT = 8;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/object_templates/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'template-usage' => ['usage', __('Usage'), 'fas fa-chart-simple'],
+            'template-usage' => ['usage', __('Usage'), 'fas fa-chart-simple', 'usage'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $templateId
-     * @return array
-     */
-    public function slot($cardId, $templateId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/object_templates/railCard/' . (int)$templateId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $user
-     * @param array $template
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $user, array $template)
-    {
-        if ($cardId === 'template-usage') {
-            return $this->usage($user, $template);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -102,7 +75,7 @@ class ObjectTemplateRailCards
         if ($newer) {
             $split[] = ['label' => __('Newer than installed'), 'count' => $newer, 'tone' => 'info'];
         }
-        list(, $title, $icon) = $this->heads()['template-usage'];
+        list(, $title, $icon) = $this->head('template-usage');
         return RailCard::usage(
             'template-usage',
             $title,

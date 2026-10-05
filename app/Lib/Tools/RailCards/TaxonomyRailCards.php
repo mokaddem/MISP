@@ -1,53 +1,26 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 App::uses('FileAccessTool', 'Tools');
 
 /**
  * Rail cards for a taxonomy. $taxonomy is Taxonomy::getTaxonomy($id), with
  * each entry's existing_tag resolved.
  */
-class TaxonomyRailCards
+class TaxonomyRailCards extends LazyRailCards
 {
     const PREDICATE_LIMIT = 5;
     const USAGE_LIMIT = 10;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/taxonomies/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'taxonomy-usage' => ['list', __('Most used'), 'fas fa-ranking-star'],
+            'taxonomy-usage' => ['list', __('Most used'), 'fas fa-ranking-star', 'usage'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $taxonomyId
-     * @return array
-     */
-    public function slot($cardId, $taxonomyId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/taxonomies/railCard/' . (int)$taxonomyId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $user
-     * @param array $taxonomy
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $user, array $taxonomy)
-    {
-        if ($cardId === 'taxonomy-usage') {
-            return $this->usage($user, $taxonomy);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -179,7 +152,7 @@ class TaxonomyRailCards
             ];
         }
         $used = count($counts);
-        list(, $title, $icon) = $this->heads()['taxonomy-usage'];
+        list(, $title, $icon) = $this->head('taxonomy-usage');
         return RailCard::rows(
             'taxonomy-usage',
             $title,

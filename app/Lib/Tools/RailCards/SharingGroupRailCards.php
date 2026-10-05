@@ -1,53 +1,26 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 
 /**
  * Rail cards for a sharing group. $sg is SharingGroupsController::view's
  * find, with SharingGroupOrg and SharingGroupServer only when the viewer
  * may see the members.
  */
-class SharingGroupRailCards
+class SharingGroupRailCards extends LazyRailCards
 {
     const COUNT_CAP = 100000;
     const FACET_LIMIT = 4;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/sharing_groups/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'sg-inventory' => ['inventory', __('What travels through it'), 'fas fa-boxes-stacked'],
+            'sg-inventory' => ['inventory', __('What travels through it'), 'fas fa-boxes-stacked', 'inventory'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $sgId
-     * @return array
-     */
-    public function slot($cardId, $sgId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/sharing_groups/railCard/' . (int)$sgId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $user
-     * @param int $sgId
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $user, $sgId)
-    {
-        if ($cardId === 'sg-inventory') {
-            return $this->inventory($user, (int)$sgId);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -135,7 +108,7 @@ class SharingGroupRailCards
             }
         }
         $total = array_sum(array_column($groups, 'count'));
-        list(, $title, $icon) = $this->heads()['sg-inventory'];
+        list(, $title, $icon) = $this->head('sg-inventory');
         return RailCard::inventory(
             'sg-inventory',
             $title,

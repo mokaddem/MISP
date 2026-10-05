@@ -1,58 +1,28 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 App::uses('GalaxyMatrixLayout', 'Tools');
 
 /**
  * Rail cards for a galaxy. $galaxy is ['Galaxy' => [...]] with
  * kill_chain_order decoded, as GalaxiesController::view loads it.
  */
-class GalaxyRailCards
+class GalaxyRailCards extends LazyRailCards
 {
     const USAGE_LIMIT = 10;
     const CONTRIBUTOR_LIMIT = 3;
     const MATRIX_TABS = 3;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/galaxies/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'galaxy-usage' => ['list', __('Most used'), 'fas fa-ranking-star'],
-            'galaxy-matrix' => ['inventory', __('Matrix'), 'fas fa-table-cells'],
+            'galaxy-usage' => ['list', __('Most used'), 'fas fa-ranking-star', 'usage'],
+            'galaxy-matrix' => ['inventory', __('Matrix'), 'fas fa-table-cells', 'matrix'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $galaxyId
-     * @return array
-     */
-    public function slot($cardId, $galaxyId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/galaxies/railCard/' . (int)$galaxyId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $user
-     * @param array $galaxy
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $user, array $galaxy)
-    {
-        switch ($cardId) {
-            case 'galaxy-usage':
-                return $this->usage($user, $galaxy);
-            case 'galaxy-matrix':
-                return $this->matrix($user, $galaxy);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -209,7 +179,7 @@ class GalaxyRailCards
                 'count' => $count,
             ];
         }
-        list(, $title, $icon) = $this->heads()['galaxy-usage'];
+        list(, $title, $icon) = $this->head('galaxy-usage');
         return RailCard::rows(
             'galaxy-usage',
             $title,
@@ -281,7 +251,7 @@ class GalaxyRailCards
         }
         $total = count($clusters[''] ?? []);
         $hidden = count($cells) - count($groups);
-        list(, $title, $icon) = $this->heads()['galaxy-matrix'];
+        list(, $title, $icon) = $this->head('galaxy-matrix');
         return RailCard::inventory(
             'galaxy-matrix',
             $title,

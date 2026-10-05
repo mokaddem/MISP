@@ -1,57 +1,26 @@
 <?php
-App::uses('RailCard', 'Tools/RailCards');
+App::uses('LazyRailCards', 'Tools/RailCards');
 
 /**
  * Rail cards for an organisation, counting the events it created that the
  * viewer can see.
  */
-class OrganisationRailCards
+class OrganisationRailCards extends LazyRailCards
 {
     const ACTIVITY_MONTHS = 12;
     const RECENT_DAYS = 90;
 
-    /**
-     * Shape, title and icon of the cards loaded after first paint.
-     *
-     * @return array
-     */
-    private function heads()
+    protected function railCardUrl()
+    {
+        return '/organisations/railCard/';
+    }
+
+    protected function lazyCards()
     {
         return [
-            'org-glance' => ['status', __('At a glance'), 'misp-icon misp-icon-organisation misp-simple'],
-            'org-activity' => ['activity', __('Activity'), 'fas fa-chart-column'],
+            'org-glance' => ['status', __('At a glance'), 'misp-icon misp-icon-organisation misp-simple', 'glance'],
+            'org-activity' => ['activity', __('Activity'), 'fas fa-chart-column', 'activity'],
         ];
-    }
-
-    /**
-     * @param string $cardId
-     * @param int $orgId
-     * @return array
-     */
-    public function slot($cardId, $orgId)
-    {
-        list($shape, $title, $icon) = $this->heads()[$cardId];
-        return RailCard::slot($shape, $cardId, $title, $icon,
-            '/organisations/railCard/' . (int)$orgId . '/' . $cardId);
-    }
-
-    /**
-     * @param string $cardId
-     * @param array $user
-     * @param int $orgId
-     * @param array $may ['users' => bool, 'sharingGroups' => bool]
-     * @return array
-     * @throws NotFoundException
-     */
-    public function lazy($cardId, array $user, $orgId, array $may)
-    {
-        switch ($cardId) {
-            case 'org-glance':
-                return $this->glance($user, (int)$orgId, $may);
-            case 'org-activity':
-                return $this->activity($user, (int)$orgId);
-        }
-        throw new NotFoundException(__('Invalid rail card.'));
     }
 
     /**
@@ -116,7 +85,7 @@ class OrganisationRailCards
             $state = $lastTs >= time() - self::RECENT_DAYS * 86400 ? 'ok' : 'muted';
             $headline = __('Last published an event %s.', RailCard::ago($lastTs));
         }
-        list(, $title, $icon) = $this->heads()['org-glance'];
+        list(, $title, $icon) = $this->head('org-glance');
         return RailCard::status('org-glance', $title, $icon, $state, $headline, $items, null, [
             'link' => ['label' => __('Events'), 'href' => '#tab-events'],
             'lazy' => true,
@@ -184,7 +153,7 @@ class OrganisationRailCards
         }
         $series = RailCard::series($perMonth, 'month', self::ACTIVITY_MONTHS);
         $total = array_sum(array_column($series, 'count'));
-        list(, $title, $icon) = $this->heads()['org-activity'];
+        list(, $title, $icon) = $this->head('org-activity');
         return RailCard::activity(
             'org-activity',
             $title,
