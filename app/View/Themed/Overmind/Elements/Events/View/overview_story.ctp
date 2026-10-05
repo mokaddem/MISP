@@ -42,7 +42,6 @@ $hasObjects = (int)($object_count ?? 0) > 0;
                             <div class="text-center text-muted py-4"><div class="misp-loader misp-loader-sm" role="status"></div></div>
                         </div>
                     </div>
-                    <div class="eo-report-fade" aria-hidden="true"></div>
                 </div>
                 <?php if (!empty($others)): ?>
                     <ul class="eo-other-reports">
