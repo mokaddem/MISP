@@ -290,6 +290,7 @@
         opts.UI.mode = 'viewer';
         opts.UI.extraPanels = [];
         opts.UI.sidebar = { collapsed: true };
+        opts.simulation.layout = { type: 'structured', gap: 10 };
     }
 
     function initGraph() {
