@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('AnalystDataRailCards', 'Tools/RailCards');
 App::uses('AnalystData', 'Model');
 
 class AnalystDataController extends AppController
@@ -366,6 +367,17 @@ class AnalystDataController extends AppController
 
         if ($this->IndexFilter->isRest()) {
             return $this->restResponsePayload;
+        }
+        if ($this->theme === 'Overmind') {
+            $user = $this->Auth->user();
+            $record = $this->viewVars['data'][$this->modelSelection];
+            $railCards = new AnalystDataRailCards();
+            $this->set('railCards', RailCard::byId([
+                $railCards->target($user, $record),
+                $railCards->thread($record),
+            ]));
+            $this->set('mayModify', $this->ACL->canUserAccess($user, 'analystData', 'edit')
+                && $this->AnalystData->canEditAnalystData($user, $this->viewVars['data'], $this->modelSelection));
         }
         $this->set('id', $id);
         $this->loadModel('Event');
