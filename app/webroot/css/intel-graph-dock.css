@@ -156,6 +156,9 @@
 .ig-so-pick-sub { color: var(--bs-secondary-color); font-size: .8rem; display: inline-flex; gap: .35rem; align-items: center; min-width: 0; }
 .ig-so-pick-sub span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dropdown-item.ig-so-pick:active .ig-so-pick-sub, .dropdown-item.ig-so-pick.active .ig-so-pick-sub { color: inherit; }
+.ig-so-pick-none { border-top: 1px solid var(--bs-border-color-translucent); margin-top: .25rem; }
+.ig-so-pick-none .ig-so-pick-mark { color: var(--bs-secondary-color); }
+.ig-so-pick-none .ig-so-pick-name { font-weight: 500; }
 .ig-so-pick[aria-current="true"] { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
 .ig-so-pick .badge { font-variant-numeric: tabular-nums; }
 .ig-so-new { padding: .35rem .9rem .5rem; }

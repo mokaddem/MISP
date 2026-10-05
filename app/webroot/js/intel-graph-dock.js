@@ -739,6 +739,27 @@
             renderBanner();
         });
     }
+    function noneRow() {
+        var b = el('button', 'dropdown-item ig-so-pick ig-so-pick-none');
+        b.type = 'button';
+        var mark = el('span', 'ig-so-pick-mark');
+        mark.appendChild(icon('fas fa-ban'));
+        b.appendChild(mark);
+        var bodyEl = el('span', 'ig-so-pick-body');
+        bodyEl.appendChild(el('span', 'ig-so-pick-name', 'No active graph'));
+        bodyEl.appendChild(el('span', 'ig-so-pick-sub', '“Add to graph” asks which graph next time'));
+        b.appendChild(bodyEl);
+        b.addEventListener('click', clearActive);
+        return b;
+    }
+    function clearActive() {
+        hideMenu();
+        notice = null;
+        IG().setActive(null).catch(function (err) {
+            notice = { kind: 'error', text: 'Could not clear the active graph: ' + ((err && err.message) || 'unknown error') };
+            renderBanner();
+        });
+    }
     function fillSwitcher(into, asDropdown) {
         into.textContent = '';
         var head = el(asDropdown ? 'h6' : 'p', asDropdown ? 'dropdown-header' : 'small text-body-secondary mb-0', 'Your organisation’s graphs');
@@ -759,6 +780,7 @@
             }
             out.graphs.forEach(function (g) { holder.appendChild(graphRow(g, lower(g.uuid) === activeUuid, asDropdown, pick)); });
             if (!out.graphs.length) holder.appendChild(el('div', 'px-3 py-2 text-body-secondary small', 'Your organisation has no graph yet.'));
+            if (asDropdown && a) holder.appendChild(noneRow());
         }, function (err) {
             holder.textContent = '';
             holder.appendChild(el('div', 'px-3 py-2 text-danger small', 'Could not list the graphs: ' + ((err && err.message) || 'error')));
