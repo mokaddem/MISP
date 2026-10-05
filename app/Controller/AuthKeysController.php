@@ -282,8 +282,11 @@ class AuthKeysController extends AppController
             return $this->restResponsePayload;
         }
 
+        $usageByIp = [];
+        $lastUsed = null;
         if (Configure::read('MISP.log_user_ips') && Configure::read('MISP.log_user_ips_authkeys')) {
-            list($keyUsage, $lastUsed, $uniqueIps) = $this->AuthKey->getKeyUsage($id);
+            list($usageByIp, $lastUsed) = $this->AuthKey->getKeyUsageByIp($id);
+            list($keyUsage, $uniqueIps) = AuthKey::summariseKeyUsage($usageByIp);
             $this->set('keyUsage', $keyUsage);
             $this->set('lastUsed', $lastUsed);
             $this->set('uniqueIps', $uniqueIps);
@@ -300,7 +303,7 @@ class AuthKeysController extends AppController
             ]);
             $mayPin = $this->ACL->canUserAccess($user, 'authKeys', 'pin')
                 && $this->AuthKey->canEditAuthKey($user, $authKey['AuthKey']['id']);
-            $railCards = new AuthKeyRailCards();
+            $railCards = new AuthKeyRailCards($usageByIp, $lastUsed);
             $this->set('railCards', RailCard::byId([
                 $railCards->lifecycle($authKey, $owner),
                 $railCards->activity($authKey),

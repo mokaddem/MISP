@@ -1,10 +1,9 @@
 <?php
 App::uses('RailCard', 'Tools/RailCards');
-App::uses('RedisTool', 'Tools');
 App::uses('CidrTool', 'Tools');
 
 /**
- * Rail cards for an auth key. The caller has already checked that the
+ * Rail cards for one auth key. The caller has already checked that the
  * user may view the key (AuthKeysController::__prepareConditions).
  */
 class AuthKeyRailCards
@@ -12,8 +11,21 @@ class AuthKeyRailCards
     const ACTIVITY_DAYS = 90;
     const EXPIRY_WARNING_DAYS = 14;
 
-    /** @var array key id => date => ip => count */
-    private $usage = [];
+    /** @var array date => ip => count */
+    private $usage;
+
+    /** @var int|null */
+    private $lastUsed;
+
+    /**
+     * @param array $usage AuthKey::getKeyUsageByIp()'s requests, date => ip => count
+     * @param int|null $lastUsed its last usage timestamp
+     */
+    public function __construct(array $usage = [], $lastUsed = null)
+    {
+        $this->usage = $usage;
+        $this->lastUsed = $lastUsed;
+    }
 
     /**
      * @return bool
@@ -29,7 +41,6 @@ class AuthKeyRailCards
      */
     public function activity(array $authKey)
     {
-        $id = (int)$authKey['AuthKey']['id'];
         $options = ['empty' => __('Not used in the last %s days.', self::ACTIVITY_DAYS)];
         if (!$this->isUsageLogged()) {
             $options['note'] = __('Usage logging for auth keys is off on this instance.');
@@ -38,7 +49,7 @@ class AuthKeyRailCards
                 ['count' => 0, 'label' => __('requests')], null, [], $options);
         }
         $perDay = [];
-        foreach ($this->usage($id) as $date => $ips) {
+        foreach ($this->usage as $date => $ips) {
             $perDay[$date] = array_sum($ips);
         }
         $series = RailCard::series($perDay, 'day', self::ACTIVITY_DAYS);
@@ -53,7 +64,7 @@ class AuthKeyRailCards
             'day',
             $series,
             ['count' => $total, 'label' => __n('request in %s days', 'requests in %s days', $total, self::ACTIVITY_DAYS)],
-            RailCard::last($this->lastUsed($id), __('Last used')),
+            RailCard::last($this->lastUsed, __('Last used')),
             [
                 ['label' => __('Last 30 days'), 'value' => $last30],
                 ['label' => __('Active days'), 'value' => $activeDays],
@@ -75,7 +86,7 @@ class AuthKeyRailCards
         $key = $authKey['AuthKey'];
         $counts = [];
         if ($this->isUsageLogged()) {
-            foreach ($this->usage((int)$key['id']) as $ips) {
+            foreach ($this->usage as $ips) {
                 foreach ($ips as $ip => $count) {
                     $counts[$ip] = ($counts[$ip] ?? 0) + $count;
                 }
@@ -136,7 +147,7 @@ class AuthKeyRailCards
         $now = time();
         $expiration = (int)$key['expiration'];
         $created = (int)$key['created'];
-        $lastUsed = $this->isUsageLogged() ? $this->lastUsed((int)$key['id']) : null;
+        $lastUsed = $this->isUsageLogged() ? $this->lastUsed : null;
         $allowed = array_values(array_filter((array)($key['allowed_ips'] ?? [])));
 
         if ($expiration && $expiration < $now) {
@@ -181,29 +192,5 @@ class AuthKeyRailCards
     private function days($seconds)
     {
         return max(0, (int)floor($seconds / 86400));
-    }
-
-    private function lastUsed($id)
-    {
-        $last = RedisTool::init()->get("misp:authkey_last_usage:$id");
-        return $last === false ? null : (int)$last;
-    }
-
-    /**
-     * @param int $id
-     * @return array date => ip => count
-     */
-    private function usage($id)
-    {
-        if (!isset($this->usage[$id])) {
-            $this->usage[$id] = [];
-            foreach (RedisTool::init()->hGetAll("misp:authkey_usage:$id") as $field => $count) {
-                $parts = explode(':', $field, 2);
-                if (count($parts) === 2) {
-                    $this->usage[$id][$parts[0]][$parts[1]] = (int)$count;
-                }
-            }
-        }
-        return $this->usage[$id];
     }
 }
