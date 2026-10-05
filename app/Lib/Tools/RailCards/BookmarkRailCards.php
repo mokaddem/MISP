@@ -60,9 +60,11 @@ class BookmarkRailCards
     public function others(array $user, array $bookmark, array $bookmarks)
     {
         $rows = [];
+        $listed = false;
         foreach ($bookmarks as $other) {
             $o = $other['Bookmark'];
             if ((int)$o['id'] === (int)$bookmark['Bookmark']['id']) {
+                $listed = true;
                 continue;
             }
             $host = parse_url((string)$o['url'], PHP_URL_HOST);
@@ -83,9 +85,9 @@ class BookmarkRailCards
             'fas fa-bookmark',
             array_slice($rows, 0, self::OTHERS_LIMIT),
             $count > self::OTHERS_LIMIT
-                ? ['label' => __('All %s bookmarks', number_format($count + 1)), 'href' => '/bookmarks/index']
+                ? ['label' => __('All %s bookmarks', number_format($count + ($listed ? 1 : 0))), 'href' => '/bookmarks/index']
                 : null,
-            ['empty' => __('This is your only bookmark.')]
+            ['empty' => $listed ? __('This is your only bookmark.') : __('You have no bookmark of your own.')]
         );
     }
 }
