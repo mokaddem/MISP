@@ -8807,10 +8807,11 @@ class EventsController extends AppController
                 return $this->RestResponse->saveSuccessResponse('events', 'toggleCorrelation', $event['Event']['id'], false, 'Correlation ' . ($event['Event']['disable_correlation'] ? 'disabled' : 'enabled') . '.');
             } else {
                 $this->Flash->success('Correlation ' . ($event['Event']['disable_correlation'] ? 'disabled' : 'enabled') . '.');
-                $this->redirect(array('controller' => 'events', 'action' => 'view', $event['Event']['id']));
+                $this->redirect(array('controller' => 'events', 'action' => $this->theme === 'Overmind' ? 'view2' : 'view', $event['Event']['id']));
             }
         } else {
             $this->set('event', $event);
+            $this->layout = false;
             $this->render('ajax/toggle_correlation');
         }
     }
@@ -9908,7 +9909,7 @@ class EventsController extends AppController
                     return $this->RestResponse->saveSuccessResponse('events', $protect ? 'protect' : 'unprotect', $event['Event']['id'], false, $message);
                 } else {
                     $this->Flash->success($message);
-                    $this->redirect(['controller' => 'events', 'action' => 'view', $id]);
+                    $this->redirect(['controller' => 'events', 'action' => $this->theme === 'Overmind' ? 'view2' : 'view', $id]);
                 }
             } else {
                 $message = __('Something went wrong - could not switch event to %s mode.', $protect ? __('protected') : __('unprotected'));
@@ -9916,7 +9917,7 @@ class EventsController extends AppController
                     return $this->RestResponse->saveFailResponse('Events', $protect ? 'protect' : 'unprotect', $event['Event']['id'], $message);
                 } else {
                     $this->Flash->error($message);
-                    $this->redirect(['controller' => 'events', 'action' => 'view', $event['Event']['id']]);
+                    $this->redirect(['controller' => 'events', 'action' => $this->theme === 'Overmind' ? 'view2' : 'view', $event['Event']['id']]);
                 }
             }
         } else {

@@ -3,6 +3,8 @@
 $eventId = h($data['Event']['id']);
 $eventUuid = h($data['Event']['uuid'] ?? '');
 $isPublished = (bool)$data['Event']['published'];
+$lastPublished = (int)($data['Event']['publish_timestamp'] ?? 0);
+$hasPending = $lastPublished > 0 && (int)$data['Event']['timestamp'] > $lastPublished;
 
 $mayModify = $this->Acl->canModifyEvent($data);
 $canPublish = $this->Acl->canPublishEvent($data);
@@ -46,6 +48,7 @@ if ($canEdit) {
         'icon' => 'misp-icon misp-icon-object misp-simple',
         'label' => __('Add Object'),
         'pinned' => true,
+        'tileOrder' => 1,
         'add' => true,
         'short' => __('Object'),
         'entity' => 'object'
@@ -57,8 +60,9 @@ if ($canEdit) {
         'icon' => 'fas fa-paperclip',
         'label' => __('Add Attachment'),
         'pinned' => true,
+        'tileOrder' => 2,
         'add' => true,
-        'short' => __('Attachment'),
+        'short' => __('Attach'),
         'entity' => 'attribute'
     ];
 
@@ -68,6 +72,7 @@ if ($canEdit) {
         'icon' => 'misp-icon misp-icon-report misp-simple',
         'label' => __('Add Event Report'),
         'pinned' => true,
+        'tileOrder' => 3,
         'add' => true,
         'short' => __('Report'),
         'entity' => 'report'
@@ -79,6 +84,7 @@ if ($canEdit) {
         'icon' => 'fas fa-pen',
         'label' => __('Edit Event'),
         'pinned' => true,
+        'tileOrder' => 5,
         'short' => __('Edit'),
         'entity' => 'event'
     ];
@@ -91,7 +97,10 @@ if ($canEdit) {
         'icon' => 'fas fa-sign-in-alt',
         'tour' => 'action-populate-from',
         'label' => __('Populate from'),
-        'short' => __('Populate')
+        'pinned' => true,
+        'tileOrder' => 4,
+        'short' => __('Populate'),
+        'entity' => 'attribute'
     ];
 
     if (Configure::read('Plugin.AI_services_enable') && $this->Acl->canAccess('events', 'aiActions')) {
@@ -124,6 +133,47 @@ if ($canEdit) {
             'entity' => 'enrichment'
         ];
     }
+
+    $mayToggleCorrelation = !Configure::read('MISP.completely_disable_correlation')
+        && ($isSiteAdmin || Configure::read('MISP.allow_disabling_correlation'));
+    $mayProtect = (int)$me['org_id'] === (int)$data['Event']['orgc_id']
+        && !empty($hostOrgUser) && empty($data['Event']['locked']);
+    if ($mayToggleCorrelation || $mayProtect) {
+        $actions[] = ['divider' => true, 'label' => __('Event settings')];
+    }
+    if ($mayToggleCorrelation) {
+        $correlationOff = !empty($data['Event']['disable_correlation']);
+        $actions[] = [
+            'url' => "$baseurl/events/toggleCorrelation/$eventId",
+            'onclick' => $modal("$baseurl/events/toggleCorrelation/$eventId", 'md'),
+            'icon' => $correlationOff ? 'fas fa-link' : 'fas fa-unlink',
+            'label' => $correlationOff ? __('Enable correlation') : __('Disable correlation'),
+            'short' => __('Correlation'),
+            'entity' => 'correlation'
+        ];
+    }
+    if ($mayProtect) {
+        $isProtected = !empty($data['Event']['protected']);
+        $protectAction = $isProtected ? 'unprotect' : 'protect';
+        $actions[] = [
+            'url' => "$baseurl/events/$protectAction/$eventId",
+            'onclick' => $modal("$baseurl/events/$protectAction/$eventId", 'md'),
+            'icon' => $isProtected ? 'fas fa-unlock' : 'fas fa-shield-alt',
+            'label' => $isProtected ? __('Remove protection') : __('Protect event'),
+            'short' => $isProtected ? __('Unprotect') : __('Protect'),
+            'entity' => 'event'
+        ];
+        if ($isProtected) {
+            $actions[] = [
+                'url' => "$baseurl/CryptographicKeys/add/Event/$eventId",
+                'onclick' => $modal("$baseurl/CryptographicKeys/add/Event/$eventId"),
+                'icon' => 'fas fa-key',
+                'label' => __('Add signing key'),
+                'short' => __('Signing key'),
+                'entity' => 'event'
+            ];
+        }
+    }
 }
 
 $actions[] = ['divider' => true, 'label' => __('Share')];
@@ -141,7 +191,8 @@ if ($this->Acl->canAccess('analystGraphs', 'addNodes')) {
     ];
 }
 
-if (!$isPublished && ($isSiteAdmin || ($mayModify && $canPublish))) {
+$mayPublish = $isSiteAdmin || ($mayModify && $canPublish);
+if ($mayPublish && (!$isPublished || $hasPending)) {
     $actions[] = [
         'url' => "",
         'onclick' => $modal("$baseurl/events/publish/$eventId", 'md'),
@@ -152,14 +203,15 @@ if (!$isPublished && ($isSiteAdmin || ($mayModify && $canPublish))) {
         'short' => __('Publish'),
         'success' => true
     ];
-} else if ($isPublished && ($isSiteAdmin || ($mayModify && $canPublish))) {
+}
+if ($mayPublish && $isPublished) {
     $actions[] = [
         'url' => "",
         'onclick' => $modal("$baseurl/events/unpublish/$eventId", 'md'),
         'icon' => 'fas fa-eye-slash',
         'tour' => 'action-unpublish',
         'label' => __('Unpublish Event'),
-        'primary' => true,
+        'primary' => !$hasPending,
         'short' => __('Unpublish'),
         'warning' => true
     ];
@@ -270,6 +322,12 @@ if ($isSiteAdmin) {
 
 echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions,
-    'status' => ['published' => $isPublished, 'readOnly' => !$canEdit],
-    'maxTiles' => 4,
+    'status' => [
+        'published' => $isPublished,
+        'readOnly' => !$canEdit,
+        'pending' => $hasPending,
+        'lastPublished' => $lastPublished,
+    ],
+    'maxTiles' => 5,
+    'columns' => 5,
 ]);

@@ -38,6 +38,25 @@
 
 .lb-status.is-draft { color: var(--bs-warning-text-emphasis); }
 .lb-status.is-pub { color: var(--bs-success-text-emphasis); }
+.lb-status.is-pending { color: var(--bs-warning-text-emphasis); }
+
+.lb-status-stack {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+}
+
+.lb-status-stack > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lb-status-sub {
+    color: var(--bs-secondary-color);
+    font-size: .6875rem;
+    font-weight: 500;
+}
 
 .lb-dot {
     flex: none;
@@ -51,6 +70,11 @@
 .lb-status.is-pub .lb-dot {
     background: rgb(var(--bs-success-rgb));
     box-shadow: 0 0 0 3px rgba(var(--bs-success-rgb), .18);
+}
+
+.lb-status.is-pending .lb-dot {
+    background: rgb(var(--bs-warning-rgb));
+    box-shadow: 0 0 0 3px rgba(var(--bs-warning-rgb), .22);
 }
 
 .lb-ro {
@@ -99,7 +123,7 @@
 /* Tiles */
 .lb-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--lb-cols, 4), minmax(0, 1fr));
     gap: 2px;
 }
 
@@ -163,6 +187,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.lb-grid.is-dense .lb-tile { padding-inline: 0; }
+.lb-grid.is-dense .lb-tile-lbl { font-size: .6875rem; letter-spacing: -.01em; }
 
 /* Icon wells, tinted by entity or tone */
 .lb-well {

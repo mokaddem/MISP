@@ -9,16 +9,23 @@
  * - 'short' => string    tile label (falls back to 'label')
  * - 'entity' => string   tints the icon well: event, attribute, object, ...
  * - 'add' => bool        marks the tile with a "+" badge
+ * - 'tileOrder' => int   position among the tiles (default: menu order)
  *
  * Card params:
- * - 'status' => ['published' => bool, 'readOnly' => bool] (optional)
+ * - 'status' => ['published' => bool, 'readOnly' => bool,
+ *                'pending' => bool, 'lastPublished' => int] (optional);
+ *                pending marks a published event with changes made since
  * - 'maxTiles' => int    with this many actions or fewer, and nothing
  *                        destructive, every action is a tile and the menu is
  *                        dropped (default 8)
+ * - 'columns' => int     tiles per row (default 4)
  */
+
+App::uses('CakeTime', 'Utility');
 
 $actions = $actions ?? [];
 $maxTiles = $maxTiles ?? 8;
+$columns = $columns ?? 4;
 
 $groups = [];
 $current = null;
@@ -49,10 +56,20 @@ foreach ($groups as $groupActions) {
 }
 $hasMenu = count($candidates) > $maxTiles || !empty($danger);
 $tiles = $hasMenu
-    ? array_slice(array_values(array_filter($candidates, function ($a) {
+    ? array_values(array_filter($candidates, function ($a) {
         return !empty($a['pinned']);
-    })), 0, $maxTiles)
+    }))
     : $candidates;
+$tilePosition = function ($index) use ($tiles) {
+    return [$tiles[$index]['tileOrder'] ?? PHP_INT_MAX, $index];
+};
+$order = array_keys($tiles);
+usort($order, function ($a, $b) use ($tilePosition) {
+    return $tilePosition($a) <=> $tilePosition($b);
+});
+$tiles = array_slice(array_map(function ($index) use ($tiles) {
+    return $tiles[$index];
+}, $order), 0, $hasMenu ? $maxTiles : count($tiles));
 $total = count($candidates) + count($danger) + ($primary === null ? 0 : 1);
 
 $tone = function (array $action) {
@@ -124,13 +141,22 @@ $menuItem = function (array $action, $class = '') use ($link, $well, $tiles, $pr
 };
 
 $published = !empty($status['published']);
+$pending = !empty($status['pending']) && !empty($status['lastPublished']);
+$statusClass = $pending ? 'is-pending' : ($published ? 'is-pub' : 'is-draft');
 ?>
 <div class="card shadow-sm mb-3 lb-card" data-tour="quick-actions" data-launch-bar>
     <?php if (!empty($status) || $primary !== null): ?>
         <div class="lb-seg<?= $primary === null ? ' is-solo' : '' ?>" role="group" aria-label="<?= __('Publication') ?>">
-            <span class="lb-status <?= $published ? 'is-pub' : 'is-draft' ?>">
+            <span class="lb-status <?= $statusClass ?>"<?= $pending ? ' title="' . h(__('Published %s; changes made since then are not published yet', date('Y-m-d H:i:s', (int)$status['lastPublished']))) . '"' : '' ?>>
                 <span class="lb-dot" aria-hidden="true"></span>
-                <span class="lb-status-txt"><?= $published ? __('Published') : __('Unpublished') ?></span>
+                <?php if ($pending): ?>
+                    <span class="lb-status-txt lb-status-stack">
+                        <span><?= __('Changes pending') ?></span>
+                        <span class="lb-status-sub"><?= h(__('Published %s', CakeTime::timeAgoInWords($status['lastPublished'], ['end' => '+100 years', 'accuracy' => ['year' => 'year', 'month' => 'month', 'week' => 'week', 'day' => 'day']]))) ?></span>
+                    </span>
+                <?php else: ?>
+                    <span class="lb-status-txt"><?= $published ? __('Published') : __('Unpublished') ?></span>
+                <?php endif; ?>
                 <?php if (!empty($status['readOnly'])): ?>
                     <span class="lb-ro"><?= __('view only') ?></span>
                 <?php endif; ?>
@@ -149,7 +175,7 @@ $published = !empty($status['published']);
     <?php endif; ?>
 
     <?php if (!empty($tiles)): ?>
-        <div class="lb-grid">
+        <div class="lb-grid<?= $columns > 4 ? ' is-dense' : '' ?>"<?= $columns === 4 ? '' : ' style="--lb-cols: ' . (int)$columns . '"' ?>>
             <?php foreach ($tiles as $action): ?>
                 <?= $link(
                     $action,
