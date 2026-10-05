@@ -28,9 +28,6 @@ if (!empty($event['timestamp'])) {
 if (!empty($event['published']) && !empty($event['publish_timestamp'])) {
     $meta[] = '<span title="' . __('Last published') . '"><i class="fas fa-paper-plane me-1 opacity-50"></i>' . $this->Time->time($event['publish_timestamp']) . '</span>';
 }
-if (!empty($event['locked'])) {
-    $meta[] = '<span class="eo-flag"><i class="fas fa-lock"></i>' . __('Locked') . '</span>';
-}
 if (!empty($event['protected'])) {
     $meta[] = '<span class="eo-flag" title="' . __('Protected events can only be updated by signatories') . '"><i class="fas fa-shield-alt"></i>' . __('Protected') . '</span>';
 }
