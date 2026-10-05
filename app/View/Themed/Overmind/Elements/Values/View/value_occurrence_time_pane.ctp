@@ -107,14 +107,7 @@ $grainWords = array(
                     </span>
                 <?php endforeach; ?>
             </div>
-            <div class="vp-brush" data-vp-brush>
-                <div class="vp-brush-mask"
-                     data-vp-brush-mask-left></div>
-                <div class="vp-brush-window"
-                     data-vp-brush-handle></div>
-                <div class="vp-brush-mask"
-                     data-vp-brush-mask-right></div>
-            </div>
+            <?= $this->element('genericElementsBS5/brush') ?>
         </div>
         <?php $scale = ValueStatsTool::timeScale($histogram); ?>
         <?php if (!empty($scale)): ?>

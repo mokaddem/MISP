@@ -415,65 +415,6 @@ a.vp-fact:hover .vp-fact-value {
 }
 
 /* ==================================================================
- * The brush
- * ------------------------------------------------------------------
- * A control over a chart, not part of one. It sits in its own layer
- * above the canvas, so a drag never has to be read out of Chart.js's
- * hit testing and the masks can dim what is outside the range without
- * touching a dataset.
- *
- * Three charts wear it — the Sightings navigator, the Timeline spine
- * and the History months — and all they vary is how far up from the
- * bottom it stops and how hard it dims. Both are custom properties
- * with a default, so a fourth caller needs no CSS of its own.
- * ================================================================== */
-
-.vp-brush {
-    position: absolute;
-    inset: 0 0 var(--vp-brush-floor, 0) 0;
-    display: flex;
-    cursor: ew-resize;
-    touch-action: none;
-}
-
-/* Outside the range is dimmed rather than hidden: the reader has to be
- * able to see what they are not looking at, or a brush is just a
- * shorter chart. */
-.vp-brush-mask {
-    width: 0;
-    background: color-mix(in srgb,
-        var(--bs-body-bg) var(--vp-brush-dim, 62%), transparent);
-    pointer-events: none;
-}
-
-/* The two masks are flex items and the window between them is
- * absolute, so without this they pack from the left and leave the
- * undimmed strip at the far right instead of under the window —
- * invisible on a range sitting at the end of its chart, which is where
- * two of the three land by default, and wrong everywhere else. */
-.vp-brush-mask[data-vp-brush-mask-right] {
-    margin-left: auto;
-}
-
-.vp-brush-window {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-left: 2px solid var(--primary);
-    border-right: 2px solid var(--primary);
-    background: color-mix(in srgb, var(--primary) 8%, transparent);
-    pointer-events: none;
-}
-
-/* The selection is outside the span on screen, so there is no window
-   to draw — its two rules pinned to an edge would read as a selection
-   at that edge. The masks cover everything instead, which says the
-   true thing: nothing in view is in the range. */
-.vp-brush-empty .vp-brush-window {
-    display: none;
-}
-
-/* ==================================================================
  * The zoom
  * ------------------------------------------------------------------
  * Beside the brush and not on it. The brush is a layer over the
@@ -4210,7 +4151,7 @@ tr.vp-occ-deleted .vp-occ-orgdot {
  * and no more precisely than that. `.vp-timebrush-scale` is the answer
  * and it costs 19px.
  *
- * `position: relative` because `.vp-brush` pins itself to this box.
+ * `position: relative` because `.misp-brush` pins itself to this box.
  */
 .vp-timebrush {
     position: relative;
@@ -4222,10 +4163,10 @@ tr.vp-occ-deleted .vp-occ-orgdot {
      * read the dimming against, only bare bars.
      *
      * It applies to a range the reader has picked and to nothing else.
-     * A strip with no bound draws no mask at all — `VP.brush.clear`
+     * A strip with no bound draws no mask at all — `MispBrush.clear`
      * rather than `paint(…, null, …)`, which means something else.
      */
-    --vp-brush-dim: 80%;
+    --misp-brush-dim: 80%;
 }
 
 /*
@@ -9642,7 +9583,7 @@ th.vp-rel-num {
      * from the laid-out scale, which also covers the axis growing again
      * when Chart.js rotates the labels in a narrow panel.
      */
-    --vp-brush-floor: 34px;
+    --misp-brush-floor: 34px;
 }
 
 /*
@@ -10544,7 +10485,7 @@ a.vp-lane-tag:focus-visible {
        and gridlines to read against, and this is 64px of bare bars. At
        62% the difference between inside and outside the period was not
        visible in either theme. */
-    --vp-brush-dim: 80%;
+    --misp-brush-dim: 80%;
 }
 
 .vp-audit-scope {

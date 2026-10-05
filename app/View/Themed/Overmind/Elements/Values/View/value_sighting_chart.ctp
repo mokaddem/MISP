@@ -328,11 +328,7 @@ if ($series !== null) {
                             'All sightings in the selected range, as a'
                             . ' navigator'
                         )) ?>"></canvas>
-                <div class="vp-brush" data-vp-brush>
-                    <div class="vp-brush-mask" data-vp-brush-mask-left></div>
-                    <div class="vp-brush-window" data-vp-brush-handle></div>
-                    <div class="vp-brush-mask" data-vp-brush-mask-right></div>
-                </div>
+                <?= $this->element('genericElementsBS5/brush') ?>
             </div>
 
             <div class="vp-sight-nav-caption">

@@ -15,8 +15,10 @@ App::uses('ValueLean', 'Tools/ValueProfile');
  * assuming it has arrived.
  */
 echo $this->element('genericElements/assetLoader', array(
-    'css' => array('value-palette', 'value-widgets', 'value-profile'),
-    'js' => array('Chart.min', 'value-profile'),
+    'css' => array(
+        'value-palette', 'value-widgets', 'misp-brush', 'value-profile',
+    ),
+    'js' => array('Chart.min', 'misp-brush', 'value-profile'),
 ));
 
 $profile = $valueProfile;

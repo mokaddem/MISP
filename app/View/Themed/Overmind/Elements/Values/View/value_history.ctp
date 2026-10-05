@@ -862,14 +862,10 @@ $chartPayload = array(
                              * which is worse than offering none.
                              */
                             ?>
-                            <div class="vp-brush" data-vp-brush hidden>
-                                <div class="vp-brush-mask"
-                                     data-vp-brush-mask-left></div>
-                                <div class="vp-brush-window"
-                                     data-vp-brush-handle></div>
-                                <div class="vp-brush-mask"
-                                     data-vp-brush-mask-right></div>
-                            </div>
+                            <?= $this->element(
+                                'genericElementsBS5/brush',
+                                ['hidden' => true]
+                            ) ?>
                         </div>
                         <?php
                         /*
