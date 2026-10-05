@@ -49,7 +49,12 @@
 
     function afterFragment(el) {
         var inventory = el.querySelector('.eo-inventory');
-        if (inventory) fillNarrower(parseInt(inventory.getAttribute('data-eo-narrower-count'), 10) || 0);
+        if (inventory) {
+            fillNarrower(
+                parseInt(inventory.getAttribute('data-eo-narrower-count'), 10) || 0,
+                inventory.getAttribute('data-eo-narrower-tab') || 'objects'
+            );
+        }
         var files = el.querySelector('[data-attachment-count]');
         var figure = document.querySelector('[data-eo-attachment-figure]');
         if (files && figure && el.closest('#attachment-card')) {
@@ -58,9 +63,10 @@
         }
     }
 
-    function fillNarrower(count) {
+    function fillNarrower(count, tab) {
         var link = document.querySelector('[data-eo-narrower]');
         if (!link) return;
+        link.setAttribute('data-eo-narrower-tab', tab);
         if (!count) {
             link.classList.add('d-none');
             return;
@@ -96,11 +102,14 @@
         return container.getAttribute('data-eo-base-url');
     }
 
-    function openFiltered(tab, types) {
+    // filter: named params to append, e.g. { type: 'domain,url' } or { narrower: 1 }
+    function openFiltered(tab, filter) {
         var container = tabContainer(tab);
         if (container) {
             var url = unfilteredUrl(container);
-            if (types) url += '/type:' + encodeURIComponent(types);
+            Object.keys(filter || {}).forEach(function (key) {
+                url += '/' + key + ':' + encodeURIComponent(filter[key]);
+            });
             if (container.getAttribute('data-url') !== url) {
                 container.setAttribute('data-url', url);
                 delete container.dataset.loaded;
@@ -114,7 +123,7 @@
         var filter = e.target.closest('[data-eo-filter-types]');
         if (filter) {
             e.preventDefault();
-            openFiltered(filter.getAttribute('data-eo-filter-tab') || 'objects', filter.getAttribute('data-eo-filter-types'));
+            openFiltered(filter.getAttribute('data-eo-filter-tab') || 'objects', { type: filter.getAttribute('data-eo-filter-types') });
             return;
         }
         var tab = e.target.closest('[data-eo-tab]');
@@ -128,7 +137,7 @@
         var narrower = e.target.closest('[data-eo-narrower]');
         if (narrower) {
             e.preventDefault();
-            showTab('objects');
+            openFiltered(narrower.getAttribute('data-eo-narrower-tab') || 'objects', { narrower: 1 });
             return;
         }
         var rollup = e.target.closest('[data-eo-rollup]');

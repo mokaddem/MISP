@@ -197,5 +197,8 @@ class EventOverviewToolTest extends TestCase
         $this->assertTrue(EventOverviewTool::isNarrower(4, 8, 4, 7));
         $this->assertTrue(EventOverviewTool::isNarrower(0, 0, 4, 7));
         $this->assertFalse(EventOverviewTool::isNarrower(3, 0, 4, 7));
+        // an organisation-only event leaves nothing narrower
+        $this->assertFalse(EventOverviewTool::isNarrower(4, 7, 0, 0));
+        $this->assertFalse(EventOverviewTool::isNarrower(0, 0, 0, 0));
     }
 }

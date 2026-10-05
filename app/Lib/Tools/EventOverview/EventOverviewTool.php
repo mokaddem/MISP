@@ -137,7 +137,7 @@ class EventOverviewTool
     public function inventory(array $user, array $event)
     {
         $scope = $this->scope($user, $event);
-        return $this->cached('inventory', $event, $scope, function () use ($scope, $event) {
+        return $this->cached('inventory-v2', $event, $scope, function () use ($scope, $event) {
             return $this->computeInventory($scope, $event);
         });
     }
@@ -166,7 +166,7 @@ class EventOverviewTool
         foreach (self::GROUPS as $name) {
             $groups[$name] = ['group' => $name, 'total' => 0, 'ids' => 0, 'in_objects' => 0, 'types' => []];
         }
-        $total = $ids = $narrower = 0;
+        $total = $ids = $narrower = $narrowerInObjects = 0;
         foreach ($rows as $row) {
             $r = $this->flatRow($row);
             $loose = (int)$r['loose'] === 1;
@@ -194,6 +194,7 @@ class EventOverviewTool
             list($dist, $sg) = self::effectiveDistribution($r, $loose, $eventDist, $eventSg);
             if (self::isNarrower($dist, $sg, $eventDist, $eventSg)) {
                 $narrower += $n;
+                $narrowerInObjects += $loose ? 0 : $n;
             }
         }
         foreach ($groups as $name => &$g) {
@@ -213,6 +214,7 @@ class EventOverviewTool
             'ids' => $ids,
             'context' => $total - $ids,
             'narrower' => $narrower,
+            'narrower_in_objects' => $narrowerInObjects,
             'groups' => $groups,
             'objects' => $this->objectCounts($scope, (int)$event['id']),
             'detection_rules' => $this->detectionRules($scope, (int)$event['id']),
@@ -243,6 +245,9 @@ class EventOverviewTool
 
     public static function isNarrower($dist, $sg, $eventDist, $eventSg)
     {
+        if ($eventDist === 0) {
+            return false;
+        }
         if ($dist === $eventDist) {
             return $dist === 4 && $sg !== $eventSg;
         }

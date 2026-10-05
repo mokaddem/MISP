@@ -2614,6 +2614,10 @@ class Event extends AppModel
                 $analystData === 1
             );
         }
+        $narrower = (int)($options['narrower'] ?? 0);
+        if ($narrower === 1 || $narrower === 2) {
+            $conditions[] = $this->__narrowerAttributeCondition($eventId, $narrower === 1);
+        }
         if (!empty($options['tags'])) {
             $conditions[] = $this->Attribute->tagCondition(
                 $options['tags'], null, $eventIds
@@ -3391,6 +3395,80 @@ class Event extends AppModel
      * @param array $options fetchPaginatedObjects() options
      * @return array conditions to add to the object query
      */
+    /**
+     * @param int $eventId
+     * @return int[] the event's distribution and sharing group id
+     */
+    private function __eventDistribution($eventId)
+    {
+        $event = $this->find('first', [
+            'conditions' => ['Event.id' => $eventId],
+            'fields' => ['Event.distribution', 'Event.sharing_group_id'],
+            'recursive' => -1,
+        ]);
+        return [
+            (int)($event['Event']['distribution'] ?? 0),
+            (int)($event['Event']['sharing_group_id'] ?? 0),
+        ];
+    }
+
+    /**
+     * Conditions on an element's own distribution that share it more
+     * narrowly than its event, as EventOverviewTool::isNarrower() counts
+     * them; null when the event leaves nothing narrower.
+     *
+     * @param string $alias Attribute or Object
+     * @param int $eventDist
+     * @param int $eventSg
+     * @return array|null
+     */
+    private function __narrowerThanEvent($alias, $eventDist, $eventSg)
+    {
+        if ($eventDist === 0) {
+            return null;
+        }
+        if ($eventDist === 4) {
+            return ['OR' => [
+                $alias . '.distribution' => 0,
+                'AND' => [
+                    $alias . '.distribution' => 4,
+                    $alias . '.sharing_group_id !=' => $eventSg,
+                ],
+            ]];
+        }
+        return [$alias . '.distribution' => array_merge(range(0, $eventDist - 1), [4])];
+    }
+
+    /**
+     * Attributes shared more narrowly than their event: by their own
+     * distribution, or by inheriting it from a narrower object.
+     *
+     * @param int $eventId
+     * @param bool $wanted false for the complement
+     * @return array|string
+     */
+    private function __narrowerAttributeCondition($eventId, $wanted)
+    {
+        list($eventDist, $eventSg) = $this->__eventDistribution($eventId);
+        $own = $this->__narrowerThanEvent('Attribute', $eventDist, $eventSg);
+        if ($own === null) {
+            return $wanted ? '1 = 0' : '1 = 1';
+        }
+        $inNarrowerObject = $this->subQueryGenerator(
+            $this->Object,
+            [
+                'fields' => ['Object.id'],
+                'conditions' => $this->__narrowerThanEvent('Object', $eventDist, $eventSg),
+            ],
+            'Attribute.object_id'
+        )[0];
+        $match = ['OR' => [
+            $own,
+            ['AND' => ['Attribute.distribution' => 5, $inNarrowerObject]],
+        ]];
+        return $wanted ? $match : ['NOT' => $match];
+    }
+
     private function __objectAttributeFilterConditions(
         array $user,
         $eventId,
@@ -3442,6 +3520,20 @@ class Event extends AppModel
                 $attrScope + ['Attribute.to_ids' => 1],
                 !$toIds
             );
+        }
+
+        $narrower = $yesNo('narrower');
+        if ($narrower !== null) {
+            list($eventDist, $eventSg) = $this->__eventDistribution($eventId);
+            $objectOwn = $this->__narrowerThanEvent('Object', $eventDist, $eventSg);
+            if ($objectOwn === null) {
+                $conditions[] = $narrower ? '1 = 0' : '1 = 1';
+            } else {
+                $narrowerAttributes = $attrScope;
+                $narrowerAttributes[] = $this->__narrowerThanEvent('Attribute', $eventDist, $eventSg);
+                $match = ['OR' => [$objectOwn, $holding($narrowerAttributes)]];
+                $conditions[] = $narrower ? $match : ['NOT' => $match];
+            }
         }
 
         $analystData = $yesNo('analystData');
