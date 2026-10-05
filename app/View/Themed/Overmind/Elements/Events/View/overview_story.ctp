@@ -55,10 +55,12 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
                     </ul>
                 <?php endif; ?>
                 <div class="eo-card-foot">
-                    <button type="button" class="btn btn-sm btn-link px-0" data-eo-report-open>
+                    <button type="button" class="btn btn-sm btn-report" data-eo-report-open>
                         <i class="fas fa-book-open me-1"></i><?= __('Read in full') ?>
                     </button>
-                    <a href="#tab-reports" class="btn btn-sm btn-link px-0 ms-auto" data-eo-tab="reports"><?= __('Reports tab') ?></a>
+                    <a href="#tab-reports" class="btn btn-sm btn-outline-report ms-auto" data-eo-tab="reports">
+                        <i class="misp-icon misp-icon-report misp-simple me-1"></i><?= __('All reports') ?>
+                    </a>
                 </div>
             <?php else: ?>
                 <div class="eo-empty">
@@ -107,7 +109,7 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
             </div>
             <div class="eo-card-foot">
                 <span class="eo-muted small" data-eo-graph-note></span>
-                <a href="#tab-pivot-explorer" class="btn btn-sm btn-link px-0 ms-auto" data-eo-tab="pivot-explorer">
+                <a href="#tab-pivot-explorer" class="btn btn-sm btn-outline-correlation ms-auto" data-eo-tab="pivot-explorer">
                     <i class="fas fa-up-right-from-square me-1"></i><?= __('Open in Pivot Explorer') ?>
                 </a>
             </div>

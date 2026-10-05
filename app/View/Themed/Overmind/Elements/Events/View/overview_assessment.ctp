@@ -53,16 +53,19 @@ $scores = array_filter(array_map(function ($opinion) {
         <?php endif; ?>
         <span class="ms-auto d-inline-flex gap-1 flex-shrink-0">
             <?php if ($hasAny && (!empty($opinions) || !empty($notes) || !empty($relationships))): ?>
-                <button type="button" class="btn btn-sm btn-link px-1" data-bs-toggle="collapse" data-bs-target="#eo-analyst-data" aria-expanded="false">
-                    <?= __('Show') ?>
+                <button type="button" class="btn btn-sm btn-outline-analystData" data-bs-toggle="collapse" data-bs-target="#eo-analyst-data" aria-expanded="false">
+                    <i class="fas fa-comment-dots me-1"></i><?= __('Show analyst data') ?>
                 </button>
             <?php endif; ?>
             <?php if ($canAdd): ?>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openModal('<?= h($addUrl('Note')) ?>')">
+                    <i class="misp-icon misp-icon-analyst-note misp-simple me-1"></i><?= __('Add note') ?>
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-success" onclick="openModal('<?= h($addUrl('Opinion')) ?>')">
                     <i class="misp-icon misp-icon-analyst-opinion misp-simple me-1"></i><?= __('Add opinion') ?>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openModal('<?= h($addUrl('Note')) ?>')">
-                    <i class="misp-icon misp-icon-analyst-note misp-simple me-1"></i><?= __('Add note') ?>
+                <button type="button" class="btn btn-sm btn-outline-correlation" onclick="openModal('<?= h($addUrl('Relationship')) ?>')">
+                    <i class="fas fa-diagram-project me-1"></i><?= __('Add relationship') ?>
                 </button>
             <?php endif; ?>
         </span>

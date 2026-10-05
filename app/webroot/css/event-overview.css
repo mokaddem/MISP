@@ -39,11 +39,12 @@
 .eo-org-name:hover { text-decoration: underline; }
 .eo-org-held { font-size: .74rem; color: var(--bs-secondary-color); line-height: 1.2; }
 .eo-sg { display: inline-flex; align-items: center; gap: .3rem; font-weight: 600; text-decoration: none; max-width: 16rem; }
-.eo-narrower {
-    font-size: .78rem; color: var(--bs-secondary-color); text-decoration: none;
-    border-bottom: 1px dotted currentColor;
-}
-.eo-narrower:hover { color: var(--bs-link-color); }
+.eo-narrower { font-size: .74rem; padding: .05rem .45rem; }
+.eo-filter { max-width: 11.5rem; flex-shrink: 1; }
+.eo-filter .input-group-text { background: var(--bs-body-bg); }
+.eo-profile-change { margin-left: .3rem; color: var(--bs-secondary-color); font-size: .72rem; }
+.eo-profile-change:hover { color: var(--bs-link-color); }
+.eo-actions { flex-wrap: wrap; row-gap: .35rem; padding-top: .45rem; padding-bottom: .45rem; }
 .eo-absent {
     display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; padding: .1rem .45rem;
     border: 1px dashed var(--bs-border-color); border-radius: .35rem; color: var(--bs-secondary-color);
@@ -138,8 +139,11 @@
 .eo-rule .fa-shield-halved { color: var(--eo-tone); }
 .eo-rule-name { font-weight: 600; font-style: italic; }
 .eo-objects { padding: .5rem 1rem .75rem; font-size: .8rem; color: var(--bs-secondary-color); }
+.eo-inventory[data-eo-focus] .eo-bar-seg:not(.is-focus) { opacity: .25; }
+.eo-bar-seg.is-focus { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--eo-tone) 60%, #000); }
+.eo-group { transition: background-color .15s; border-radius: .35rem; }
+.eo-group.is-focus { background: color-mix(in srgb, var(--eo-tone) 8%, transparent); }
 .eo-objects b { color: var(--bs-emphasis-color); }
-.eo-inventory:has(.eo-group:hover) .eo-bar-seg { opacity: .35; }
 
 /* context */
 .eo-rows { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); margin: 0; padding: .25rem 1rem .5rem; }

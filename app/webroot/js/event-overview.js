@@ -59,7 +59,9 @@
         var figure = document.querySelector('[data-eo-attachment-figure]');
         if (files && figure && el.closest('#attachment-card')) {
             var n = parseInt(files.getAttribute('data-attachment-count'), 10) || 0;
-            figure.innerHTML = '<b>' + n + '</b> ' + (n === 1 ? 'file' : 'files');
+            figure.textContent = n === 0 ? 'No files' : n + (n === 1 ? ' file' : ' files');
+            var all = document.querySelector('[data-eo-download-all]');
+            if (all) all.disabled = n === 0;
         }
     }
 
@@ -73,7 +75,45 @@
         }
         var label = count === 1 ? link.getAttribute('data-eo-label-one') : link.getAttribute('data-eo-label-many');
         link.textContent = fmt(label, [count]);
+        var icon = document.createElement('i');
+        icon.className = 'fas fa-filter me-1';
+        link.prepend(icon);
         link.classList.remove('d-none');
+    }
+
+    // Hovering a group row, one of its types or a bar segment marks that group.
+    function focusGroup(inventory, group) {
+        if (inventory.getAttribute('data-eo-focus') === (group || null)) return;
+        if (group) inventory.setAttribute('data-eo-focus', group);
+        else inventory.removeAttribute('data-eo-focus');
+        inventory.querySelectorAll('.eo-bar-seg, .eo-group').forEach(function (el) {
+            el.classList.toggle('is-focus', !!group && el.getAttribute('data-eo-group') === group);
+        });
+    }
+
+    function onHover(e) {
+        var inventory = e.target.closest && e.target.closest('.eo-inventory');
+        if (!inventory) return;
+        var marked = e.target.closest('.eo-bar-seg, .eo-group');
+        focusGroup(inventory, marked ? marked.getAttribute('data-eo-group') : null);
+    }
+
+    function onLeave(e) {
+        var inventory = e.target.closest && e.target.closest('.eo-inventory');
+        if (inventory && !inventory.contains(e.relatedTarget)) focusGroup(inventory, null);
+    }
+
+    function onFilterLabels(e) {
+        var input = e.target.closest && e.target.closest('[data-eo-label-filter]');
+        if (!input) return;
+        var q = input.value.trim().toLowerCase();
+        var card = input.closest('.eo-context');
+        card.querySelectorAll('.eo-rows .hg-unit, .eo-rows .eo-techniques li, .eo-rows .eo-absent').forEach(function (el) {
+            el.classList.toggle('d-none', q !== '' && el.textContent.toLowerCase().indexOf(q) === -1);
+        });
+        card.querySelectorAll('.eo-rows .hg-group').forEach(function (group) {
+            group.classList.toggle('d-none', q !== '' && !group.querySelector('.hg-unit:not(.d-none)'));
+        });
     }
 
     function reloadCards() {
@@ -147,6 +187,20 @@
             rollup.disabled = true;
             card.setAttribute('data-eo-fragment', rollup.getAttribute('data-eo-rollup'));
             loadFragment(card);
+            return;
+        }
+        var downloadAll = e.target.closest('[data-eo-download-all]');
+        if (downloadAll) {
+            document.querySelectorAll('#attachment-card .eo-files a[href]').forEach(function (link, i) {
+                setTimeout(function () {
+                    var a = document.createElement('a');
+                    a.href = link.getAttribute('href');
+                    a.download = '';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }, i * 400);
+            });
             return;
         }
         var open = e.target.closest('[data-eo-report-open]');
@@ -364,6 +418,9 @@
             });
         });
         document.addEventListener('click', onClick);
+        document.addEventListener('input', onFilterLabels);
+        document.addEventListener('mouseover', onHover);
+        document.addEventListener('mouseout', onLeave);
         document.addEventListener('misp:attributes-changed', reloadCards);
         initReport();
         initGraph();

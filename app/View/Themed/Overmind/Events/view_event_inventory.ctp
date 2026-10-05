@@ -120,8 +120,12 @@ $tabFor = function (array $group) {
     <?php endif; ?>
 
     <div class="eo-card-foot">
-        <a href="#tab-attributes" class="btn btn-sm btn-link px-0" data-eo-tab="attributes"><?= __('Attributes') ?></a>
-        <a href="#tab-objects" class="btn btn-sm btn-link px-0" data-eo-tab="objects"><?= __('Objects') ?></a>
-        <span class="eo-muted small ms-auto" data-eo-filter-state></span>
+        <span class="eo-muted small" data-eo-filter-state></span>
+        <a href="#tab-attributes" class="btn btn-sm btn-outline-attribute ms-auto" data-eo-tab="attributes">
+            <i class="misp-icon misp-icon-attribute misp-simple me-1"></i><?= __('Attributes') ?>
+        </a>
+        <a href="#tab-objects" class="btn btn-sm btn-outline-object" data-eo-tab="objects">
+            <i class="misp-icon misp-icon-object misp-simple me-1"></i><?= __('Objects') ?>
+        </a>
     </div>
 </div>

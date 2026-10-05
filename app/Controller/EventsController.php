@@ -3858,6 +3858,7 @@ class EventsController extends AppController
         $this->set('rows', $rows);
         $this->set('rolledUp', $rollup !== null);
         $this->set('profileName', $profile['name'] ?? null);
+        $this->set('profileId', $profile['id'] ?? null);
         $this->set('event', $event);
         $this->set('mayModify', $this->__canModifyEvent($event, $user));
         $this->layout = false;

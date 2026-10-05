@@ -65,6 +65,11 @@ $ownerDiffers = !empty($org['id']) && (int)$org['id'] !== (int)($orgc['id'] ?? 0
             <?php if ($ownerDiffers): ?>
                 <div class="eo-org-held text-truncate"><?= h(__('held here by %s', $org['name'] ?? '')) ?></div>
             <?php endif; ?>
+            <?php if (!empty($data['User']['email'])): ?>
+                <div class="eo-org-held text-truncate" title="<?= h(__('Event creator')) ?>">
+                    <i class="misp-icon misp-icon-user1 misp-simple"></i><?= h($data['User']['email']) ?>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -83,7 +88,7 @@ $ownerDiffers = !empty($org['id']) && (int)$org['id'] !== (int)($orgc['id'] ?? 0
                     <span class="eo-muted"><?= h(__n('%s org', '%s orgs', $sharingGroupOrgCount, $sharingGroupOrgCount)) ?></span>
                 <?php endif; ?>
             <?php endif; ?>
-            <a href="#" class="eo-narrower d-none" data-eo-narrower
+            <a href="#" class="btn btn-sm btn-outline-secondary eo-narrower d-none" data-eo-narrower
                data-eo-label-one="<?= h(__('%s indicator shared more narrowly')) ?>"
                data-eo-label-many="<?= h(__('%s indicators shared more narrowly')) ?>"></a>
         </div>
