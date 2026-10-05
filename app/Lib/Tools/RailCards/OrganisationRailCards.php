@@ -163,7 +163,7 @@ class OrganisationRailCards
             ->modify('-' . (self::ACTIVITY_MONTHS - 1) . ' months')
             ->format('Y-m-d');
         $conditions = $this->eventConditions($user, $orgId);
-        $conditions['AND'][] = ['Event.date >=' => $since];
+        $conditions['AND'][] = ['Event.date >=' => $since, 'Event.date <=' => date('Y-m-d')];
         $days = ClassRegistry::init('Event')->find('all', [
             'recursive' => -1,
             'conditions' => $conditions,

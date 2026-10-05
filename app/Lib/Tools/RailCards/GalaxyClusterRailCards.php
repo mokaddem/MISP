@@ -293,7 +293,7 @@ class GalaxyClusterRailCards
                 ->modify('-' . (self::ACTIVITY_MONTHS - 1) . ' months')
                 ->format('Y-m-d');
             $conditions = $EventTag->Event->createEventConditions($user);
-            $conditions['AND'][] = ['EventTag.tag_id' => $tagId, 'Event.date >=' => $since];
+            $conditions['AND'][] = ['EventTag.tag_id' => $tagId, 'Event.date >=' => $since, 'Event.date <=' => date('Y-m-d')];
             $dates = $EventTag->find('column', [
                 'recursive' => -1,
                 'contain' => ['Event'],
