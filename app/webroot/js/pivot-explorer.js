@@ -28,6 +28,7 @@
     //   options(opts, kit, seed)  → adjusts the pivotick options
     //   afterMount(graph, kit, seed)
     //   provenance: false         → no "this event" against "elsewhere"
+    //   chips: false              → every zoom keeps the small drawing
     //   canReference(from, to)    → whether a drawn edge between these node
     //                               data can be an object reference
     //
@@ -61,6 +62,7 @@
         var canEnrich = !!cfg.canEnrich;
         // "This event" against "elsewhere": only a graph of one event has a self.
         var hasProvenance = host.provenance !== false;
+        var hasChips = host.chips !== false;
 
         /* ── state ─────────────────────────────────────────────── */
         var _initialized = false;
@@ -717,14 +719,14 @@
             return {
                 layoutSize: LAYOUT_SIZE,
                 badges: marks.length ? function () { return groupEnrichmentBadges(info); } : undefined,
-                tiers: ((base && base.tiers) || []).concat([{
+                tiers: ((base && base.tiers) || []).concat(hasChips ? [{
                     width: CHIP.width, height: CHIP.height,
                     minRenderedSize: 2 * LAYOUT_SIZE * CHIP_FROM_ZOOM,
                     style: {
                         shape: 'none', color: 'transparent', strokeWidth: 0, text: '',
                         html: function () { return window.MispPivotNodes.groupCard(view); }
                     }
-                }])
+                }] : [])
             };
         }
 
@@ -910,9 +912,9 @@
             var map = {};
             Object.keys(rest).forEach(function (entity) {
                 map[entity] = Object.assign(withBadges(rest[entity]), {
-                    tiers:      [{ width: CHIP.width, height: CHIP.height,
-                                   minRenderedSize: 2 * LAYOUT_SIZE * CHIP_FROM_ZOOM,
-                                   style: withBadges(chip[entity]) }],
+                    tiers:      hasChips ? [{ width: CHIP.width, height: CHIP.height,
+                                              minRenderedSize: 2 * LAYOUT_SIZE * CHIP_FROM_ZOOM,
+                                              style: withBadges(chip[entity]) }] : undefined,
                     focusTier:  withBadges(focus[entity]),
                     layoutSize: LAYOUT_SIZE
                 });

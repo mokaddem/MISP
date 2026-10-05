@@ -291,6 +291,7 @@
         opts.UI.extraPanels = [];
         opts.UI.sidebar = { collapsed: true };
         opts.simulation.layout = { type: 'structured', gap: 10 };
+        opts.render.maxZoom = 1.5;
     }
 
     function initGraph() {
@@ -353,6 +354,7 @@
                 loaderEl: loader,
                 fitHeight: false,
                 provenance: false,
+                chips: false,
                 event: res.graph,
                 config: explorerConfig(card.getAttribute('data-eo-event-id')),
                 options: viewerOptions,
