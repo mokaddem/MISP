@@ -6,18 +6,29 @@ $mark = function (array $item) {
     $source['_eo_count'] = (int)$item['count'];
     return $source;
 };
+$origin = function (array $source) {
+    if (empty($source['event_id'])) {
+        return '';
+    }
+    return $this->element('Events/View/extension_origin', [
+        'event_id' => $source['event_id'],
+        'compact' => true,
+        'only_foreign' => true,
+        'class' => 'eo-origin',
+    ]);
+};
 $chipOptions = [
     'searchUrl' => '',
     'unitClass' => function ($source) {
         return ($source['_eo_level'] ?? '') === 'indicators' ? 'eo-ind' : '';
     },
-    'suffix' => function ($source) {
+    'suffix' => function ($source) use ($origin) {
         $count = (int)($source['_eo_count'] ?? 0);
         if ($count === 0) {
-            return '';
+            return $origin($source);
         }
         $only = ($source['_eo_level'] ?? '') === 'indicators';
-        return sprintf(
+        return $origin($source) . sprintf(
             '<span class="eo-on%s" title="%s"><i class="misp-icon misp-icon-attribute misp-simple"></i>%s</span>',
             $only ? ' is-only' : '',
             h($only
@@ -45,7 +56,7 @@ $clusters = function (array $items) use ($mark) {
     }
     return $out;
 };
-$techniques = function (array $items) use ($baseurl) {
+$techniques = function (array $items) use ($baseurl, $origin) {
     ob_start();
     echo '<ul class="eo-techniques">';
     foreach ($items as $item) {
@@ -53,13 +64,14 @@ $techniques = function (array $items) use ($baseurl) {
         $only = $item['level'] === 'indicators';
         $href = !empty($cluster['id']) ? $baseurl . '/galaxy_clusters/view/' . (int)$cluster['id'] : null;
         printf(
-            '<li class="%s" title="%s">%s<span class="eo-tech-id">%s</span><span class="eo-tech-name">%s</span>%s%s</li>',
+            '<li class="%s" title="%s">%s<span class="eo-tech-id">%s</span><span class="eo-tech-name">%s</span>%s%s%s</li>',
             $only ? 'eo-ind' : '',
             h($cluster['value']),
             $href ? '<a href="' . h($href) . '">' : '<span>',
             h($item['technique'] ?? ''),
             h(EventContextTool::techniqueName($cluster)),
             $href ? '</a>' : '</span>',
+            $origin($cluster),
             $item['count'] > 0
                 ? sprintf(
                     '<span class="eo-on%s" title="%s"><i class="misp-icon misp-icon-attribute misp-simple"></i>%s</span>',
@@ -174,7 +186,7 @@ foreach ($rows as $items) {
     <?php if (!$rolledUp): ?>
         <div class="eo-rollup">
             <span class="eo-muted small"><?= __('Labels found on the indicators are not included yet — this event is large.') ?></span>
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-eo-rollup="<?= h($baseurl . '/events/viewEventContext/' . $eventId . '/rollup:1') ?>">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-eo-rollup="<?= h($baseurl . '/events/viewEventContext/' . $eventId . ($extensionSuffix ?? '') . '/rollup:1') ?>">
                 <?= __('Include them') ?>
             </button>
         </div>

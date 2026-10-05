@@ -163,6 +163,11 @@ $ownerDiffers = !empty($org['id']) && (int)$org['id'] !== (int)($orgc['id'] ?? 0
             <div class="d-flex align-items-center gap-1 flex-wrap">
                 <?php foreach ($markings['present'] as $item): ?>
                     <?= $this->TagChip->chip($item['tag'], ['searchUrl' => '']) ?>
+                    <?= $this->element('Events/View/extension_origin', [
+                        'event_id' => $item['tag']['event_id'] ?? 0,
+                        'compact' => true,
+                        'only_foreign' => true,
+                    ]) ?>
                 <?php endforeach; ?>
                 <?php foreach ($markings['absent'] as $missing): ?>
                     <span class="eo-absent" title="<?= h(__('Pinned by your analyst profile, not on this event')) ?>">

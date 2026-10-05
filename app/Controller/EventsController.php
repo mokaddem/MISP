@@ -2101,7 +2101,10 @@ class EventsController extends AppController
             $user, ValueLabelPriority::planFor($profile)
         );
         $context = EventContextTool::rows(
-            $event['EventTag'], $this->__flattenClusters($event),
+            count($extensionSet['ids']) > 1
+                ? $this->__extensionSetEventTags($extensionSet['ids'])
+                : $event['EventTag'],
+            $this->__flattenClusters($event),
             null, [], [], $profile, $pivotLabels['permitted']
         );
         $this->set('overviewMarkings', [
@@ -2289,13 +2292,25 @@ class EventsController extends AppController
      *
      * @param array $event
      * @param array $user
+     * @param array|null $eventIds an extension set, the viewed event first,
+     *        whose labels are merged in
      * @return array
      */
     private function __eventLabels(
         array $event,
-        array $user
+        array $user,
+        $eventIds = null
     ) {
-        // Event tags
+        if (!empty($eventIds)) {
+            $event['EventTag'] = $this->__extensionSetEventTags($eventIds);
+        } else {
+            $event['EventTag'] = $this->__ownEventTags($event);
+        }
+        return $this->__eventClusters($event, $user);
+    }
+
+    private function __ownEventTags(array $event)
+    {
         $eventTags = $this->Event->EventTag->find(
             'all',
             [
@@ -2326,17 +2341,24 @@ class EventsController extends AppController
                     $tag['Tag'];
             }
         }
-        $event['EventTag'] = [];
+        $rows = [];
         foreach ($eventTags as $et) {
             $row = $et['EventTag'];
             $tag = $tagsById[$row['tag_id']] ?? null;
             if ($tag) {
                 $row['Tag'] = $tag;
-                $event['EventTag'][] = $row;
+                $rows[] = $row;
             }
         }
+        return $rows;
+    }
 
-        // Galaxy clusters derived from galaxy tags
+    /**
+     * The galaxy clusters the event's galaxy tags resolve to, as
+     * $event['Galaxy'] (each with its GalaxyCluster list).
+     */
+    private function __eventClusters(array $event, array $user)
+    {
         $galaxyTagNames = [];
         foreach ($event['EventTag'] as $et) {
             if (!empty($et['Tag']['is_galaxy'])) {
@@ -2377,6 +2399,8 @@ class EventsController extends AppController
                         $cluster['Galaxy']['id'];
                     $cluster['event_tag_id'] =
                         $et['id'];
+                    $cluster['event_id'] =
+                        $et['event_id'] ?? null;
                     $cluster['local'] =
                         $et['local'] ?? false;
                     $cluster['relationship_type'] =
@@ -3767,6 +3791,7 @@ class EventsController extends AppController
                 'Event.id', 'Event.uuid', 'Event.info', 'Event.org_id',
                 'Event.orgc_id', 'Event.timestamp', 'Event.distribution',
                 'Event.sharing_group_id', 'Event.attribute_count',
+                'Event.user_id', 'Event.extends_uuid',
             ],
         ]);
         if (empty($event)) {
@@ -3806,11 +3831,27 @@ class EventsController extends AppController
     {
         $user = $this->Auth->user();
         $event = $this->__overviewEvent($id);
-        $event = $this->__eventLabels($event, $user);
+        $extensionSet = $this->__extensionViewContext($user, $event);
+        $setIds = count($extensionSet['ids']) > 1 ? $extensionSet['ids'] : null;
+        $event = $this->__eventLabels($event, $user, $setIds);
 
         $tool = new EventOverviewTool();
         $force = !empty($this->request->params['named']['rollup']);
         $rollup = $tool->rollup($user, $event['Event'], $force);
+        foreach (array_slice($setIds ?? [], 1) as $relativeId) {
+            if ($rollup === null) {
+                break;
+            }
+            $relative = $this->__overviewEvent($relativeId);
+            $part = $tool->rollup($user, $relative['Event'], $force);
+            if ($part === null) {
+                $rollup = null;
+                break;
+            }
+            foreach ($part as $tagId => $count) {
+                $rollup[$tagId] = ($rollup[$tagId] ?? 0) + $count;
+            }
+        }
 
         $rollupTags = [];
         $rollupClusters = [];
