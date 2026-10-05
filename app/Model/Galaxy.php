@@ -1,5 +1,6 @@
 <?php
 App::uses('AppModel', 'Model');
+App::uses('GalaxyMatrixLayout', 'Tools');
 
 /**
  * @property GalaxyCluster $GalaxyCluster
@@ -1275,7 +1276,6 @@ class Galaxy extends AppModel
 
     public function getMatrix($user, $galaxy_id, $scores=[])
     {
-        $sectionInEnterprise = ['attack-PRE', 'attack-Windows', 'attack-Linux', 'attack-macOS', 'attack-Office-365', 'attack-Azure-AD', 'attack-Google-Workspace', 'attack-SaaS', 'attack-IaaS', 'attack-Network', 'attack-Containers'];
         $conditions = ['Galaxy.id' => $galaxy_id, 'AND' => $this->buildConditions($user)];
         $contains = [
             'GalaxyCluster' => ['GalaxyElement'],
@@ -1305,17 +1305,13 @@ class Galaxy extends AppModel
 
         // FIXME: temporary fix: create a fake tab to have an unfiltered view of mitre-attach-pattern galaxy
         $mitreAttackGalaxyId = $this->getMitreAttackGalaxyId();
+        $sectionInEnterprise = [];
         if ($galaxy_id == $mitreAttackGalaxyId) {
-            $tabs['attack-enterprise'] = [];
-            $killChainEnterpriseColumn = [];
-            foreach ($matrixData['killChain'] as $tabname => $columns) {
-                if (in_array($tabname, $sectionInEnterprise)) {
-                    foreach ($columns as $column) {
-                        $killChainEnterpriseColumn[$column] = 1;
-                    }
-                }
-            }
-            $matrixData['killChain'] = ['attack-enterprise' => array_keys($killChainEnterpriseColumn)] + $matrixData['killChain'];
+            $sectionInEnterprise = GalaxyMatrixLayout::enterpriseTabs($matrixData['killChain']);
+            $enterpriseColumns = GalaxyMatrixLayout::mergeColumnOrders(array_map(function ($tab) use ($matrixData) {
+                return $matrixData['killChain'][$tab];
+            }, $sectionInEnterprise));
+            $matrixData['killChain'] = ['attack-enterprise' => $enterpriseColumns] + $matrixData['killChain'];
         }
         // end FIXME
 
