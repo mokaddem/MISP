@@ -6,6 +6,8 @@ App::uses('ExtensionEventColour', 'Tools');
 App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 App::uses('EventOverviewTool', 'Tools/EventOverview');
 App::uses('EventContextTool', 'Tools/EventOverview');
+App::uses('EventMatrixTool', 'Tools/EventOverview');
+App::uses('GalaxyMatrixLayout', 'Tools');
 
 /**
  * @property Event $Event
@@ -3882,35 +3884,7 @@ class EventsController extends AppController
             }
         }
 
-        $rollupTags = [];
-        $rollupClusters = [];
-        if (!empty($rollup)) {
-            $tags = $this->Event->EventTag->Tag->find('all', [
-                'recursive' => -1,
-                'conditions' => ['Tag.id' => array_keys($rollup)],
-            ]);
-            $galaxyNames = [];
-            foreach ($tags as $tag) {
-                $tag = $tag['Tag'];
-                if (!$this->_isSiteAdmin() && !empty($tag['org_id']) && (int)$tag['org_id'] !== (int)$user['org_id']) {
-                    continue;
-                }
-                $rollupTags[(int)$tag['id']] = $tag;
-                if (!empty($tag['is_galaxy'])) {
-                    $galaxyNames[(int)$tag['id']] = $tag['name'];
-                }
-            }
-            if (!empty($galaxyNames)) {
-                $this->loadModel('GalaxyCluster');
-                $clusters = $this->GalaxyCluster->getClustersByTags($galaxyNames, $user, true, false);
-                foreach ($clusters as $cluster) {
-                    $cluster = $cluster['GalaxyCluster'];
-                    if (!empty($cluster['tag_id'])) {
-                        $rollupClusters[(int)$cluster['tag_id']] = $cluster;
-                    }
-                }
-            }
-        }
+        list($rollupTags, $rollupClusters) = $this->__rollupLabels(array_keys($rollup ?? []), $user);
 
         $this->loadModel('AnalystProfile');
         $profile = $this->AnalystProfile->resolveFor($user);
@@ -3932,6 +3906,177 @@ class EventsController extends AppController
         $this->set('event', $event);
         $this->set('mayModify', $this->__canModifyEvent($event, $user));
         $this->layout = false;
+    }
+
+    /**
+     * The tags behind a roll-up the user may see, and the clusters its
+     * galaxy tags resolve to.
+     *
+     * @param array $tagIds
+     * @param array $user
+     * @return array [tag id => Tag row, tag id => GalaxyCluster row carrying Galaxy]
+     */
+    private function __rollupLabels(array $tagIds, array $user)
+    {
+        $rollupTags = [];
+        $rollupClusters = [];
+        if (empty($tagIds)) {
+            return [$rollupTags, $rollupClusters];
+        }
+        $tags = $this->Event->EventTag->Tag->find('all', [
+            'recursive' => -1,
+            'conditions' => ['Tag.id' => $tagIds],
+        ]);
+        $galaxyNames = [];
+        foreach ($tags as $tag) {
+            $tag = $tag['Tag'];
+            if (!$this->_isSiteAdmin() && !empty($tag['org_id']) && (int)$tag['org_id'] !== (int)$user['org_id']) {
+                continue;
+            }
+            $rollupTags[(int)$tag['id']] = $tag;
+            if (!empty($tag['is_galaxy'])) {
+                $galaxyNames[(int)$tag['id']] = $tag['name'];
+            }
+        }
+        if (!empty($galaxyNames)) {
+            $this->loadModel('GalaxyCluster');
+            $clusters = $this->GalaxyCluster->getClustersByTags($galaxyNames, $user, true, false);
+            foreach ($clusters as $cluster) {
+                $cluster = $cluster['GalaxyCluster'];
+                if (!empty($cluster['tag_id'])) {
+                    $rollupClusters[(int)$cluster['tag_id']] = $cluster;
+                }
+            }
+        }
+        return [$rollupTags, $rollupClusters];
+    }
+
+    /**
+     * The overview's compact galaxy matrix: the techniques of every matrix
+     * galaxy found on the event or its indicators, by tactic. Shares the
+     * Context card's roll-up and its `rollup:1` gate.
+     *
+     * @param int|string $id Event ID or UUID
+     */
+    public function viewEventMatrix($id = null)
+    {
+        $user = $this->Auth->user();
+        $event = $this->__overviewEvent($id);
+        $selfId = (int)$event['Event']['id'];
+        $extensionSet = $this->__extensionViewContext($user, $event);
+        $setIds = count($extensionSet['ids']) > 1 ? array_map('intval', $extensionSet['ids']) : null;
+        $labelled = $this->__eventLabels($event, $user, $setIds);
+
+        $tool = new EventOverviewTool();
+        $force = !empty($this->request->params['named']['rollup']);
+        $rollups = [];
+        foreach ($setIds ?? [$selfId] as $memberId) {
+            $member = $memberId === $selfId ? $event : $this->__overviewEvent($memberId);
+            $part = $tool->rollup($user, $member['Event'], $force);
+            if ($part === null) {
+                $rollups = null;
+                break;
+            }
+            $rollups[$memberId] = $part;
+        }
+
+        $hits = [];
+        foreach ($this->__flattenClusters($labelled) as $cluster) {
+            $hits[(int)$cluster['tag_id']] = [
+                'cluster' => $cluster,
+                'event' => [(int)($cluster['event_id'] ?? $selfId)],
+                'indicators' => [],
+            ];
+        }
+        if (!empty($rollups)) {
+            $tagIds = [];
+            foreach ($rollups as $part) {
+                $tagIds += $part;
+            }
+            list($rollupTags, $rollupClusters) = $this->__rollupLabels(array_keys($tagIds), $user);
+            foreach ($rollups as $memberId => $part) {
+                foreach ($part as $tagId => $count) {
+                    if (empty($rollupTags[$tagId]) || !empty($rollupTags[$tagId]['hide_tag'])) {
+                        continue;
+                    }
+                    if (!isset($hits[$tagId])) {
+                        if (empty($rollupClusters[$tagId])) {
+                            continue;
+                        }
+                        $hits[$tagId] = ['cluster' => $rollupClusters[$tagId], 'event' => [], 'indicators' => []];
+                    }
+                    $hits[$tagId]['indicators'][$memberId] = $count;
+                }
+            }
+        }
+        $hits = array_values($hits);
+        $parentNames = $this->__matrixParentNames(EventMatrixTool::missingParents($hits), $user);
+        $matrix = [
+            'rolledUp' => $rollups !== null,
+            'galaxies' => EventMatrixTool::compact($hits, $selfId, $parentNames),
+            'origins' => [],
+        ];
+        foreach ($extensionSet['events'] as $member) {
+            if ($member['role'] === 'self') {
+                continue;
+            }
+            $matrix['origins'][(int)$member['id']] = [
+                'role' => $member['role'],
+                'info' => $member['info'],
+                'org' => $member['Orgc']['name'] ?? null,
+                'palette' => $member['palette'],
+            ];
+        }
+        if ($this->_isRest()) {
+            $matrix['origins'] = (object)$matrix['origins'];
+            return $this->RestResponse->viewData($matrix, 'json');
+        }
+        $this->set('matrix', $matrix);
+        $this->set('event', $event);
+        $this->layout = false;
+    }
+
+    /**
+     * Names of parent techniques the event does not carry itself.
+     *
+     * @param array $missing galaxy id => parent T-ids
+     * @param array $user
+     * @return array galaxy id => [T-id => name]
+     */
+    private function __matrixParentNames(array $missing, array $user)
+    {
+        $names = [];
+        if (empty($missing)) {
+            return $names;
+        }
+        $this->loadModel('GalaxyCluster');
+        foreach ($missing as $galaxyId => $externalIds) {
+            $rows = $this->GalaxyCluster->find('all', [
+                'recursive' => -1,
+                'fields' => ['GalaxyCluster.value', 'GalaxyElement.value'],
+                'joins' => [[
+                    'table' => 'galaxy_elements',
+                    'alias' => 'GalaxyElement',
+                    'type' => 'INNER',
+                    'conditions' => [
+                        'GalaxyElement.galaxy_cluster_id = GalaxyCluster.id',
+                        'GalaxyElement.key' => 'external_id',
+                        'GalaxyElement.value' => $externalIds,
+                    ],
+                ]],
+                'conditions' => [
+                    'GalaxyCluster.galaxy_id' => $galaxyId,
+                    $this->GalaxyCluster->buildConditions($user),
+                ],
+            ]);
+            foreach ($rows as $row) {
+                $externalId = $row['GalaxyElement']['value'];
+                $names[$galaxyId][$externalId] = GalaxyMatrixLayout::cellLabel(
+                    $row['GalaxyCluster']['value'], $externalId
+                );
+            }
+        }
+        return $names;
     }
 
     /**
