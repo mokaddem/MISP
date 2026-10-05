@@ -2141,17 +2141,40 @@ class Feed extends AppModel
             foreach ($scopes as $scope) {
                 if (!empty($result[$scope])) {
                     foreach ($result[$scope] as $k => $feed) {
-                        $intersect = $redis->sInter('misp:feed_cache:' . $feedId, 'misp:' . lcfirst($scope) . '_cache:' . $feed['id']);
-                        if (empty($intersect)) {
+                        $matching = $this->cacheIntersectionSize(
+                            $redis,
+                            'misp:feed_cache:' . $feedId,
+                            'misp:' . lcfirst($scope) . '_cache:' . $feed['id']
+                        );
+                        if ($matching === 0) {
                             unset($result[$scope][$k]);
                         } else {
-                            $result[$scope][$k]['matching_values'] = count($intersect);
+                            $result[$scope][$k]['matching_values'] = $matching;
                         }
                     }
                 }
             }
         }
         return $result;
+    }
+
+    /**
+     * How many values two cache sets share, without fetching them.
+     *
+     * @param Redis $redis
+     * @param string $a
+     * @param string $b
+     * @return int
+     */
+    private function cacheIntersectionSize($redis, $a, $b)
+    {
+        try {
+            $count = $redis->rawCommand('SINTERCARD', 2, $a, $b);
+        } catch (Exception $e) {
+            $count = false;
+        }
+        // SINTERCARD needs Redis 7
+        return $count === false ? count($redis->sInter($a, $b)) : (int)$count;
     }
 
     /**

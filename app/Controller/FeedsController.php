@@ -229,7 +229,7 @@ class FeedsController extends AppController
             $id = $this->viewVars['data']['Feed']['id'];
             $this->set('railCards', RailCard::byId(array_filter([
                 $railCards->freshness($this->viewVars['data']),
-                $railCards->slot('feed-overlap', $id),
+                $railCards->overlap($this->viewVars['data'], $otherFeeds),
                 $this->_isSiteAdmin() ? $railCards->slot('feed-fetches', $id) : null,
             ])));
         }
@@ -264,12 +264,11 @@ class FeedsController extends AppController
         $feed = $this->Feed->find('first', [
             'recursive' => -1,
             'conditions' => ['Feed.id' => (int)$feedId],
-            'fields' => ['Feed.id', 'Feed.caching_enabled'],
+            'fields' => ['Feed.id'],
         ]);
         if (empty($feed)) {
             throw new NotFoundException(__('Invalid feed.'));
         }
-        $feed['Feed']['cached_elements'] = $this->Feed->getCachedElements($feed['Feed']['id']);
         $this->_renderRailCard((new FeedRailCards())->lazy($cardId, $feed));
     }
 
