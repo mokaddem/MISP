@@ -72,7 +72,7 @@
 
 /* report */
 .eo-report-body { position: relative; flex: 1 1 auto; }
-.eo-report-clamp { max-height: 300px; overflow: hidden; padding: .75rem 1rem 0; }
+.eo-report-clamp { max-height: 300px; overflow: hidden; padding: .75rem 1rem 0; font-size: .86rem; }
 .eo-report-fade {
     display: none; position: absolute; left: 0; right: 0; bottom: 0; height: 56px; pointer-events: none;
     background: linear-gradient(to bottom, transparent, var(--bs-body-bg));
@@ -82,9 +82,10 @@
 .eo-other-reports { list-style: none; margin: 0; padding: .35rem 1rem; border-top: 1px solid var(--bs-border-color); font-size: .82rem; }
 .eo-other-reports li { display: flex; align-items: center; gap: .75rem; justify-content: space-between; padding: .15rem 0; }
 .eo-other-reports a { text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; min-width: 0; }
-.eo-report-clamp h1 { font-size: 1.3rem; }
-.eo-report-clamp h2 { font-size: 1.15rem; }
-.eo-report-clamp h3, .eo-report-clamp h4 { font-size: 1rem; }
+.eo-report-clamp h1 { font-size: 1.12rem; }
+.eo-report-clamp h2 { font-size: 1.02rem; }
+.eo-report-clamp h3, .eo-report-clamp h4 { font-size: .92rem; }
+.eo-other-reports .eo-muted { white-space: nowrap; flex-shrink: 0; }
 .eo-mermaid { margin: .75rem 0; overflow-x: auto; }
 .eo-mermaid svg { max-width: 100%; height: auto; }
 .eo-report-full { font-size: .95rem; }
@@ -144,6 +145,7 @@
 .eo-type {
     font-family: var(--bs-font-monospace); font-size: .74rem; line-height: 1.5; padding: 0 .4rem; cursor: pointer;
     border: 1px dashed var(--bs-border-color); border-radius: .3rem; background: none; color: var(--bs-body-color);
+    white-space: nowrap;
 }
 .eo-type.is-ids { border-style: solid; border-color: color-mix(in srgb, var(--eo-tone) 45%, var(--bs-border-color)); background: color-mix(in srgb, var(--eo-tone) 10%, transparent); }
 .eo-type b { font-weight: 700; }
@@ -207,6 +209,14 @@
 .eo-chevron { font-size: .7rem; margin-right: .5rem; transition: transform .15s; }
 .eo-details-toggle:not(.collapsed) .eo-chevron { transform: rotate(90deg); }
 .eo-details-body { padding: .5rem 1rem 1rem; border-top: 1px solid var(--bs-border-color); }
+
+#eo-inventory-card { container: eo-inventory / inline-size; }
+@container eo-inventory (max-width: 440px) {
+    .eo-inventory .eo-card-head { flex-wrap: wrap; }
+    .eo-inventory .eo-figure-ids { margin-left: auto; }
+    .eo-group { grid-template-columns: 1fr auto; }
+    .eo-types { grid-column: 1 / -1; }
+}
 
 @media (max-width: 767.98px) {
     .eo-band-cell + .eo-band-cell { border-left: 0; border-top: 1px solid var(--bs-border-color); }

@@ -9,7 +9,7 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
 ?>
 <div class="row g-3 mb-3 eo-row">
 
-    <div class="col-12 col-xl-6 d-flex">
+    <div class="col-12 col-xl-5 d-flex">
         <div class="card shadow-sm eo-card w-100" id="eo-report-card"
              <?php if (!empty($report)): ?>
              data-eo-report-id="<?= (int)$report['id'] ?>"
@@ -73,7 +73,7 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
         </div>
     </div>
 
-    <div class="col-12 col-xl-6 d-flex">
+    <div class="col-12 col-xl-7 d-flex">
         <div class="card shadow-sm eo-card w-100" id="eo-graph-card"
              data-eo-graph-url="<?= h($baseurl . '/events/viewEventOverviewGraph/' . $eventId . '.json') ?>"
              data-eo-event-id="<?= $eventId ?>"
