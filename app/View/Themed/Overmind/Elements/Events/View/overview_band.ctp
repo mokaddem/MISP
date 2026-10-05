@@ -34,18 +34,79 @@ if (!empty($event['protected'])) {
 if (!empty($event['disable_correlation'])) {
     $meta[] = '<span class="eo-flag"><i class="fas fa-unlink"></i>' . __('Correlation disabled') . '</span>';
 }
-if (!empty($event['Extends']) && is_array($event['Extends'])) {
-    $meta[] = sprintf(
-        '<a class="eo-flag eo-flag-link" href="%s/events/view2/%s"><i class="fas fa-code-branch"></i>%s</a>',
-        h($baseurl),
-        h($event['Extends']['id']),
-        h(__('Extends: %s', $event['Extends']['info']))
+$isExtended = !empty($extended);
+$isExtending = !empty($extending);
+$modeUrl = function ($extendedOn, $extendingOn) use ($baseurl, $event) {
+    return $baseurl . '/events/view2/' . (int)($event['id'] ?? 0)
+        . ($extendedOn ? '/extended:1' : '')
+        . ($extendingOn ? '/extending:1' : '');
+};
+$extSwitch = function ($on, $url, $label, $title) {
+    return sprintf(
+        '<a class="eo-ext-switch%s" href="%s" role="switch" aria-checked="%s" title="%s" data-eo-keep-tab>'
+        . '<span class="eo-ext-knob"></span>%s</a>',
+        $on ? ' is-on' : '',
+        h($url),
+        $on ? 'true' : 'false',
+        h($title),
+        h($label)
     );
+};
+$extEventLink = function (array $related, $class, $prefix, $suffix = '') use ($baseurl) {
+    $orgName = $related['Orgc']['name'] ?? '';
+    return sprintf(
+        '<a class="%s" href="%s/events/view2/%d" title="%s">%s'
+        . '<span class="eo-ext-id">#%d</span><span class="eo-ext-info">%s</span>%s</a>',
+        $class,
+        h($baseurl),
+        (int)$related['id'],
+        h($orgName === '' ? $related['info'] : $orgName . ' — ' . $related['info']),
+        $prefix,
+        (int)$related['id'],
+        h($related['info']),
+        $suffix
+    );
+};
+
+$children = $event['ExtendedBy'] ?? [];
+if (!empty($children)) {
+    $childIcon = '<i class="fas fa-code-branch"></i>';
+    if (count($children) === 1) {
+        $relation = $extEventLink($children[0], 'eo-ext-rel', $childIcon . h(__('Extended by')));
+    } else {
+        $items = '';
+        foreach ($children as $child) {
+            $items .= $extEventLink(
+                $child,
+                'dropdown-item eo-ext-item',
+                '',
+                '<span class="eo-muted">' . h($child['Orgc']['name'] ?? '') . '</span>'
+            );
+        }
+        $relation = '<button type="button" class="eo-ext-rel dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">'
+            . $childIcon . h(__n('Extended by %s event', 'Extended by %s events', count($children), count($children)))
+            . '</button><span class="dropdown-menu eo-ext-menu">' . $items . '</span>';
+    }
+    $meta[] = '<span class="eo-ext dropdown">' . $relation . $extSwitch(
+        $isExtended,
+        $modeUrl(!$isExtended, $isExtending),
+        __('Extended view'),
+        $isExtended
+            ? __('Stop merging in the events that extend this one')
+            : __n('Merge in the event that extends this one', 'Merge in the %s events that extend this one', count($children), count($children))
+    ) . '</span>';
 }
-if (!empty($event['ExtendedBy'])) {
-    $meta[] = '<span class="eo-flag"><i class="fas fa-code-branch"></i>'
-        . h(__n('Extended by %s event', 'Extended by %s events', count($event['ExtendedBy']), count($event['ExtendedBy'])))
-        . '</span>';
+if (!empty($event['Extends']) && is_array($event['Extends'])) {
+    $meta[] = '<span class="eo-ext">'
+        . $extEventLink($event['Extends'], 'eo-ext-rel', '<i class="fas fa-code-merge"></i>' . h(__('Extends')))
+        . $extSwitch(
+            $isExtending,
+            $modeUrl($isExtended, !$isExtending),
+            __('Extending view'),
+            $isExtending
+                ? __('Stop merging in the event this one extends')
+                : __('Merge in the event this one extends')
+        ) . '</span>';
 }
 $this->set('headerDescription', '<span class="eo-meta">' . implode('', $meta) . '</span>');
 

@@ -153,6 +153,11 @@
     }
 
     function onClick(e) {
+        var keepTab = e.target.closest('a[data-eo-keep-tab]');
+        if (keepTab) {
+            keepTab.href = keepTab.href.split('#')[0] + window.location.hash;
+            return;
+        }
         var filter = e.target.closest('[data-eo-filter-types]');
         if (filter) {
             e.preventDefault();

@@ -83,7 +83,6 @@ $threatStops = [
                 <div class="col-12 eo-details-activity" data-eo-fragment-lazy="<?= h($baseurl . '/events/viewEventActivity/' . (int)($event['id'] ?? 0)) ?>">
                     <div class="text-center text-muted py-3"><div class="misp-loader misp-loader-sm" role="status"></div></div>
                 </div>
-                <?= $this->element('Events/View/event_extensions', ['data' => $data]) ?>
             </div>
         </div>
     </div>
