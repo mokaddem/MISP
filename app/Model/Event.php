@@ -3561,11 +3561,26 @@ class Event extends AppModel
         // by any of the attributes it shows.
         $seen = $yesNo('seen');
         if ($seen !== null) {
+            // A correlated scalar subquery rather than IN (...), which the
+            // optimiser materialises over the whole attributes table: this
+            // stays one object_id lookup per object of the event.
             $datedAttributes = $attrScope;
+            $datedAttributes[] = 'Attribute.object_id = Object.id';
             $datedAttributes[] = $this->__seenCondition('Attribute', true);
+            $holdsDated = '(' . $this->getDataSource()->buildStatement([
+                'fields' => ['1'],
+                'table' => $this->Attribute->table,
+                'alias' => 'Attribute',
+                'conditions' => $datedAttributes,
+                'limit' => 1,
+                'offset' => null,
+                'joins' => [],
+                'order' => null,
+                'group' => null,
+            ], $this->Attribute) . ') IS NOT NULL';
             $match = ['OR' => [
                 $this->__seenCondition('Object', true),
-                $holding($datedAttributes),
+                $holdsDated,
             ]];
             $conditions[] = $seen ? $match : ['NOT' => $match];
         }
