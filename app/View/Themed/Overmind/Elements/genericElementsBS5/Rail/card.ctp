@@ -3,7 +3,9 @@
  * One rail card, built by a Lib/Tools/RailCards producer.
  *
  *   $card  array        see RailCard
- *   $tab   string|null  the tab it sits on; a link to that tab is not drawn
+ *   $tab   string|null  the tab it sits on; a link to that tab is not drawn.
+ *                       A lazy card is fetched once for every tab it sits on,
+ *                       so the page drops that link once it lands.
  *
  * The body is the element named after the card's shape.
  */
@@ -25,7 +27,10 @@ if ($card['shape'] === 'status') {
             <?= $this->RailCard->link(
                 $link['href'],
                 'rcard-head-link',
-                h($link['label']) . ' <i class="fas fa-chevron-right" aria-hidden="true"></i>'
+                h($link['label']) . ' <i class="fas fa-chevron-right" aria-hidden="true"></i>',
+                null,
+                null,
+                ['data-hide-on-own-tab' => '']
             ) ?>
         <?php endif; ?>
     </div>

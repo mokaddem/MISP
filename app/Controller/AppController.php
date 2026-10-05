@@ -2406,8 +2406,8 @@ class AppController extends Controller
     }
 
     /**
-     * Answer a lazy rail card's fetch with the card alone. `?tab=` names the
-     * tab it sits on, so a link back to that tab is left out.
+     * Answer a lazy rail card's fetch with the card alone. The same answer
+     * serves every tab the card sits on.
      *
      * @param array $card see RailCard
      * @return void
@@ -2420,7 +2420,7 @@ class AppController extends Controller
         }
         $this->layout = false;
         $this->set('card', $card);
-        $this->set('tab', $this->request->query('tab'));
+        $this->set('tab', null);
         $this->render('/Elements/genericElementsBS5/Rail/card');
     }
 }

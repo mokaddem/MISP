@@ -39,7 +39,8 @@ class RailCardHelper extends AppHelper
             $card = $cards[$id];
             if (isset($card['url'])) {
                 $entries[] = [
-                    'ajax' => $this->href($card['url']) . '?tab=' . rawurlencode($tab),
+                    'ajax' => $this->href($card['url']),
+                    'share' => true,
                     'placeholder' => [
                         'element' => 'genericElementsBS5/Rail/placeholder',
                         'params' => ['card' => $card],
@@ -137,13 +138,17 @@ class RailCardHelper extends AppHelper
      * @param string $content
      * @param string|null $title
      * @param string|null $style
+     * @param array $extra more attributes, name => value
      * @return string
      */
-    public function link($href, $class, $content, $title = null, $style = null)
+    public function link($href, $class, $content, $title = null, $style = null, array $extra = [])
     {
         $attrs = ' class="' . h($class) . '"'
             . ($title === null ? '' : ' title="' . h($title) . '"')
             . ($style === null ? '' : ' style="' . h($style) . '"');
+        foreach ($extra as $name => $value) {
+            $attrs .= ' ' . h($name) . '="' . h($value) . '"';
+        }
         if (empty($href)) {
             return '<span' . $attrs . '>' . $content . '</span>';
         }

@@ -62,8 +62,10 @@ $renderCard = function ($card, $containerClass) use ($ajaxPlaceholder, $data) {
         // Optional `id` gives a lazily-loaded panel an anchor a link can
         // reach before its content has arrived. Absent for every
         // existing caller.
+        // Optional `share`: the same URL on several tabs is fetched once.
         echo '<div class="' . h($containerClass) . '"'
             . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"')
+            . (empty($card['share']) ? '' : ' data-share="1"')
             . ' data-url="' . h($card['ajax']) . '">';
         $ajaxPlaceholder($card);
         echo '</div>';
