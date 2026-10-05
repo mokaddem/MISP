@@ -301,6 +301,24 @@ class RailCard
     }
 
     /**
+     * Count the rows of a find, reading at most $cap of them.
+     *
+     * @param Model $model
+     * @param array $query find options; fields and limit are replaced
+     * @param int $cap
+     * @return array [int $count, bool $capped]
+     */
+    public static function countUpTo(Model $model, array $query, $cap)
+    {
+        $ids = $model->find('column', [
+            'fields' => [$model->alias . '.id'],
+            'limit' => $cap,
+        ] + $query);
+        $count = count($ids);
+        return [$count, $count >= $cap];
+    }
+
+    /**
      * Zero-filled buckets from $from to today, oldest first.
      *
      * @param array $counts 'Y-m-d' (day) or 'Y-m' (month) => int
