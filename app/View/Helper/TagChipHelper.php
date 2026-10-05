@@ -25,6 +25,8 @@ class TagChipHelper extends AppHelper
      *   searchUrl          link prefix, '' for no link
      *   href               callable(tag row): ?string, overrides searchUrl
      *   prefix             callable(tag row): string, HTML ahead of the chip
+     *   suffix             callable(tag row): string, HTML after the chip
+     *   unitClass          callable(tag row): string, extra class on the chip's unit
      *   canModifyAll       may remove any tag
      *   canModifyLocal     may remove local tags
      *   display            'full' (default), 'leaf' or 'swatch'
@@ -490,8 +492,15 @@ class TagChipHelper extends AppHelper
         if (isset($options['prefix']) && is_callable($options['prefix'])) {
             $out = $options['prefix']($source) . $out;
         }
+        if (isset($options['suffix']) && is_callable($options['suffix'])) {
+            $out .= $options['suffix']($source);
+        }
+        $unitClass = isset($options['unitClass']) && is_callable($options['unitClass'])
+            ? trim((string)$options['unitClass']($source))
+            : '';
         return sprintf(
-            '<span class="hg-unit" %s>%s</span>',
+            '<span class="hg-unit%s" %s>%s</span>',
+            $unitClass === '' ? '' : ' ' . h($unitClass),
             $row['unit'] ?? sprintf('data-tag-item data-tag-name="%s"', h(mb_strtolower($p['raw']))),
             $out
         );

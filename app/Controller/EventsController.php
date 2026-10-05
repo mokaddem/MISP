@@ -3,6 +3,9 @@ App::uses('AppController', 'Controller');
 App::uses('Xml', 'Utility');
 App::uses('GalaxyColour', 'Tools');
 App::uses('ExtensionEventColour', 'Tools');
+App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('EventOverviewTool', 'Tools/EventOverview');
+App::uses('EventContextTool', 'Tools/EventOverview');
 
 /**
  * @property Event $Event
@@ -2091,6 +2094,30 @@ class EventsController extends AppController
         $this->set('correlation_count', $this->Event->getRelatedEventCount($user, $event['Event']['id'], $sgids, true));
 
         $this->set('event', $event);
+
+        $this->loadModel('AnalystProfile');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $pivotLabels = $this->AnalystProfile->pivotLabels(
+            $user, ValueLabelPriority::planFor($profile)
+        );
+        $context = EventContextTool::rows(
+            $event['EventTag'], $this->__flattenClusters($event),
+            null, [], [], $profile, $pivotLabels['permitted']
+        );
+        $this->set('overviewMarkings', [
+            'declared' => ValueLabelPriority::markings($profile),
+            'present' => $context['markings'],
+            'absent' => $context['markings_absent'],
+        ]);
+        $sharingGroupOrgCount = null;
+        if ((int)$event['Event']['distribution'] === 4 && !empty($event['Event']['sharing_group_id'])) {
+            $sharingGroupOrgCount = $this->Event->SharingGroup->SharingGroupOrg->find('count', [
+                'conditions' => ['SharingGroupOrg.sharing_group_id' => $event['Event']['sharing_group_id']],
+                'recursive' => -1,
+            ]);
+        }
+        $this->set('sharingGroupOrgCount', $sharingGroupOrgCount);
+
         $this->set('analysisLevels',
             $this->Event->analysisLevels
         );
@@ -2256,7 +2283,15 @@ class EventsController extends AppController
      * @param array $user
      * @return array Enriched event
      */
-    private function __enrichEvent(
+    /**
+     * Attach the event's tags (EventTag with Tag) and the galaxy clusters
+     * its galaxy tags resolve to (Galaxy, each with GalaxyCluster).
+     *
+     * @param array $event
+     * @param array $user
+     * @return array
+     */
+    private function __eventLabels(
         array $event,
         array $user
     ) {
@@ -2374,10 +2409,19 @@ class EventsController extends AppController
             }
         }
 
-        // Favorite event report (for the moment, only the most recent one).
-        // A report carries its own distribution, so seeing the event does not
-        // mean seeing every report on it: apply the report ACL, as the
-        // reports tab does, and skip soft-deleted ones.
+        return $event;
+    }
+
+    private function __enrichEvent(
+        array $event,
+        array $user
+    ) {
+        $event = $this->__eventLabels($event, $user);
+
+        // The lead report is the most recently modified one; the rest are
+        // listed by name. A report carries its own distribution, so seeing
+        // the event does not mean seeing every report on it: apply the
+        // report ACL, as the reports tab does, and skip soft-deleted ones.
         $reportConditions =
             $this->Event->EventReport->buildACLConditions($user);
         $reportConditions['AND'][] = [
@@ -2389,10 +2433,29 @@ class EventsController extends AppController
             [
                 'conditions' => $reportConditions,
                 'contain' => EventReport::DEFAULT_CONTAIN,
+                'order' => ['EventReport.timestamp' => 'DESC', 'EventReport.id' => 'DESC'],
                 'recursive' => -1,
             ]
         );
         $event['EventReport'] = $result['EventReport'] ?? null;
+        $event['OtherEventReports'] = [];
+        if (!empty($event['EventReport'])) {
+            $reportConditions['AND'][] = [
+                'EventReport.id !=' => $event['EventReport']['id'],
+            ];
+            $others = $this->Event->EventReport->find('all', [
+                'conditions' => $reportConditions,
+                'fields' => [
+                    'EventReport.id', 'EventReport.uuid', 'EventReport.name',
+                    'EventReport.timestamp', 'EventReport.distribution',
+                ],
+                'contain' => ['Event' => ['fields' => ['Event.id', 'Event.org_id']]],
+                'order' => ['EventReport.timestamp' => 'DESC', 'EventReport.id' => 'DESC'],
+                'limit' => 5,
+                'recursive' => -1,
+            ]);
+            $event['OtherEventReports'] = array_column($others, 'EventReport');
+        }
 
         // Extension info: events extending this one
         $extensions = $this->Event->fetchSimpleEvents(
@@ -2506,6 +2569,7 @@ class EventsController extends AppController
                 $options[$key] = $data[$key];
             }
         }
+        $options = $this->__splitTypeFilter($options);
 
         $extensionSet = $this->__extensionViewContext($user, $event);
         $options['eventIds'] = $extensionSet['ids'];
@@ -2672,6 +2736,7 @@ class EventsController extends AppController
                 $options[$key] = $data[$key];
             }
         }
+        $options = $this->__splitTypeFilter($options);
 
         $extensionSet = $this->__extensionViewContext($user, $event);
         $options['eventIds'] = $extensionSet['ids'];
@@ -3752,6 +3817,161 @@ class EventsController extends AppController
     }
 
     /**
+     * The event's galaxy clusters as flat rows, each carrying its Galaxy.
+     *
+     * @param array $event as __eventLabels() leaves it
+     * @return array
+     */
+    private function __flattenClusters(array $event)
+    {
+        $clusters = [];
+        foreach ($event['Galaxy'] ?? [] as $galaxy) {
+            $meta = $galaxy;
+            unset($meta['GalaxyCluster']);
+            foreach ($galaxy['GalaxyCluster'] ?? [] as $cluster) {
+                $cluster['Galaxy'] = $meta;
+                $clusters[] = $cluster;
+            }
+        }
+        return $clusters;
+    }
+
+    /**
+     * A comma-separated `type` filter as a list: the overview opens a tab
+     * filtered to every type of one inventory group.
+     */
+    private function __splitTypeFilter(array $options)
+    {
+        if (isset($options['type']) && is_string($options['type']) && strpos($options['type'], ',') !== false) {
+            $options['type'] = array_values(array_filter(explode(',', $options['type']), 'strlen'));
+        }
+        return $options;
+    }
+
+    private function __overviewEvent($id)
+    {
+        $event = $this->Event->fetchSimpleEvent($this->Auth->user(), $id, [
+            'fields' => [
+                'Event.id', 'Event.uuid', 'Event.info', 'Event.org_id',
+                'Event.orgc_id', 'Event.timestamp', 'Event.distribution',
+                'Event.sharing_group_id', 'Event.attribute_count',
+            ],
+        ]);
+        if (empty($event)) {
+            throw new NotFoundException(__('Invalid event'));
+        }
+        return $event;
+    }
+
+    /**
+     * The overview's indicator inventory: counts by group and type,
+     * detection-ready against context-only, objects by template, and how
+     * many indicators are shared more narrowly than the event.
+     *
+     * @param int|string $id Event ID or UUID
+     */
+    public function viewEventInventory($id = null)
+    {
+        $event = $this->__overviewEvent($id);
+        $tool = new EventOverviewTool();
+        $inventory = $tool->inventory($this->Auth->user(), $event['Event']);
+        if ($this->_isRest()) {
+            return $this->RestResponse->viewData($inventory, 'json');
+        }
+        $this->set('inventory', $inventory);
+        $this->set('event', $event);
+        $this->layout = false;
+    }
+
+    /**
+     * The overview's context rows, including the labels found only on the
+     * event's indicators. Past EventOverviewTool::ROLLUP_LIMIT attributes
+     * that roll-up waits for `rollup:1`, unless a cached one exists.
+     *
+     * @param int|string $id Event ID or UUID
+     */
+    public function viewEventContext($id = null)
+    {
+        $user = $this->Auth->user();
+        $event = $this->__overviewEvent($id);
+        $event = $this->__eventLabels($event, $user);
+
+        $tool = new EventOverviewTool();
+        $force = !empty($this->request->params['named']['rollup']);
+        $rollup = $tool->rollup($user, $event['Event'], $force);
+
+        $rollupTags = [];
+        $rollupClusters = [];
+        if (!empty($rollup)) {
+            $tags = $this->Event->EventTag->Tag->find('all', [
+                'recursive' => -1,
+                'conditions' => ['Tag.id' => array_keys($rollup)],
+            ]);
+            $galaxyNames = [];
+            foreach ($tags as $tag) {
+                $tag = $tag['Tag'];
+                if (!$this->_isSiteAdmin() && !empty($tag['org_id']) && (int)$tag['org_id'] !== (int)$user['org_id']) {
+                    continue;
+                }
+                $rollupTags[(int)$tag['id']] = $tag;
+                if (!empty($tag['is_galaxy'])) {
+                    $galaxyNames[(int)$tag['id']] = $tag['name'];
+                }
+            }
+            if (!empty($galaxyNames)) {
+                $this->loadModel('GalaxyCluster');
+                $clusters = $this->GalaxyCluster->getClustersByTags($galaxyNames, $user, true, false);
+                foreach ($clusters as $cluster) {
+                    $cluster = $cluster['GalaxyCluster'];
+                    if (!empty($cluster['tag_id'])) {
+                        $rollupClusters[(int)$cluster['tag_id']] = $cluster;
+                    }
+                }
+            }
+        }
+
+        $this->loadModel('AnalystProfile');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $pivotLabels = $this->AnalystProfile->pivotLabels(
+            $user, ValueLabelPriority::planFor($profile)
+        );
+        $rows = EventContextTool::rows(
+            $event['EventTag'], $this->__flattenClusters($event),
+            $rollup, $rollupTags, $rollupClusters, $profile,
+            $pivotLabels['permitted']
+        );
+        if ($this->_isRest()) {
+            return $this->RestResponse->viewData($rows, 'json');
+        }
+        $this->set('rows', $rows);
+        $this->set('rolledUp', $rollup !== null);
+        $this->set('profileName', $profile['name'] ?? null);
+        $this->set('event', $event);
+        $this->set('mayModify', $this->__canModifyEvent($event, $user));
+        $this->layout = false;
+    }
+
+    /**
+     * The event's referencing objects, as the Pivot Explorer reads an
+     * event, for the overview's graph card. Too many to draw returns the
+     * count alone.
+     *
+     * @param int|string $id Event ID or UUID
+     */
+    public function viewEventOverviewGraph($id = null)
+    {
+        $user = $this->Auth->user();
+        $event = $this->Event->fetchSimpleEvent($user, $id, [
+            'contain' => ['Org', 'Orgc'],
+        ]);
+        if (empty($event)) {
+            throw new NotFoundException(__('Invalid event'));
+        }
+        $tool = new EventOverviewTool();
+        return $this->RestResponse->viewData($tool->graph($user, $event), 'json');
+    }
+
+    /**
      * Returns an HTML fragment listing attachment and
      * malware-sample attributes for a given event.
      * Rendered with layout=false for AJAX injection.
@@ -3826,6 +4046,7 @@ class EventsController extends AppController
 
         $this->set('attachments', $attachments);
         $this->set('event',       $event);
+        $this->set('compact', !empty($this->request->params['named']['compact']));
         $this->layout = false;
     }
 

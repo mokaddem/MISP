@@ -3687,6 +3687,11 @@
         /* ── init ──────────────────────────────────────────────── */
         // The event page's seed: the event, drawn by buildGraphData.
         function loadEvent() {
+            // A host that already holds an event-shaped payload hands it over.
+            if (host.event) {
+                _event = host.event;
+                return Promise.resolve({ event: host.event, data: buildGraphData(host.event) });
+            }
             return fetch(baseurl + '/events/view/' + eventId + '/includeServerCorrelations:1.json', { credentials: 'same-origin' })
                 .then(function (r) {
                     if (!r.ok) throw new Error(r.status);
