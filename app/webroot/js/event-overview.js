@@ -286,11 +286,15 @@
         };
     }
 
-    function viewerOptions(opts) {
+    // A handful of nodes can afford the room a heavy graph cannot.
+    var ROOMY_GRAPH_MAX = 12;
+
+    function viewerOptions(opts, kit, seed) {
+        var nodes = (seed && seed.data && seed.data.nodes) || [];
         opts.UI.mode = 'viewer';
         opts.UI.extraPanels = [];
         opts.UI.sidebar = { collapsed: true };
-        opts.simulation.layout = { type: 'structured', gap: 10 };
+        opts.simulation.layout = { type: 'structured', gap: nodes.length <= ROOMY_GRAPH_MAX ? 30 : 10 };
         opts.render.maxZoom = 1.5;
     }
 
