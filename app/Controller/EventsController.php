@@ -2064,6 +2064,9 @@ class EventsController extends AppController
         // Extended / extending view: the tabs below span several events, so
         // resolve the set first and count over all of it.
         $extensionSet = $this->__extensionViewContext($user, $event);
+        if (count($extensionSet['ids']) > 1) {
+            $event = $this->__overviewReports($event, $user, $extensionSet['ids']);
+        }
         $countShells = [];
         foreach ($extensionSet['events'] as $extensionEvent) {
             $countShells[] = ['Event' => [
@@ -2436,20 +2439,19 @@ class EventsController extends AppController
         return $event;
     }
 
-    private function __enrichEvent(
-        array $event,
-        array $user
-    ) {
-        $event = $this->__eventLabels($event, $user);
-
-        // The lead report is the most recently modified one; the rest are
-        // listed by name. A report carries its own distribution, so seeing
-        // the event does not mean seeing every report on it: apply the
-        // report ACL, as the reports tab does, and skip soft-deleted ones.
+    /**
+     * The overview's lead report, the most recently modified one, and up to
+     * five others listed by name, across the given events. A report carries
+     * its own distribution, so seeing the event does not mean seeing every
+     * report on it: apply the report ACL, as the reports tab does, and skip
+     * soft-deleted ones.
+     */
+    private function __overviewReports(array $event, array $user, array $eventIds)
+    {
         $reportConditions =
             $this->Event->EventReport->buildACLConditions($user);
         $reportConditions['AND'][] = [
-            'EventReport.event_id' => $event['Event']['id'],
+            'EventReport.event_id' => count($eventIds) === 1 ? $eventIds[0] : $eventIds,
             'EventReport.deleted' => 0,
         ];
         $result = $this->Event->EventReport->find(
@@ -2472,6 +2474,7 @@ class EventsController extends AppController
                 'fields' => [
                     'EventReport.id', 'EventReport.uuid', 'EventReport.name',
                     'EventReport.timestamp', 'EventReport.distribution',
+                    'EventReport.event_id',
                 ],
                 'contain' => ['Event' => ['fields' => ['Event.id', 'Event.org_id']]],
                 'order' => ['EventReport.timestamp' => 'DESC', 'EventReport.id' => 'DESC'],
@@ -2480,6 +2483,16 @@ class EventsController extends AppController
             ]);
             $event['OtherEventReports'] = array_column($others, 'EventReport');
         }
+        return $event;
+    }
+
+    private function __enrichEvent(
+        array $event,
+        array $user
+    ) {
+        $event = $this->__eventLabels($event, $user);
+
+        $event = $this->__overviewReports($event, $user, [$event['Event']['id']]);
 
         // Extension info: events extending this one
         $extensions = $this->Event->fetchSimpleEvents(

@@ -8,6 +8,15 @@ $canAddReport = $this->Acl->canModifyEvent($data);
 $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
 $addObjectUrl = $baseurl . '/objects/add/' . $eventId;
 $hasObjects = (int)($object_count ?? 0) > 0;
+$reportEventId = (int)($report['event_id'] ?? $eventId);
+$reportOrg = $extensionEvents[$reportEventId]['Orgc']['name'] ?? ($data['Orgc']['name'] ?? '');
+$reportOrigin = function ($originId) {
+    return $this->element('Events/View/extension_origin', [
+        'event_id' => (int)$originId,
+        'compact' => true,
+        'only_foreign' => true,
+    ]);
+};
 ?>
 <div class="row g-3 mb-3 eo-row">
 
@@ -15,7 +24,7 @@ $hasObjects = (int)($object_count ?? 0) > 0;
         <div class="card shadow-sm eo-card w-100" id="eo-report-card"
              <?php if (!empty($report)): ?>
              data-eo-report-id="<?= (int)$report['id'] ?>"
-             data-eo-event-id="<?= $eventId ?>"
+             data-eo-event-id="<?= $reportEventId ?>"
              data-eo-report-content="<?= h($report['content'] ?? '') ?>"
              <?php endif; ?>>
             <div class="eo-card-head">
@@ -26,7 +35,8 @@ $hasObjects = (int)($object_count ?? 0) > 0;
                     <?php if (!empty($report)): ?>
                         <div class="eo-card-title text-truncate"><?= h($report['name']) ?></div>
                         <div class="eo-card-sub text-truncate">
-                            <?= h($data['Orgc']['name'] ?? '') ?> · <?= __('modified %s', $this->Time->time($report['timestamp'])) ?>
+                            <?= $reportOrigin($reportEventId) ?>
+                            <?= h($reportOrg) ?> · <?= __('modified %s', $this->Time->time($report['timestamp'])) ?>
                         </div>
                     <?php else: ?>
                         <div class="eo-card-title"><?= __('Report') ?></div>
@@ -50,7 +60,10 @@ $hasObjects = (int)($object_count ?? 0) > 0;
                                 <a href="<?= h($baseurl . '/eventReports/view/' . (int)$other['id']) ?>" class="text-truncate">
                                     <i class="misp-icon misp-icon-report misp-simple"></i><?= h($other['name']) ?>
                                 </a>
-                                <span class="eo-muted"><?= $this->Time->time($other['timestamp']) ?></span>
+                                <span class="d-inline-flex align-items-center gap-2 flex-shrink-0">
+                                    <?= $reportOrigin($other['event_id'] ?? $eventId) ?>
+                                    <span class="eo-muted"><?= $this->Time->time($other['timestamp']) ?></span>
+                                </span>
                             </li>
                         <?php endforeach; ?>
                     </ul>
