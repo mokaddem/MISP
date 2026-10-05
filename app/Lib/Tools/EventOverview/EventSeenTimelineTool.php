@@ -10,8 +10,9 @@ App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
  * A row is dated when it has either end. An undated row is counted, never
  * placed. Seen dates are microseconds; days are UTC days since the epoch.
  *
- * Every query is scoped to the events asked for and the ACL is part of the
- * SQL, because the row queries have to be cut with a LIMIT.
+ * Every query is scoped to the events asked for. Visibility is MISP's own
+ * read conditions (`EventOverviewTool::aclSql()`), part of the SQL because
+ * the row queries are cut with a LIMIT.
  */
 class EventSeenTimelineTool
 {
@@ -56,10 +57,9 @@ class EventSeenTimelineTool
      */
     public function timeline(array $user, array $events, array $options, $today)
     {
-        $scopes = $this->scopes($user, $events);
         $tallies = [];
         foreach ($events as $event) {
-            $tallies[(int)$event['id']] = $this->tally($scopes[(int)$event['id']], $event);
+            $tallies[(int)$event['id']] = $this->tally($user, $event);
         }
         $merged = self::mergeTallies($tallies);
         $histogram = self::histogram($merged['starts'], $merged['ends'], $today);
@@ -69,7 +69,8 @@ class EventSeenTimelineTool
         $capped = false;
         $inWindow = 0;
         if ($window !== null) {
-            list($items, $capped, $inWindow) = $this->items($scopes, $window, $options);
+            $acl = $this->acl($user, self::filterEvents(array_column($events, 'id'), $options['events'] ?? []));
+            list($items, $capped, $inWindow) = $this->items($acl, $window, $options);
         }
 
         return [
@@ -109,17 +110,17 @@ class EventSeenTimelineTool
      */
     public function objectChildren(array $user, array $events, $objectId)
     {
-        $scopes = $this->scopes($user, $events);
-        $objects = $this->Attribute->query(
-            'SELECT o.id FROM objects o WHERE o.id = ? AND o.deleted = 0 AND '
-            . $this->eventSql($scopes, 'o'),
-            [(int)$objectId],
-            false
+        $acl = $this->acl($user, array_column($events, 'id'));
+        $objects = $this->rows(
+            'SELECT Object.id FROM objects Object JOIN events Event ON Event.id = Object.event_id'
+            . ' WHERE Object.id = ? AND Object.event_id IN (' . $acl['events'] . ') AND Object.deleted = 0'
+            . ' AND ' . $acl['object'],
+            [(int)$objectId]
         );
         if (empty($objects)) {
             return null;
         }
-        $children = $this->children($scopes, [(int)$objectId], self::CHILD_CAP + 1);
+        $children = $this->children($acl, [(int)$objectId], self::CHILD_CAP + 1);
         $rows = $children[(int)$objectId] ?? [];
         return [
             'children' => array_slice($rows, 0, self::CHILD_CAP),
@@ -127,37 +128,43 @@ class EventSeenTimelineTool
         ];
     }
 
-    private function scopes(array $user, array $events)
+    /**
+     * The events' ids as an SQL list and the user's read conditions over
+     * `Attribute`, `Object` and `Event`.
+     */
+    private function acl(array $user, array $eventIds)
     {
-        $scopes = [];
-        foreach ($events as $event) {
-            $scopes[(int)$event['id']] = $this->overview->scope($user, $event);
-        }
-        return $scopes;
+        $eventIds = array_map('intval', $eventIds);
+        return [
+            'events' => empty($eventIds) ? '0' : implode(', ', $eventIds),
+            'attribute' => $this->overview->aclSql($user, 'Attribute'),
+            'object' => $this->overview->aclSql($user, 'Object'),
+        ];
     }
 
     /**
      * Start and end days, undated count and facet counts for one event,
      * cached on the event's timestamp and the reader's scope.
      */
-    private function tally(array $scope, array $event)
+    private function tally(array $user, array $event)
     {
-        return $this->overview->cached('timeline-v1', $event, $scope, function () use ($scope, $event) {
-            return $this->computeTally([(int)$event['id'] => $scope]);
+        $scope = $this->overview->scope($user, $event);
+        return $this->overview->cached('timeline-v2', $event, $scope, function () use ($user, $event) {
+            return $this->computeTally($this->acl($user, [(int)$event['id']]));
         });
     }
 
-    private function computeTally(array $scopes)
+    private function computeTally(array $acl)
     {
         $tally = [
             'starts' => [], 'ends' => [], 'attributes' => 0, 'objects' => 0, 'undated' => 0,
             'facets' => ['types' => [], 'objects' => [], 'categories' => []],
         ];
-        $loose = $this->looseFrom($scopes);
-        $objects = '(' . $this->envelopeSql($scopes) . ') env';
+        $loose = $this->looseFrom($acl);
+        $objects = '(' . $this->envelopeSql($acl) . ') env';
         foreach (['starts' => 's', 'ends' => 'e'] as $key => $column) {
             $source = [
-                'attributes' => 'SELECT FLOOR(' . self::seenSql('a', $column) . ' / ' . self::DAY_US . ') AS d,'
+                'attributes' => 'SELECT FLOOR(' . self::seenSql('Attribute', $column) . ' / ' . self::DAY_US . ') AS d,'
                     . ' COUNT(*) AS n ' . $loose . ' GROUP BY d',
                 'objects' => 'SELECT FLOOR(env.' . $column . ' / ' . self::DAY_US . ') AS d, COUNT(*) AS n'
                     . ' FROM ' . $objects . ' GROUP BY d',
@@ -179,8 +186,8 @@ class EventSeenTimelineTool
             }
         }
         $facets = [
-            ['types', 'type', 'SELECT a.type AS f, a.category AS c, COUNT(*) AS n ' . $loose
-                . ' AND ' . self::datedSql('a') . ' GROUP BY a.type, a.category'],
+            ['types', 'type', 'SELECT Attribute.type AS f, Attribute.category AS c, COUNT(*) AS n ' . $loose
+                . ' AND ' . self::datedSql('Attribute') . ' GROUP BY Attribute.type, Attribute.category'],
             ['objects', 'name', 'SELECT env.name AS f, env.category AS c, COUNT(*) AS n FROM ' . $objects
                 . ' WHERE env.s IS NOT NULL GROUP BY env.name, env.category'],
         ];
@@ -349,10 +356,9 @@ class EventSeenTimelineTool
      *
      * @return array [items, capped, rows in window]
      */
-    private function items(array $scopes, array $window, array $options)
+    private function items(array $acl, array $window, array $options)
     {
-        $scopes = self::filterEvents($scopes, $options['events'] ?? []);
-        if (empty($scopes)) {
+        if ($acl['events'] === '0') {
             return [[], false, 0];
         }
         $lower = $window[0] * self::DAY_US;
@@ -361,22 +367,23 @@ class EventSeenTimelineTool
 
         $parts = [];
         if ($want['attributes']) {
-            $parts['attributes'] = $this->attributeFilter($scopes, $options, $lower, $upper);
+            $parts['attributes'] = $this->attributeFilter($acl, $options, $lower, $upper);
         }
         if ($want['objects']) {
-            $parts['objects'] = $this->objectFilter($scopes, $options, $lower, $upper);
+            $parts['objects'] = $this->objectFilter($acl, $options, $lower, $upper);
         }
 
         $attributes = $objects = [];
         if (isset($parts['attributes'])) {
             list($sql, $params) = $parts['attributes'];
             $attributes = $this->rows(
-                'SELECT a.id, a.uuid, a.event_id, a.type, a.category, a.to_ids,'
-                . ' LEFT(a.value1, ' . (self::LABEL_MAX + 1) . ') AS value1,'
-                . ' LEFT(a.value2, ' . (self::LABEL_MAX + 1) . ') AS value2,'
-                . ' a.first_seen, a.last_seen, ' . self::seenSql('a', 's') . ' AS s, '
-                . self::seenSql('a', 'e') . ' AS e ' . $sql
-                . ' ORDER BY s, a.id LIMIT ' . (self::ITEM_CAP + 1),
+                'SELECT Attribute.id, Attribute.uuid, Attribute.event_id, Attribute.type,'
+                . ' Attribute.category, Attribute.to_ids,'
+                . ' LEFT(Attribute.value1, ' . (self::LABEL_MAX + 1) . ') AS value1,'
+                . ' LEFT(Attribute.value2, ' . (self::LABEL_MAX + 1) . ') AS value2,'
+                . ' Attribute.first_seen, Attribute.last_seen, ' . self::seenSql('Attribute', 's') . ' AS s, '
+                . self::seenSql('Attribute', 'e') . ' AS e ' . $sql
+                . ' ORDER BY s, Attribute.id LIMIT ' . (self::ITEM_CAP + 1),
                 $params
             );
         }
@@ -409,7 +416,7 @@ class EventSeenTimelineTool
         }
         $children = [];
         if (!empty($objectIds) && $childTotal <= self::CHILD_INLINE_CAP) {
-            $children = $this->children($scopes, $objectIds, self::CHILD_INLINE_CAP + 1);
+            $children = $this->children($acl, $objectIds, self::CHILD_INLINE_CAP + 1);
         }
         $inline = !empty($objectIds) && $childTotal <= self::CHILD_INLINE_CAP;
 
@@ -461,38 +468,42 @@ class EventSeenTimelineTool
         ];
     }
 
-    private static function filterEvents(array $scopes, array $eventIds)
+    /**
+     * The events of the view, narrowed to those asked for.
+     */
+    public static function filterEvents(array $eventIds, array $wanted)
     {
-        if (empty($eventIds)) {
-            return $scopes;
+        $eventIds = array_map('intval', $eventIds);
+        if (empty($wanted)) {
+            return $eventIds;
         }
-        return array_intersect_key($scopes, array_flip(array_map('intval', $eventIds)));
+        return array_values(array_intersect($eventIds, array_map('intval', $wanted)));
     }
 
-    private function attributeFilter(array $scopes, array $options, $lower, $upper)
+    private function attributeFilter(array $acl, array $options, $lower, $upper)
     {
-        $sql = $this->looseFrom($scopes) . ' AND ' . self::datedSql('a')
-            . ' AND ' . self::seenSql('a', 's') . ' <= ? AND ' . self::seenSql('a', 'e') . ' >= ?';
+        $sql = $this->looseFrom($acl) . ' AND ' . self::datedSql('Attribute')
+            . ' AND ' . self::seenSql('Attribute', 's') . ' <= ? AND ' . self::seenSql('Attribute', 'e') . ' >= ?';
         $params = [$upper, $lower];
         if (!empty($options['types'])) {
-            $sql .= ' AND a.type IN (' . self::placeholders($options['types']) . ')';
+            $sql .= ' AND Attribute.type IN (' . self::placeholders($options['types']) . ')';
             $params = array_merge($params, array_values($options['types']));
         }
         if (!empty($options['categories'])) {
-            $sql .= ' AND a.category IN (' . self::placeholders($options['categories']) . ')';
+            $sql .= ' AND Attribute.category IN (' . self::placeholders($options['categories']) . ')';
             $params = array_merge($params, array_values($options['categories']));
         }
         if (isset($options['q']) && trim($options['q']) !== '') {
             $like = '%' . self::escapeLike(trim($options['q'])) . '%';
-            $sql .= ' AND (a.value1 LIKE ? OR a.value2 LIKE ?)';
+            $sql .= ' AND (Attribute.value1 LIKE ? OR Attribute.value2 LIKE ?)';
             array_push($params, $like, $like);
         }
         return [$sql, $params];
     }
 
-    private function objectFilter(array $scopes, array $options, $lower, $upper)
+    private function objectFilter(array $acl, array $options, $lower, $upper)
     {
-        $sql = 'FROM (' . $this->envelopeSql($scopes) . ') env'
+        $sql = 'FROM (' . $this->envelopeSql($acl) . ') env'
             . ' WHERE env.s IS NOT NULL AND env.s <= ? AND env.e >= ?';
         $params = [$upper, $lower];
         if (!empty($options['objects'])) {
@@ -505,9 +516,11 @@ class EventSeenTimelineTool
         }
         if (isset($options['q']) && trim($options['q']) !== '') {
             $like = '%' . self::escapeLike(mb_strtolower(trim($options['q']))) . '%';
-            $sql .= ' AND (LOWER(env.name) LIKE ? OR EXISTS (SELECT 1 FROM attributes c'
-                . ' WHERE c.object_id = env.id AND c.deleted = 0 AND '
-                . $this->eventSql($scopes, 'c') . ' AND (c.value1 LIKE ? OR c.value2 LIKE ?)))';
+            $sql .= ' AND (LOWER(env.name) LIKE ? OR EXISTS (SELECT 1 FROM attributes Attribute'
+                . ' JOIN events Event ON Event.id = Attribute.event_id'
+                . ' JOIN objects Object ON Object.id = Attribute.object_id'
+                . ' WHERE Attribute.object_id = env.id AND Attribute.deleted = 0 AND ' . $acl['attribute']
+                . ' AND (Attribute.value1 LIKE ? OR Attribute.value2 LIKE ?)))';
             array_push($params, $like, $like, $like);
         }
         return [$sql, $params];
@@ -516,16 +529,22 @@ class EventSeenTimelineTool
     /**
      * Dated attributes of the given objects, by object id, earliest first.
      */
-    private function children(array $scopes, array $objectIds, $limit)
+    private function children(array $acl, array $objectIds, $limit)
     {
         $rows = $this->rows(
-            'SELECT a.id, a.uuid, a.event_id, a.object_id, a.object_relation, a.type, a.category,'
-            . ' a.to_ids, LEFT(a.value1, ' . (self::LABEL_MAX + 1) . ') AS value1,'
-            . ' LEFT(a.value2, ' . (self::LABEL_MAX + 1) . ') AS value2, a.first_seen, a.last_seen,'
-            . ' ' . self::seenSql('a', 's') . ' AS s, ' . self::seenSql('a', 'e') . ' AS e'
-            . ' FROM attributes a WHERE a.object_id IN (' . self::placeholders($objectIds) . ')'
-            . ' AND a.deleted = 0 AND ' . self::datedSql('a') . ' AND ' . $this->eventSql($scopes, 'a')
-            . ' ORDER BY a.object_id, s, a.id LIMIT ' . (int)$limit,
+            'SELECT Attribute.id, Attribute.uuid, Attribute.event_id, Attribute.object_id,'
+            . ' Attribute.object_relation, Attribute.type, Attribute.category, Attribute.to_ids,'
+            . ' LEFT(Attribute.value1, ' . (self::LABEL_MAX + 1) . ') AS value1,'
+            . ' LEFT(Attribute.value2, ' . (self::LABEL_MAX + 1) . ') AS value2,'
+            . ' Attribute.first_seen, Attribute.last_seen,'
+            . ' ' . self::seenSql('Attribute', 's') . ' AS s, ' . self::seenSql('Attribute', 'e') . ' AS e'
+            . ' FROM attributes Attribute JOIN events Event ON Event.id = Attribute.event_id'
+            . ' JOIN objects Object ON Object.id = Attribute.object_id'
+            . ' WHERE Attribute.object_id IN (' . self::placeholders($objectIds) . ')'
+            . ' AND Attribute.event_id IN (' . $acl['events'] . ') AND Attribute.deleted = 0'
+            . ' AND Object.deleted = 0 AND ' . self::datedSql('Attribute')
+            . ' AND ' . $acl['attribute'] . ' AND ' . $acl['object']
+            . ' ORDER BY Attribute.object_id, s, Attribute.id LIMIT ' . (int)$limit,
             array_map('intval', $objectIds)
         );
         $children = [];
@@ -600,18 +619,20 @@ class EventSeenTimelineTool
      * the span of its visible dated attributes folded in (s, e) and how many
      * of those there are.
      */
-    private function envelopeSql(array $scopes)
+    private function envelopeSql(array $acl)
     {
-        $inner = 'SELECT o.id, o.uuid, o.event_id, o.name, o.`meta-category` AS category,'
-            . ' o.first_seen AS ofs, o.last_seen AS ols,'
-            . ' ' . self::seenSql('o', 's') . ' AS os, ' . self::seenSql('o', 'e') . ' AS oe,'
-            . ' MIN(' . self::seenSql('a', 's') . ') AS amin,'
-            . ' MAX(' . self::seenSql('a', 'e') . ') AS amax,'
-            . ' COUNT(a.id) AS dated_children'
-            . ' FROM objects o LEFT JOIN attributes a ON a.object_id = o.id AND a.deleted = 0'
-            . ' AND ' . self::datedSql('a') . ' AND ' . $this->eventSql($scopes, 'a')
-            . ' WHERE o.deleted = 0 AND ' . $this->eventSql($scopes, 'o')
-            . ' GROUP BY o.id, o.uuid, o.event_id, o.name, o.`meta-category`, o.first_seen, o.last_seen';
+        $inner = 'SELECT Object.id, Object.uuid, Object.event_id, Object.name,'
+            . ' Object.`meta-category` AS category, Object.first_seen AS ofs, Object.last_seen AS ols,'
+            . ' ' . self::seenSql('Object', 's') . ' AS os, ' . self::seenSql('Object', 'e') . ' AS oe,'
+            . ' MIN(' . self::seenSql('Attribute', 's') . ') AS amin,'
+            . ' MAX(' . self::seenSql('Attribute', 'e') . ') AS amax,'
+            . ' COUNT(Attribute.id) AS dated_children'
+            . ' FROM objects Object FORCE INDEX (event_id) JOIN events Event ON Event.id = Object.event_id'
+            . ' LEFT JOIN attributes Attribute ON Attribute.object_id = Object.id AND Attribute.deleted = 0'
+            . ' AND ' . self::datedSql('Attribute') . ' AND ' . $acl['attribute']
+            . ' WHERE Object.event_id IN (' . $acl['events'] . ') AND Object.deleted = 0 AND ' . $acl['object']
+            . ' GROUP BY Object.id, Object.uuid, Object.event_id, Object.name, Object.`meta-category`,'
+            . ' Object.first_seen, Object.last_seen';
         return 'SELECT t.id, t.uuid, t.event_id, t.name, t.category, t.ofs, t.ols, t.dated_children,'
             . ' LEAST(COALESCE(t.os, t.amin), COALESCE(t.amin, t.os)) AS s,'
             . ' GREATEST(COALESCE(t.oe, t.amax), COALESCE(t.amax, t.oe)) AS e'
@@ -619,46 +640,18 @@ class EventSeenTimelineTool
     }
 
     /**
-     * FROM … WHERE for the events' visible loose attributes.
+     * FROM … WHERE for the events' loose attributes the user may read.
      *
      * Pinned to event_id: left alone, the optimiser intersects it with
      * object_id, whose 0 range holds every loose attribute of the instance.
      */
-    private function looseFrom(array $scopes)
+    private function looseFrom(array $acl)
     {
-        return 'FROM attributes a FORCE INDEX (event_id) WHERE a.object_id = 0 AND a.deleted = 0 AND '
-            . $this->eventSql($scopes, 'a');
-    }
-
-    /**
-     * The events' rows the reader may see: everything of an event they hold
-     * in full, the shareable rest of the others.
-     */
-    private function eventSql(array $scopes, $alias)
-    {
-        $full = $partial = [];
-        $sgids = [];
-        foreach ($scopes as $eventId => $scope) {
-            if ($scope['full']) {
-                $full[] = (int)$eventId;
-            } else {
-                $partial[] = (int)$eventId;
-                $sgids = array_keys($scope['sgids']);
-            }
-        }
-        $clauses = [];
-        if (!empty($full)) {
-            $clauses[] = "$alias.event_id IN (" . implode(', ', $full) . ')';
-        }
-        if (!empty($partial)) {
-            $visible = "$alias.distribution IN (1, 2, 3, 5)";
-            if (!empty($sgids)) {
-                $visible = "($visible OR ($alias.distribution = 4 AND $alias.sharing_group_id IN ("
-                    . implode(', ', array_map('intval', $sgids)) . ')))';
-            }
-            $clauses[] = "($alias.event_id IN (" . implode(', ', $partial) . ") AND $visible)";
-        }
-        return empty($clauses) ? '1 = 0' : '(' . implode(' OR ', $clauses) . ')';
+        return 'FROM attributes Attribute FORCE INDEX (event_id)'
+            . ' JOIN events Event ON Event.id = Attribute.event_id'
+            . ' LEFT JOIN objects Object ON Object.id = Attribute.object_id'
+            . ' WHERE Attribute.event_id IN (' . $acl['events'] . ') AND Attribute.object_id = 0'
+            . ' AND Attribute.deleted = 0 AND ' . $acl['attribute'];
     }
 
     /**

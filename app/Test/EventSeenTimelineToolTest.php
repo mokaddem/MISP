@@ -180,6 +180,13 @@ class EventSeenTimelineToolTest extends TestCase
         );
     }
 
+    public function testAnEventFilterOnlyNarrowsTheView()
+    {
+        $this->assertSame([7, 9], EventSeenTimelineTool::filterEvents(['7', '9'], []));
+        $this->assertSame([9], EventSeenTimelineTool::filterEvents([7, 9], ['9', '12']));
+        $this->assertSame([], EventSeenTimelineTool::filterEvents([7, 9], ['12']));
+    }
+
     public function testLabelsJoinCompositesAndAreCut()
     {
         $this->assertSame('evil.exe|d41d8cd9', EventSeenTimelineTool::label('evil.exe', 'd41d8cd9'));

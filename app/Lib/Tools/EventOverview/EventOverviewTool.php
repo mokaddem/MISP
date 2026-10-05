@@ -8,9 +8,8 @@ App::uses('ValueStatsTool', 'Tools/ValueProfile');
  * which labels sit on them, and which objects reference each other.
  *
  * Every query is scoped to one event and grouped, so its cost follows the
- * event's size and never the instance's; the ACL is applied to the grouped
- * rows in PHP, because the caller has already established that the user may
- * see the event and only element distributions are left to judge.
+ * event's size and never the instance's. Visibility is MISP's own read
+ * conditions (`aclSql()`), applied in the query.
  */
 class EventOverviewTool
 {
@@ -88,16 +87,20 @@ class EventOverviewTool
         ];
     }
 
-    private function visible(array $scope, $distribution, $sharingGroupId)
+    /**
+     * MISP's own read conditions for attributes or objects, as SQL over
+     * tables aliased `Attribute`, `Object` and `Event`. The attribute
+     * conditions read the attribute's `Object` too, so a query using them
+     * left-joins it.
+     *
+     * @param array $user
+     * @param string $model 'Attribute' or 'Object'
+     * @return string
+     */
+    public function aclSql(array $user, $model)
     {
-        if ($scope['full']) {
-            return true;
-        }
-        $distribution = (int)$distribution;
-        if (in_array($distribution, [1, 2, 3, 5], true)) {
-            return true;
-        }
-        return $distribution === 4 && isset($scope['sgids'][(int)$sharingGroupId]);
+        $Model = $model === 'Object' ? $this->Object : $this->Attribute;
+        return $Model->getDataSource()->conditions($Model->buildConditions($user), true, false, $Model);
     }
 
     public function cached($kind, array $event, array $scope, callable $compute, $allowCompute = true)
@@ -140,12 +143,12 @@ class EventOverviewTool
     public function inventory(array $user, array $event, $reference = null)
     {
         $scope = $this->scope($user, $event);
-        $kind = 'inventory-v2';
+        $kind = 'inventory-v3';
         if ($reference !== null) {
             $kind .= sprintf(':n%d-%d', (int)$reference['distribution'], (int)($reference['sharing_group_id'] ?? 0));
         }
-        return $this->cached($kind, $event, $scope, function () use ($scope, $event, $reference) {
-            return $this->computeInventory($scope, $event, $reference ?? $event);
+        return $this->cached($kind, $event, $scope, function () use ($user, $event, $reference) {
+            return $this->computeInventory($user, $event, $reference ?? $event);
         });
     }
 
@@ -206,20 +209,47 @@ class EventOverviewTool
         return $merged;
     }
 
-    private function computeInventory(array $scope, array $event, array $reference)
+    /**
+     * FROM … WHERE over one event's live attributes the user may read, with
+     * `Object` and `Event` joined for the read conditions. Binds the event id.
+     */
+    private function attributesFrom(array $user)
+    {
+        return ' FROM attributes Attribute JOIN events Event ON Event.id = Attribute.event_id'
+            . ' LEFT JOIN objects Object ON Object.id = Attribute.object_id'
+            . ' WHERE Attribute.event_id = ? AND Attribute.deleted = 0'
+            . ' AND (Attribute.object_id = 0 OR Object.deleted = 0)'
+            . ' AND ' . $this->aclSql($user, 'Attribute');
+    }
+
+    /**
+     * FROM … WHERE over one event's live objects the user may read. Binds
+     * the event id. Pinned to event_id, which the optimiser otherwise trades
+     * for a scan of every object once an event holds a large share of them.
+     */
+    private function objectsFrom(array $user)
+    {
+        return ' FROM objects Object FORCE INDEX (event_id) JOIN events Event ON Event.id = Object.event_id'
+            . ' WHERE Object.event_id = ? AND Object.deleted = 0'
+            . ' AND ' . $this->aclSql($user, 'Object');
+    }
+
+    private function computeInventory(array $user, array $event, array $reference)
     {
         $rows = $this->Attribute->query(
-            'SELECT a.type, a.to_ids, CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END AS loose,'
-            . ' a.distribution AS ad,'
-            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END AS asg,'
-            . ' COALESCE(o.distribution, 5) AS od,'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg,'
+            'SELECT Attribute.type, Attribute.to_ids,'
+            . ' CASE WHEN Attribute.object_id = 0 THEN 1 ELSE 0 END AS loose,'
+            . ' Attribute.distribution AS ad,'
+            . ' CASE WHEN Attribute.distribution = 4 THEN Attribute.sharing_group_id ELSE 0 END AS asg,'
+            . ' COALESCE(Object.distribution, 5) AS od,'
+            . ' CASE WHEN Object.distribution = 4 THEN Object.sharing_group_id ELSE 0 END AS osg,'
             . ' COUNT(*) AS n'
-            . ' FROM attributes a LEFT JOIN objects o ON o.id = a.object_id'
-            . ' WHERE a.event_id = ? AND a.deleted = 0 AND (a.object_id = 0 OR o.deleted = 0)'
-            . ' GROUP BY a.type, a.to_ids, CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END, a.distribution,'
-            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END, COALESCE(o.distribution, 5),'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END',
+            . $this->attributesFrom($user)
+            . ' GROUP BY Attribute.type, Attribute.to_ids, CASE WHEN Attribute.object_id = 0 THEN 1 ELSE 0 END,'
+            . ' Attribute.distribution,'
+            . ' CASE WHEN Attribute.distribution = 4 THEN Attribute.sharing_group_id ELSE 0 END,'
+            . ' COALESCE(Object.distribution, 5),'
+            . ' CASE WHEN Object.distribution = 4 THEN Object.sharing_group_id ELSE 0 END',
             [(int)$event['id']],
             false
         );
@@ -234,11 +264,6 @@ class EventOverviewTool
         foreach ($rows as $row) {
             $r = $this->flatRow($row);
             $loose = (int)$r['loose'] === 1;
-            if (!$this->visible($scope, $r['ad'], $r['asg'])
-                || (!$loose && !$this->visible($scope, $r['od'], $r['osg']))
-            ) {
-                continue;
-            }
             $n = (int)$r['n'];
             $isIds = !empty($r['to_ids']);
             $group = self::groupOf($r['type']);
@@ -280,8 +305,8 @@ class EventOverviewTool
             'narrower' => $narrower,
             'narrower_in_objects' => $narrowerInObjects,
             'groups' => $groups,
-            'objects' => $this->objectCounts($scope, (int)$event['id']),
-            'detection_rules' => $this->detectionRules($scope, (int)$event['id']),
+            'objects' => $this->objectCounts($user, (int)$event['id']),
+            'detection_rules' => $this->detectionRules($user, (int)$event['id']),
         ];
     }
 
@@ -324,22 +349,16 @@ class EventOverviewTool
         return $dist === 4 || $dist < $eventDist;
     }
 
-    private function objectCounts(array $scope, $eventId)
+    private function objectCounts(array $user, $eventId)
     {
         $rows = $this->Object->query(
-            'SELECT o.name, o.distribution AS od,'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg, COUNT(*) AS n'
-            . ' FROM objects o WHERE o.event_id = ? AND o.deleted = 0'
-            . ' GROUP BY o.name, o.distribution, CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END',
+            'SELECT Object.name, COUNT(*) AS n' . $this->objectsFrom($user) . ' GROUP BY Object.name',
             [$eventId],
             false
         );
         $byName = [];
         foreach ($rows as $row) {
             $r = $this->flatRow($row);
-            if (!$this->visible($scope, $r['od'], $r['osg'])) {
-                continue;
-            }
             $byName[$r['name']] = ($byName[$r['name']] ?? 0) + (int)$r['n'];
         }
         arsort($byName);
@@ -349,38 +368,25 @@ class EventOverviewTool
     /**
      * The names of the event's detection rules — few, and worth reading.
      */
-    private function detectionRules(array $scope, $eventId)
+    private function detectionRules(array $user, $eventId)
     {
         $rows = $this->Attribute->query(
-            'SELECT a.type, a.value1, a.comment, a.distribution AS ad,'
-            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END AS asg,'
-            . ' COALESCE(o.distribution, 5) AS od,'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg,'
-            . ' CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END AS loose, o.name AS object_name'
-            . ' FROM attributes a LEFT JOIN objects o ON o.id = a.object_id'
-            . " WHERE a.event_id = ? AND a.deleted = 0 AND (a.object_id = 0 OR o.deleted = 0)"
-            . " AND a.type IN ('snort', 'yara', 'sigma', 'suricata', 'zeek', 'bro', 'kusto-query')"
-            . ' ORDER BY a.id LIMIT 20',
+            'SELECT Attribute.type, Attribute.value1, Attribute.comment,'
+            . ' CASE WHEN Attribute.object_id = 0 THEN 1 ELSE 0 END AS loose, Object.name AS object_name'
+            . $this->attributesFrom($user)
+            . " AND Attribute.type IN ('snort', 'yara', 'sigma', 'suricata', 'zeek', 'bro', 'kusto-query')"
+            . ' ORDER BY Attribute.id LIMIT 5',
             [$eventId],
             false
         );
         $rules = [];
         foreach ($rows as $row) {
             $r = $this->flatRow($row);
-            $loose = (int)$r['loose'] === 1;
-            if (!$this->visible($scope, $r['ad'], $r['asg'])
-                || (!$loose && !$this->visible($scope, $r['od'], $r['osg']))
-            ) {
-                continue;
-            }
             $rules[] = [
                 'type' => $r['type'],
                 'name' => self::ruleName($r['type'], (string)$r['value1'], (string)$r['comment']),
-                'object' => $loose ? null : $r['object_name'],
+                'object' => (int)$r['loose'] === 1 ? null : $r['object_name'],
             ];
-            if (count($rules) === 5) {
-                break;
-            }
         }
         return $rules;
     }
@@ -439,27 +445,23 @@ class EventOverviewTool
     {
         $scope = $this->scope($user, $event);
         $allowCompute = $force || (int)($event['attribute_count'] ?? 0) <= self::ROLLUP_LIMIT;
-        return $this->cached('rollup-split', $event, $scope, function () use ($scope, $event) {
-            return $this->computeRollup($scope, (int)$event['id']);
+        return $this->cached('rollup-split-v2', $event, $scope, function () use ($user, $event) {
+            return $this->computeRollup($user, (int)$event['id']);
         }, $allowCompute);
     }
 
-    private function computeRollup(array $scope, $eventId)
+    private function computeRollup(array $user, $eventId)
     {
         $rows = $this->Attribute->query(
-            'SELECT atg.tag_id, a.distribution AS ad,'
-            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END AS asg,'
-            . ' CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END AS loose,'
-            . ' COALESCE(o.distribution, 5) AS od,'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg,'
-            . ' COUNT(*) AS n'
+            'SELECT atg.tag_id, CASE WHEN Attribute.object_id = 0 THEN 1 ELSE 0 END AS loose, COUNT(*) AS n'
             . ' FROM attribute_tags atg'
-            . ' JOIN attributes a ON a.id = atg.attribute_id'
-            . ' LEFT JOIN objects o ON o.id = a.object_id'
-            . ' WHERE atg.event_id = ? AND a.deleted = 0 AND (a.object_id = 0 OR o.deleted = 0)'
-            . ' GROUP BY atg.tag_id, a.distribution, CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END,'
-            . ' CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END, COALESCE(o.distribution, 5),'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END',
+            . ' JOIN attributes Attribute ON Attribute.id = atg.attribute_id'
+            . ' JOIN events Event ON Event.id = Attribute.event_id'
+            . ' LEFT JOIN objects Object ON Object.id = Attribute.object_id'
+            . ' WHERE atg.event_id = ? AND Attribute.deleted = 0'
+            . ' AND (Attribute.object_id = 0 OR Object.deleted = 0)'
+            . ' AND ' . $this->aclSql($user, 'Attribute')
+            . ' GROUP BY atg.tag_id, CASE WHEN Attribute.object_id = 0 THEN 1 ELSE 0 END',
             [$eventId],
             false
         );
@@ -467,11 +469,6 @@ class EventOverviewTool
         foreach ($rows as $row) {
             $r = $this->flatRow($row);
             $loose = (int)$r['loose'] === 1;
-            if (!$this->visible($scope, $r['ad'], $r['asg'])
-                || (!$loose && !$this->visible($scope, $r['od'], $r['osg']))
-            ) {
-                continue;
-            }
             $tagId = (int)$r['tag_id'];
             $counts[$tagId] = $counts[$tagId] ?? [0, 0];
             $counts[$tagId][$loose ? 0 : 1] += (int)$r['n'];
@@ -490,39 +487,25 @@ class EventOverviewTool
     public function activity(array $user, array $event)
     {
         $scope = $this->scope($user, $event);
-        return $this->cached('activity', $event, $scope, function () use ($scope, $event) {
-            return $this->computeActivity($scope, (int)$event['id']);
+        return $this->cached('activity-v2', $event, $scope, function () use ($user, $event) {
+            return $this->computeActivity($user, (int)$event['id']);
         });
     }
 
-    private function computeActivity(array $scope, $eventId)
+    private function computeActivity(array $user, $eventId)
     {
         // Hour buckets keep the rows bounded and let PHP's own timezone name the day.
         $attributes = $this->Attribute->query(
-            'SELECT FLOOR(a.timestamp / 3600) AS h, MIN(a.timestamp) AS first,'
-            . ' a.distribution AS ad,'
-            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END AS asg,'
-            . ' CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END AS loose,'
-            . ' COALESCE(o.distribution, 5) AS od,'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg,'
-            . ' COUNT(*) AS n'
-            . ' FROM attributes a LEFT JOIN objects o ON o.id = a.object_id'
-            . ' WHERE a.event_id = ? AND a.deleted = 0 AND (a.object_id = 0 OR o.deleted = 0)'
-            . ' GROUP BY FLOOR(a.timestamp / 3600), a.distribution,'
-            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END,'
-            . ' CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END, COALESCE(o.distribution, 5),'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END',
+            'SELECT FLOOR(Attribute.timestamp / 3600) AS h, MIN(Attribute.timestamp) AS first, COUNT(*) AS n'
+            . $this->attributesFrom($user)
+            . ' GROUP BY FLOOR(Attribute.timestamp / 3600)',
             [$eventId],
             false
         );
         $objects = $this->Object->query(
-            'SELECT FLOOR(o.timestamp / 3600) AS h, MIN(o.timestamp) AS first,'
-            . ' o.distribution AS od,'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg,'
-            . ' COUNT(*) AS n'
-            . ' FROM objects o WHERE o.event_id = ? AND o.deleted = 0'
-            . ' GROUP BY FLOOR(o.timestamp / 3600), o.distribution,'
-            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END',
+            'SELECT FLOOR(Object.timestamp / 3600) AS h, MIN(Object.timestamp) AS first, COUNT(*) AS n'
+            . $this->objectsFrom($user)
+            . ' GROUP BY FLOOR(Object.timestamp / 3600)',
             [$eventId],
             false
         );
@@ -534,20 +517,8 @@ class EventOverviewTool
             $days[$day] = ($days[$day] ?? 0) + (int)$r['n'];
             $first = $first === null ? (int)$r['first'] : min($first, (int)$r['first']);
         };
-        foreach ($attributes as $row) {
-            $r = $this->flatRow($row);
-            $loose = (int)$r['loose'] === 1;
-            if ($this->visible($scope, $r['ad'], $r['asg'])
-                && ($loose || $this->visible($scope, $r['od'], $r['osg']))
-            ) {
-                $add($r);
-            }
-        }
-        foreach ($objects as $row) {
-            $r = $this->flatRow($row);
-            if ($this->visible($scope, $r['od'], $r['osg'])) {
-                $add($r);
-            }
+        foreach (array_merge($attributes, $objects) as $row) {
+            $add($this->flatRow($row));
         }
         ksort($days);
         return ['first' => $first, 'days' => $days];
@@ -611,15 +582,27 @@ class EventOverviewTool
                 'ObjectReference.referenced_type',
             ],
         ]);
+        $objectIds = [];
+        foreach ($refs as $ref) {
+            $objectIds[(int)$ref['ObjectReference']['object_id']] = true;
+            if ((int)$ref['ObjectReference']['referenced_type'] === 1) {
+                $objectIds[(int)$ref['ObjectReference']['referenced_id']] = true;
+            }
+        }
+        $readable = $this->readableIds($user, 'Object', array_keys($objectIds), (array)$eventId);
+
         $ids = [];
         $attributeIds = [];
         foreach ($refs as $ref) {
             $ref = $ref['ObjectReference'];
+            if (!isset($readable[(int)$ref['object_id']])) {
+                continue;
+            }
             $ids[(int)$ref['object_id']] = true;
-            if ((int)$ref['referenced_type'] === 1) {
-                $ids[(int)$ref['referenced_id']] = true;
-            } else {
+            if ((int)$ref['referenced_type'] !== 1) {
                 $attributeIds[(int)$ref['referenced_id']] = true;
+            } elseif (isset($readable[(int)$ref['referenced_id']])) {
+                $ids[(int)$ref['referenced_id']] = true;
             }
         }
         if (count($ids) > self::GRAPH_LIMIT) {
@@ -628,23 +611,11 @@ class EventOverviewTool
 
         // A referenced attribute brings in its object, or stands alone.
         $standaloneIds = [];
-        if (!empty($attributeIds)) {
-            $targets = $this->Attribute->find('all', [
-                'recursive' => -1,
-                'conditions' => [
-                    'Attribute.id' => array_keys($attributeIds),
-                    'Attribute.event_id' => $eventId,
-                    'Attribute.deleted' => 0,
-                ],
-                'fields' => ['Attribute.id', 'Attribute.object_id'],
-            ]);
-            foreach ($targets as $target) {
-                $objectId = (int)$target['Attribute']['object_id'];
-                if ($objectId) {
-                    $ids[$objectId] = true;
-                } else {
-                    $standaloneIds[] = (int)$target['Attribute']['id'];
-                }
+        foreach ($this->readableIds($user, 'Attribute', array_keys($attributeIds), (array)$eventId) as $id => $objectId) {
+            if ($objectId) {
+                $ids[$objectId] = true;
+            } else {
+                $standaloneIds[] = $id;
             }
         }
         $total = count($ids) + count($standaloneIds);
@@ -709,6 +680,42 @@ class EventOverviewTool
         $payload['Event']['Orgc'] = $event['Orgc'] ?? [];
         $payload['Event']['Org'] = $event['Org'] ?? [];
         return ['graph' => $payload, 'total' => $total, 'limit' => self::GRAPH_LIMIT];
+    }
+
+    /**
+     * Which of the given live attributes or objects of the events the user
+     * may read.
+     *
+     * @param array $user
+     * @param string $model 'Attribute' or 'Object'
+     * @param array $ids
+     * @param array $eventIds
+     * @return array id => object id (attributes, 0 when loose) or true (objects)
+     */
+    private function readableIds(array $user, $model, array $ids, array $eventIds)
+    {
+        $readable = [];
+        $eventIds = implode(', ', array_map('intval', $eventIds));
+        foreach (array_chunk(array_map('intval', $ids), 5000) as $chunk) {
+            $in = implode(', ', $chunk);
+            if ($model === 'Object') {
+                $sql = 'SELECT Object.id FROM objects Object JOIN events Event ON Event.id = Object.event_id'
+                    . " WHERE Object.id IN ($in) AND Object.event_id IN ($eventIds) AND Object.deleted = 0"
+                    . ' AND ' . $this->aclSql($user, 'Object');
+            } else {
+                $sql = 'SELECT Attribute.id, Attribute.object_id FROM attributes Attribute'
+                    . ' JOIN events Event ON Event.id = Attribute.event_id'
+                    . ' LEFT JOIN objects Object ON Object.id = Attribute.object_id'
+                    . " WHERE Attribute.id IN ($in) AND Attribute.event_id IN ($eventIds) AND Attribute.deleted = 0"
+                    . ' AND (Attribute.object_id = 0 OR Object.deleted = 0)'
+                    . ' AND ' . $this->aclSql($user, 'Attribute');
+            }
+            foreach ($this->Attribute->query($sql, [], false) as $row) {
+                $r = $this->flatRow($row);
+                $readable[(int)$r['id']] = $model === 'Object' ? true : (int)$r['object_id'];
+            }
+        }
+        return $readable;
     }
 
     /**
