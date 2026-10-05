@@ -1,6 +1,7 @@
 <?php
 App::uses('RedisTool', 'Tools');
 App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueProfile');
 
 /**
  * The figures behind the Overmind event overview: what the indicators are,
@@ -393,6 +394,98 @@ class EventOverviewTool
             $counts[$tagId] = ($counts[$tagId] ?? 0) + (int)$r['n'];
         }
         return $counts;
+    }
+
+    /**
+     * When the event's attributes and objects last changed: the earliest
+     * such timestamp and a `Y-m-d` => count map, one count per element.
+     *
+     * @param array $user
+     * @param array $event Event row: id, org_id, timestamp
+     * @return array first (int|null), days
+     */
+    public function activity(array $user, array $event)
+    {
+        $scope = $this->scope($user, $event);
+        return $this->cached('activity', $event, $scope, function () use ($scope, $event) {
+            return $this->computeActivity($scope, (int)$event['id']);
+        });
+    }
+
+    private function computeActivity(array $scope, $eventId)
+    {
+        // Hour buckets keep the rows bounded and let PHP's own timezone name the day.
+        $attributes = $this->Attribute->query(
+            'SELECT FLOOR(a.timestamp / 3600) AS h, MIN(a.timestamp) AS first,'
+            . ' a.distribution AS ad,'
+            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END AS asg,'
+            . ' CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END AS loose,'
+            . ' COALESCE(o.distribution, 5) AS od,'
+            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg,'
+            . ' COUNT(*) AS n'
+            . ' FROM attributes a LEFT JOIN objects o ON o.id = a.object_id'
+            . ' WHERE a.event_id = ? AND a.deleted = 0 AND (a.object_id = 0 OR o.deleted = 0)'
+            . ' GROUP BY FLOOR(a.timestamp / 3600), a.distribution,'
+            . ' CASE WHEN a.distribution = 4 THEN a.sharing_group_id ELSE 0 END,'
+            . ' CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END, COALESCE(o.distribution, 5),'
+            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END',
+            [$eventId],
+            false
+        );
+        $objects = $this->Object->query(
+            'SELECT FLOOR(o.timestamp / 3600) AS h, MIN(o.timestamp) AS first,'
+            . ' o.distribution AS od,'
+            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END AS osg,'
+            . ' COUNT(*) AS n'
+            . ' FROM objects o WHERE o.event_id = ? AND o.deleted = 0'
+            . ' GROUP BY FLOOR(o.timestamp / 3600), o.distribution,'
+            . ' CASE WHEN o.distribution = 4 THEN o.sharing_group_id ELSE 0 END',
+            [$eventId],
+            false
+        );
+
+        $first = null;
+        $days = [];
+        $add = function (array $r) use (&$first, &$days) {
+            $day = date('Y-m-d', (int)$r['h'] * 3600);
+            $days[$day] = ($days[$day] ?? 0) + (int)$r['n'];
+            $first = $first === null ? (int)$r['first'] : min($first, (int)$r['first']);
+        };
+        foreach ($attributes as $row) {
+            $r = $this->flatRow($row);
+            $loose = (int)$r['loose'] === 1;
+            if ($this->visible($scope, $r['ad'], $r['asg'])
+                && ($loose || $this->visible($scope, $r['od'], $r['osg']))
+            ) {
+                $add($r);
+            }
+        }
+        foreach ($objects as $row) {
+            $r = $this->flatRow($row);
+            if ($this->visible($scope, $r['od'], $r['osg'])) {
+                $add($r);
+            }
+        }
+        ksort($days);
+        return ['first' => $first, 'days' => $days];
+    }
+
+    /**
+     * The modification map: `activity()` bucketed from the first change to
+     * today, at the value profile's rail grain.
+     *
+     * @param array $activity From `activity()`
+     * @param string $today `Y-m-d`
+     * @return array|null From `ValueStatsTool::timeHistogram()`
+     */
+    public static function activityHistogram(array $activity, $today)
+    {
+        if (empty($activity['days'])) {
+            return null;
+        }
+        $days = array_keys($activity['days']);
+        $span = ['from' => $days[0], 'to' => max(end($days), $today)];
+        return ValueStatsTool::timeHistogram($span, $activity['days']);
     }
 
     /**

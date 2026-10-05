@@ -43,6 +43,7 @@
         if (!url) return Promise.resolve();
         return fetchText(url).then(function (html) {
             el.innerHTML = html;
+            el.setAttribute('data-eo-loaded', '');
             afterFragment(el);
         }, function () { failure(el); });
     }
@@ -109,7 +110,7 @@
     }
 
     function reloadCards() {
-        document.querySelectorAll('#eo-context-card, #eo-inventory-card')
+        document.querySelectorAll('#eo-context-card, #eo-inventory-card, .eo-details-activity[data-eo-loaded]')
             .forEach(loadFragment);
     }
 

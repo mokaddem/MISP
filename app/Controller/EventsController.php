@@ -3885,6 +3885,30 @@ class EventsController extends AppController
     }
 
     /**
+     * The overview's first recorded change and modification map, over the
+     * attributes and objects the user may see.
+     *
+     * @param int|string $id Event ID or UUID
+     */
+    public function viewEventActivity($id = null)
+    {
+        $event = $this->__overviewEvent($id);
+        $tool = new EventOverviewTool();
+        $activity = $tool->activity($this->Auth->user(), $event['Event']);
+        $histogram = EventOverviewTool::activityHistogram($activity, date('Y-m-d'));
+        if ($this->_isRest()) {
+            return $this->RestResponse->viewData(
+                ['first' => $activity['first'], 'histogram' => $histogram],
+                'json'
+            );
+        }
+        $this->set('first', $activity['first']);
+        $this->set('histogram', $histogram);
+        $this->set('event', $event);
+        $this->layout = false;
+    }
+
+    /**
      * Returns an HTML fragment listing attachment and
      * malware-sample attributes for a given event.
      * Rendered with layout=false for AJAX injection.

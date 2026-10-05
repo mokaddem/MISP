@@ -8,6 +8,8 @@ if (!class_exists('App')) {
     }
 }
 require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueLabelPriority.php';
+require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueProfileBuckets.php';
+require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueStatsTool.php';
 require_once __DIR__ . '/../Lib/Tools/EventOverview/EventContextTool.php';
 require_once __DIR__ . '/../Lib/Tools/EventOverview/EventOverviewTool.php';
 
@@ -200,5 +202,32 @@ class EventOverviewToolTest extends TestCase
         // an organisation-only event leaves nothing narrower
         $this->assertFalse(EventOverviewTool::isNarrower(4, 7, 0, 0));
         $this->assertFalse(EventOverviewTool::isNarrower(0, 0, 0, 0));
+    }
+
+    public function testActivityHistogramRunsFromFirstChangeToToday(): void
+    {
+        $this->assertNull(EventOverviewTool::activityHistogram(['first' => null, 'days' => []], '2026-10-05'));
+
+        $histogram = EventOverviewTool::activityHistogram([
+            'first' => strtotime('2026-09-20 10:00:00'),
+            'days' => ['2026-09-20' => 3, '2026-09-22' => 1],
+        ], '2026-10-05');
+        $this->assertSame('day', $histogram['unit']);
+        $this->assertSame(3, $histogram['max']);
+        $this->assertCount(16, $histogram['bars']);
+        $this->assertSame('2026-09-20', $histogram['bars'][0]['from']);
+        $this->assertSame('2026-10-05', end($histogram['bars'])['to']);
+        $this->assertSame([3, 0, 1], array_slice(array_column($histogram['bars'], 'count'), 0, 3));
+    }
+
+    public function testActivityAxisMarksMonthsButNotTheOpeningBar(): void
+    {
+        $histogram = EventOverviewTool::activityHistogram([
+            'first' => strtotime('2026-09-20 10:00:00'),
+            'days' => ['2026-09-20' => 1],
+        ], '2026-10-05');
+        $scale = ValueStatsTool::timeScale($histogram);
+        $this->assertArrayNotHasKey(0, $scale);
+        $this->assertSame(['Oct'], array_values(array_filter($scale)));
     }
 }

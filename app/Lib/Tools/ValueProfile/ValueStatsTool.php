@@ -769,7 +769,7 @@ class ValueStatsTool
      * @param array $days `Y-m-d` => count
      * @return array `unit`, `max`, and `bars` of from/to/label/count
      */
-    private static function timeHistogram(array $span, array $days)
+    public static function timeHistogram(array $span, array $days)
     {
         $unit = self::railUnit($span);
         $series = self::railSeries($span);
@@ -823,6 +823,49 @@ class ValueStatsTool
             $span['to'],
             self::railUnit($span)
         );
+    }
+
+    /**
+     * The date axis under a `timeHistogram()` strip: bar index => label,
+     * or null for a tick without one.
+     *
+     * Ticks mark the next unit up from the grain (years over monthly bars,
+     * months otherwise), never on the opening bucket, and labels are
+     * thinned to about six and kept out of the last 8% of the bars so a
+     * left-aligned one does not hang off the edge.
+     *
+     * @param array $histogram From `timeHistogram()`
+     * @return array
+     */
+    public static function timeScale(array $histogram)
+    {
+        $bars = $histogram['bars'];
+        $annual = $histogram['unit'] === ValueProfileBuckets::MONTH;
+        $marks = array();
+        $seen = null;
+        foreach ($bars as $index => $bar) {
+            $period = substr($bar['from'], 0, $annual ? 4 : 7);
+            $opened = $period !== $seen;
+            $seen = $period;
+            if (!$opened || $index === 0) {
+                continue;
+            }
+            $marks[$index] = $annual
+                ? $period
+                : date('M', strtotime($bar['from']));
+        }
+        $step = max(1, (int)ceil(count($marks) / 6));
+        $tail = count($bars)
+            - max(1, (int)ceil(count($bars) * 0.08));
+        $nth = 0;
+        $scale = array();
+        foreach ($marks as $index => $label) {
+            $scale[$index] = ($nth % $step === 0 && $index < $tail)
+                ? $label
+                : null;
+            $nth++;
+        }
+        return $scale;
     }
 
     /**

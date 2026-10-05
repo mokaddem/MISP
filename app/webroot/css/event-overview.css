@@ -234,6 +234,23 @@
 .eo-details-toggle:not(.collapsed) .eo-chevron { transform: rotate(90deg); }
 .eo-details-body { padding: .5rem 1rem 1rem; border-top: 1px solid var(--bs-border-color); }
 
+/* modification map: the value profile's occurrence strip, without the brush */
+.eo-spark { display: flex; align-items: flex-end; gap: 1px; height: 40px; }
+.eo-spark-bar {
+    flex: 1 1 0; min-width: 1px; max-width: 48px; min-height: 2px; height: var(--eo-spark-h, 0%);
+    border-radius: 1px; background: var(--attribute);
+}
+.eo-spark-bar.is-empty { height: 2px; background: var(--bs-border-color); }
+.eo-spark-scale { display: flex; gap: 1px; height: 15px; margin-top: 3px; }
+.eo-spark-slot { position: relative; flex: 1 1 0; min-width: 1px; max-width: 48px; }
+.eo-spark-slot.is-tick::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 1px; height: 4px; background: var(--bs-border-color);
+}
+.eo-spark-tick {
+    position: absolute; top: 5px; left: 0; font-size: .6rem; font-variant-numeric: tabular-nums; line-height: 1;
+    color: var(--bs-secondary-color); white-space: nowrap;
+}
+
 #eo-inventory-card { container: eo-inventory / inline-size; }
 @container eo-inventory (max-width: 440px) {
     .eo-inventory .eo-card-head { flex-wrap: wrap; }

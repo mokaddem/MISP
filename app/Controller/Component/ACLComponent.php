@@ -503,6 +503,7 @@ class ACLComponent extends Component
             'viewEventInventory' => array('theming_enabled'),
             'viewEventContext' => array('theming_enabled'),
             'viewEventOverviewGraph' => array('theming_enabled'),
+            'viewEventActivity' => array('theming_enabled'),
             'viewAttachments' => array('theming_enabled'),
             'viewEventSightings' => array('theming_enabled'),
             'viewRelatedEvents' => array('theming_enabled'),

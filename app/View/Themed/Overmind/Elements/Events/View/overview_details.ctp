@@ -1,5 +1,7 @@
 <?php
 $event = $data['Event'] ?? [];
+$firstPublished = (int)($event['first_publication'] ?? 0);
+$lastPublished = (int)($event['publish_timestamp'] ?? 0);
 $analysisStops = [
     ['value' => 0, 'title' => __('Initial'), 'tone' => 'var(--misp-tone-blue-solid, #0d6efd)', 'sub' => __('Raw intelligence')],
     ['value' => 1, 'title' => __('Ongoing'), 'tone' => 'var(--misp-tone-orange-solid, #fd7e14)', 'sub' => __('Under investigation')],
@@ -16,7 +18,7 @@ $threatStops = [
 <div class="card shadow-sm mb-3 eo-card eo-details">
     <button type="button" class="eo-details-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#eo-details" aria-expanded="false" aria-controls="eo-details">
         <i class="fas fa-chevron-right eo-chevron"></i><?= __('Details') ?>
-        <span class="eo-muted small ms-2"><?= __('Analysis, threat level, correlation, protection') ?></span>
+        <span class="eo-muted small ms-2"><?= __('Analysis, threat level, correlation, protection, publication, changes') ?></span>
     </button>
     <div class="collapse" id="eo-details">
         <div class="eo-details-body">
@@ -64,6 +66,22 @@ $threatStops = [
                         'trueIcon' => 'fa-shield-alt',
                         'falseIcon' => 'fa-shield-alt',
                     ]) ?>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="eo-band-label"><?= __('Publication') ?></div>
+                    <?php if (empty($firstPublished) && empty($lastPublished)): ?>
+                        <span class="eo-muted"><?= __('Never published') ?></span>
+                    <?php else: ?>
+                        <?php if (!empty($firstPublished)): ?>
+                            <div><span class="eo-muted"><?= __('First') ?></span> <?= $this->Time->time($firstPublished) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($lastPublished)): ?>
+                            <div><span class="eo-muted"><?= __('Last') ?></span> <?= $this->Time->time($lastPublished) ?></div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <div class="col-12 eo-details-activity" data-eo-fragment-lazy="<?= h($baseurl . '/events/viewEventActivity/' . (int)($event['id'] ?? 0)) ?>">
+                    <div class="text-center text-muted py-3"><div class="misp-loader misp-loader-sm" role="status"></div></div>
                 </div>
                 <?= $this->element('Events/View/event_extensions', ['data' => $data]) ?>
             </div>
