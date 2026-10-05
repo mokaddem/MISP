@@ -309,8 +309,8 @@ class EnrichmentAnswer extends ValueSignalBase
             if ($factor <= 0.0) {
                 $notes[] = $this->aside($module, $verdict, __(
                     'Your profile has not graded this module, so its'
-                    . ' answer is shown and not counted. Grading it'
-                    . ' under Reference is what turns it on.'
+                    . ' answer is shown and not counted. Grade it under'
+                    . ' Sources & reputation to have it count.'
                 ));
                 continue;
             }

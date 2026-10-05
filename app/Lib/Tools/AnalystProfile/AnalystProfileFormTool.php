@@ -304,17 +304,17 @@ class AnalystProfileFormTool
              * values, which is exactly the reasoning the split removed.
              */
             'blurb' => __(
-                'What each kind of evidence is worth. The lean itself is'
+                'What each kind of evidence is worth. The lean is'
                 . ' decided separately, by counting how many'
                 . ' organisations called the value one thing or the'
-                . ' other, so nothing on this table decides it on its'
-                . ' own. Most signals weigh the record instead: a plus'
-                . ' means it carries something — widely reported,'
-                . ' published, attributed — and a minus that it does'
-                . ' not, whichever way the lean came out. Two signals'
-                . ' marked "reads the value", a warninglist hit and a'
-                . ' false-positive sighting, are scored against the lean'
-                . ' instead and are counted separately.'
+                . ' other, so nothing in this table sets it on its own.'
+                . ' Most signals score the record itself: a plus means'
+                . ' it carries something — widely reported, published,'
+                . ' attributed — and a minus that it lacks it, whichever'
+                . ' way the lean came out. The two marked "reads the'
+                . ' value", a warninglist hit and a false-positive'
+                . ' sighting, argue for or against the lean instead and'
+                . ' are kept apart from the quality.'
             ),
             'blocks' => array(
                 array(
@@ -659,11 +659,11 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 0.5,
                             'help' => __(
-                                'A false positive is a voice against the'
-                                . ' organisations asserting the value. One'
-                                . ' filed before another organisation'
-                                . ' reasserted the value counts this much'
-                                . ' of a voice: 1 counts it in full, 0'
+                                'A false positive counts as a voice'
+                                . ' against the organisations asserting'
+                                . ' the value. One filed before another'
+                                . ' organisation reasserted the value'
+                                . ' counts for this much: 1 in full, 0'
                                 . ' not at all.'
                             ),
                             'path' => array('thresholds',
@@ -761,9 +761,10 @@ class AnalystProfileFormTool
                                 'Each reporting organisation is one'
                                 . ' source, or less once you grade it:'
                                 . ' G counts for none and E for a'
-                                . ' quarter. A full source more than'
-                                . ' this and the record is not thin, so'
-                                . ' it keeps the band its points earned.'
+                                . ' quarter. Once the sources add up to'
+                                . ' more than this, the record is not'
+                                . ' thin and keeps the band its points'
+                                . ' earned.'
                             ),
                             'path' => array('thresholds',
                                 'thin_record_clamp', 'max_voices'),
@@ -831,7 +832,8 @@ class AnalystProfileFormTool
                         . ' capped at a band of its own: one source'
                         . ' graded A, uncorroborated, may be allowed to'
                         . ' reach medium and no further. A grade left'
-                        . ' on the general cap takes the one above.'
+                        . ' on the general cap is held to the band'
+                        . ' chosen above.'
                     ),
                     'fields' => $this->clampGradeFields($clamp),
                 ),
@@ -891,8 +893,9 @@ class AnalystProfileFormTool
             'id' => 'escalations',
             'title' => __('Conflict rules'),
             'blurb' => __(
-                'When the record contradicts itself badly enough that no'
-                . ' lean is honest. A rule can only ever say contested.'
+                'For when the record contradicts itself too badly for'
+                . ' any lean to be honest. A rule can only ever mark the'
+                . ' value contested.'
             ),
             'blocks' => array(
                 array(
@@ -1270,13 +1273,13 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 'last_independent_corroboration',
                             'help' => __(
-                                'Last independent corroboration is'
-                                . ' somebody other than the original'
-                                . ' reporter saying it again. Last'
-                                . ' sighting counts sightings alone;'
-                                . ' last occurrence falls back to the'
-                                . " value's own newest encoding, which"
-                                . ' every value has.'
+                                'Somebody else confirming it means'
+                                . ' anyone other than the original'
+                                . ' reporter saying it again. Any'
+                                . ' sighting counts sightings alone. Its'
+                                . ' own newest record uses the most'
+                                . ' recent time the value was recorded,'
+                                . ' which every value has.'
                             ),
                             'path' => array('relevance', 'clock'),
                         ),
@@ -1380,12 +1383,12 @@ class AnalystProfileFormTool
                                 'One value can be an ip-src in one'
                                 . ' event and an ip-dst in another, and'
                                 . ' the two can sit in different'
-                                . ' buckets. Shortest is the cautious'
-                                . ' reading — a value that is stale in'
-                                . ' any of its roles is worth'
-                                . ' re-checking, where the others let a'
-                                . ' type it barely appears as extend'
-                                . ' it.'
+                                . ' buckets. The shortest lifetime is'
+                                . ' the cautious choice — a value stale'
+                                . ' in any of its roles is worth'
+                                . ' re-checking. The other two let a'
+                                . ' type it barely appears as extend its'
+                                . ' life.'
                             ),
                             'path' => array('relevance', 'type_rule'),
                         ),
@@ -1396,10 +1399,11 @@ class AnalystProfileFormTool
                     'id' => 'ttl_buckets',
                     'title' => __('Lifetime'),
                     'blurb' => __(
-                        'How long a report stays current without'
-                        . ' corroboration, and which types keep that'
-                        . ' long. Only the types you have an opinion'
-                        . ' about; everything else takes the last row.'
+                        'How long a report stays relevant without being'
+                        . ' confirmed again, for each bucket of attribute'
+                        . ' types. Assign only the types you have an'
+                        . ' opinion about; every other type takes the'
+                        . ' last row.'
                     ),
                     'key_label' => __('Bucket'),
                     'key_field_label' => __('Days'),
@@ -1413,8 +1417,8 @@ class AnalystProfileFormTool
                     'id' => 'ttl_overrides',
                     'title' => __('Types with their own lifetime'),
                     'blurb' => __(
-                        'For the type no bucket fits. The shipped'
-                        . ' default needs exactly one.'
+                        'For a type that fits none of the buckets. The'
+                        . ' shipped profile needs only one.'
                     ),
                     'key_label' => __('Attribute type'),
                     'value_label' => __('Days'),
@@ -1720,10 +1724,11 @@ class AnalystProfileFormTool
                     'id' => 'warninglist_category',
                     'title' => __('Warninglist categories'),
                     'blurb' => __(
-                        'What a list hit means: known infrastructure is'
-                        . ' not a false positive. Nothing upstream sets'
-                        . ' this column yet, so the instance ships a map'
-                        . ' and this is where you disagree with it.'
+                        'What a hit on each list means: known'
+                        . ' infrastructure is not a false positive.'
+                        . ' Warninglists do not say which kind they are'
+                        . ' yet, so this instance ships its own map and'
+                        . ' this is where you override it.'
                     ),
                     'key_label' => __('Warninglist'),
                     'value_label' => __('Means'),
@@ -1929,10 +1934,9 @@ class AnalystProfileFormTool
              */
             'note' => __(
                 'A list this map does not name reads as a false'
-                . ' positive: no shipped warninglist sets the column'
-                . ' and MISP drops the field on import, so the'
-                . ' instance ships a map of the lists it knows to be'
-                . ' infrastructure and this is where you override it.'
+                . ' positive. No shipped warninglist declares its'
+                . ' category, so this instance ships a map of the lists'
+                . ' it knows to be infrastructure.'
             ),
         );
     }
@@ -4849,22 +4853,22 @@ class AnalystProfileFormTool
                     : __('Galaxies'),
                 'blurb' => $scope === ValueLabelPriority::TAXONOMIES
                     ? __(
-                        'Pinned taxonomies are drawn first and are the'
-                        . ' only ones drawn when this value carries'
-                        . ' none of them, so keep that list short —'
-                        . ' a card listing eight absences has taught'
-                        . ' you to skip that part of the page.'
-                        . ' Everything you name nothing about keeps the'
-                        . ' order it has today, and nothing here can'
-                        . ' hide a label.'
+                        'Pinned taxonomies are drawn first, and a value'
+                        . ' that carries none of one is shown as'
+                        . ' missing it — so keep that list short: a'
+                        . ' card listing eight absences teaches you to'
+                        . ' skip that part of the page. Taxonomies you'
+                        . ' do not rank keep the order they have today,'
+                        . ' and nothing here can hide a label.'
                     )
                     : __(
-                        'The same three tiers over the galaxies. This'
-                        . ' is what a compact surface reads when it has'
-                        . ' room for one cluster out of twenty-six —'
-                        . ' the hover card names one and counts the'
-                        . ' rest. It is not what counts as an'
-                        . ' attribution; that is the section below.'
+                        'The same three tiers, for galaxies. A compact'
+                        . ' surface such as the hover card has room for'
+                        . ' one cluster and counts the rest; this'
+                        . ' decides which one it names. Ranking a'
+                        . ' galaxy here does not make it count as an'
+                        . ' attribution — that is set under What counts'
+                        . ' as an attribution.'
                     ),
                 'key_label' => $scope === ValueLabelPriority::TAXONOMIES
                     ? __('Taxonomy')
@@ -4907,9 +4911,10 @@ class AnalystProfileFormTool
             'id' => 'context',
             'title' => __('What you look at first'),
             'blurb' => __(
-                'Which taxonomies and galaxies you want shown first, on'
-                . ' cards with room for only a few. Nothing is hidden —'
-                . ' demoting one only pushes it down.'
+                'Which taxonomies and galaxies are shown first on cards'
+                . ' with room for only a few, and which taxonomies the'
+                . ' event page draws as markings. Nothing is hidden —'
+                . ' demoting a label only moves it down.'
             ),
             'blocks' => $blocks,
         );
@@ -4996,11 +5001,11 @@ class AnalystProfileFormTool
     /**
      * `galaxies` — which galaxies count as an attribution.
      *
-     * **Not the display priority, and separate on purpose** (D43).
+     * **Not the display priority, and separate on purpose.**
      * `attribution.galaxy` reads a value's clusters and consults no
      * category table, so every galaxy that is not ATT&CK-shaped counts
      * — sectors, countries and countermeasures included. This list is
-     * the filter it never had, and it is not the section above because
+     * the filter it never had, and it is not the display ranking because
      * the wrong answers differ: demoting `firearms` down a card must
      * not change anybody's score, and preferring a typology on a card
      * must not have it scored as an attribution.
@@ -5040,9 +5045,11 @@ class AnalystProfileFormTool
             'title' => __('What counts as an attribution'),
             'blurb' => __(
                 'Which galaxies name a threat rather than classify one:'
-                . ' an actor, a campaign, a family, a tool. The'
-                . ' attribution signal only pays for these. An empty'
-                . ' list counts every cluster.'
+                . ' an actor, a campaign, a malware family, a tool. The'
+                . ' attribution signal only scores clusters from these'
+                . ' galaxies, or every cluster when the list is empty.'
+                . ' ATT&CK techniques are scored by a signal of their'
+                . ' own.'
             ),
             'blocks' => array(
                 array(
@@ -5076,13 +5083,13 @@ class AnalystProfileFormTool
                          * **Retyping a list you just wrote is how the
                          * two drift apart**, and they are meant to
                          * overlap. The action fills this list from the
-                         * galaxies ranked above, which is the starting
-                         * point an analyst who has just ranked them
-                         * actually wants.
+                         * galaxies preferred for display, which is the
+                         * starting point an analyst who has just ranked
+                         * them actually wants.
                          */
                         'copy_from' => array(
-                            'label' => __('Copy from the ranked'
-                                . ' galaxies'),
+                            'label' => __('Copy the galaxies preferred'
+                                . ' for display'),
                             'keys' => ValueLabelPriority::keys(
                                 $parameters,
                                 ValueLabelPriority::GALAXIES,
