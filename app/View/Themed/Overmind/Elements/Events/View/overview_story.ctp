@@ -141,7 +141,7 @@ $reportOrigin = function ($originId) {
              data-eo-graph-url="<?= h($baseurl . '/events/viewEventOverviewGraph/' . $eventId . ($extensionSuffix ?? '') . '.json') ?>"
              data-eo-event-id="<?= $eventId ?>"
              data-eo-event-uuid="<?= h($event['uuid'] ?? '') ?>"
-             data-eo-text-summary="<?= h(__('%s objects reference each other — too many to draw here.')) ?>"
+             data-eo-text-summary="<?= h(__('%s linked objects and attributes — too many to draw here.')) ?>"
              data-eo-text-failed="<?= h(__('The graph could not be drawn.')) ?>"
              data-eo-text-counts="<?= h(__('%1$s objects, %2$s references')) ?>"
              data-eo-text-saved="<?= h(__('Saved graph: %s')) ?>"

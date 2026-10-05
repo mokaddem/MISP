@@ -552,46 +552,25 @@ class EventOverviewTool
     }
 
     /**
-     * Whether graph() has a link to draw: a reference to an object, or to
-     * an attribute of one. References to standalone attributes are dropped.
-     *
      * @param array $eventIds
-     * @return bool
+     * @return bool whether any of the events has an object reference
      */
-    public function hasDrawableReferences(array $eventIds)
+    public function hasReferences(array $eventIds)
     {
-        $conditions = [
-            'ObjectReference.event_id' => array_map('intval', $eventIds),
-            'ObjectReference.deleted' => 0,
-        ];
-        $toObject = $this->Object->ObjectReference->find('first', [
-            'recursive' => -1,
-            'conditions' => $conditions + ['ObjectReference.referenced_type' => 1],
-            'fields' => ['ObjectReference.id'],
-        ]);
-        if (!empty($toObject)) {
-            return true;
-        }
         return (bool)$this->Object->ObjectReference->find('first', [
             'recursive' => -1,
-            'joins' => [[
-                'table' => 'attributes',
-                'alias' => 'ReferencedAttribute',
-                'type' => 'INNER',
-                'conditions' => ['ReferencedAttribute.id = ObjectReference.referenced_id'],
-            ]],
-            'conditions' => $conditions + [
-                'ObjectReference.referenced_type' => 0,
-                'ReferencedAttribute.object_id !=' => 0,
-                'ReferencedAttribute.deleted' => 0,
+            'conditions' => [
+                'ObjectReference.event_id' => array_map('intval', $eventIds),
+                'ObjectReference.deleted' => 0,
             ],
             'fields' => ['ObjectReference.id'],
         ]);
     }
 
     /**
-     * The event's referencing objects, shaped as the Pivot Explorer's
-     * builder reads an event, or a summary when there are too many to draw.
+     * The event's referencing objects and the attributes they reference,
+     * shaped as the Pivot Explorer's builder reads an event, or a summary
+     * when there are too many to draw.
      *
      * @param array $user
      * @param array $event Event row with Orgc/Org alongside
@@ -613,14 +592,42 @@ class EventOverviewTool
             ],
         ]);
         $ids = [];
+        $attributeIds = [];
         foreach ($refs as $ref) {
             $ref = $ref['ObjectReference'];
             $ids[(int)$ref['object_id']] = true;
             if ((int)$ref['referenced_type'] === 1) {
                 $ids[(int)$ref['referenced_id']] = true;
+            } else {
+                $attributeIds[(int)$ref['referenced_id']] = true;
             }
         }
-        $total = count($ids);
+        if (count($ids) > self::GRAPH_LIMIT) {
+            return ['graph' => null, 'total' => count($ids), 'limit' => self::GRAPH_LIMIT];
+        }
+
+        // A referenced attribute brings in its object, or stands alone.
+        $standaloneIds = [];
+        if (!empty($attributeIds)) {
+            $targets = $this->Attribute->find('all', [
+                'recursive' => -1,
+                'conditions' => [
+                    'Attribute.id' => array_keys($attributeIds),
+                    'Attribute.event_id' => $eventId,
+                    'Attribute.deleted' => 0,
+                ],
+                'fields' => ['Attribute.id', 'Attribute.object_id'],
+            ]);
+            foreach ($targets as $target) {
+                $objectId = (int)$target['Attribute']['object_id'];
+                if ($objectId) {
+                    $ids[$objectId] = true;
+                } else {
+                    $standaloneIds[] = (int)$target['Attribute']['id'];
+                }
+            }
+        }
+        $total = count($ids) + count($standaloneIds);
         if ($total === 0 || $total > self::GRAPH_LIMIT) {
             return ['graph' => null, 'total' => $total, 'limit' => self::GRAPH_LIMIT];
         }
@@ -637,8 +644,21 @@ class EventOverviewTool
                 ],
             ],
         ]);
+        $standalone = [];
+        if (!empty($standaloneIds)) {
+            foreach ($this->Attribute->fetchAttributes($user, [
+                'conditions' => ['Attribute.id' => $standaloneIds],
+                'flatten' => 1,
+                'includeAllTags' => true,
+            ]) as $row) {
+                $standalone[] = $row['Attribute'] + ['AttributeTag' => $row['AttributeTag'] ?? []];
+            }
+        }
 
         $visible = [];
+        foreach ($standalone as $attribute) {
+            $visible[strtolower($attribute['uuid'])] = true;
+        }
         foreach ($objects as $object) {
             $visible[strtolower($object['Object']['uuid'])] = true;
             foreach ($object['Attribute'] ?? [] as $attribute) {
@@ -650,17 +670,9 @@ class EventOverviewTool
             $row = $object['Object'];
             $row['Attribute'] = [];
             foreach ($object['Attribute'] ?? [] as $attribute) {
-                if (!empty($attribute['deleted'])) {
-                    continue;
+                if (empty($attribute['deleted'])) {
+                    $row['Attribute'][] = $this->graphAttribute($attribute);
                 }
-                $attribute['Tag'] = [];
-                foreach ($attribute['AttributeTag'] ?? [] as $at) {
-                    if (!empty($at['Tag'])) {
-                        $attribute['Tag'][] = $at['Tag'] + ['local' => $at['local'] ?? 0];
-                    }
-                }
-                unset($attribute['AttributeTag']);
-                $row['Attribute'][] = $attribute;
             }
             $row['ObjectReference'] = [];
             foreach ($object['ObjectReference'] ?? [] as $ref) {
@@ -672,10 +684,26 @@ class EventOverviewTool
         }
 
         $payload = $event;
-        $payload['Event']['Attribute'] = [];
+        $payload['Event']['Attribute'] = array_map([$this, 'graphAttribute'], $standalone);
         $payload['Event']['Object'] = $shaped;
         $payload['Event']['Orgc'] = $event['Orgc'] ?? [];
         $payload['Event']['Org'] = $event['Org'] ?? [];
         return ['graph' => $payload, 'total' => $total, 'limit' => self::GRAPH_LIMIT];
+    }
+
+    /**
+     * @param array $attribute Attribute row with AttributeTag alongside
+     * @return array the attribute with its tags as the builder reads them
+     */
+    private function graphAttribute(array $attribute)
+    {
+        $attribute['Tag'] = [];
+        foreach ($attribute['AttributeTag'] ?? [] as $at) {
+            if (!empty($at['Tag'])) {
+                $attribute['Tag'][] = $at['Tag'] + ['local' => $at['local'] ?? 0];
+            }
+        }
+        unset($attribute['AttributeTag']);
+        return $attribute;
     }
 }
