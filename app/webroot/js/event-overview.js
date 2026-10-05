@@ -155,7 +155,9 @@
     function onClick(e) {
         var keepTab = e.target.closest('a[data-eo-keep-tab]');
         if (keepTab) {
-            keepTab.href = keepTab.href.split('#')[0] + window.location.hash;
+            // A #tab-<id> hash would make the browser scroll to that pane on load.
+            var tabId = (window.location.hash.match(/^#tab-(.+)$/) || [])[1];
+            keepTab.href = keepTab.href.split('#')[0] + (tabId ? '#open-tab-' + tabId : '');
             return;
         }
         var filter = e.target.closest('[data-eo-filter-types]');
@@ -417,7 +419,26 @@
     }
 
     /* ── boot ───────────────────────────────────────────────── */
+    function reopenTab() {
+        var tabId = (window.location.hash.match(/^#open-tab-(.+)$/) || [])[1];
+        if (!tabId) return;
+        var link = document.querySelector('.nav-link[href="#tab-' + CSS.escape(tabId) + '"]');
+        if (link && window.bootstrap) bootstrap.Tab.getOrCreateInstance(link).show();
+        // Chrome still scrolls to a fragment that turns up before load.
+        var settle = function () {
+            setTimeout(function () {
+                history.replaceState(null, '', window.location.pathname + window.location.search + '#tab-' + tabId);
+            }, 0);
+        };
+        if (document.readyState === 'complete') {
+            settle();
+        } else {
+            window.addEventListener('load', settle, { once: true });
+        }
+    }
+
     function boot() {
+        reopenTab();
         if (!document.querySelector('.eo-band')) return;
         document.querySelectorAll('#eo-context-card, #eo-inventory-card')
             .forEach(loadFragment);
