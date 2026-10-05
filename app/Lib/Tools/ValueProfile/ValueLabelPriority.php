@@ -118,6 +118,9 @@ class ValueLabelPriority
         ),
     );
 
+    /** What the event marking block draws when a profile names nothing. */
+    const DEFAULT_MARKINGS = array('tlp', 'pap');
+
     /**
      * The `context` section, whichever shape the profile arrived in.
      *
@@ -706,6 +709,36 @@ class ValueLabelPriority
             }
         }
         return empty($types) ? null : array_keys($types);
+    }
+
+    /**
+     * The taxonomies an event's marking block draws, in declared order.
+     *
+     * A profile that says nothing gets `DEFAULT_MARKINGS`; one that
+     * declares an empty list has asked for no marking block at all.
+     *
+     * @param array|null $profile A profile or its parameters
+     * @return array Taxonomy namespaces, lowercased
+     */
+    public static function markings($profile)
+    {
+        $section = self::section($profile);
+        if (!array_key_exists('markings', $section)
+            || !is_array($section['markings'])
+        ) {
+            return self::DEFAULT_MARKINGS;
+        }
+        $namespaces = array();
+        foreach ($section['markings'] as $namespace) {
+            if (!is_string($namespace) && !is_numeric($namespace)) {
+                continue;
+            }
+            $namespace = mb_strtolower(trim((string)$namespace));
+            if ($namespace !== '' && !in_array($namespace, $namespaces, true)) {
+                $namespaces[] = $namespace;
+            }
+        }
+        return $namespaces;
     }
 
     /**

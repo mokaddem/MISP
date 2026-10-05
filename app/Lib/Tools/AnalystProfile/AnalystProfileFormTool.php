@@ -100,6 +100,9 @@ class AnalystProfileFormTool
      */
     const ATTRIBUTION_COUNTS = 'counts';
 
+    /** The markings map's one value, for the same reason. */
+    const MARKING_SHOWN = 'shown';
+
     const SECTION_ORDER = array(
         'signals',
         'thresholds',
@@ -3543,6 +3546,10 @@ class AnalystProfileFormTool
                 }
             }
         }
+        if (isset($context['markings']) && !$this->isList($context['markings'])) {
+            $errors[] = __('`context.markings` must be a list of taxonomy'
+                . ' namespaces.');
+        }
         $galaxies = $this->section($parameters, 'galaxies');
         if (isset($galaxies['attribution'])
             && !$this->isList($galaxies['attribution'])
@@ -4319,6 +4326,7 @@ class AnalystProfileFormTool
         }
         $merged = $this->transposeModules($merged, $posted);
         $merged = $this->transposeTiers($merged, $posted);
+        $merged = $this->transposeMarkings($merged, $posted);
         $merged = $this->transposeAttribution($merged, $posted);
         $merged = $this->reindexShapes($merged);
         return $merged;
@@ -4434,6 +4442,48 @@ class AnalystProfileFormTool
                 $lists[$tier][] = (string)$name;
             }
             $merged['context'][$scope] = $lists;
+        }
+        if ($merged['context'] === array()) {
+            unset($merged['context']);
+        }
+        return $merged;
+    }
+
+    /**
+     * The markings map the form posts, written back as the list the
+     * document stores — or not at all while it equals the default, so
+     * a profile that never touched it keeps following the default.
+     *
+     * @param array $merged
+     * @param array $posted
+     * @return array
+     */
+    private function transposeMarkings(array $merged, array $posted)
+    {
+        if (!isset($merged['context']) || !is_array($merged['context'])) {
+            return $merged;
+        }
+        if (!isset($posted['context']['markings_map'])) {
+            unset($merged['context']['markings_map']);
+            return $merged;
+        }
+        $map = is_array($merged['context']['markings_map'] ?? null)
+            ? $merged['context']['markings_map']
+            : array();
+        unset($merged['context']['markings_map']);
+        $namespaces = array();
+        foreach ($map as $namespace => $state) {
+            if ($namespace === '__present' || $state === ''
+                || $state === null
+            ) {
+                continue;
+            }
+            $namespaces[] = mb_strtolower((string)$namespace);
+        }
+        if ($namespaces === ValueLabelPriority::DEFAULT_MARKINGS) {
+            unset($merged['context']['markings']);
+        } else {
+            $merged['context']['markings'] = $namespaces;
         }
         if ($merged['context'] === array()) {
             unset($merged['context']);
@@ -4849,6 +4899,10 @@ class AnalystProfileFormTool
                 ),
             );
         }
+        $blocks[] = $this->markingsBlock(
+            $parameters,
+            $offered[ValueLabelPriority::TAXONOMIES]
+        );
         return array(
             'id' => 'context',
             'title' => __('What you look at first'),
@@ -4858,6 +4912,84 @@ class AnalystProfileFormTool
                 . ' demoting one only pushes it down.'
             ),
             'blocks' => $blocks,
+        );
+    }
+
+    /**
+     * Which taxonomies the event page's marking block draws.
+     *
+     * Rows start from what is in force, defaults included, so the
+     * editor shows what the page shows; the transpose writes nothing
+     * back while the list still equals the default.
+     *
+     * @param array $parameters
+     * @param array $available Taxonomy namespace => label
+     * @return array
+     */
+    private function markingsBlock(array $parameters, array $available)
+    {
+        $entries = array();
+        $used = array();
+        foreach (ValueLabelPriority::markings($parameters) as $namespace) {
+            $used[$namespace] = true;
+            $entries[] = array(
+                'key' => $namespace,
+                'label' => isset($available[$namespace])
+                    ? $available[$namespace]
+                    : $namespace,
+                'sub_label' => isset($available[$namespace])
+                    && $available[$namespace] !== $namespace
+                    ? $namespace
+                    : null,
+                'missing' => !empty($available)
+                    && !isset($available[$namespace]),
+                'value' => self::MARKING_SHOWN,
+                'type' => 'select',
+                'options' => $this->markingOptions(),
+                'path' => array('context', 'markings_map', $namespace),
+            );
+        }
+        return array(
+            'kind' => 'map',
+            'id' => 'markings_map',
+            'title' => __('Markings'),
+            'blurb' => __(
+                'The taxonomies the event page draws in its marking'
+                . ' block, beside the distribution, in this order.'
+                . ' TLP and PAP unless you say otherwise; add your own'
+                . ' classification scheme, such as NATO\'s, or remove'
+                . ' every row to drop the block.'
+            ),
+            'key_label' => __('Taxonomy'),
+            'value_label' => __('Shown as'),
+            'empty_label' => __('No marking block'),
+            'value_type' => 'select',
+            'value_options' => $this->markingOptions(),
+            'path' => array('context', 'markings_map'),
+            'entries' => $entries,
+            'add' => array(
+                'label' => __('Add a marking'),
+                'source' => ValueLabelPriority::TAXONOMIES,
+                'search' => true,
+                'placeholder' => __('filter taxonomies…'),
+                'options' => $this->unusedKeys(
+                    array_keys($available),
+                    $used
+                ),
+            ),
+        );
+    }
+
+    /**
+     * @return array `value`/`label` pairs
+     */
+    private function markingOptions()
+    {
+        return array(
+            array(
+                'value' => self::MARKING_SHOWN,
+                'label' => __('a marking'),
+            ),
         );
     }
 
