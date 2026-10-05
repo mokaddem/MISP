@@ -1002,6 +1002,7 @@ class ACLComponent extends Component
             'update' => array(),
             'import' => [],
             'export' => ['*'],
+            'railCard' => array('*'),
             'view' => array('*'),
             'unhideTag' => array('perm_tag_editor'),
             'hideTag' => array('perm_tag_editor'),
