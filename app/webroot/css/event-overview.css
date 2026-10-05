@@ -190,14 +190,17 @@
     .eo-techniques { grid-template-columns: minmax(0, 1fr); }
 }
 .eo-on {
-    display: inline-flex; align-items: center; gap: .2rem; flex-shrink: 0; margin-left: .25rem;
-    font-size: .68rem; font-weight: 600; line-height: 1.4; color: var(--bs-secondary-color);
+    --eo-ind: color-mix(in srgb, var(--bs-attribute) 75%, var(--bs-body-color));
+    display: inline-flex; align-items: center; gap: .2rem; flex-shrink: 0; margin-left: .25rem; white-space: nowrap;
+    font-size: .7rem; line-height: 1.4; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums;
 }
-.eo-on .misp-icon { font-size: .65rem; }
+.eo-on .misp-icon { font-size: .62rem; }
 .eo-on.is-only {
-    padding: 0 .35rem; border-radius: .3rem; color: var(--bs-attribute);
-    background: color-mix(in srgb, var(--bs-attribute) 14%, transparent);
+    padding: 2px 5px; border-radius: 3px; font-size: .68rem; font-weight: 700; line-height: 1; color: var(--bs-body-color);
+    background: color-mix(in srgb, var(--eo-ind) 22%, transparent);
+    border: 1px solid color-mix(in srgb, var(--eo-ind) 55%, transparent);
 }
+.eo-on.is-only .misp-icon { color: var(--eo-ind); }
 .hg-unit.eo-ind > .hg-chip { outline: 1px dashed color-mix(in srgb, var(--bs-attribute) 70%, transparent); outline-offset: 1px; }
 .eo-rollup { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .5rem 1rem; border-top: 1px solid var(--bs-border-color); }
 .eo-legend { display: inline-flex; align-items: center; gap: .35rem; font-size: .74rem; color: var(--bs-secondary-color); }
