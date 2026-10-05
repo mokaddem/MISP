@@ -107,7 +107,7 @@
         const TOUR_WINDOW = 120000;
         const FLIPS = 10;
         const FLIP_WINDOW = 5000;
-        const hints = <?= json_encode(array_map('h', [
+        const hints = <?= json_encode([
             __("You've seen every side of this place… but only one side at a time. Some secrets need both, over and over."),
             __('The light side shows you everything. The dark side shows you the rest. Go back and forth until they agree.'),
             __("The menu doesn't lie, it just doesn't tell you everything. Ask it again from the other side. And again."),
@@ -120,7 +120,7 @@
             __("Can't decide between light and dark? Some themes reward exactly that."),
             __('Is that all of them? Ask the ones with two faces. Ask them again. And again.'),
             __('Light. Dark. Light. Dark. …Still there? Keep going.'),
-        ]), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
+        ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
 
         const visible = Array.from(new Set(Array.from(
             document.querySelectorAll('.set-bootstrap-theme:not(.is-secret)'),
