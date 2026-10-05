@@ -290,12 +290,13 @@
         prefs.open = true;
         remember();
         clearTimeout(closeTimer);
+        // Off before it shows: place() measures the navbar, and a panel first
+        // styled on screen would slide out and straight back instead.
+        var slide = !opts.instant && !reducedMotion();
+        if (slide) panel.classList.add('is-off');
         panel.hidden = false;
         place();
-        if (!opts.instant && !reducedMotion()) {
-            panel.classList.add('is-off');
-            void panel.offsetWidth;
-        }
+        if (slide) void panel.offsetWidth;
         panel.classList.remove('is-off');
         unseen = { added: 0, refused: false };
         syncSlot();
