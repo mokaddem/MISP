@@ -204,14 +204,23 @@ class WarninglistRailCards
         }
         $comment = null;
         if ($result !== false) {
-            $comment = $Warninglist->WarninglistEntry->find('first', [
+            $candidates = [$result[0]];
+            // CidrTool answers with the network; a single address is often stored bare
+            if ($type === 'cidr' && preg_match('#^(.+)/(32|128)$#', $result[0], $m)) {
+                $candidates[] = $m[1];
+            }
+            $entry = $Warninglist->WarninglistEntry->find('first', [
                 'recursive' => -1,
                 'conditions' => [
                     'WarninglistEntry.warninglist_id' => $warninglist['Warninglist']['id'],
-                    'WarninglistEntry.value' => $result[0],
+                    'WarninglistEntry.value' => $candidates,
                 ],
-                'fields' => ['WarninglistEntry.comment'],
-            ])['WarninglistEntry']['comment'] ?? null;
+                'fields' => ['WarninglistEntry.value', 'WarninglistEntry.comment'],
+            ]);
+            if (!empty($entry)) {
+                $result[0] = $entry['WarninglistEntry']['value'];
+                $comment = $entry['WarninglistEntry']['comment'];
+            }
         }
         return [
             'value' => $value,
