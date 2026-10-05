@@ -127,7 +127,7 @@ class RailCard
      * @param array $rows each ['label', 'href'?, 'icon'?, 'meta' => [string],
      *                   'count' => int|null, 'share' => float|null (0..1),
      *                   'badge' => ['label', 'tone']|null, 'tone'?,
-     *                   'action' => ['label', 'href', 'method']|null]
+     *                   'action' => ['label', 'href', 'method', 'confirm']|null]
      * @param array|null $more ['label', 'href'|null]
      * @param array $options envelope keys
      * @return array
@@ -146,7 +146,7 @@ class RailCard
             }
             if ($row['action'] !== null) {
                 self::requireKeys($row['action'], ['label', 'href'], "$id.rows.$i.action");
-                $row['action'] += ['method' => 'get'];
+                $row['action'] += ['method' => 'get', 'confirm' => null];
             }
             $rows[$i] = self::tone($row, "$id.rows.$i");
         }
@@ -231,6 +231,41 @@ class RailCard
         return self::envelope('facts', $id, $title, $icon, $options) + [
             'rows' => array_values($rows),
         ];
+    }
+
+    /**
+     * A lazy card before it is computed: enough for its placeholder, and the
+     * app-relative url the page fetches the rendered card from.
+     *
+     * @param string $shape
+     * @param string $id
+     * @param string $title
+     * @param string $icon
+     * @param string $url
+     * @return array
+     */
+    public static function slot($shape, $id, $title, $icon, $url)
+    {
+        if (!in_array($shape, self::SHAPES, true)) {
+            throw new InvalidArgumentException("$id: invalid shape '$shape'");
+        }
+        return [
+            'shape' => $shape,
+            'id' => $id,
+            'title' => $title,
+            'icon' => $icon,
+            'url' => $url,
+            'lazy' => true,
+        ];
+    }
+
+    /**
+     * @param array $cards cards and slots
+     * @return array the same, keyed by card id
+     */
+    public static function byId(array $cards)
+    {
+        return array_column($cards, null, 'id');
     }
 
     /**

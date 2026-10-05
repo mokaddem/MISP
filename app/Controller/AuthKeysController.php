@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('AuthKeyRailCards', 'Tools/RailCards');
 
 /**
  * @property AuthKey $AuthKey
@@ -286,6 +287,25 @@ class AuthKeysController extends AppController
             $this->set('keyUsage', $keyUsage);
             $this->set('lastUsed', $lastUsed);
             $this->set('uniqueIps', $uniqueIps);
+        }
+
+        if ($this->theme === 'Overmind') {
+            $authKey = $this->viewVars['data'];
+            $user = $this->Auth->user();
+            $owner = $this->AuthKey->User->find('first', [
+                'recursive' => -1,
+                'conditions' => ['User.id' => $authKey['AuthKey']['user_id']],
+                'fields' => ['User.id', 'User.disabled'],
+                'contain' => ['Role' => ['fields' => ['Role.perm_auth']]],
+            ]);
+            $mayPin = $this->ACL->canUserAccess($user, 'authKeys', 'pin')
+                && $this->AuthKey->canEditAuthKey($user, $authKey['AuthKey']['id']);
+            $railCards = new AuthKeyRailCards();
+            $this->set('railCards', RailCard::byId([
+                $railCards->lifecycle($authKey, $owner),
+                $railCards->activity($authKey),
+                $railCards->addresses($authKey, $mayPin),
+            ]));
         }
 
         $this->set('title_for_layout', __('Auth key'));

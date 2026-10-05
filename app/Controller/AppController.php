@@ -2404,4 +2404,23 @@ class AppController extends Controller
             ]
         ];
     }
+
+    /**
+     * Answer a lazy rail card's fetch with the card alone. `?tab=` names the
+     * tab it sits on, so a link back to that tab is left out.
+     *
+     * @param array $card see RailCard
+     * @return void
+     * @throws NotFoundException
+     */
+    protected function _renderRailCard(array $card)
+    {
+        if ($this->theme !== 'Overmind') {
+            throw new NotFoundException(__('Rail cards are only drawn by the Overmind theme.'));
+        }
+        $this->layout = false;
+        $this->set('card', $card);
+        $this->set('tab', $this->request->query('tab'));
+        $this->render('/Elements/genericElementsBS5/Rail/card');
+    }
 }

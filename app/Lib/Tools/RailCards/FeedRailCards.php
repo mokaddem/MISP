@@ -13,6 +13,48 @@ class FeedRailCards
     const FETCH_LIMIT = 5;
 
     /**
+     * Shape, title and icon of the cards loaded after first paint.
+     *
+     * @return array
+     */
+    private function heads()
+    {
+        return [
+            'feed-overlap' => ['list', __('Overlap'), 'fas fa-circle-half-stroke'],
+            'feed-fetches' => ['list', __('Last fetches'), 'fas fa-download'],
+        ];
+    }
+
+    /**
+     * @param string $cardId
+     * @param int $feedId
+     * @return array
+     */
+    public function slot($cardId, $feedId)
+    {
+        list($shape, $title, $icon) = $this->heads()[$cardId];
+        return RailCard::slot($shape, $cardId, $title, $icon,
+            '/feeds/railCard/' . (int)$feedId . '/' . $cardId);
+    }
+
+    /**
+     * @param string $cardId
+     * @param array $feed
+     * @return array
+     * @throws NotFoundException
+     */
+    public function lazy($cardId, array $feed)
+    {
+        switch ($cardId) {
+            case 'feed-overlap':
+                return $this->overlap($feed);
+            case 'feed-fetches':
+                return $this->fetches($feed);
+        }
+        throw new NotFoundException(__('Invalid rail card.'));
+    }
+
+    /**
      * @param array $feed
      * @return array
      */
@@ -90,14 +132,17 @@ class FeedRailCards
             return $b['count'] <=> $a['count'];
         });
         $hidden = count($rows) - self::OVERLAP_LIMIT;
+        // the Coverage tab only exists while the feed is cached
+        $coverage = empty($feed['Feed']['caching_enabled']) ? null : '#tab-coverage';
+        list(, $title, $icon) = $this->heads()['feed-overlap'];
         return RailCard::rows(
             'feed-overlap',
-            __('Overlap'),
-            'fas fa-circle-half-stroke',
+            $title,
+            $icon,
             array_slice($rows, 0, self::OVERLAP_LIMIT),
-            $hidden > 0 ? ['label' => __n('%s more source', '%s more sources', $hidden, $hidden), 'href' => '#tab-coverage'] : null,
+            $hidden > 0 ? ['label' => __n('%s more source', '%s more sources', $hidden, $hidden), 'href' => $coverage] : null,
             [
-                'link' => ['label' => __('Coverage'), 'href' => '#tab-coverage'],
+                'link' => $coverage ? ['label' => __('Coverage'), 'href' => $coverage] : null,
                 'empty' => empty($feed['Feed']['caching_enabled'])
                     ? __('Enable caching to compare this feed with other sources.')
                     : __('Shares no value with another cached source.'),
@@ -153,10 +198,11 @@ class FeedRailCards
                 'tone' => in_array($tone, ['warn', 'danger'], true) ? $tone : null,
             ];
         }
+        list(, $title, $icon) = $this->heads()['feed-fetches'];
         return RailCard::rows(
             'feed-fetches',
-            __('Last fetches'),
-            'fas fa-download',
+            $title,
+            $icon,
             $rows,
             ['label' => __('All jobs'), 'href' => '/jobs/index'],
             ['empty' => __('Never fetched.'), 'lazy' => true]

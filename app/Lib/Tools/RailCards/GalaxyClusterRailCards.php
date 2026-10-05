@@ -35,6 +35,49 @@ class GalaxyClusterRailCards
     const ACTIVITY_ROW_CAP = 100000;
 
     /**
+     * Shape, title and icon of the cards loaded after first paint.
+     *
+     * @return array
+     */
+    private function heads()
+    {
+        return [
+            'cluster-activity' => ['activity', __('Activity'), 'fas fa-chart-column'],
+            'cluster-latest' => ['list', __('Latest events'), 'misp-icon misp-icon-event misp-simple'],
+        ];
+    }
+
+    /**
+     * @param string $cardId
+     * @param int $clusterId
+     * @return array
+     */
+    public function slot($cardId, $clusterId)
+    {
+        list($shape, $title, $icon) = $this->heads()[$cardId];
+        return RailCard::slot($shape, $cardId, $title, $icon,
+            '/galaxy_clusters/railCard/' . (int)$clusterId . '/' . $cardId);
+    }
+
+    /**
+     * @param string $cardId
+     * @param array $user
+     * @param array $cluster
+     * @return array
+     * @throws NotFoundException
+     */
+    public function lazy($cardId, array $user, array $cluster)
+    {
+        switch ($cardId) {
+            case 'cluster-activity':
+                return $this->activity($user, $cluster);
+            case 'cluster-latest':
+                return $this->latest($user, $cluster);
+        }
+        throw new NotFoundException(__('Invalid rail card.'));
+    }
+
+    /**
      * @param array $cluster
      * @return array
      */
@@ -218,10 +261,11 @@ class GalaxyClusterRailCards
             }
             $count = $EventTag->countForTag($tagId, $user);
         }
+        list(, $title, $icon) = $this->heads()['cluster-latest'];
         return RailCard::rows(
             'cluster-latest',
-            __('Latest events'),
-            'misp-icon misp-icon-event misp-simple',
+            $title,
+            $icon,
             $rows,
             $count > count($rows)
                 ? ['label' => __n('All %s event', 'All %s events', $count, $count), 'href' => '/events/index/searchtag:' . $tagId]
@@ -268,10 +312,11 @@ class GalaxyClusterRailCards
         }
         $series = RailCard::series($perMonth, 'month', self::ACTIVITY_MONTHS);
         $total = array_sum(array_column($series, 'count'));
+        list(, $title, $icon) = $this->heads()['cluster-activity'];
         return RailCard::activity(
             'cluster-activity',
-            __('Activity'),
-            'fas fa-chart-column',
+            $title,
+            $icon,
             'month',
             $series,
             ['count' => $total, 'label' => __n('event in 12 months', 'events in 12 months', $total)],

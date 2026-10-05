@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('FeedRailCards', 'Tools/RailCards');
 
 /**
  * @property Feed $Feed
@@ -223,6 +224,16 @@ class FeedsController extends AppController
         $this->set('other_feeds', $otherFeeds);
         $this->set('feedId', $feedId);
 
+        if ($this->theme === 'Overmind') {
+            $railCards = new FeedRailCards();
+            $id = $this->viewVars['data']['Feed']['id'];
+            $this->set('railCards', RailCard::byId(array_filter([
+                $railCards->freshness($this->viewVars['data']),
+                $railCards->slot('feed-overlap', $id),
+                $this->_isSiteAdmin() ? $railCards->slot('feed-fetches', $id) : null,
+            ])));
+        }
+
         $this->loadModel('Event');
         $distributionLevels = $this->Event->distributionLevels;
         $distributionLevels[5] = __('Inherit from feed');
@@ -237,6 +248,29 @@ class FeedsController extends AppController
             ]);
             $this->set('tagCollection', empty($tagCollection) ? null : $tagCollection[0]);
         }
+    }
+
+    /**
+     * One of the feed page's lazy rail cards.
+     *
+     * @param int $feedId
+     * @param string $cardId
+     */
+    public function railCard($feedId, $cardId)
+    {
+        if ($cardId === 'feed-fetches' && !$this->_isSiteAdmin()) {
+            throw new ForbiddenException(__('Only site admins can see fetch jobs.'));
+        }
+        $feed = $this->Feed->find('first', [
+            'recursive' => -1,
+            'conditions' => ['Feed.id' => (int)$feedId],
+            'fields' => ['Feed.id', 'Feed.caching_enabled'],
+        ]);
+        if (empty($feed)) {
+            throw new NotFoundException(__('Invalid feed.'));
+        }
+        $feed['Feed']['cached_elements'] = $this->Feed->getCachedElements($feed['Feed']['id']);
+        $this->_renderRailCard((new FeedRailCards())->lazy($cardId, $feed));
     }
 
     public function feedCoverage($feedId)

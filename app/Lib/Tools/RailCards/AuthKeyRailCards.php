@@ -105,6 +105,7 @@ class AuthKeyRailCards
                     'label' => __('Pin'),
                     'href' => '/auth_keys/pin/' . (int)$key['id'] . '/' . $ip,
                     'method' => 'post',
+                    'confirm' => __('Accept this key only from %s?', $ip),
                 ];
             }
             $rows[] = $row;

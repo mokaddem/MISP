@@ -10,6 +10,45 @@ class ObjectTemplateRailCards
     const TYPE_LIMIT = 8;
 
     /**
+     * Shape, title and icon of the cards loaded after first paint.
+     *
+     * @return array
+     */
+    private function heads()
+    {
+        return [
+            'template-usage' => ['usage', __('Usage'), 'fas fa-chart-simple'],
+        ];
+    }
+
+    /**
+     * @param string $cardId
+     * @param int $templateId
+     * @return array
+     */
+    public function slot($cardId, $templateId)
+    {
+        list($shape, $title, $icon) = $this->heads()[$cardId];
+        return RailCard::slot($shape, $cardId, $title, $icon,
+            '/object_templates/railCard/' . (int)$templateId . '/' . $cardId);
+    }
+
+    /**
+     * @param string $cardId
+     * @param array $user
+     * @param array $template
+     * @return array
+     * @throws NotFoundException
+     */
+    public function lazy($cardId, array $user, array $template)
+    {
+        if ($cardId === 'template-usage') {
+            return $this->usage($user, $template);
+        }
+        throw new NotFoundException(__('Invalid rail card.'));
+    }
+
+    /**
      * Objects the user can see that were built from any version of the
      * template, split by whether they follow the installed version.
      *
@@ -63,10 +102,11 @@ class ObjectTemplateRailCards
         if ($newer) {
             $split[] = ['label' => __('Newer than installed'), 'count' => $newer, 'tone' => 'info'];
         }
+        list(, $title, $icon) = $this->heads()['template-usage'];
         return RailCard::usage(
             'template-usage',
-            __('Usage'),
-            'fas fa-chart-simple',
+            $title,
+            $icon,
             [
                 'count' => $total,
                 'label' => __n('object', 'objects', $total),
