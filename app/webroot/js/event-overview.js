@@ -173,6 +173,11 @@
             loadFragment(card);
             return;
         }
+        var tab = e.target.closest('[data-eo-tab]');
+        if (tab) {
+            showTab(tab.getAttribute('data-eo-tab'));
+            return;
+        }
         var open = e.target.closest('[data-eo-report-open]');
         if (open) {
             var modal = document.getElementById('eo-report-modal');
@@ -306,7 +311,12 @@
             structure: card.querySelector('[data-eo-graph-canvas="structure"]'),
             saved: card.querySelector('[data-eo-graph-canvas="saved"]')
         };
+        var stage = card.querySelector('.eo-graph-stage');
         var message = card.querySelector('[data-eo-graph-message]');
+        var blank = card.querySelector('[data-eo-graph-empty]');
+        // What the structure view shows instead of a graph: 'message', 'blank' or nothing.
+        var instead = null;
+        var mode = 'structure';
         var sub = card.querySelector('[data-eo-graph-sub]');
         var buttons = card.querySelectorAll('[data-eo-graph-mode]');
         var structureSub = '';
@@ -314,17 +324,31 @@
         var savedCount = 0;
         var savedMounted = false;
 
-        function say(text) {
-            if (loader) loader.classList.add('d-none');
-            card.querySelector('.eo-graph-stage').classList.add('is-empty');
-            message.textContent = text;
-            message.classList.remove('d-none');
+        function showInstead() {
+            var structure = mode === 'structure';
+            stage.classList.toggle('is-empty', structure && !!instead);
+            message.classList.toggle('d-none', !structure || instead !== 'message');
+            if (blank) blank.classList.toggle('d-none', !structure || instead !== 'blank');
         }
 
-        function select(mode) {
+        function say(text) {
+            if (loader) loader.classList.add('d-none');
+            message.textContent = text;
+            instead = 'message';
+            showInstead();
+        }
+
+        function showBlank() {
+            if (loader) loader.classList.add('d-none');
+            instead = 'blank';
+            showInstead();
+        }
+
+        function select(next) {
+            mode = next;
             buttons.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-eo-graph-mode') === mode); });
             Object.keys(canvases).forEach(function (k) { canvases[k].classList.toggle('d-none', k !== mode); });
-            message.classList.toggle('d-none', mode === 'saved' || !message.textContent);
+            showInstead();
             sub.textContent = mode === 'saved' && saved
                 ? fmt(card.getAttribute('data-eo-text-saved'), [saved.name || saved.uuid])
                     + (savedCount > 1 ? ' · ' + fmt(card.getAttribute('data-eo-text-saved-count'), [savedCount]) : '')
@@ -342,7 +366,8 @@
 
         fetchJson(card.getAttribute('data-eo-graph-url')).then(function (res) {
             if (!res.graph) {
-                say(res.total > 0 ? fmt(card.getAttribute('data-eo-text-summary'), [res.total]) : card.getAttribute('data-eo-text-empty'));
+                if (res.total > 0) say(fmt(card.getAttribute('data-eo-text-summary'), [res.total]));
+                else showBlank();
                 return;
             }
             var objects = res.graph.Event.Object || [];

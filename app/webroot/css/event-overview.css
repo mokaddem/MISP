@@ -68,7 +68,16 @@
     display: flex; align-items: center; gap: 1rem; padding: .4rem 1rem; margin-top: auto;
     border-top: 1px solid var(--bs-border-color); min-height: 2.4rem;
 }
-.eo-empty { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: 1rem; color: var(--bs-secondary-color); font-size: .88rem; }
+.eo-empty { margin: 0; padding: 1rem; color: var(--bs-secondary-color); font-size: .88rem; }
+.eo-prompt {
+    display: flex; align-items: center; gap: .75rem 1.25rem; flex-wrap: wrap; margin: .85rem 1rem 1rem; padding: .85rem 1rem;
+    border: 1px dashed color-mix(in srgb, var(--eo-prompt) 45%, transparent); border-radius: .6rem;
+    background: color-mix(in srgb, var(--eo-prompt) 5%, transparent);
+}
+.eo-prompt-text { flex: 1 1 16rem; min-width: 0; }
+.eo-prompt-title { font-weight: 600; font-size: .9rem; color: var(--bs-emphasis-color); }
+.eo-prompt p { margin: .15rem 0 0; font-size: .82rem; line-height: 1.45; color: var(--bs-secondary-color); }
+.eo-prompt .btn { flex-shrink: 0; }
 
 /* report */
 .eo-report-body { position: relative; flex: 1 1 auto; }
@@ -112,6 +121,7 @@
 .eo-graph-canvas { position: absolute; inset: 0; height: 100%; }
 .eo-graph-loader { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .eo-graph-stage.is-empty { min-height: 0; }
+.eo-graph-stage.is-empty .eo-graph-canvas { display: none; }
 .eo-graph-stage.is-empty .eo-graph-message { position: static; justify-content: flex-start; padding: 1rem; }
 .eo-graph-message {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;

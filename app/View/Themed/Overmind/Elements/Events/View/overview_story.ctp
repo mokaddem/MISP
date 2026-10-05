@@ -6,6 +6,8 @@ $others = $data['OtherEventReports'] ?? [];
 $reportCount = (int)($report_count ?? (empty($report) ? 0 : 1 + count($others)));
 $canAddReport = $this->Acl->canModifyEvent($data);
 $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
+$addObjectUrl = $baseurl . '/objects/add/' . $eventId;
+$hasObjects = (int)($object_count ?? 0) > 0;
 ?>
 <div class="row g-3 mb-3 eo-row">
 
@@ -60,15 +62,20 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
                     </button>
                 </div>
             <?php else: ?>
-                <div class="eo-empty">
-                    <span><?= __('No report yet.') ?></span>
-                    <?php if ($canAddReport): ?>
-                        <a href="<?= h($addReportUrl) ?>" class="btn btn-sm btn-outline-report"
+                <?php if ($canAddReport): ?>
+                    <div class="eo-prompt" style="--eo-prompt:var(--bs-report);">
+                        <div class="eo-prompt-text">
+                            <div class="eo-prompt-title"><?= __('No report yet') ?></div>
+                            <p><?= __('A report tells the story behind the indicators: what happened, how it was found and what to do about it.') ?></p>
+                        </div>
+                        <a href="<?= h($addReportUrl) ?>" class="btn btn-sm btn-report"
                            onclick="event.preventDefault(); openModal('<?= h($addReportUrl) ?>');">
-                            <i class="fas fa-plus me-1"></i><?= __('Write a report') ?>
+                            <i class="fas fa-pen me-1"></i><?= __('Write a report') ?>
                         </a>
-                    <?php endif; ?>
-                </div>
+                    </div>
+                <?php else: ?>
+                    <p class="eo-empty"><?= __('This event has no report.') ?></p>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -79,7 +86,6 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
              data-eo-event-id="<?= $eventId ?>"
              data-eo-event-uuid="<?= h($event['uuid'] ?? '') ?>"
              data-eo-text-summary="<?= h(__('%s objects reference each other — too many to draw here.')) ?>"
-             data-eo-text-empty="<?= h(__('No object references another one in this event.')) ?>"
              data-eo-text-failed="<?= h(__('The graph could not be drawn.')) ?>"
              data-eo-text-counts="<?= h(__('%1$s objects, %2$s references')) ?>"
              data-eo-text-saved="<?= h(__('Saved graph: %s')) ?>"
@@ -111,6 +117,33 @@ $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
                 <div class="eo-graph-canvas" data-eo-graph-canvas="structure"></div>
                 <div class="eo-graph-canvas d-none" data-eo-graph-canvas="saved"></div>
                 <div class="eo-graph-message d-none" data-eo-graph-message></div>
+                <?php if ($canAddReport): ?>
+                    <div class="eo-prompt d-none" style="--eo-prompt:var(--bs-correlation);" data-eo-graph-empty>
+                        <div class="eo-prompt-text">
+                            <?php if ($hasObjects): ?>
+                                <div class="eo-prompt-title"><?= __('No objects are linked yet') ?></div>
+                                <p><?= __('References say how the objects relate: which file dropped which, where a domain resolved. Draw them in the Pivot Explorer.') ?></p>
+                            <?php else: ?>
+                                <div class="eo-prompt-title"><?= __('No objects yet') ?></div>
+                                <p><?= __('Gather related attributes into objects, then link the objects to show how they relate.') ?></p>
+                            <?php endif; ?>
+                        </div>
+                        <?php if ($hasObjects): ?>
+                            <button type="button" class="btn btn-sm btn-correlation" data-eo-tab="pivot-explorer">
+                                <i class="fas fa-link me-1"></i><?= __('Link objects') ?>
+                            </button>
+                        <?php else: ?>
+                            <a href="<?= h($addObjectUrl) ?>" class="btn btn-sm btn-correlation"
+                               onclick="event.preventDefault(); openModal('<?= h($addObjectUrl) ?>');">
+                                <i class="fas fa-plus me-1"></i><?= __('Add an object') ?>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                <?php else: ?>
+                    <p class="eo-empty d-none" data-eo-graph-empty>
+                        <?= $hasObjects ? __('No object in this event references another.') : __('This event has no objects.') ?>
+                    </p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
