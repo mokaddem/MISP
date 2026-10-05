@@ -28,6 +28,9 @@
     //   options(opts, kit, seed)  → adjusts the pivotick options
     //   afterMount(graph, kit, seed)
     //   provenance: false         → no "this event" against "elsewhere"
+    //   origins: { id: {...} }    → a merged extension view: a corner badge on
+    //                               each node of event `id`, in its { color },
+    //                               naming it by { title }, glyph by { role }
     //   chips: false              → every zoom keeps the small drawing
     //   canReference(from, to)    → whether a drawn edge between these node
     //                               data can be an object reference
@@ -1134,7 +1137,19 @@
         var FEED_COLOR = '#5bc0de';
 
         function nodeBadges(node) {
-            return analystBadges(node).concat(feedHitBadges(node), tagBadges(node), enrichmentBadges(node));
+            return analystBadges(node).concat(feedHitBadges(node), tagBadges(node), enrichmentBadges(node), originBadges(node));
+        }
+
+        function originBadges(node) {
+            var d = node && node.getData ? node.getData() : null;
+            var origin = d && host.origins && d.scope === 'foreign' ? host.origins[d.event_id] : null;
+            if (!origin) return [];
+            return [{
+                position:  'ne',
+                iconClass: origin.role === 'extended' ? 'fas fa-code-merge' : 'fas fa-code-branch',
+                color:     origin.color,
+                title:     origin.title
+            }];
         }
 
         function clusterName(c) {

@@ -3934,8 +3934,29 @@ class EventsController extends AppController
         if (empty($event)) {
             throw new NotFoundException(__('Invalid event'));
         }
+        $extensionSet = $this->__extensionViewContext($user, $event);
+        $merged = count($extensionSet['ids']) > 1;
         $tool = new EventOverviewTool();
-        return $this->RestResponse->viewData($tool->graph($user, $event), 'json');
+        $graph = $tool->graph($user, $event, $merged ? $extensionSet['ids'] : null);
+        if ($merged) {
+            $graph['origins'] = [];
+            foreach ($extensionSet['events'] as $member) {
+                if ($member['role'] === 'self') {
+                    continue;
+                }
+                $graph['origins'][(int)$member['id']] = [
+                    'role' => $member['role'],
+                    'color' => $member['palette']['badgeBorder'],
+                    'title' => sprintf(
+                        '#%d %s%s',
+                        (int)$member['id'],
+                        $member['info'],
+                        empty($member['Orgc']['name']) ? '' : ' · ' . $member['Orgc']['name']
+                    ),
+                ];
+            }
+        }
+        return $this->RestResponse->viewData($graph, 'json');
     }
 
     /**

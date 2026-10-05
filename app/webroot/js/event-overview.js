@@ -311,6 +311,21 @@
         opts.render.maxZoom = 1.5;
     }
 
+    // The palette's colours lean on CSS variables, which a canvas cannot read.
+    function resolvedOrigins(origins, host) {
+        if (!origins) return null;
+        var probe = document.createElement('span');
+        host.appendChild(probe);
+        var out = {};
+        Object.keys(origins).forEach(function (id) {
+            probe.style.color = '';
+            probe.style.color = origins[id].color;
+            out[id] = Object.assign({}, origins[id], { color: getComputedStyle(probe).color });
+        });
+        probe.remove();
+        return out;
+    }
+
     function initGraph() {
         var card = document.getElementById('eo-graph-card');
         if (!card) return;
@@ -392,6 +407,7 @@
                 fitHeight: false,
                 provenance: false,
                 chips: false,
+                origins: resolvedOrigins(res.origins, card),
                 event: res.graph,
                 config: explorerConfig(card.getAttribute('data-eo-event-id')),
                 options: viewerOptions,

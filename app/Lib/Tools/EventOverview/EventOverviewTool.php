@@ -557,11 +557,12 @@ class EventOverviewTool
      *
      * @param array $user
      * @param array $event Event row with Orgc/Org alongside
+     * @param array|null $eventIds an extension set to draw instead of the event alone
      * @return array graph (event-shaped payload or null), total, drawn
      */
-    public function graph(array $user, array $event)
+    public function graph(array $user, array $event, $eventIds = null)
     {
-        $eventId = (int)$event['Event']['id'];
+        $eventId = empty($eventIds) ? (int)$event['Event']['id'] : array_map('intval', $eventIds);
         $refs = $this->Object->ObjectReference->find('all', [
             'recursive' => -1,
             'conditions' => [

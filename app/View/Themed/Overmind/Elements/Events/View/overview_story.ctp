@@ -81,7 +81,7 @@ $hasObjects = (int)($object_count ?? 0) > 0;
 
     <div class="col-12 col-xl-7 d-flex">
         <div class="card shadow-sm eo-card w-100" id="eo-graph-card"
-             data-eo-graph-url="<?= h($baseurl . '/events/viewEventOverviewGraph/' . $eventId . '.json') ?>"
+             data-eo-graph-url="<?= h($baseurl . '/events/viewEventOverviewGraph/' . $eventId . ($extensionSuffix ?? '') . '.json') ?>"
              data-eo-event-id="<?= $eventId ?>"
              data-eo-event-uuid="<?= h($event['uuid'] ?? '') ?>"
              data-eo-text-summary="<?= h(__('%s objects reference each other — too many to draw here.')) ?>"
