@@ -8,6 +8,29 @@ $canAddReport = $this->Acl->canModifyEvent($data);
 $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
 $addObjectUrl = $baseurl . '/objects/add/' . $eventId;
 $hasObjects = (int)($object_count ?? 0) > 0;
+$graphCompact = !($has_object_references ?? true);
+$graphHint = $hasObjects
+    ? [
+        'title' => __('No objects are linked yet'),
+        'text' => __('References say how the objects relate: which file dropped which, where a domain resolved. Draw them in the Pivot Explorer.'),
+        'reader' => __('No object in this event references another.'),
+    ]
+    : [
+        'title' => __('No objects yet'),
+        'text' => __('Gather related attributes into objects, then link the objects to show how they relate.'),
+        'reader' => __('This event has no objects.'),
+    ];
+$graphHintAction = function () use ($hasObjects, $addObjectUrl) {
+    if ($hasObjects) {
+        return '<button type="button" class="btn btn-sm btn-correlation" data-eo-tab="pivot-explorer">'
+            . '<i class="fas fa-link me-1"></i>' . __('Link objects') . '</button>';
+    }
+    return sprintf(
+        '<a href="%s" class="btn btn-sm btn-correlation" onclick="event.preventDefault(); openModal(\'%s\');">'
+            . '<i class="fas fa-plus me-1"></i>%s</a>',
+        h($addObjectUrl), h($addObjectUrl), __('Add an object')
+    );
+};
 $reportEventId = (int)($report['event_id'] ?? $eventId);
 $reportOrg = $extensionEvents[$reportEventId]['Orgc']['name'] ?? ($data['Orgc']['name'] ?? '');
 $reportOrigin = function ($originId) {
@@ -20,7 +43,7 @@ $reportOrigin = function ($originId) {
 ?>
 <div class="row g-3 mb-3 eo-row">
 
-    <div class="col-12 col-xl-5 d-flex">
+    <div class="col-12<?= $graphCompact ? '' : ' col-xl-5' ?> d-flex" data-eo-col="report">
         <div class="card shadow-sm eo-card w-100" id="eo-report-card"
              <?php if (!empty($report)): ?>
              data-eo-report-id="<?= (int)$report['id'] ?>"
@@ -92,8 +115,29 @@ $reportOrigin = function ($originId) {
         </div>
     </div>
 
-    <div class="col-12 col-xl-7 d-flex">
-        <div class="card shadow-sm eo-card w-100" id="eo-graph-card"
+    <div class="col-12<?= $graphCompact ? '' : ' col-xl-7' ?> d-flex" data-eo-col="graph">
+        <?php if ($canAddReport): ?>
+            <div class="eo-prompt eo-graph-strip w-100<?= $graphCompact ? '' : ' d-none' ?>" style="--eo-prompt:var(--bs-correlation);" data-eo-graph-strip>
+                <div class="misp-icon-tile eo-tile eo-tile-sm" style="--tile:var(--bs-correlation);--tile-bg:color-mix(in srgb, var(--bs-correlation) 12%, transparent);">
+                    <i class="fas fa-circle-nodes"></i>
+                </div>
+                <div class="eo-prompt-text">
+                    <div class="eo-prompt-title"><?= h($graphHint['title']) ?></div>
+                    <p><?= h($graphHint['text']) ?></p>
+                </div>
+                <?= $graphHintAction() ?>
+            </div>
+        <?php else: ?>
+            <div class="card shadow-sm eo-card eo-graph-strip w-100<?= $graphCompact ? '' : ' d-none' ?>" data-eo-graph-strip>
+                <div class="misp-icon-tile eo-tile eo-tile-sm" style="--tile:var(--bs-correlation);--tile-bg:color-mix(in srgb, var(--bs-correlation) 12%, transparent);">
+                    <i class="fas fa-circle-nodes"></i>
+                </div>
+                <span class="eo-card-title"><?= __('Event graph') ?></span>
+                <span class="eo-muted"><?= h($graphHint['reader']) ?></span>
+            </div>
+        <?php endif; ?>
+        <div class="card shadow-sm eo-card w-100<?= $graphCompact ? ' d-none' : '' ?>" id="eo-graph-card"
+             data-eo-graph-compact="<?= $graphCompact ? '1' : '0' ?>"
              data-eo-graph-url="<?= h($baseurl . '/events/viewEventOverviewGraph/' . $eventId . ($extensionSuffix ?? '') . '.json') ?>"
              data-eo-event-id="<?= $eventId ?>"
              data-eo-event-uuid="<?= h($event['uuid'] ?? '') ?>"
@@ -132,29 +176,13 @@ $reportOrigin = function ($originId) {
                 <?php if ($canAddReport): ?>
                     <div class="eo-prompt d-none" style="--eo-prompt:var(--bs-correlation);" data-eo-graph-empty>
                         <div class="eo-prompt-text">
-                            <?php if ($hasObjects): ?>
-                                <div class="eo-prompt-title"><?= __('No objects are linked yet') ?></div>
-                                <p><?= __('References say how the objects relate: which file dropped which, where a domain resolved. Draw them in the Pivot Explorer.') ?></p>
-                            <?php else: ?>
-                                <div class="eo-prompt-title"><?= __('No objects yet') ?></div>
-                                <p><?= __('Gather related attributes into objects, then link the objects to show how they relate.') ?></p>
-                            <?php endif; ?>
+                            <div class="eo-prompt-title"><?= h($graphHint['title']) ?></div>
+                            <p><?= h($graphHint['text']) ?></p>
                         </div>
-                        <?php if ($hasObjects): ?>
-                            <button type="button" class="btn btn-sm btn-correlation" data-eo-tab="pivot-explorer">
-                                <i class="fas fa-link me-1"></i><?= __('Link objects') ?>
-                            </button>
-                        <?php else: ?>
-                            <a href="<?= h($addObjectUrl) ?>" class="btn btn-sm btn-correlation"
-                               onclick="event.preventDefault(); openModal('<?= h($addObjectUrl) ?>');">
-                                <i class="fas fa-plus me-1"></i><?= __('Add an object') ?>
-                            </a>
-                        <?php endif; ?>
+                        <?= $graphHintAction() ?>
                     </div>
                 <?php else: ?>
-                    <p class="eo-empty d-none" data-eo-graph-empty>
-                        <?= $hasObjects ? __('No object in this event references another.') : __('This event has no objects.') ?>
-                    </p>
+                    <p class="eo-empty d-none" data-eo-graph-empty><?= h($graphHint['reader']) ?></p>
                 <?php endif; ?>
             </div>
         </div>

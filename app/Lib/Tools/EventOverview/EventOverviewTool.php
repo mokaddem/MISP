@@ -552,6 +552,44 @@ class EventOverviewTool
     }
 
     /**
+     * Whether graph() has a link to draw: a reference to an object, or to
+     * an attribute of one. References to standalone attributes are dropped.
+     *
+     * @param array $eventIds
+     * @return bool
+     */
+    public function hasDrawableReferences(array $eventIds)
+    {
+        $conditions = [
+            'ObjectReference.event_id' => array_map('intval', $eventIds),
+            'ObjectReference.deleted' => 0,
+        ];
+        $toObject = $this->Object->ObjectReference->find('first', [
+            'recursive' => -1,
+            'conditions' => $conditions + ['ObjectReference.referenced_type' => 1],
+            'fields' => ['ObjectReference.id'],
+        ]);
+        if (!empty($toObject)) {
+            return true;
+        }
+        return (bool)$this->Object->ObjectReference->find('first', [
+            'recursive' => -1,
+            'joins' => [[
+                'table' => 'attributes',
+                'alias' => 'ReferencedAttribute',
+                'type' => 'INNER',
+                'conditions' => ['ReferencedAttribute.id = ObjectReference.referenced_id'],
+            ]],
+            'conditions' => $conditions + [
+                'ObjectReference.referenced_type' => 0,
+                'ReferencedAttribute.object_id !=' => 0,
+                'ReferencedAttribute.deleted' => 0,
+            ],
+            'fields' => ['ObjectReference.id'],
+        ]);
+    }
+
+    /**
      * The event's referencing objects, shaped as the Pivot Explorer's
      * builder reads an event, or a summary when there are too many to draw.
      *

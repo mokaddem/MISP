@@ -150,6 +150,9 @@
 }
 .eo-switch button:disabled { opacity: .45; cursor: not-allowed; }
 .eo-switch button:focus-visible { outline: 2px solid var(--bs-correlation); outline-offset: 1px; }
+.eo-graph-strip { margin: 0; padding: .6rem 1rem; }
+.eo-graph-strip.card { flex-direction: row; align-items: center; flex-wrap: wrap; gap: .25rem .75rem; font-size: .86rem; }
+.eo-graph-strip .eo-card-title { font-size: .9rem; }
 .eo-graph-stage { position: relative; flex: 1 1 auto; min-height: 400px; }
 .eo-graph-canvas { position: absolute; inset: 0; height: 100%; }
 .eo-graph-loader { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }

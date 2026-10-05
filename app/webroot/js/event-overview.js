@@ -346,6 +346,25 @@
         var saved = null;
         var savedCount = 0;
         var savedMounted = false;
+        var strip = card.parentElement.querySelector('[data-eo-graph-strip]');
+        var reportCol = document.querySelector('[data-eo-col="report"]');
+        var structureEmpty = card.getAttribute('data-eo-graph-compact') === '1';
+        var savedDrawn = false;
+
+        // With nothing to draw, the card folds into a strip under a full-width report.
+        function layout() {
+            var compact = structureEmpty && !savedDrawn;
+            card.classList.toggle('d-none', compact);
+            if (strip) strip.classList.toggle('d-none', !compact);
+            if (reportCol) reportCol.classList.toggle('col-xl-5', !compact);
+            card.parentElement.classList.toggle('col-xl-7', !compact);
+        }
+
+        function noStructure() {
+            structureEmpty = true;
+            showBlank();
+            layout();
+        }
 
         function showInstead() {
             var structure = mode === 'structure';
@@ -387,14 +406,19 @@
             b.addEventListener('click', function () { if (!b.disabled) select(b.getAttribute('data-eo-graph-mode')); });
         });
 
-        fetchJson(card.getAttribute('data-eo-graph-url')).then(function (res) {
+        if (structureEmpty) showBlank();
+        else fetchJson(card.getAttribute('data-eo-graph-url')).then(function (res) {
             if (!res.graph) {
                 if (res.total > 0) say(fmt(card.getAttribute('data-eo-text-summary'), [res.total]));
-                else showBlank();
+                else noStructure();
                 return;
             }
             var objects = res.graph.Event.Object || [];
             var refs = objects.reduce(function (n, o) { return n + (o.ObjectReference || []).length; }, 0);
+            if (!refs) {
+                noStructure();
+                return;
+            }
             structureSub = fmt(card.getAttribute('data-eo-text-counts'), [objects.length, refs]);
             if (!saved) sub.textContent = structureSub;
             if (!window.MispPivotExplorer || typeof window.Pivotick !== 'function') {
@@ -429,7 +453,11 @@
                 button.title = button.getAttribute('data-eo-title-ready');
                 savedCount = graphs.length;
                 // An empty saved graph stays one click away rather than hiding the structure.
-                if (drawn.length) select('saved');
+                if (drawn.length) {
+                    savedDrawn = true;
+                    layout();
+                    select('saved');
+                }
             }, function () { /* no saved graphs to offer */ });
         }
     }

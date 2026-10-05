@@ -2076,9 +2076,12 @@ class EventsController extends AppController
         }
 
         $withCounts = $this->Event->attachObjectAndAttributeCountToEvents($countShells);
-        $this->set('object_count', array_sum(array_column(
+        $objectCount = array_sum(array_column(
             array_column($withCounts, 'Event'), 'object_count'
-        )));
+        ));
+        $this->set('object_count', $objectCount);
+        $this->set('has_object_references', $objectCount > 0
+            && (new EventOverviewTool())->hasDrawableReferences($extensionSet['ids']));
         //non-object attributes only (object_id = 0)
         $this->set('attribute_count', array_sum(array_column(
             array_column($withCounts, 'Event'), 'attribute_count_no_objects'
