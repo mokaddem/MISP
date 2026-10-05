@@ -5,7 +5,6 @@
  *
  *   $card  array  a RailCard::slot()
  */
-echo $this->RailCard->assets();
 $skeletonLine = function ($short = false) {
     return '<div class="rcard-sk rcard-sk-line' . ($short ? ' rcard-sk-short' : '') . '"></div>';
 };

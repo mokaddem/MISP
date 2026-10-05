@@ -19,8 +19,6 @@ class RailCardHelper extends AppHelper
         'muted' => 'fas fa-minus',
     ];
 
-    private $assetsLoaded = false;
-
     /**
      * view_layout column entries for the cards named in $ids, in that order.
      * A card missing from $cards is skipped, a slot becomes a lazy entry.
@@ -32,6 +30,7 @@ class RailCardHelper extends AppHelper
      */
     public function rail(array $cards, array $ids, $tab)
     {
+        $this->addStylesheet();
         $entries = [];
         foreach ($ids as $id) {
             if (empty($cards[$id])) {
@@ -57,18 +56,18 @@ class RailCardHelper extends AppHelper
     }
 
     /**
-     * The stylesheet, the first time a card asks for it. A lazy card's
-     * fragment lands in a page that already has it.
+     * Into the layout's head rather than beside a card: a lazy card's
+     * placeholder is replaced, and anything linked inside it goes too.
      *
-     * @return string
+     * @return void
      */
-    public function assets()
+    private function addStylesheet()
     {
-        if ($this->assetsLoaded || $this->request->is('ajax')) {
-            return '';
+        $css = (array)$this->_View->get('additionalCss');
+        if (!in_array('rail-cards', $css, true)) {
+            $css[] = 'rail-cards';
+            $this->_View->set('additionalCss', $css);
         }
-        $this->assetsLoaded = true;
-        return $this->_View->element('genericElements/assetLoader', ['css' => ['rail-cards']]);
     }
 
     /**

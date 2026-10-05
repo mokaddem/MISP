@@ -8,7 +8,6 @@
  * The body is the element named after the card's shape.
  */
 $tab = $tab ?? null;
-echo $this->RailCard->assets();
 $link = $this->RailCard->headerLink($card, $tab);
 $state = null;
 if ($card['shape'] === 'status') {
