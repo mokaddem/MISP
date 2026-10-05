@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /*******************************
  * Toast notifications
  *******************************/
-function showToast(message, variant = 'success') {
+function showToast(message, variant = 'success', delay = 3000) {
     const container = document.getElementById('mainToastContainer');
     if (!container) return;
 
@@ -47,7 +47,7 @@ function showToast(message, variant = 'success') {
         </div>
     `);
     const el = document.getElementById(id);
-    const toast = new bootstrap.Toast(el, { delay: 3000 });
+    const toast = new bootstrap.Toast(el, { delay: delay });
     toast.show();
     el.addEventListener('hidden.bs.toast', () => el.remove());
 }

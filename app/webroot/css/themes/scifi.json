@@ -6,6 +6,6 @@
         "Orbitron",
         "Source Sans Pro"
     ],
-    "hide_from_users": false,
+    "hide_from_users": true,
     "navbar": "rail"
 }

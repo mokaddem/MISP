@@ -29,6 +29,14 @@ $type = $item['type'] ?? null;
             </span>
         </button>
     </li>
+<?php elseif ($type === 'bootstrapTheme' && !empty($item['secret'])): ?>
+    <li class="theme-secret" hidden>
+        <button type="button" class="rail-item rail-bstheme set-bootstrap-theme is-secret" data-theme="<?= h($item['theme']) ?>">
+            <span class="rail-radio" aria-hidden="true"></span>
+            <span class="rail-lbl"><span class="secret-mask">???</span><span class="secret-name"><?= h($item['label']) ?></span></span>
+            <span class="rail-mode" title="<?= h($item['modeLabel']) ?>"><i class="<?= h($item['modeIcon']) ?> fa-fw" aria-hidden="true"></i><span class="visually-hidden"><?= h($item['modeLabel']) ?></span></span>
+        </button>
+    </li>
 <?php elseif ($type === 'bootstrapTheme'): ?>
     <li>
         <button type="button" class="rail-item rail-bstheme set-bootstrap-theme<?= $item['on'] ? ' is-on' : '' ?>" data-theme="<?= h($item['theme']) ?>" title="<?= h($item['description']) ?>"<?= $item['on'] ? ' aria-current="true"' : '' ?>>
