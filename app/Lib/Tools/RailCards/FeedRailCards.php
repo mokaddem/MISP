@@ -136,6 +136,12 @@ class FeedRailCards
         foreach ($jobs as $job) {
             $j = $job['Job'];
             list($label, $tone) = $statuses[(int)$j['status']] ?? [__('Unknown'), 'muted'];
+            // ServerShell completes a fetch job either way and reports failures only in its message
+            if ((int)$j['status'] === Job::STATUS_COMPLETED
+                && preg_match('/(\d+) feeds pulled successfully, (\d+) feeds could not be pulled/', $j['message'], $m)
+                && (int)$m[2] > 0) {
+                list($label, $tone) = (int)$m[1] > 0 ? [__('Partly failed'), 'warn'] : [__('Failed'), 'danger'];
+            }
             $rows[] = [
                 'label' => $j['message'] ?: $label,
                 'icon' => 'fas fa-download',
@@ -144,7 +150,7 @@ class FeedRailCards
                     $j['job_input'] === 'Feed: all' ? __('all feeds') : __('this feed'),
                 ],
                 'badge' => ['label' => $label, 'tone' => $tone],
-                'tone' => (int)$j['status'] === Job::STATUS_FAILED ? 'danger' : null,
+                'tone' => in_array($tone, ['warn', 'danger'], true) ? $tone : null,
             ];
         }
         return RailCard::rows(

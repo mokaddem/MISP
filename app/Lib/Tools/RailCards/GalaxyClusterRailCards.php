@@ -164,6 +164,7 @@ class GalaxyClusterRailCards
             'fas fa-diagram-project',
             ['count' => $total, 'label' => __n('relation', 'relations', $total)],
             array_values($groups),
+            true,
             [
                 'link' => ['label' => __('Relations'), 'href' => '#tab-relations'],
                 'empty' => __('Not related to any other cluster.'),

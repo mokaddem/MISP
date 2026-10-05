@@ -95,7 +95,7 @@ class ObjectTemplateRailCards
 
         $types = [];
         $need = ['required' => 0, 'oneof' => 0, 'optional' => 0];
-        $multiple = $noCorrelation = 0;
+        $multiple = $noCorrelation = $flagged = 0;
         foreach ($elements as $element) {
             $e = $element['ObjectTemplateElement'];
             $types[$e['type']] = ($types[$e['type']] ?? 0) + 1;
@@ -108,6 +108,7 @@ class ObjectTemplateRailCards
             }
             $multiple += $e['multiple'] ? 1 : 0;
             $noCorrelation += $e['disable_correlation'] ? 1 : 0;
+            $flagged += $e['multiple'] || $e['disable_correlation'] ? 1 : 0;
         }
         arsort($types);
         $typeFacets = [];
@@ -136,18 +137,20 @@ class ObjectTemplateRailCards
         $groups = [
             [
                 'key' => 'requirement', 'label' => __('Requirement'), 'icon' => 'fas fa-list-check',
-                'count' => $total, 'facets' => $needFacets,
+                'count' => $total, 'partition' => true, 'facets' => $needFacets,
             ],
             [
-                'key' => 'type', 'label' => __('Attribute types'), 'icon' => 'misp-icon misp-icon-attribute misp-simple',
-                'count' => count($types), 'facets' => $typeFacets,
+                'key' => 'type',
+                'label' => __n('%s attribute type', '%s attribute types', count($types), count($types)),
+                'icon' => 'misp-icon misp-icon-attribute misp-simple', 'color' => 'type',
+                'count' => $total, 'partition' => true, 'facets' => $typeFacets,
                 'more' => max(0, count($types) - self::TYPE_LIMIT),
             ],
         ];
         if (!empty($flagFacets)) {
             $groups[] = [
-                'key' => 'flags', 'label' => __('Flags'), 'icon' => 'fas fa-flag',
-                'count' => $multiple + $noCorrelation, 'facets' => $flagFacets,
+                'key' => 'flags', 'label' => __('Flagged'), 'icon' => 'fas fa-flag',
+                'count' => $flagged, 'facets' => $flagFacets,
             ];
         }
         return RailCard::inventory(
@@ -156,6 +159,7 @@ class ObjectTemplateRailCards
             'fas fa-boxes-stacked',
             ['count' => $total, 'label' => __n('attribute', 'attributes', $total)],
             $total ? $groups : [],
+            false,
             [
                 'link' => ['label' => __('Elements'), 'href' => '#tab-elements'],
                 'empty' => __('This template defines no attributes.'),

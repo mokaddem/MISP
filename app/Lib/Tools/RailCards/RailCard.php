@@ -27,32 +27,61 @@ class RailCard
 
     const TONES = [null, 'ok', 'info', 'warn', 'danger', 'muted'];
 
+    /** Entities with a theme colour, used as --bs-<name> */
+    const COLOURS = [
+        null, 'event', 'object', 'attribute', 'tag', 'galaxy', 'report',
+        'sighting', 'correlation', 'category', 'type', 'analystData', 'enrichment',
+    ];
+
     /**
+     * Every group counts in the total's unit. `partition` on the card says
+     * the groups add up to the total; on a group, that its facets (with
+     * `more` standing for the facets left out) add up to the group's count.
+     *
      * @param string $id
      * @param string $title
      * @param string $icon
      * @param array $total ['count' => int, 'label' => string]
-     * @param array $groups each ['key', 'label', 'icon'?, 'count', 'filter'?,
-     *                     'facets' => [['label', 'count'|null, 'filter'?,
-     *                     'href'?, 'tone'?]], 'more' => int]
+     * @param array $groups each ['key', 'label', 'icon'?, 'color'?, 'count',
+     *                     'partition'?, 'filter'?, 'facets' => [['label',
+     *                     'count'|null, 'filter'?, 'href'?, 'tone'?]],
+     *                     'more' => int]
+     * @param bool $partition
      * @param array $options envelope keys
      * @return array
      */
-    public static function inventory($id, $title, $icon, array $total, array $groups, array $options = [])
+    public static function inventory($id, $title, $icon, array $total, array $groups, $partition, array $options = [])
     {
         self::requireKeys($total, ['count', 'label'], "$id.total");
+        $sum = 0;
         foreach ($groups as $i => $group) {
             self::requireKeys($group, ['key', 'label', 'count'], "$id.groups.$i");
-            $groups[$i] += ['icon' => null, 'filter' => null, 'facets' => [], 'more' => 0];
+            $groups[$i] += [
+                'icon' => null, 'color' => null, 'partition' => false,
+                'filter' => null, 'facets' => [], 'more' => 0,
+            ];
+            if (!in_array($groups[$i]['color'], self::COLOURS, true)) {
+                throw new InvalidArgumentException("$id.groups.$i: invalid color '{$groups[$i]['color']}'");
+            }
+            $sum += $groups[$i]['count'];
             foreach ($groups[$i]['facets'] as $j => $facet) {
                 self::requireKeys($facet, ['label'], "$id.groups.$i.facets.$j");
                 $groups[$i]['facets'][$j] = self::tone($facet + [
                     'count' => null, 'filter' => null, 'href' => null, 'tone' => null,
                 ], "$id.groups.$i.facets.$j");
             }
+            $shown = array_sum(array_column($groups[$i]['facets'], 'count'));
+            if ($groups[$i]['partition'] && ($shown > $groups[$i]['count']
+                || (!$groups[$i]['more'] && $shown !== $groups[$i]['count']))) {
+                throw new InvalidArgumentException("$id.groups.$i: facets do not partition the group");
+            }
+        }
+        if ($partition && $sum !== $total['count']) {
+            throw new InvalidArgumentException("$id: groups do not partition the total");
         }
         return self::envelope('inventory', $id, $title, $icon, $options) + [
             'total' => $total,
+            'partition' => (bool)$partition,
             'groups' => array_values($groups),
         ];
     }

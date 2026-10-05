@@ -27,11 +27,12 @@ class CollectionRailCards
             }
             $total++;
             if (!isset($groups[$type])) {
-                list($label, $icon) = $this->typeLabel($type);
+                list($label, $icon, $color) = $this->typeLabel($type);
                 $groups[$type] = [
                     'key' => $type,
                     'label' => $label,
                     'icon' => $icon,
+                    'color' => $color,
                     'count' => 0,
                     'filter' => ['element_type' => $type],
                     'facets' => [],
@@ -56,6 +57,8 @@ class CollectionRailCards
                     'filter' => ['element_type' => $type, 'facet' => (string)$label],
                 ];
             }
+            $groups[$type]['partition'] = !empty($facets)
+                && array_sum(array_column($facets, 'count')) === $group['count'];
             $groups[$type]['facets'] = array_slice($facets, 0, self::FACET_LIMIT);
             $groups[$type]['more'] = max(0, count($facets) - self::FACET_LIMIT);
         }
@@ -65,6 +68,7 @@ class CollectionRailCards
             'fas fa-boxes-stacked',
             ['count' => $total, 'label' => __n('element', 'elements', $total)],
             array_values($groups),
+            true,
             [
                 'link' => ['label' => __('Elements'), 'href' => '#tab-elements'],
                 'empty' => __('This collection has no elements yet.'),
@@ -151,16 +155,16 @@ class CollectionRailCards
     {
         switch ($type) {
             case 'Event':
-                return [__('Events'), 'misp-icon misp-icon-event misp-simple'];
+                return [__('Events'), 'misp-icon misp-icon-event misp-simple', 'event'];
             case 'Attribute':
-                return [__('Attributes'), 'misp-icon misp-icon-attribute misp-simple'];
+                return [__('Attributes'), 'misp-icon misp-icon-attribute misp-simple', 'attribute'];
             case 'Object':
-                return [__('Objects'), 'misp-icon misp-icon-object misp-simple'];
+                return [__('Objects'), 'misp-icon misp-icon-object misp-simple', 'object'];
             case 'GalaxyCluster':
-                return [__('Galaxy clusters'), 'misp-icon misp-icon-galaxy misp-simple'];
+                return [__('Galaxy clusters'), 'misp-icon misp-icon-galaxy misp-simple', 'galaxy'];
             case 'Value':
-                return [__('Values'), 'fas fa-quote-right'];
+                return [__('Values'), 'fas fa-quote-right', 'correlation'];
         }
-        return [$type, null];
+        return [$type, null, null];
     }
 }
