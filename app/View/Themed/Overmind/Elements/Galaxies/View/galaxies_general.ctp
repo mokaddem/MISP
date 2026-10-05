@@ -6,10 +6,8 @@ $palette = $this->GalaxyColour->palette($data['name'] ?? '');
 
 $connectorPrefix = 'misp-galaxy:' . ($data['type'] ?? '') . '=';
 
-$killChain = '';
-if (isset($data['kill_chain_order']) && !empty($data['kill_chain_order'])) {
-    $killChain = json_encode($data['kill_chain_order'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-}
+App::uses('GalaxyMatrixLayout', 'Tools');
+$killChain = is_array($data['kill_chain_order'] ?? null) ? $data['kill_chain_order'] : [];
 
 $formatDate = function ($value) {
     $digits = preg_replace('/\D/', '', (string)$value);
@@ -245,11 +243,24 @@ $this->set('headerDescription', $headerDescription);
             <div class="mt-4">
                 <button class="btn btn-sm btn-light d-flex align-items-center gap-2"
                         type="button" data-bs-toggle="collapse" data-bs-target="#galaxyKillChain">
-                    <i class="fas fa-sitemap"></i> <?= __('Kill chain order') ?>
+                    <i class="fas fa-sitemap"></i> <?= __n('Tactics (%s tab)', 'Tactics (%s tabs)', count($killChain), count($killChain)) ?>
                     <i class="fas fa-chevron-down small"></i>
                 </button>
                 <div class="collapse mt-2" id="galaxyKillChain">
-                    <pre class="bg-light border rounded p-3 mb-0"><code><?= h($killChain) ?></code></pre>
+                    <dl class="border rounded p-3 mb-0 d-flex flex-column gap-2">
+                        <?php foreach ($killChain as $tab => $tactics): ?>
+                            <div>
+                                <dt class="small fw-semibold mb-1"><?= h(GalaxyMatrixLayout::formatTactic($tab)) ?></dt>
+                                <dd class="d-flex flex-wrap gap-1 mb-0">
+                                    <?php foreach ((array)$tactics as $i => $tactic): ?>
+                                        <span class="badge bg-body-tertiary text-body border fw-normal">
+                                            <span class="text-body-secondary me-1"><?= $i + 1 ?></span><?= h(GalaxyMatrixLayout::formatTactic($tactic)) ?>
+                                        </span>
+                                    <?php endforeach; ?>
+                                </dd>
+                            </div>
+                        <?php endforeach; ?>
+                    </dl>
                 </div>
             </div>
         <?php endif; ?>

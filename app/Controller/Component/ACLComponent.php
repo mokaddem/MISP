@@ -574,6 +574,7 @@ class ACLComponent extends Component
             'showGalaxies' => array('*'),
             'toggle' => array(),
             'update' => array(),
+            'railCard' => array('*'),
             'view' => array('*'),
             'viewGraph' => array('*'),
             'wipe_default' => array(),

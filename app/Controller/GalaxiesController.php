@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('GalaxyRailCards', 'Tools/RailCards');
 App::uses('GalaxyCategory', 'Tools');
 
 /**
@@ -109,7 +110,28 @@ class GalaxiesController extends AppController
                 ],
             ]);
             $this->set('clusterCount', $clusterCount);
+            if ($this->theme === 'Overmind') {
+                $railCards = new GalaxyRailCards();
+                $this->set('railCards', RailCard::byId(array_filter([
+                    $railCards->composition($this->Auth->user(), $galaxy),
+                    $railCards->slot('galaxy-usage', $id),
+                    empty($galaxy['Galaxy']['kill_chain_order']) ? null : $railCards->slot('galaxy-matrix', $id),
+                ])));
+            }
         }
+    }
+
+    /**
+     * One of the galaxy page's lazy rail cards.
+     *
+     * @param int $id
+     * @param string $cardId
+     */
+    public function railCard($id, $cardId)
+    {
+        $user = $this->Auth->user();
+        $galaxy = $this->Galaxy->fetchIfAuthorized($user, $id, 'view', true, false, true);
+        $this->_renderRailCard((new GalaxyRailCards())->lazy($cardId, $user, $galaxy));
     }
 
     public function add()

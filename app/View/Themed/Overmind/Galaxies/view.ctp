@@ -1,5 +1,6 @@
 <?php
 $data = $galaxy['Galaxy'];
+$railCards = $railCards ?? [];
 
 $this->set('headerTitle', $data['name']);
 
@@ -13,10 +14,12 @@ echo $this->element('genericElementsBS5/Layout/view_layout', [
             'left' => [
                 'Galaxies/View/galaxies_general',
             ],
-            'right' => [
+            'right' => array_merge([
                 'Galaxies/View/galaxies_actions',
                 'Galaxies/View/galaxies_analyst_data',
-            ],
+            ], $this->RailCard->rail($railCards, [
+                'galaxy-composition', 'galaxy-usage', 'galaxy-matrix',
+            ], 'general')),
         ],
         [
             'id' => 'clusters',
@@ -28,6 +31,7 @@ echo $this->element('genericElementsBS5/Layout/view_layout', [
                     'ajax' => $baseurl . '/galaxy_clusters/index/' . h($data['id']),
                 ],
             ],
+            'right' => $this->RailCard->rail($railCards, ['galaxy-composition'], 'clusters'),
         ],
     ],
 ]);
