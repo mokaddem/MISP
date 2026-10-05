@@ -221,6 +221,14 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
                     $origin['palette']['badgeBorder']
                 );
             },
+            'row_marker_callable' => function ($row) use ($inExtensionView) {
+                if (!$inExtensionView) {
+                    return '';
+                }
+                return $this->element('Events/View/extension_band', [
+                    'event_id' => $row['EventReport']['event_id'] ?? 0,
+                ]);
+            },
             'row_dblclick_url' => $baseurl . '/event_reports/view/%id%',
         ]
     ],

@@ -587,6 +587,14 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
                     $origin['palette']['badgeBorder']
                 );
             },
+            'row_marker_callable' => function($row) use ($inExtensionView) {
+                if (!$inExtensionView) {
+                    return '';
+                }
+                return $this->element('Events/View/extension_band', [
+                    'event_id' => $row['event_id'] ?? 0,
+                ]);
+            },
             'filter_bar' => $filterBar + $massActions,
             'fields' => $fields,
         ]

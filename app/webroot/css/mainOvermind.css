@@ -1438,6 +1438,18 @@ tr.evt-extension-row td:first-child {
     background-color: var(--extension-tint, transparent);
     border-left: 3px solid var(--extension-accent, transparent);
 }
+/* A wider hover target over the band, naming the origin event. */
+tr.evt-extension-row td:first-child { position: relative; }
+.evt-origin-band {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 10px; z-index: 1; cursor: help;
+}
+.idx-card .evt-origin-band { left: -3px; }
+.evt-origin-band::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 3px;
+    background: var(--extension-accent, transparent); transition: width .12s;
+}
+.evt-origin-band:hover::before { width: 6px; }
+.evt-origin-tip { --bs-tooltip-max-width: 32rem; }
 
 /* ═══════════════════════════════════════════════════════════
    Correlation — Sankey graph

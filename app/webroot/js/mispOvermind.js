@@ -168,6 +168,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Extension rows arrive in lazily loaded tables, after the pass above.
+document.addEventListener('mouseover', function (event) {
+    var band = event.target.closest && event.target.closest('[data-evt-origin]');
+    if (!band || band.hasAttribute('data-evt-origin-ready') || !window.bootstrap) { return; }
+    band.setAttribute('data-evt-origin-ready', '');
+    bootstrap.Tooltip.getOrCreateInstance(band, {
+        placement: 'top',
+        fallbackPlacements: ['bottom'],
+        boundary: document.body,
+        customClass: 'evt-origin-tip',
+    }).show();
+});
+
 /*******************************
  * Index Filtering Bar
  *******************************/

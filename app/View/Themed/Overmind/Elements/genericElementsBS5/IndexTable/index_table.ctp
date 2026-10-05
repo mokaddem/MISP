@@ -48,6 +48,11 @@ foreach ($data['data'] as $k => $data_row) {
     if (!empty($data['row_style_callable']) && is_callable($data['row_style_callable'])) {
         $rowStyle = call_user_func($data['row_style_callable'], $data_row);
     }
+    // HTML placed at the start of the row's first cell
+    $rowMarker = '';
+    if (!empty($data['row_marker_callable']) && is_callable($data['row_marker_callable'])) {
+        $rowMarker = (string)call_user_func($data['row_marker_callable'], $data_row);
+    }
 
     $row = '<tr data-row-id="' . h($k) . '"';
     if (!empty($primary)) {
@@ -77,6 +82,7 @@ foreach ($data['data'] as $k => $data_row) {
             'options' => $data['options'] ?? [],
             'actions' => $data['actions'] ?? [],
             'primary' => $primary,
+            'marker' => $rowMarker,
         ]
     );
 
