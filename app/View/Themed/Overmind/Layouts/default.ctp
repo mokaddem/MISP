@@ -231,7 +231,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
         <!-- Flash & Content -->
         <main role="main" class="content"<?= $mainStyle ?>>
             <div id="flashOverlay">
-                <div id="flashContainer">
+                <div id="flashContainer" class="ov-toast-stack">
                     <?= $this->Flash->render(); ?>
                 </div>
             </div>

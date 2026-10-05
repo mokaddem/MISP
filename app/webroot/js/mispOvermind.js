@@ -33,23 +33,60 @@ document.addEventListener('DOMContentLoaded', function() {
 /*******************************
  * Toast notifications
  *******************************/
-function showToast(message, variant = 'success') {
-    const container = document.getElementById('mainToastContainer');
-    if (!container) return;
+// Elements/genericElementsBS5/toast.ctp draws the server's flashes the same way.
+const TOAST_KINDS = {
+    success: { icon: 'fa-circle-check', ttl: 5000 },
+    danger: { icon: 'fa-circle-xmark', ttl: 0 },
+    warning: { icon: 'fa-triangle-exclamation', ttl: 8000 },
+};
+const TOAST_DEFAULT = { icon: 'fa-circle-info', ttl: 5000 };
+const TOAST_MAX = 4;
 
-    const id = 'toast-' + Date.now();
-    container.insertAdjacentHTML('beforeend', `
-        <div id="${id}" class="toast align-items-center text-bg-${variant} border-0" role="alert" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        </div>
-    `);
-    const el = document.getElementById(id);
-    const toast = new bootstrap.Toast(el, { delay: 3000 });
-    toast.show();
-    el.addEventListener('hidden.bs.toast', () => el.remove());
+function toastStack() {
+    return document.querySelector('#flashOverlay > .ov-toast-stack')
+        || document.getElementById('mainToastContainer');
+}
+
+function showToast(message, variant = 'success') {
+    const stack = toastStack();
+    if (!stack) return;
+    const kind = TOAST_KINDS[variant] || TOAST_DEFAULT;
+
+    const el = document.createElement('div');
+    el.className = 'ov-toast';
+    el.setAttribute('role', variant === 'danger' ? 'alert' : 'status');
+    el.style.setProperty('--ov-tone', `var(--bs-${variant})`);
+    el.dataset.ovToastTtl = String(kind.ttl);
+    el.innerHTML = `<span class="ov-toast-icon"><i class="fas ${kind.icon}" aria-hidden="true"></i></span>`
+        + '<div class="ov-toast-body"></div>'
+        + '<button type="button" class="ov-toast-x" aria-label="Dismiss"><i class="fas fa-xmark" aria-hidden="true"></i></button>'
+        + (kind.ttl ? '<span class="ov-toast-timer" aria-hidden="true"></span>' : '');
+    el.querySelector('.ov-toast-body').textContent = message;
+    stack.prepend(el);
+    armToast(el);
+    capToasts(stack);
+}
+
+function armToast(el) {
+    const ttl = parseInt(el.dataset.ovToastTtl, 10) || 0;
+    const timer = el.querySelector('.ov-toast-timer');
+    if (timer && ttl) {
+        timer.style.setProperty('--ov-toast-ttl', ttl + 'ms');
+        timer.addEventListener('animationend', () => dismissToast(el));
+    }
+    el.querySelector('.ov-toast-x').addEventListener('click', () => dismissToast(el));
+}
+
+function dismissToast(el) {
+    if (el.classList.contains('is-leaving')) return;
+    el.classList.add('is-leaving');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+    setTimeout(() => el.remove(), 400);
+}
+
+function capToasts(stack) {
+    const live = stack.querySelectorAll(':scope > .ov-toast:not(.is-leaving)');
+    for (let i = TOAST_MAX; i < live.length; i++) dismissToast(live[i]);
 }
 
 /*******************************
@@ -5602,20 +5639,14 @@ function updateActiveFilterBadge(container, searchTerm, clearCb, labelActive, la
 
 
 /**
- * Auto-dismiss the flash messages after 5s.
- *
+ * Arm the server's flash toasts: each leaves after its own lifetime, an
+ * error only when closed.
  */
-function initFlashAutoDismiss() {
-    const flash = document.getElementById('flashContainer');
-    if (!flash || flash.children.length === 0) return;
-
-    setTimeout(function () {
-        flash.classList.add('fade-out');
-        setTimeout(function () {
-            flash.innerHTML = '';
-            flash.classList.remove('fade-out');
-        }, 600);
-    }, 5000);
+function initFlashToasts() {
+    const stack = toastStack();
+    if (!stack) return;
+    stack.querySelectorAll(':scope > .ov-toast').forEach(armToast);
+    capToasts(stack);
 }
 
 /**
@@ -5992,7 +6023,7 @@ function initSessionWatchdog() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    initFlashAutoDismiss();
+    initFlashToasts();
     initDebugStrip();
     initTopbarFilterSelects();
     initSessionWatchdog();

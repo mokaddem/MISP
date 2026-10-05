@@ -132,7 +132,7 @@ $useRail = $bootstrapTheme['navbar'] === 'rail';
         </header>
         <main role="main" class="content" style="padding-top:0;">
             <div id="flashOverlay">
-                <div id="flashContainer">
+                <div id="flashContainer" class="ov-toast-stack">
                     <?= $this->Flash->render() ?>
                 </div>
             </div>

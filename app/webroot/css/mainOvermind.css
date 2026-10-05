@@ -295,26 +295,67 @@ body[data-controller="users"][data-action="change_pw"] {
 ======================================================= */
 
 
-#flashOverlay {
+/* Server flashes and showToast() share one stack, top-right under the
+   navbar. Above modals, like Bootstrap's own toasts: many are fired from one. */
+#flashOverlay, .main-toast-container {
     position: fixed;
-    top: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-    /* Below the fixed-top navbar (Bootstrap z-index 1030) */
-    z-index: 1000;
-    width: 100%;
+    top: calc(var(--ov-navbar-height, 58px) + .75rem);
+    right: 1rem;
+    z-index: 1090;
+    width: 360px;
+    max-width: calc(100vw - 2rem);
     pointer-events: none;
 }
-
-#flashContainer {
-    pointer-events: auto;
-    opacity: 1;
-    transition: opacity 0.6s ease, transform 0.6s ease;
+html.misp-railed #flashOverlay { top: calc(var(--misp-rail-height) + .75rem); }
+/* Clear of the graph dock while it is open on the right. */
+body:has(#ig-so:not([hidden]):not(.is-off):not(.is-floating)) #flashOverlay {
+    right: calc(var(--ig-so-w) + 1rem);
 }
+.ov-toast-stack { display: flex; flex-direction: column; gap: .5rem; }
 
-#flashContainer.fade-out {
-    opacity: 0;
-    transform: translateY(-10px);
+.ov-toast {
+    --ov-toast-surface: var(--bs-body-bg);
+    --ov-tone-ink: color-mix(in srgb, var(--ov-tone) 68%, var(--bs-emphasis-color));
+    position: relative; overflow: hidden; pointer-events: auto;
+    display: grid; grid-template-columns: auto 1fr auto; gap: .7rem; align-items: start;
+    padding: .75rem .55rem .8rem 1rem;
+    background: var(--ov-toast-surface); color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color-translucent); border-radius: var(--bs-border-radius-lg);
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .12), 0 .1rem .3rem rgba(0, 0, 0, .06);
+    animation: ov-toast-in .22s ease-out;
+}
+[data-misp-mode="dark"] .ov-toast {
+    --ov-toast-surface: var(--bs-tertiary-bg);
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .45);
+}
+.ov-toast::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--ov-tone); }
+.ov-toast-icon { color: var(--ov-tone); font-size: 1.05rem; line-height: 1.35rem; }
+.ov-toast-body { min-width: 0; font-size: .875rem; line-height: 1.4; padding-top: .05rem; overflow-wrap: anywhere; }
+.ov-toast-title { font-weight: 600; color: var(--bs-emphasis-color); margin-bottom: .1rem; }
+.ov-toast-body a { color: var(--ov-tone-ink); font-weight: 600; }
+/* Drawn in currentColor: a dark-only theme leaves .btn-close dark on dark. */
+.ov-toast-x {
+    appearance: none; border: 0; background: transparent; padding: 0; margin-top: -.15rem;
+    width: 1.75rem; height: 1.75rem; border-radius: .4rem; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--bs-secondary-color); cursor: pointer;
+}
+.ov-toast-x:hover { color: var(--bs-emphasis-color); background: color-mix(in srgb, currentColor 10%, transparent); }
+.ov-toast-x:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
+.ov-toast-timer {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: color-mix(in srgb, var(--ov-tone) 70%, transparent);
+    transform-origin: left; animation: ov-toast-timer var(--ov-toast-ttl, 5000ms) linear forwards;
+}
+.ov-toast-stack:hover .ov-toast-timer, .ov-toast:focus-within .ov-toast-timer { animation-play-state: paused; }
+.ov-toast.is-leaving { animation: ov-toast-out .2s ease-in forwards; }
+@keyframes ov-toast-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes ov-toast-out { to { opacity: 0; transform: translateX(16px); } }
+@keyframes ov-toast-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+/* The timer still has to run out; only the motion goes. */
+@media (prefers-reduced-motion: reduce) {
+    .ov-toast, .ov-toast.is-leaving { animation-duration: 1ms; }
+    .ov-toast-timer { opacity: 0; }
 }
 
 
@@ -903,15 +944,6 @@ th .sort-icon::before {
     padding: 1.8rem 1.6rem !important;
 }
 
-.main-toast-container {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    z-index: 1090;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
 
 /* ==============================================
  * Dark mode: switch colors between light/dark
