@@ -171,13 +171,24 @@
     border: 1px dashed var(--bs-border-color); border-radius: .35rem; color: var(--bs-secondary-color);
 }
 .eo-chips { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
-.eo-techniques { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .1rem 1rem; }
-.eo-techniques li { display: flex; align-items: center; gap: .4rem; font-size: .8rem; min-width: 0; padding: .1rem .3rem; border-radius: .3rem; }
-.eo-techniques li > a, .eo-techniques li > span:first-child { display: flex; gap: .5rem; min-width: 0; text-decoration: none; color: inherit; }
-.eo-techniques li > a:hover .eo-tech-name { text-decoration: underline; }
-.eo-tech-id { font-family: var(--bs-font-monospace); font-weight: 700; font-size: .74rem; color: var(--bs-galaxy, var(--bs-emphasis-color)); flex-shrink: 0; min-width: 4.6rem; }
+.eo-techniques { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; }
+.eo-techniques li {
+    display: grid; grid-template-columns: 4.6rem minmax(0, 1fr) auto; align-items: baseline; gap: .4rem; min-width: 0;
+    padding: 1px .3rem 1px .45rem; border-left: 3px solid var(--bs-galaxy); font-size: .8rem; line-height: 1.4;
+}
+.eo-techniques li > a, .eo-techniques li > span:first-child { display: contents; color: inherit; text-decoration: none; }
+.eo-techniques li:hover .eo-tech-name { text-decoration: underline; }
+.eo-tech-id { font-family: var(--bs-font-monospace); font-weight: 700; font-size: .74rem; color: var(--bs-emphasis-color); }
 .eo-tech-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.eo-techniques li.eo-ind { outline: 1px dashed color-mix(in srgb, var(--bs-attribute) 70%, transparent); outline-offset: -1px; background: color-mix(in srgb, var(--bs-attribute) 6%, transparent); }
+.eo-techniques .eo-on { grid-column: 3; justify-self: end; margin-left: 0; }
+.eo-techniques li.eo-ind {
+    grid-column: 1 / -1; border-left-style: dashed; border-left-color: var(--bs-attribute); border-radius: 0 .3rem .3rem 0;
+    background: color-mix(in srgb, var(--bs-attribute) 8%, transparent);
+}
+#eo-context-card { container: eo-context / inline-size; }
+@container eo-context (max-width: 560px) {
+    .eo-techniques { grid-template-columns: minmax(0, 1fr); }
+}
 .eo-on {
     display: inline-flex; align-items: center; gap: .2rem; flex-shrink: 0; margin-left: .25rem;
     font-size: .68rem; font-weight: 600; line-height: 1.4; color: var(--bs-secondary-color);
