@@ -1316,6 +1316,13 @@ input.num[type="number"]::-webkit-inner-spin-button {
 .kv select.form-select {
     border: 0;
     background: transparent;
+    /*
+     * A theme's input colour is paired with its own field background,
+     * which the chip has just dropped: Factory's black-on-steel and
+     * Slate's dark-on-white both vanish on a dark chip. Use the chip's
+     * pair instead.
+     */
+    color: var(--bs-body-color);
     padding: 0;
     height: auto;
     min-height: 0;
@@ -1332,8 +1339,17 @@ input.num[type="number"]::-webkit-inner-spin-button {
 }
 .kv input.form-control:focus,
 .kv select.form-select:focus {
+    color: var(--bs-body-color);
     outline: 1px solid var(--bs-primary);
     outline-offset: 1px;
+}
+.kv input.form-control::placeholder {
+    color: var(--bs-secondary-color);
+    opacity: 1;
+}
+.kv select.form-select option {
+    color: var(--bs-body-color);
+    background-color: var(--bs-body-bg);
 }
 
 /*
@@ -1360,17 +1376,25 @@ input.num[type="number"]::-webkit-inner-spin-button {
  * `false_positive` to `false_po`. The caret comes back for the same
  * reason it was lost: the rule above zeroes the background to flatten
  * the control into the chip, and that takes Bootstrap's arrow with it,
- * leaving a picker drawn exactly like the text boxes beside it.
+ * leaving a picker drawn exactly like the text boxes beside it. It is
+ * drawn in the text colour, not with the theme's arrow image, whose
+ * stroke is baked for the theme's own field background.
  */
 .kv select.form-select {
     width: auto;
     max-width: none;
     padding-right: .8rem;
     text-align: left;
-    background-image: var(--bs-form-select-bg-img);
+    background-image:
+        linear-gradient(45deg, transparent calc(50% - .6px),
+            currentColor calc(50% - .6px), currentColor calc(50% + .6px),
+            transparent calc(50% + .6px)),
+        linear-gradient(135deg, transparent calc(50% - .6px),
+            currentColor calc(50% - .6px), currentColor calc(50% + .6px),
+            transparent calc(50% + .6px));
     background-repeat: no-repeat;
-    background-position: right center;
-    background-size: .55rem .45rem;
+    background-position: calc(100% - .3rem) 55%, calc(100% - .05rem) 55%;
+    background-size: .25rem .25rem;
 }
 .kv k label { cursor: text; margin: 0; }
 
