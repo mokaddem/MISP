@@ -887,6 +887,7 @@ class ACLComponent extends Component
             'execute' => array('perm_sharing_group'),
             'generateUuidList' => ['perm_sharing_group'],
             'index' => array('perm_sharing_group'),
+            'railCard' => array('perm_sharing_group'),
             'view' => array('perm_sharing_group'),
             'viewOrgs' => array('perm_sharing_group'),
         ),
