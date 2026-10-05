@@ -350,12 +350,13 @@
         var savedMounted = false;
         var strip = card.parentElement.querySelector('[data-eo-graph-strip]');
         var reportCol = document.querySelector('[data-eo-col="report"]');
-        var structureEmpty = card.getAttribute('data-eo-graph-compact') === '1';
+        var structureEmpty = card.getAttribute('data-eo-structure-empty') === '1';
+        var foldable = card.getAttribute('data-eo-graph-foldable') === '1';
         var savedDrawn = false;
 
         // With nothing to draw, the card folds into a strip under a full-width report.
         function layout() {
-            var compact = structureEmpty && !savedDrawn;
+            var compact = foldable && structureEmpty && !savedDrawn;
             card.classList.toggle('d-none', compact);
             if (strip) strip.classList.toggle('d-none', !compact);
             if (reportCol) reportCol.classList.toggle('col-xl-5', !compact);

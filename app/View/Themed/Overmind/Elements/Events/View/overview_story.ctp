@@ -8,7 +8,9 @@ $canAddReport = $this->Acl->canModifyEvent($data);
 $addReportUrl = $baseurl . '/event_reports/add/' . $eventId;
 $addObjectUrl = $baseurl . '/objects/add/' . $eventId;
 $hasObjects = (int)($object_count ?? 0) > 0;
-$graphCompact = !($has_object_references ?? true);
+$structureEmpty = !($has_object_references ?? true);
+$graphFoldable = !empty($report);
+$graphCompact = $structureEmpty && $graphFoldable;
 $graphHint = $hasObjects
     ? [
         'title' => __('No objects are linked yet'),
@@ -116,7 +118,7 @@ $reportOrigin = function ($originId) {
     </div>
 
     <div class="col-12<?= $graphCompact ? '' : ' col-xl-7' ?> d-flex" data-eo-col="graph">
-        <?php if ($canAddReport): ?>
+        <?php if ($graphFoldable && $canAddReport): ?>
             <div class="eo-prompt eo-graph-strip w-100<?= $graphCompact ? '' : ' d-none' ?>" style="--eo-prompt:var(--bs-correlation);" data-eo-graph-strip>
                 <div class="misp-icon-tile eo-tile eo-tile-sm" style="--tile:var(--bs-correlation);--tile-bg:color-mix(in srgb, var(--bs-correlation) 12%, transparent);">
                     <i class="fas fa-circle-nodes"></i>
@@ -127,7 +129,7 @@ $reportOrigin = function ($originId) {
                 </div>
                 <?= $graphHintAction() ?>
             </div>
-        <?php else: ?>
+        <?php elseif ($graphFoldable): ?>
             <div class="card shadow-sm eo-card eo-graph-strip w-100<?= $graphCompact ? '' : ' d-none' ?>" data-eo-graph-strip>
                 <div class="misp-icon-tile eo-tile eo-tile-sm" style="--tile:var(--bs-correlation);--tile-bg:color-mix(in srgb, var(--bs-correlation) 12%, transparent);">
                     <i class="fas fa-circle-nodes"></i>
@@ -137,7 +139,8 @@ $reportOrigin = function ($originId) {
             </div>
         <?php endif; ?>
         <div class="card shadow-sm eo-card w-100<?= $graphCompact ? ' d-none' : '' ?>" id="eo-graph-card"
-             data-eo-graph-compact="<?= $graphCompact ? '1' : '0' ?>"
+             data-eo-structure-empty="<?= $structureEmpty ? '1' : '0' ?>"
+             data-eo-graph-foldable="<?= $graphFoldable ? '1' : '0' ?>"
              data-eo-graph-url="<?= h($baseurl . '/events/viewEventOverviewGraph/' . $eventId . ($extensionSuffix ?? '') . '.json') ?>"
              data-eo-event-id="<?= $eventId ?>"
              data-eo-event-uuid="<?= h($event['uuid'] ?? '') ?>"
