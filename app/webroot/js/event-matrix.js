@@ -86,13 +86,13 @@
         var strip = galaxy.querySelector('.mx-strip');
         pane.classList.remove('is-capped');
         pane.style.maxHeight = '';
-        var cap = Math.round(Math.max(320, Math.min(520, window.innerHeight * 0.55)));
-        var capped = pane.scrollHeight > cap + 80;
+        var cap = Math.round(Math.max(300, Math.min(460, window.innerHeight * 0.5)));
+        var capped = pane.scrollHeight > cap + 60;
         if (capped) {
             pane.classList.add('is-capped');
             pane.style.maxHeight = cap + 'px';
         }
-        strip.hidden = !capped || strip.children.length < 2;
+        strip.hidden = false;
         spy();
     }
 
@@ -103,6 +103,9 @@
         var wrap = galaxy.querySelector('.mx-pane-wrap');
         if (!pane.classList.contains('is-capped')) {
             wrap.classList.remove('has-more');
+            galaxy.querySelectorAll('.mx-tick').forEach(function (t) {
+                t.removeAttribute('aria-current');
+            });
             return;
         }
         var top = pane.scrollTop;
@@ -361,10 +364,12 @@
             var galaxy = hit.closest('.mx-galaxy');
             var pane = galaxy.querySelector('.mx-pane');
             var section = pane.querySelector('.mx-tactic[data-t="' + hit.getAttribute('data-t') + '"]');
-            pane.scrollTo({
-                top: section.offsetTop - pane.offsetTop,
-                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
-            });
+            var smooth = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+            if (pane.classList.contains('is-capped')) {
+                pane.scrollTo({ top: section.offsetTop - pane.offsetTop, behavior: smooth });
+            } else {
+                section.scrollIntoView({ block: 'nearest', behavior: smooth });
+            }
         } else if ((hit = t.closest('[data-mx-rollup]'))) {
             hit.disabled = true;
             load(hit.getAttribute('data-mx-rollup')).then(function () {

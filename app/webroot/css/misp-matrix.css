@@ -26,7 +26,7 @@
 
 /* ── rail card ─────────────────────────────────────────── */
 .mx-card { overflow: hidden; }
-.mx-head { padding: 1rem 1rem .75rem; }
+.mx-head { padding: .85rem 1rem .6rem; }
 .mx-title { overflow-wrap: anywhere; }
 .mx-full-open { flex: 0 0 auto; }
 
@@ -63,7 +63,7 @@
 
 .mx-tactic + .mx-tactic { margin-top: .1rem; }
 .mx-tactic-h { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: .5rem;
-    padding: .4rem 0 .2rem; background: var(--bs-body-bg); font-size: .74rem; font-weight: 700;
+    padding: .3rem 0 .15rem; background: var(--bs-body-bg); font-size: .74rem; font-weight: 700;
     color: var(--bs-emphasis-color); line-height: 1.2; }
 .mx-tactic-h span:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mx-tactic-n { font-weight: 400; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
@@ -77,7 +77,7 @@
 .mx-fold[aria-expanded="true"] i { transform: rotate(90deg); }
 
 .mx-cell { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .5rem;
-    min-height: 24px; padding: 2px 7px 2px 8px; border: 1px solid transparent; border-left-width: 3px;
+    min-height: 22px; padding: 1px 7px 1px 8px; border: 1px solid transparent; border-left-width: 3px;
     border-radius: 3px 4px 4px 3px; text-align: left; font-size: .76rem; line-height: 1.2; cursor: pointer;
     background: var(--misp-matrix-event-bg); color: var(--misp-matrix-event-fg); border-left-color: var(--misp-matrix-event-edge); }
 .mx-cell:hover { background: var(--misp-matrix-event-hover); }
@@ -100,7 +100,7 @@
 .mx-subs { margin: 3px 0 2px 16px; padding-left: 7px; border-left: 2px solid var(--bs-border-color);
     display: flex; flex-direction: column; gap: 2px; }
 .mx-subs[hidden] { display: none; }
-.mx-subs .mx-cell { min-height: 22px; font-size: .72rem; }
+.mx-subs .mx-cell { min-height: 20px; font-size: .72rem; }
 .mx-subs .mx-name { font-weight: 400; }
 
 .mx-gate { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; padding: .55rem 1rem;
