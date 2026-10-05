@@ -171,6 +171,81 @@ class EventMatrixToolTest extends TestCase
         $this->assertSame([], EventMatrixTool::compact([$this->hit($attack, [], [13 => 0])], 13));
     }
 
+    public function testAColumnTheTabDoesNotListIsPlacedByTheOtherTabs()
+    {
+        $galaxy = ['kill_chain_order' => [
+            'attack-Windows' => ['initial-access', 'privilege-escalation', 'stealth', 'impact'],
+            'mobile-attack-Android' => ['initial-access', 'privilege-escalation', 'defense-evasion', 'impact'],
+        ]] + self::ATTACK;
+        $impact = $this->cluster($galaxy, 20, 'Data Destruction - T1485', 'T1485', ['attack-Windows:impact']);
+        $evasion = $this->cluster($galaxy, 21, 'Modify Registry - T1112', 'T1112', ['attack-Windows:defense-evasion']);
+        $access = $this->cluster($galaxy, 22, 'Phishing - T1566', 'T1566', ['attack-Windows:initial-access']);
+        $galaxies = EventMatrixTool::compact([
+            $this->hit($impact, [13]), $this->hit($evasion, [13]), $this->hit($access, [13]),
+        ], 13);
+        $this->assertSame(['initial-access', 'defense-evasion', 'impact'], array_column($galaxies[0]['tactics'], 'key'));
+    }
+
+    public function testFullDrawsEveryTechniqueOfTheBusiestTabWithTheEventsStates()
+    {
+        $cell = function ($id, $value, $externalId) {
+            return [
+                'id' => $id, 'uuid' => 'c' . $id, 'value' => $value, 'external_id' => $externalId,
+                'tag_name' => 'misp-galaxy:mitre-attack-pattern="' . $value . '"', 'default' => true,
+            ];
+        };
+        $phishing = $cell(1, 'Phishing - T1566', 'T1566');
+        $link = $cell(2, 'Spearphishing Link - T1566.002', 'T1566.002');
+        $exploit = $cell(3, 'Exploit Public-Facing Application - T1190', 'T1190');
+        $exec = $cell(4, 'User Execution - T1204', 'T1204');
+        $mobile = $cell(5, 'Exfiltration Over C2 Channel - T1646', 'T1646');
+        $skeleton = EventMatrixTool::slimSkeleton([
+            'killChain' => [
+                'attack-enterprise' => ['initial-access', 'execution', 'exfiltration'],
+                'mobile-attack-Android' => ['initial-access', 'exfiltration'],
+            ],
+            'tabs' => [
+                'attack-enterprise' => [
+                    'execution' => [$exec],
+                    'initial-access' => [$link, $exploit, $phishing, ['deleted' => true] + $cell(6, 'Gone - T1000', 'T1000')],
+                    'exfiltration' => [],
+                ],
+                'mobile-attack-Android' => ['exfiltration' => [$mobile]],
+            ],
+        ]);
+        $hits = [
+            $this->hit($this->cluster(self::ATTACK, 2, 'Spearphishing Link - T1566.002', 'T1566.002', ['attack-Windows:initial-access']), [], [13 => 3]),
+            $this->hit($this->cluster(self::ATTACK, 4, 'User Execution - T1204', 'T1204', ['attack-Windows:execution']), [13]),
+        ];
+        $full = EventMatrixTool::full($skeleton, self::ATTACK, $hits, 13);
+
+        $this->assertSame('attack-enterprise', $full['tab']);
+        $this->assertSame([['attack-enterprise', 'Enterprise', 2], ['mobile-attack-Android', 'Mobile · Android', 0]], array_map(function ($tab) {
+            return [$tab['key'], $tab['label'], $tab['active']];
+        }, $full['tabs']));
+        $this->assertSame(['initial-access', 'execution'], array_column($full['columns'], 'key'));
+        $access = $full['columns'][0];
+        $this->assertSame(['Exploit Public-Facing Application', 'Phishing'], array_column($access['groups'], 'label'));
+        $this->assertSame('idle', $access['groups'][0]['state']);
+        $this->assertSame('indicators', $access['groups'][1]['state']);
+        $this->assertSame('idle', $access['groups'][1]['own']['state']);
+        $this->assertSame(3, $access['groups'][1]['subs'][0]['indicators']);
+        $this->assertSame('event', $full['columns'][1]['groups'][0]['state']);
+
+        $mobileTab = EventMatrixTool::full($skeleton, self::ATTACK, $hits, 13, 'mobile-attack-Android');
+        $this->assertSame('mobile-attack-Android', $mobileTab['tab']);
+        $this->assertSame('idle', $mobileTab['columns'][0]['groups'][0]['state']);
+        $this->assertSame('attack-enterprise', EventMatrixTool::full($skeleton, self::ATTACK, $hits, 13, 'nope')['tab']);
+    }
+
+    public function testTabLabels()
+    {
+        $this->assertSame('ICS · Field Controller/RTU/PLC/IED', EventMatrixTool::tabLabel('ics-attack-Field-Controller/RTU/PLC/IED', 'mitre-attack-pattern'));
+        $this->assertSame('ICS', EventMatrixTool::tabLabel('ics-attack', 'mitre-attack-pattern'));
+        $this->assertSame('Network Devices', EventMatrixTool::tabLabel('attack-Network-Devices', 'mitre-attack-pattern'));
+        $this->assertSame('Fraud Tactics', EventMatrixTool::tabLabel('fraud-tactics', 'financial-fraud'));
+    }
+
     public function testGroupColumnFoldsSubTechniquesAndKeepsLegacyCellsApart()
     {
         $groups = GalaxyMatrixLayout::groupColumn([

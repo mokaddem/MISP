@@ -70,6 +70,222 @@ class EventMatrixTool
      */
     public static function compact(array $hits, $selfId, array $parentNames = [])
     {
+        $galaxies = [];
+        foreach (self::collect($hits, $selfId) as $galaxyId => $entry) {
+            $galaxies[] = self::galaxyView($entry['galaxy'], $entry['cells'], $parentNames[$galaxyId] ?? []);
+        }
+        usort($galaxies, function ($a, $b) {
+            $attack = ($b['type'] === self::ATTACK_TYPE) <=> ($a['type'] === self::ATTACK_TYPE);
+            if ($attack !== 0) {
+                return $attack;
+            }
+            if ($a['techniques'] !== $b['techniques']) {
+                return $b['techniques'] <=> $a['techniques'];
+            }
+            return strcasecmp($a['name'], $b['name']);
+        });
+        return $galaxies;
+    }
+
+    /**
+     * A matrix skeleton (Galaxy::getMatrix()) cut down to what a cell
+     * needs, small enough to cache.
+     *
+     * @param array $matrixData
+     * @return array killChain, tabs => column => cells
+     */
+    public static function slimSkeleton(array $matrixData)
+    {
+        $tabs = [];
+        foreach ((array)($matrixData['tabs'] ?? []) as $tab => $columns) {
+            foreach ((array)$columns as $column => $cells) {
+                foreach ((array)$cells as $cell) {
+                    if (!empty($cell['deleted'])) {
+                        continue;
+                    }
+                    $tabs[$tab][$column][] = [
+                        'id' => (int)($cell['id'] ?? 0),
+                        'uuid' => (string)($cell['uuid'] ?? ''),
+                        'value' => (string)($cell['value'] ?? ''),
+                        'tag_name' => (string)($cell['tag_name'] ?? ''),
+                        'external_id' => (string)($cell['external_id'] ?? ''),
+                        'default' => !empty($cell['default']),
+                    ];
+                }
+            }
+        }
+        return ['killChain' => (array)($matrixData['killChain'] ?? []), 'tabs' => $tabs];
+    }
+
+    /**
+     * How a tab is named in the modal's tab strip.
+     *
+     * @param string $tab
+     * @param string $galaxyType
+     * @return string
+     */
+    public static function tabLabel($tab, $galaxyType)
+    {
+        $tab = (string)$tab;
+        if ($galaxyType === self::ATTACK_TYPE) {
+            if ($tab === 'attack-enterprise') {
+                return 'Enterprise';
+            }
+            if ($tab === 'pre-attack') {
+                return 'PRE-ATT&CK';
+            }
+            if (preg_match('/^(mobile|ics)-attack(?:-(.+))?$/', $tab, $m)) {
+                $domain = $m[1] === 'ics' ? 'ICS' : 'Mobile';
+                return empty($m[2]) ? $domain : $domain . ' · ' . str_replace('-', ' ', $m[2]);
+            }
+            if (strpos($tab, 'attack-') === 0) {
+                return str_replace('-', ' ', substr($tab, 7));
+            }
+        }
+        return ucwords(str_replace(['-', '_'], ' ', $tab));
+    }
+
+    /**
+     * One galaxy's full matrix for the modal: its tabs with how many of the
+     * event's techniques each holds, and one tab's columns with every
+     * technique, those the event uses carrying their state.
+     *
+     * @param array $skeleton slimSkeleton() of the galaxy, cells the user may see
+     * @param array $galaxy Galaxy row
+     * @param array $hits as compact() takes them
+     * @param int $selfId
+     * @param string|null $tab the tab to draw; the busiest one when null or unknown
+     * @return array
+     */
+    public static function full(array $skeleton, array $galaxy, array $hits, $selfId, $tab = null)
+    {
+        $galaxyId = (int)$galaxy['id'];
+        $collected = self::collect($hits, $selfId);
+        $byTag = [];
+        foreach ($collected[$galaxyId]['cells'] ?? [] as $cell) {
+            $byTag[$cell['cluster']['tag_name']] = $cell;
+        }
+
+        $tabKeys = array_map('strval', array_keys($skeleton['killChain']));
+        foreach (array_keys($skeleton['tabs']) as $key) {
+            if (!in_array((string)$key, $tabKeys, true)) {
+                $tabKeys[] = (string)$key;
+            }
+        }
+        $tabs = [];
+        foreach ($tabKeys as $key) {
+            $active = [];
+            foreach ($skeleton['tabs'][$key] ?? [] as $cells) {
+                foreach ($cells as $cell) {
+                    if (isset($byTag[$cell['tag_name']])) {
+                        $active[$cell['tag_name']] = true;
+                    }
+                }
+            }
+            $tabs[] = ['key' => $key, 'label' => self::tabLabel($key, $galaxy['type'] ?? ''), 'active' => count($active)];
+        }
+        $known = array_column($tabs, 'key');
+        if ($tab === null || !in_array((string)$tab, $known, true)) {
+            $tab = null;
+            $best = -1;
+            foreach ($tabs as $entry) {
+                if ($entry['active'] > $best) {
+                    $best = $entry['active'];
+                    $tab = $entry['key'];
+                }
+            }
+        }
+        $tab = (string)$tab;
+
+        $columns = array_filter($skeleton['tabs'][$tab] ?? []);
+        $order = self::orderColumns(self::tacticOrder($galaxy), array_keys($columns));
+        $parentNames = GalaxyMatrixLayout::parentNames($columns);
+        $grid = [];
+        foreach ($order as $column) {
+            $groups = [];
+            $activeCount = 0;
+            foreach (GalaxyMatrixLayout::groupColumn($columns[$column] ?? []) as $group) {
+                $own = $group['cell'] === null ? null : self::fullCellView($group['cell'], $group['label'], $byTag);
+                $subs = [];
+                foreach ($group['subs'] as $sub) {
+                    $subs[] = self::fullCellView($sub['cell'], $sub['label'], $byTag);
+                }
+                usort($subs, function ($a, $b) {
+                    return strcasecmp($a['label'], $b['label']);
+                });
+                $states = array_column(array_merge($own === null ? [] : [$own], $subs), 'state');
+                $state = in_array('event', $states, true) ? 'event' : (in_array('indicators', $states, true) ? 'indicators' : 'idle');
+                $activeCount += $state === 'idle' ? 0 : 1;
+                $groups[] = [
+                    'tid' => preg_match('/^T\d+$/', (string)$group['key']) ? (string)$group['key'] : ($own['tid'] ?? ''),
+                    'label' => GalaxyMatrixLayout::groupLabel($group, $parentNames),
+                    'state' => $state,
+                    'own' => $own,
+                    'subs' => $subs,
+                ];
+            }
+            usort($groups, function ($a, $b) {
+                return strcasecmp($a['label'], $b['label']);
+            });
+            $grid[] = [
+                'key' => $column,
+                'label' => GalaxyMatrixLayout::formatTactic($column),
+                'active' => $activeCount,
+                'groups' => $groups,
+            ];
+        }
+
+        return [
+            'galaxy' => [
+                'id' => $galaxyId,
+                'uuid' => (string)($galaxy['uuid'] ?? ''),
+                'name' => (string)($galaxy['name'] ?? ''),
+                'type' => (string)($galaxy['type'] ?? ''),
+                'icon' => (string)($galaxy['icon'] ?? ''),
+            ],
+            'tab' => $tab,
+            'tabs' => $tabs,
+            'columns' => $grid,
+        ];
+    }
+
+    /**
+     * The present columns in the galaxy's order; one no tab places goes last.
+     */
+    private static function orderColumns(array $order, array $present)
+    {
+        $present = array_map('strval', $present);
+        $known = array_values(array_intersect($order, $present));
+        return array_merge($known, array_values(array_diff($present, $known)));
+    }
+
+    private static function fullCellView(array $cell, $label, array $byTag)
+    {
+        $hit = $byTag[$cell['tag_name']] ?? null;
+        return [
+            'tid' => (string)$cell['external_id'],
+            'label' => (string)$label,
+            'state' => $hit === null ? 'idle' : $hit['state'],
+            'onEvent' => $hit !== null && $hit['onEvent'],
+            'indicators' => $hit === null ? 0 : $hit['indicators'],
+            'foreign' => $hit !== null && $hit['foreign'],
+            'origins' => $hit === null ? [] : $hit['origins'],
+            'cluster' => [
+                'id' => (int)$cell['id'],
+                'uuid' => (string)$cell['uuid'],
+                'value' => (string)$cell['value'],
+                'tag_name' => (string)$cell['tag_name'],
+            ],
+        ];
+    }
+
+    /**
+     * The hits on matrix galaxies, per galaxy, merged per cluster.
+     *
+     * @return array galaxy id => [galaxy, cells => key => finished cell]
+     */
+    private static function collect(array $hits, $selfId)
+    {
         $selfId = (int)$selfId;
         $byGalaxy = [];
         foreach ($hits as $hit) {
@@ -99,29 +315,18 @@ class EventMatrixTool
             $byGalaxy[$galaxyId]['cells'][$key] = $cell;
         }
 
-        $galaxies = [];
+        $collected = [];
         foreach ($byGalaxy as $galaxyId => $entry) {
             $cells = array_map(function ($cell) use ($selfId) {
                 return self::finishCell($cell, $selfId);
             }, array_filter($entry['cells'], function ($cell) {
                 return !empty($cell['eventOrigins']) || !empty($cell['indicatorOrigins']);
             }));
-            if (empty($cells)) {
-                continue;
+            if (!empty($cells)) {
+                $collected[$galaxyId] = ['galaxy' => $entry['galaxy'], 'cells' => $cells];
             }
-            $galaxies[] = self::galaxyView($entry['galaxy'], $cells, $parentNames[$galaxyId] ?? []);
         }
-        usort($galaxies, function ($a, $b) {
-            $attack = ($b['type'] === self::ATTACK_TYPE) <=> ($a['type'] === self::ATTACK_TYPE);
-            if ($attack !== 0) {
-                return $attack;
-            }
-            if ($a['techniques'] !== $b['techniques']) {
-                return $b['techniques'] <=> $a['techniques'];
-            }
-            return strcasecmp($a['name'], $b['name']);
-        });
-        return $galaxies;
+        return $collected;
     }
 
     /**
@@ -216,7 +421,7 @@ class EventMatrixTool
                 $byColumn[$column][] = $cell;
             }
         }
-        $order = GalaxyMatrixLayout::mergeColumnOrders([$order, array_map('strval', array_keys($byColumn))]);
+        $order = self::orderColumns($order, array_keys($byColumn));
         $parentNames = GalaxyMatrixLayout::parentNames($byColumn) + $extraParentNames;
 
         $tactics = [];

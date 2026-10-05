@@ -8,6 +8,7 @@ App::uses('EventOverviewTool', 'Tools/EventOverview');
 App::uses('EventContextTool', 'Tools/EventOverview');
 App::uses('EventMatrixTool', 'Tools/EventOverview');
 App::uses('GalaxyMatrixLayout', 'Tools');
+App::uses('RedisTool', 'Tools');
 
 /**
  * @property Event $Event
@@ -3952,16 +3953,16 @@ class EventsController extends AppController
     }
 
     /**
-     * The overview's compact galaxy matrix: the techniques of every matrix
-     * galaxy found on the event or its indicators, by tactic. Shares the
-     * Context card's roll-up and its `rollup:1` gate.
+     * The clusters an event and, once rolled up, its indicators carry, each
+     * with the events carrying it at event level and the indicator counts
+     * per event of an extension set.
      *
-     * @param int|string $id Event ID or UUID
+     * @param array $user
+     * @param array $event as __overviewEvent() returns it
+     * @return array [hits, rolled up (bool), extension set]
      */
-    public function viewEventMatrix($id = null)
+    private function __matrixHits(array $user, array $event)
     {
-        $user = $this->Auth->user();
-        $event = $this->__overviewEvent($id);
         $selfId = (int)$event['Event']['id'];
         $extensionSet = $this->__extensionViewContext($user, $event);
         $setIds = count($extensionSet['ids']) > 1 ? array_map('intval', $extensionSet['ids']) : null;
@@ -4010,23 +4011,49 @@ class EventsController extends AppController
             }
         }
         $hits = array_values($hits);
-        $parentNames = $this->__matrixParentNames(EventMatrixTool::missingParents($hits), $user);
-        $matrix = [
-            'rolledUp' => $rollups !== null,
-            'galaxies' => EventMatrixTool::compact($hits, $selfId, $parentNames),
-            'origins' => [],
-        ];
+        return [$hits, $rollups !== null, $extensionSet];
+    }
+
+    /**
+     * @param array $extensionSet
+     * @return array event id => role, info, org, palette, for the other events
+     */
+    private function __matrixOrigins(array $extensionSet)
+    {
+        $origins = [];
         foreach ($extensionSet['events'] as $member) {
             if ($member['role'] === 'self') {
                 continue;
             }
-            $matrix['origins'][(int)$member['id']] = [
+            $origins[(int)$member['id']] = [
                 'role' => $member['role'],
                 'info' => $member['info'],
                 'org' => $member['Orgc']['name'] ?? null,
                 'palette' => $member['palette'],
             ];
         }
+        return $origins;
+    }
+
+    /**
+     * The overview's compact galaxy matrix: the techniques of every matrix
+     * galaxy found on the event or its indicators, by tactic. Shares the
+     * Context card's roll-up and its `rollup:1` gate.
+     *
+     * @param int|string $id Event ID or UUID
+     */
+    public function viewEventMatrix($id = null)
+    {
+        $user = $this->Auth->user();
+        $event = $this->__overviewEvent($id);
+        $selfId = (int)$event['Event']['id'];
+        list($hits, $rolledUp, $extensionSet) = $this->__matrixHits($user, $event);
+        $parentNames = $this->__matrixParentNames(EventMatrixTool::missingParents($hits), $user);
+        $matrix = [
+            'rolledUp' => $rolledUp,
+            'galaxies' => EventMatrixTool::compact($hits, $selfId, $parentNames),
+            'origins' => $this->__matrixOrigins($extensionSet),
+        ];
         if ($this->_isRest()) {
             $matrix['origins'] = (object)$matrix['origins'];
             return $this->RestResponse->viewData($matrix, 'json');
@@ -4034,6 +4061,104 @@ class EventsController extends AppController
         $this->set('matrix', $matrix);
         $this->set('event', $event);
         $this->layout = false;
+    }
+
+    /**
+     * One matrix galaxy in full for the overview's matrix modal: its tabs
+     * with the event's technique count in each, and one tab (`?tab=`, the
+     * busiest by default) with every technique.
+     *
+     * @param int|string $id Event ID or UUID
+     * @param int $galaxyId
+     */
+    public function viewEventGalaxyMatrix($id = null, $galaxyId = null)
+    {
+        $user = $this->Auth->user();
+        $event = $this->__overviewEvent($id);
+        $this->loadModel('Galaxy');
+        $galaxy = $this->Galaxy->find('first', [
+            'recursive' => -1,
+            'conditions' => ['Galaxy.id' => (int)$galaxyId, $this->Galaxy->buildConditions($user)],
+        ]);
+        if (empty($galaxy) || !EventMatrixTool::isMatrixGalaxy($galaxy['Galaxy'])) {
+            throw new NotFoundException(__('Invalid galaxy'));
+        }
+        $skeleton = $this->__matrixSkeleton($user, $galaxy['Galaxy']);
+        list($hits, $rolledUp, $extensionSet) = $this->__matrixHits($user, $event);
+        $tab = $this->request->query('tab');
+        $matrix = EventMatrixTool::full(
+            $skeleton, $galaxy['Galaxy'], $hits, $event['Event']['id'], is_string($tab) ? $tab : null
+        );
+        $matrix['rolledUp'] = $rolledUp;
+        $matrix['origins'] = $this->__matrixOrigins($extensionSet);
+        if ($this->_isRest()) {
+            $matrix['origins'] = (object)$matrix['origins'];
+            return $this->RestResponse->viewData($matrix, 'json');
+        }
+        $this->set('matrix', $matrix);
+        $this->set('event', $event);
+        $this->layout = false;
+    }
+
+    /**
+     * A galaxy's matrix skeleton, cached until the galaxy or its cluster set
+     * changes, keeping the custom clusters the user may not see out.
+     *
+     * @param array $user
+     * @param array $galaxy Galaxy row
+     * @return array see EventMatrixTool::slimSkeleton()
+     */
+    private function __matrixSkeleton(array $user, array $galaxy)
+    {
+        $GalaxyCluster = $this->Galaxy->GalaxyCluster;
+        $stamp = $GalaxyCluster->find('first', [
+            'recursive' => -1,
+            'fields' => ['COUNT(*) AS n', 'MAX(GalaxyCluster.id) AS m'],
+            'conditions' => ['GalaxyCluster.galaxy_id' => (int)$galaxy['id']],
+        ]);
+        $key = EventOverviewTool::CACHE_PREFIX . 'matrix-skeleton:' . (int)$galaxy['id'] . ':'
+            . (int)$galaxy['version'] . ':' . (int)($stamp[0]['n'] ?? 0) . ':' . (int)($stamp[0]['m'] ?? 0);
+        $skeleton = null;
+        try {
+            $redis = RedisTool::init();
+            $hit = $redis->get($key);
+            if ($hit !== false) {
+                $skeleton = RedisTool::deserialize($hit);
+            }
+        } catch (Exception $e) {
+            $redis = null;
+        }
+        if ($skeleton === null) {
+            $skeleton = EventMatrixTool::slimSkeleton($this->Galaxy->getMatrix($user, (int)$galaxy['id']));
+            if ($redis) {
+                try {
+                    $redis->setex($key, EventOverviewTool::CACHE_TTL, RedisTool::serialize($skeleton));
+                } catch (Exception $e) {
+                    // An uncached skeleton is still the skeleton
+                }
+            }
+        }
+
+        if ($this->_isSiteAdmin()) {
+            return $skeleton;
+        }
+        $visible = array_flip($GalaxyCluster->find('column', [
+            'recursive' => -1,
+            'fields' => ['GalaxyCluster.id'],
+            'conditions' => [
+                'GalaxyCluster.galaxy_id' => (int)$galaxy['id'],
+                'GalaxyCluster.default' => false,
+                $GalaxyCluster->buildConditions($user),
+            ],
+        ]));
+        foreach ($skeleton['tabs'] as $tab => $columns) {
+            foreach ($columns as $column => $cells) {
+                $skeleton['tabs'][$tab][$column] = array_values(array_filter($cells, function ($cell) use ($visible) {
+                    return $cell['default'] || isset($visible[$cell['id']]);
+                }));
+            }
+        }
+        return $skeleton;
     }
 
     /**
