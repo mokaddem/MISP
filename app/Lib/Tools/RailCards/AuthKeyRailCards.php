@@ -103,7 +103,7 @@ class AuthKeyRailCards
             if ($mayPin && $cidr === null) {
                 $row['action'] = [
                     'label' => __('Pin'),
-                    'href' => '/auth_keys/pin/' . (int)$key['id'] . '/' . $ip,
+                    'href' => '/auth_keys/pin/' . (int)$key['id'] . '?ip=' . rawurlencode($ip),
                     'method' => 'post',
                     'confirm' => __('Accept this key only from %s?', $ip),
                 ];
