@@ -47,20 +47,21 @@ function toastStack() {
         || document.getElementById('mainToastContainer');
 }
 
-function showToast(message, variant = 'success') {
+function showToast(message, variant = 'success', delay = null) {
     const stack = toastStack();
     if (!stack) return;
     const kind = TOAST_KINDS[variant] || TOAST_DEFAULT;
+    const ttl = delay ?? kind.ttl;
 
     const el = document.createElement('div');
     el.className = 'ov-toast';
     el.setAttribute('role', variant === 'danger' ? 'alert' : 'status');
     el.style.setProperty('--ov-tone', `var(--bs-${variant})`);
-    el.dataset.ovToastTtl = String(kind.ttl);
+    el.dataset.ovToastTtl = String(ttl);
     el.innerHTML = `<span class="ov-toast-icon"><i class="fas ${kind.icon}" aria-hidden="true"></i></span>`
         + '<div class="ov-toast-body"></div>'
         + '<button type="button" class="ov-toast-x" aria-label="Dismiss"><i class="fas fa-xmark" aria-hidden="true"></i></button>'
-        + (kind.ttl ? '<span class="ov-toast-timer" aria-hidden="true"></span>' : '');
+        + (ttl ? '<span class="ov-toast-timer" aria-hidden="true"></span>' : '');
     el.querySelector('.ov-toast-body').textContent = message;
     stack.prepend(el);
     armToast(el);

@@ -1112,14 +1112,17 @@ class NavbarHelper extends AppHelper {
         ];
 
         $items = [];
+        $visible = 0;
         $currentLabel = null;
         foreach (MispTheme::getBootstrapThemes() as $name => $theme) {
             if ($name === $current) {
                 $currentLabel = $theme['label'];
             }
-            if ($theme['hide_from_users'] && !($chosen && $name === $current)) {
-                continue;
-            }
+            // Hidden themes ship masked; the dark-mode easter egg in
+            // navbar_actions.ctp unmasks them.
+            $secret = $theme['hide_from_users']
+                && !($chosen && $name === $current);
+            $visible += $secret ? 0 : 1;
             $items[] = [
                 'type' => 'bootstrapTheme',
                 'theme' => $name,
@@ -1128,9 +1131,10 @@ class NavbarHelper extends AppHelper {
                 'modeIcon' => $modes[$theme['mode']]['icon'],
                 'modeLabel' => $modes[$theme['mode']]['label'],
                 'on' => $chosen && $name === $current,
+                'secret' => $secret,
             ];
         }
-        if (count($items) < 2) {
+        if ($visible < 2) {
             return null;
         }
         $default = MispTheme::bootstrapTheme();

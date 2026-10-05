@@ -32,6 +32,14 @@ $type = $item['type'] ?? null;
             </span>
         </button>
     </li>
+<?php elseif ($type === 'bootstrapTheme' && !empty($item['secret'])): ?>
+    <li class="theme-secret" hidden>
+        <button type="button" class="rc-item rc-bstheme set-bootstrap-theme is-secret" data-theme="<?= h($item['theme']) ?>">
+            <span class="rc-ico" aria-hidden="true"><i class="fas fa-check fa-fw"></i></span>
+            <span class="rc-text"><span class="secret-mask">???</span><span class="secret-name"><?= h($item['label']) ?></span></span>
+            <span class="rc-mode" title="<?= h($item['modeLabel']) ?>"><i class="<?= h($item['modeIcon']) ?> fa-fw" aria-hidden="true"></i><span class="visually-hidden"><?= h($item['modeLabel']) ?></span></span>
+        </button>
+    </li>
 <?php elseif ($type === 'bootstrapTheme'): ?>
     <li>
         <button type="button" class="rc-item rc-bstheme set-bootstrap-theme<?= $item['on'] ? ' is-on' : '' ?>" data-theme="<?= h($item['theme']) ?>" title="<?= h($item['description']) ?>"<?= $item['on'] ? ' aria-current="true"' : '' ?>>

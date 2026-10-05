@@ -5216,3 +5216,18 @@ tr.evt-extension-row td:first-child { position: relative; }
 :root[data-misp-mode="dark"] .misp-icon-tile {
     color: oklch(from var(--tile) max(l, .74) c h);
 }
+
+/* ==========================================================================
+   Hidden themes in the Theme menu, unmasked by the dark-mode easter egg
+   ========================================================================== */
+
+.theme-secret[hidden] { display: none !important; }
+.set-bootstrap-theme.is-secret { opacity: .55; }
+.set-bootstrap-theme.is-secret:hover,
+.set-bootstrap-theme.is-secret:focus-visible { opacity: 1; }
+.set-bootstrap-theme.is-secret .secret-mask { letter-spacing: .2em; }
+.set-bootstrap-theme.is-secret .secret-name,
+.set-bootstrap-theme.is-secret:hover .secret-mask,
+.set-bootstrap-theme.is-secret:focus-visible .secret-mask { display: none; }
+.set-bootstrap-theme.is-secret:hover .secret-name,
+.set-bootstrap-theme.is-secret:focus-visible .secret-name { display: inline; }
