@@ -32,11 +32,6 @@ $feedsShown = !empty($profile['feeds_shown']);
  */
 $labelPlan = $profile['label_plan'];
 
-$noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
-    . ' the database yet.'
-);
-
 /*
  * Rows are drawn from one page of the panel's own rows, never fetched
  * again: `00-shared.md` §6.
@@ -653,12 +648,7 @@ $columns = array(
     ),
 );
 
-$fields = array(
-    array(
-        'element' => 'checkbox',
-        'data_path' => 'Attribute.id',
-    ),
-);
+$fields = array();
 $shownColumns = 0;
 foreach ($columns as $column) {
     $field = $column['field'];
@@ -794,70 +784,6 @@ $headerExtra = ob_get_clean();
                     ) ?></span>
                 </div>
             <?php else: ?>
-
-                <?php
-                /*
-                 * Top-docked: the reader is looking at rows, and a bar
-                 * that appears under them shoves the table down at the
-                 * moment they are reading it.
-                 *
-                 * The whole bar is disabled rather than half of it. One
-                 * selection can mix rows the user may edit with rows
-                 * they may only propose against, and no endpoint or
-                 * confirmation dialogue expresses that today.
-                 */
-                ?>
-                <div class="px-3 pt-2 pb-0" data-vp-bulk
-                     data-vp-scope-template="<?= h(__(
-                         '%1$s rows · %2$s events · %3$s organisations'
-                     )) ?>">
-                    <?= $this->element(
-                        'genericElementsBS5/IndexTable/multi_select_toolbar',
-                        array(
-                            'item_url' => '/values',
-                            'filter_bar' => array(
-                                'disabled' => $noWrites,
-                                'scope_note' => __('No rows selected'),
-                                'export' => true,
-                                'mass_edit' => true,
-                                'mass_tag' => true,
-                                'mass_local_tag' => true,
-                                'mass_cluster' => true,
-                                'mass_sighting' => true,
-                                'custom_actions' => array(
-                                    array(
-                                        'id' => 'vp-occ-mass-ids',
-                                        'label' => __('Set to_ids'),
-                                        'icon' => 'shield-halved',
-                                        'class' => 'btn-outline-warning',
-                                        'onclick' => '',
-                                    ),
-                                    array(
-                                        'id' => 'vp-occ-mass-distribution',
-                                        'label' => __('Set distribution'),
-                                        'icon' => 'globe',
-                                        'class' => 'btn-outline-secondary',
-                                        'onclick' => '',
-                                    ),
-                                    array(
-                                        'id' => 'vp-occ-mass-propose',
-                                        'label' => __('Propose edit'),
-                                        'icon' => 'code-pull-request',
-                                        'class' => 'btn-outline-warning',
-                                        'onclick' => '',
-                                    ),
-                                    array(
-                                        'id' => 'vp-occ-mass-collection',
-                                        'label' => __('Add to collection'),
-                                        'icon' => 'folder-plus',
-                                        'class' => 'btn-outline-dark',
-                                        'onclick' => '',
-                                    ),
-                                ),
-                            ),
-                        )
-                    ) ?>
-                </div>
 
                 <div class="card-body p-0" data-vp-list-rows>
                     <?= $this->element(

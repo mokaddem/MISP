@@ -118,7 +118,7 @@ $headerActions = array(
             'label' => __('Add to collection'),
             'icon' => 'folder-plus',
             'class' => 'btn btn-outline-dark disabled',
-            'title' => $noWrites,
+            'title' => __('Your role does not allow adding to collections.'),
         ),
     $this->Acl->canAccess('analystGraphs', 'addNodes')
         ? array(

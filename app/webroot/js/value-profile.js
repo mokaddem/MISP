@@ -2037,7 +2037,6 @@
         (root || document).querySelectorAll('[data-vp-list]')
             .forEach(function (list) {
                 refreshList(list);
-                refreshBulkScope(list);
             });
     }
 
@@ -2107,41 +2106,6 @@
             panel.querySelectorAll('[data-vp-col]:checked').length);
     }
 
-    /**
-     * What the selection spans, beside the count of it. On an index
-     * whose rows are attributes drawn from several events the count
-     * alone is ambiguous: three rows can be one event or three, and a
-     * bulk action means something different in each case.
-     *
-     * Counts every checked row, including one a filter has since taken
-     * off screen — it is still selected, and MISP's own selection map
-     * still holds it.
-     *
-     * @param {Element} list
-     */
-    function refreshBulkScope(list) {
-        var bulk = list.querySelector('[data-vp-bulk]');
-        var note = bulk && bulk.querySelector('#multiSelectScopeNote');
-        if (!note || !bulk.dataset.vpScopeTemplate) {
-            return;
-        }
-        var events = {};
-        var orgs = {};
-        var rows = 0;
-        list.querySelectorAll('.item-checkbox:checked').forEach(function (box) {
-            var row = box.closest('tr');
-            if (!row) {
-                return;
-            }
-            rows++;
-            events[row.dataset.vpEvent] = true;
-            orgs[row.dataset.vpOrg] = true;
-        });
-        note.textContent = bulk.dataset.vpScopeTemplate
-            .replace('%1$s', rows)
-            .replace('%2$s', Object.keys(events).length)
-            .replace('%3$s', Object.keys(orgs).length);
-    }
 
 
     /* ==================================================================
@@ -9288,14 +9252,6 @@
                 if (sightPanel) {
                     syncSightPreset(sightPanel);
                     refreshSight(sightPanel);
-                }
-            }
-
-            if (event.target.classList
-                && event.target.classList.contains('item-checkbox')) {
-                var selectionList = event.target.closest('[data-vp-list]');
-                if (selectionList) {
-                    refreshBulkScope(selectionList);
                 }
             }
 

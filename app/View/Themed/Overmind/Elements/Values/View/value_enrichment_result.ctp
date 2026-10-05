@@ -142,19 +142,6 @@ $prose = array(
     ),
 );
 
-/*
- * §10's disabled set. These render rather than vanish because this
- * page's rule is that a control which would write is *visibly*
- * disabled — "not implemented", "nothing to show" and "you may not"
- * are three different things and a missing button says none of them.
- * The two reasons are different and the titles say which:
- * `value-profile-writes.md` owns the writes, and the persistence phase
- * owns the dismissal store.
- */
-$noWrite = __(
-    'Disabled — the Value Profile page does not write to the database'
-    . ' yet.'
-);
 $noDismiss = __(
     'Disabled — a dismissal has nowhere to be remembered. Nothing'
     . ' records that a module ran, so nothing can record that you'
@@ -162,28 +149,15 @@ $noDismiss = __(
 );
 
 /**
- * The per-element actions, drawn once and reused on every row.
+ * The per-element action, drawn once and reused on every row. An object
+ * takes it whole; the attribute rows inside it carry none.
  *
- * §8.4: never per module. MISP enrichment returns attributes and
- * objects and the decision to keep one is per element — a
- * module-level *accept* would write things nobody looked at. An
- * object is one such element and takes the same three, because MISP
- * adds an object whole or not at all; the attribute rows inside it
- * carry none, which is how MISP's own object table behaves.
- *
- * @param string $add What the first button would add
- * @param bool $wide Whether the labels are spelled out
+ * @param bool $wide Whether the label is spelled out
  * @return string
  */
-$actions = function ($add = null, $wide = false) use (
-    $noWrite,
-    $noDismiss
-) {
+$actions = function ($wide = false) use ($noDismiss) {
     $out = '<span class="vp-e-el-acts">';
     $buttons = array(
-        array($add === null ? __('Add to event') : $add, 'fa-plus',
-            $noWrite),
-        array(__('New event'), 'fa-file-circle-plus', $noWrite),
         array(__('Dismiss'), 'fa-xmark', $noDismiss),
     );
     foreach ($buttons as $button) {
@@ -407,24 +381,6 @@ $manyObjects = count($run['objects']) > 1;
             </div>
         </div>
 
-        <?php if ($state === 'ok'): ?>
-            <?php
-            /*
-             * §8's `Add all 6`, disabled. It is the one module-level
-             * write the mockup allows, and only because it is a
-             * shorthand for the per-element ones rather than a
-             * different decision.
-             */
-            ?>
-            <button type="button" disabled
-                    class="btn btn-sm btn-outline-secondary disabled
-                           d-inline-flex align-items-center gap-1
-                           flex-shrink-0"
-                    title="<?= h($noWrite) ?>">
-                <i class="fas fa-plus"></i>
-                <?= h(sprintf(__('Add all %d'), $run['shown'])) ?>
-            </button>
-        <?php endif; ?>
     </div>
 
     <?php if (isset($prose[$state])): ?>
@@ -849,7 +805,7 @@ $manyObjects = count($run['objects']) > 1;
                         <span class="vp-e-obj-footnote"><?= h(__(
                             'MISP adds an object whole.'
                         )) ?></span>
-                        <?= $actions(__('Add object'), true) ?>
+                        <?= $actions(true) ?>
                     </div>
                 </div>
             </div>
