@@ -97,6 +97,11 @@ $tabFor = function (array $group) {
                                     <i class="fas fa-shield-halved"></i>
                                     <span class="eo-rule-name"><?= h($rule['name']) ?></span>
                                     <span class="eo-muted"><?= h($rule['type']) ?><?= $rule['object'] ? h(' · ' . __('in %s', $rule['object'])) : '' ?></span>
+                                    <?= $this->element('Events/View/extension_origin', [
+                                        'event_id' => $rule['event_id'] ?? 0,
+                                        'compact' => true,
+                                        'only_foreign' => true,
+                                    ]) ?>
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>

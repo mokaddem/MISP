@@ -10,7 +10,7 @@ $eventId = (int)($data['Event']['id'] ?? 0);
     </div>
     <div class="col-12 col-xl-5">
         <div class="card shadow-sm eo-card w-100" id="eo-inventory-card"
-             data-eo-fragment="<?= h($baseurl . '/events/viewEventInventory/' . $eventId) ?>">
+             data-eo-fragment="<?= h($baseurl . '/events/viewEventInventory/' . $eventId . ($extensionSuffix ?? '')) ?>">
             <div class="text-center text-muted py-5"><div class="misp-loader misp-loader-sm" role="status"></div></div>
         </div>
     </div>

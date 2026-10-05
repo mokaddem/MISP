@@ -3809,9 +3809,22 @@ class EventsController extends AppController
      */
     public function viewEventInventory($id = null)
     {
+        $user = $this->Auth->user();
         $event = $this->__overviewEvent($id);
         $tool = new EventOverviewTool();
-        $inventory = $tool->inventory($this->Auth->user(), $event['Event']);
+        $extensionSet = $this->__extensionViewContext($user, $event);
+        if (count($extensionSet['ids']) > 1) {
+            $parts = [];
+            foreach ($extensionSet['ids'] as $memberId) {
+                $member = (int)$memberId === (int)$event['Event']['id']
+                    ? $event
+                    : $this->__overviewEvent($memberId);
+                $parts[(int)$memberId] = $tool->inventory($user, $member['Event'], $event['Event']);
+            }
+            $inventory = EventOverviewTool::mergeInventories($parts);
+        } else {
+            $inventory = $tool->inventory($user, $event['Event']);
+        }
         if ($this->_isRest()) {
             return $this->RestResponse->viewData($inventory, 'json');
         }

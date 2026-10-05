@@ -204,6 +204,70 @@ class EventOverviewToolTest extends TestCase
         $this->assertFalse(EventOverviewTool::isNarrower(0, 0, 0, 0));
     }
 
+    private function inventoryPart(array $groups, array $objects, array $rules, $narrower = 0)
+    {
+        $total = $ids = 0;
+        foreach ($groups as $group) {
+            $total += $group['total'];
+            $ids += $group['ids'];
+        }
+        return [
+            'total' => $total, 'ids' => $ids, 'context' => $total - $ids,
+            'narrower' => $narrower, 'narrower_in_objects' => 0,
+            'groups' => $groups,
+            'objects' => ['total' => array_sum($objects), 'by_name' => $objects],
+            'detection_rules' => $rules,
+        ];
+    }
+
+    public function testMergedInventoriesAddUpGroupsTypesAndObjects(): void
+    {
+        $merged = EventOverviewTool::mergeInventories([
+            1 => $this->inventoryPart(
+                [['group' => 'Network', 'total' => 3, 'ids' => 2, 'in_objects' => 1, 'types' => [
+                    ['type' => 'domain', 'total' => 2, 'ids' => 2], ['type' => 'url', 'total' => 1, 'ids' => 0],
+                ]]],
+                ['domain-ip' => 2],
+                [],
+                1
+            ),
+            7 => $this->inventoryPart(
+                [
+                    ['group' => 'File', 'total' => 1, 'ids' => 0, 'in_objects' => 0, 'types' => [['type' => 'filename', 'total' => 1, 'ids' => 0]]],
+                    ['group' => 'Network', 'total' => 4, 'ids' => 4, 'in_objects' => 0, 'types' => [['type' => 'url', 'total' => 4, 'ids' => 4]]],
+                ],
+                ['file' => 3, 'domain-ip' => 1],
+                [],
+                2
+            ),
+        ]);
+        $this->assertSame(8, $merged['total']);
+        $this->assertSame(6, $merged['ids']);
+        $this->assertSame(2, $merged['context']);
+        $this->assertSame(3, $merged['narrower']);
+        $this->assertSame(['Network', 'File'], array_column($merged['groups'], 'group'));
+        $this->assertSame(7, $merged['groups'][0]['total']);
+        $this->assertSame(
+            [['type' => 'url', 'total' => 5, 'ids' => 4], ['type' => 'domain', 'total' => 2, 'ids' => 2]],
+            $merged['groups'][0]['types']
+        );
+        $this->assertSame(['domain-ip' => 3, 'file' => 3], $merged['objects']['by_name']);
+        $this->assertSame(6, $merged['objects']['total']);
+    }
+
+    public function testMergedDetectionRulesKeepTheirEventAndStopAtFive(): void
+    {
+        $rule = function ($name) {
+            return ['type' => 'yara', 'name' => $name, 'object' => null];
+        };
+        $merged = EventOverviewTool::mergeInventories([
+            1 => $this->inventoryPart([], [], [$rule('a'), $rule('b'), $rule('c')]),
+            8 => $this->inventoryPart([], [], [$rule('d'), $rule('e'), $rule('f')]),
+        ]);
+        $this->assertSame(['a', 'b', 'c', 'd', 'e'], array_column($merged['detection_rules'], 'name'));
+        $this->assertSame([1, 1, 1, 8, 8], array_column($merged['detection_rules'], 'event_id'));
+    }
+
     public function testActivityHistogramRunsFromFirstChangeToToday(): void
     {
         $this->assertNull(EventOverviewTool::activityHistogram(['first' => null, 'days' => []], '2026-10-05'));

@@ -133,17 +133,80 @@ class EventOverviewTool
      *
      * @param array $user
      * @param array $event Event row: id, org_id, timestamp, distribution, sharing_group_id
+     * @param array|null $reference Event row "narrower" is judged against,
+     *        when that is not $event itself (an extension view's viewed event)
      * @return array
      */
-    public function inventory(array $user, array $event)
+    public function inventory(array $user, array $event, $reference = null)
     {
         $scope = $this->scope($user, $event);
-        return $this->cached('inventory-v2', $event, $scope, function () use ($scope, $event) {
-            return $this->computeInventory($scope, $event);
+        $kind = 'inventory-v2';
+        if ($reference !== null) {
+            $kind .= sprintf(':n%d-%d', (int)$reference['distribution'], (int)($reference['sharing_group_id'] ?? 0));
+        }
+        return $this->cached($kind, $event, $scope, function () use ($scope, $event, $reference) {
+            return $this->computeInventory($scope, $event, $reference ?? $event);
         });
     }
 
-    private function computeInventory(array $scope, array $event)
+    /**
+     * One inventory out of several events' own, keyed by event id, the viewed
+     * event first. Detection rules keep the event they come from.
+     *
+     * @param array $parts event id => inventory()
+     * @return array
+     */
+    public static function mergeInventories(array $parts)
+    {
+        $merged = [
+            'total' => 0, 'ids' => 0, 'context' => 0, 'narrower' => 0, 'narrower_in_objects' => 0,
+            'groups' => [], 'objects' => ['total' => 0, 'by_name' => []], 'detection_rules' => [],
+        ];
+        $groups = [];
+        foreach ($parts as $eventId => $part) {
+            foreach (['total', 'ids', 'context', 'narrower', 'narrower_in_objects'] as $key) {
+                $merged[$key] += (int)($part[$key] ?? 0);
+            }
+            foreach ($part['groups'] ?? [] as $group) {
+                $name = $group['group'];
+                if (!isset($groups[$name])) {
+                    $groups[$name] = ['group' => $name, 'total' => 0, 'ids' => 0, 'in_objects' => 0, 'types' => []];
+                }
+                $groups[$name]['total'] += $group['total'];
+                $groups[$name]['ids'] += $group['ids'];
+                $groups[$name]['in_objects'] += $group['in_objects'];
+                foreach ($group['types'] as $type) {
+                    $t = &$groups[$name]['types'][$type['type']];
+                    $t = ['type' => $type['type'], 'total' => ($t['total'] ?? 0) + $type['total'], 'ids' => ($t['ids'] ?? 0) + $type['ids']];
+                    unset($t);
+                }
+            }
+            foreach ($part['objects']['by_name'] ?? [] as $name => $count) {
+                $merged['objects']['by_name'][$name] = ($merged['objects']['by_name'][$name] ?? 0) + $count;
+            }
+            foreach ($part['detection_rules'] ?? [] as $rule) {
+                if (count($merged['detection_rules']) < 5) {
+                    $merged['detection_rules'][] = $rule + ['event_id' => (int)$eventId];
+                }
+            }
+        }
+        arsort($merged['objects']['by_name']);
+        $merged['objects']['total'] = array_sum($merged['objects']['by_name']);
+        foreach (self::GROUPS as $name) {
+            if (!isset($groups[$name])) {
+                continue;
+            }
+            $types = array_values($groups[$name]['types']);
+            usort($types, function ($a, $b) {
+                return [$b['ids'], $b['total'], $a['type']] <=> [$a['ids'], $a['total'], $b['type']];
+            });
+            $groups[$name]['types'] = $types;
+            $merged['groups'][] = $groups[$name];
+        }
+        return $merged;
+    }
+
+    private function computeInventory(array $scope, array $event, array $reference)
     {
         $rows = $this->Attribute->query(
             'SELECT a.type, a.to_ids, CASE WHEN a.object_id = 0 THEN 1 ELSE 0 END AS loose,'
@@ -161,8 +224,8 @@ class EventOverviewTool
             false
         );
 
-        $eventDist = (int)$event['distribution'];
-        $eventSg = (int)($event['sharing_group_id'] ?? 0);
+        $eventDist = (int)$reference['distribution'];
+        $eventSg = (int)($reference['sharing_group_id'] ?? 0);
         $groups = [];
         foreach (self::GROUPS as $name) {
             $groups[$name] = ['group' => $name, 'total' => 0, 'ids' => 0, 'in_objects' => 0, 'types' => []];
