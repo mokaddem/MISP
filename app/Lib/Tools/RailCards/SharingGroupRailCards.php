@@ -52,7 +52,11 @@ class SharingGroupRailCards
 
     /**
      * The events, attributes, objects, reports and galaxy clusters the user
-     * can see that are distributed to this sharing group.
+     * can see that reach this sharing group: distributed to it, or inheriting
+     * it from an event or object that is.
+     *
+     * Each way in is its own statement on an indexed sharing_group_id; one OR
+     * across the tables would leave nothing to drive the query.
      *
      * @param array $user
      * @param int $sgId
@@ -66,35 +70,60 @@ class SharingGroupRailCards
         $Report = ClassRegistry::init('EventReport');
         $Cluster = ClassRegistry::init('GalaxyCluster');
         $inEvent = ['Event' => ['fields' => ['Event.id']]];
+        $eventInGroup = ['Event.distribution' => 4, 'Event.sharing_group_id' => $sgId];
+        $own = function ($alias) use ($sgId) {
+            return ["$alias.distribution" => 4, "$alias.sharing_group_id" => $sgId];
+        };
         $kinds = [
             'events' => [$Event, __('Events'), 'event', 'misp-icon misp-icon-event misp-simple',
-                $Event->createEventConditions($user), [], []],
+                $Event->createEventConditions($user), [], [
+                    $own('Event'),
+                ]],
             'attributes' => [$Attribute, __('Attributes'), 'attribute', 'misp-icon misp-icon-attribute misp-simple',
-                $Attribute->buildConditions($user), $inEvent + ['Object' => ['fields' => ['Object.id']]],
-                ['Attribute.deleted' => 0]],
+                $Attribute->buildConditions($user), $inEvent + ['Object' => ['fields' => ['Object.id']]], [
+                    $own('Attribute') + ['Attribute.deleted' => 0],
+                    $eventInGroup + [
+                        'Attribute.distribution' => 5,
+                        'Attribute.deleted' => 0,
+                        'OR' => ['Attribute.object_id' => 0, 'Object.distribution' => 5],
+                    ],
+                    $own('Object') + ['Attribute.distribution' => 5, 'Attribute.deleted' => 0],
+                ]],
             'objects' => [$Object, __('Objects'), 'object', 'misp-icon misp-icon-object misp-simple',
-                $Object->buildConditions($user), $inEvent, ['Object.deleted' => 0]],
+                $Object->buildConditions($user), $inEvent, [
+                    $own('Object') + ['Object.deleted' => 0],
+                    $eventInGroup + ['Object.distribution' => 5, 'Object.deleted' => 0],
+                ]],
             'reports' => [$Report, __('Reports'), 'report', 'misp-icon misp-icon-report misp-simple',
-                $Report->buildACLConditions($user), $inEvent, ['EventReport.deleted' => 0]],
+                $Report->buildACLConditions($user), $inEvent, [
+                    $own('EventReport') + ['EventReport.deleted' => 0],
+                    $eventInGroup + ['EventReport.distribution' => 5, 'EventReport.deleted' => 0],
+                ]],
             'clusters' => [$Cluster, __('Galaxy clusters'), 'galaxy', 'misp-icon misp-icon-galaxy misp-simple',
-                $Cluster->buildConditions($user), [], ['GalaxyCluster.deleted' => 0]],
+                $Cluster->buildConditions($user), [], [
+                    $own('GalaxyCluster') + ['GalaxyCluster.deleted' => 0],
+                ]],
         ];
         $groups = [];
         $capped = false;
-        foreach ($kinds as $key => list($model, $label, $colour, $icon, $acl, $contain, $live)) {
-            $conditions = $live + [
-                $model->alias . '.distribution' => 4,
-                $model->alias . '.sharing_group_id' => $sgId,
-            ];
-            if (!empty($acl)) {
-                $conditions['AND'][] = $acl;
+        foreach ($kinds as $key => list($model, $label, $colour, $icon, $acl, $contain, $scopes)) {
+            $count = 0;
+            foreach ($scopes as $scope) {
+                if ($count >= self::COUNT_CAP) {
+                    $capped = true;
+                    break;
+                }
+                if (!empty($acl)) {
+                    $scope['AND'][] = $acl;
+                }
+                list($found, $hitCap) = RailCard::countUpTo($model, [
+                    'recursive' => -1,
+                    'conditions' => $scope,
+                    'contain' => $contain,
+                ], self::COUNT_CAP - $count);
+                $count += $found;
+                $capped = $capped || $hitCap;
             }
-            list($count, $hitCap) = RailCard::countUpTo($model, [
-                'recursive' => -1,
-                'conditions' => $conditions,
-                'contain' => empty($acl) ? [] : $contain,
-            ], self::COUNT_CAP);
-            $capped = $capped || $hitCap;
             if ($count) {
                 $groups[] = [
                     'key' => $key,
