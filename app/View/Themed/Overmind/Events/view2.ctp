@@ -35,8 +35,9 @@
     $this->set('headerActions', $headerActions);
 
     echo $this->element('genericElements/assetLoader', [
-        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min', 'event-overview', 'event-matrix'],
-        'css' => ['event-overview', 'misp-matrix'],
+        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min', 'event-overview', 'event-matrix',
+            'misp-brush', 'misp-timeline', 'event-seen-timeline'],
+        'css' => ['event-overview', 'misp-matrix', 'misp-brush', 'misp-timeline'],
     ]);
 
     // Extended / extending view: say so, and carry the mode into every lazy
@@ -137,16 +138,16 @@
                     'Events/View/event_pivot_explorer',
                 ],
             ],
-            // [
-            //     'id' => 'timeline',
-            //     'title' => __('Timeline'),
-            //     'icon' => 'fas fa-clock',
+            [
+                'id' => 'timeline',
+                'title' => __('Timeline'),
+                'icon' => 'fas fa-clock',
 
-            //     // Content
-            //     'left' => [
-            //         'Events/View/event_timeline',
-            //     ],
-            // ],
+                // Content
+                'left' => [
+                    'Events/View/event_timeline',
+                ],
+            ],
             [
                 'id' => 'history',
                 'title' => __('History'),

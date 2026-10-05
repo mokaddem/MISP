@@ -343,3 +343,100 @@
     .eo-rows { grid-template-columns: 1fr; }
     .eo-rows dt { border-bottom: 0; padding-bottom: 0; }
 }
+
+/* ── Timeline tab (event-seen-timeline.js on misp-timeline.js) ───── */
+.etl {
+    --etl-tile-bg: var(--misp-tone-cyan-bg, #cff4fc);
+    --etl-tile-fg: var(--misp-tone-cyan-solid, #087990);
+    --etl-notice: var(--bs-warning);
+    min-width: 0;
+}
+[data-misp-mode="dark"] .etl { --etl-tile-fg: var(--misp-tone-cyan-fg, #6edff6); }
+.etl-busy .etl-ledger, .etl-busy .etl-window { opacity: .55; transition: opacity .15s ease .15s; }
+.etl-notice-error { --etl-notice: var(--bs-danger); }
+.etl-notice .btn-link { font-size: inherit; padding: 0; vertical-align: baseline; }
+@media (max-width: 1440px) {
+    .etl .etl-kind .etl-kind-n { display: none; }
+    .etl .etl-search { width: 10rem; }
+    .etl .etl-sub-events { display: none; }
+    .etl .etl-toolbar .form-select { max-width: 8.5rem; }
+}
+.etl-tile {
+    width: 36px; height: 36px; flex: none;
+    background: var(--etl-tile-bg);
+    color: var(--etl-tile-fg);
+}
+.etl-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+    margin-left: auto; min-width: 0;
+}
+.etl-toolbar .form-select { max-width: 13rem; }
+.etl-search { width: 15rem; max-width: 100%; }
+.etl-kind .btn { white-space: nowrap; }
+.etl-kind .etl-kind-n {
+    font-variant-numeric: tabular-nums; opacity: .7; margin-left: .25rem;
+}
+
+.etl-body { padding: 1rem; }
+
+.etl-notice {
+    display: flex; gap: .65rem; align-items: flex-start;
+    padding: .55rem .8rem; margin-bottom: .85rem;
+    border-left: 3px solid var(--etl-notice);
+    background: color-mix(in srgb, var(--etl-notice) 9%, transparent);
+    border-radius: 0 4px 4px 0;
+    font-size: .82rem;
+}
+.etl-notice > i { margin-top: .2rem; color: color-mix(in srgb, var(--etl-notice) 70%, var(--bs-body-color)); }
+.etl-notice b { font-weight: 600; }
+.etl-notice .etl-muted { color: var(--bs-secondary-color); }
+.etl-window {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    margin-bottom: .5rem; font-size: .8rem;
+}
+.etl-window-range { font-weight: 600; font-variant-numeric: tabular-nums; }
+.etl-window-meta { color: var(--bs-secondary-color); }
+.etl-window .btn-link { font-size: .78rem; padding: 0; }
+.etl-chip {
+    flex: none; max-width: 9rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 0 .4rem; border-radius: 3px;
+    font-size: .68rem; font-weight: 600; line-height: 1.35rem;
+}
+.etl-chip-attr {
+    color: color-mix(in srgb, var(--misp-timeline-attribute) 42%, var(--bs-body-color));
+    background: color-mix(in srgb, var(--misp-timeline-attribute) 15%, transparent);
+}
+.etl-chip-obj {
+    color: color-mix(in srgb, var(--misp-timeline-object) 80%, var(--bs-body-color));
+    background: color-mix(in srgb, var(--misp-timeline-object) 13%, transparent);
+}
+.etl-cat {
+    flex: none; width: 7.5rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: .72rem; font-style: italic; color: var(--bs-secondary-color);
+}
+@media (max-width: 1440px) { .etl-cat { width: 6rem; } }
+.etl-origin { flex: none; font-size: .64rem; }
+.etl-undated {
+    display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+    margin-top: .75rem; font-size: .8rem; color: var(--bs-secondary-color);
+}
+.etl-undated .btn-link { font-size: .8rem; padding: 0; vertical-align: baseline; }
+
+.etl-empty {
+    display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start;
+    padding: 1.75rem 1.25rem;
+    border: 1px dashed var(--bs-border-color); border-radius: 6px;
+    background-image: repeating-linear-gradient(135deg, var(--bs-secondary-bg) 0 6px, transparent 6px 12px);
+}
+.etl-empty-ico {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+    color: var(--bs-secondary-color);
+}
+.etl-empty h3 { font-size: .95rem; font-weight: 600; margin: 0 0 .25rem; }
+.etl-empty p { margin: 0; font-size: .82rem; color: var(--bs-secondary-color); max-width: 62ch; }
+.etl-empty .etl-undated { margin-top: .6rem; color: var(--bs-body-color); }
+.etl-empty-box { background: var(--bs-body-bg); padding: .6rem .8rem; border-radius: 4px; justify-self: start; }
