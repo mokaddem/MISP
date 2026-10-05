@@ -90,7 +90,6 @@ class EventReportsController extends AppController
             $user = $this->Auth->user();
             $railCards = new EventReportRailCards();
             $this->set('railCards', RailCard::byId([
-                $railCards->outline($report),
                 $railCards->mentions($user, $report),
                 $railCards->siblings($user, $report),
             ]));

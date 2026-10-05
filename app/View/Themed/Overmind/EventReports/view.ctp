@@ -28,7 +28,7 @@
                     'EventReports/View/eventReport_actions',
                     'EventReports/View/eventReport_analyst_data',
                 ], $this->RailCard->rail($railCards, [
-                    'report-siblings', 'report-outline', 'report-mentions',
+                    'report-siblings', 'report-mentions',
                 ], 'general')),
             ],
             [

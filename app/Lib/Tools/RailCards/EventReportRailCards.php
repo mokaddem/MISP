@@ -8,7 +8,6 @@ App::uses('Validation', 'Utility');
  */
 class EventReportRailCards
 {
-    const OUTLINE_LIMIT = 12;
     const FACET_LIMIT = 5;
     const SIBLING_LIMIT = 6;
 
@@ -36,54 +35,6 @@ class EventReportRailCards
             }
         }
         return $lines;
-    }
-
-    /**
-     * The report's sections: its top-level headings, each with the number of
-     * headings under it.
-     *
-     * @param array $report
-     * @return array
-     */
-    public function outline(array $report)
-    {
-        $headings = [];
-        foreach ($this->proseLines($report['EventReport']['content'] ?? '') as $line) {
-            if (preg_match('/^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/', $line, $m)) {
-                $text = preg_replace('/@!?\[[a-z]+\]\(([^)\n]*)\)/', '$1', $m[2]);
-                $text = preg_replace('/!?\[([^\]]*)\]\([^)]*\)/', '$1', $text);
-                $text = trim(preg_replace('/[*_`]+/', '', $text));
-                if ($text !== '') {
-                    $headings[] = [strlen($m[1]), $text];
-                }
-            }
-        }
-        $rows = [];
-        if (!empty($headings)) {
-            $top = min(array_column($headings, 0));
-            foreach ($headings as list($level, $text)) {
-                if ($level === $top) {
-                    $rows[] = ['label' => $text, 'count' => 0];
-                } else if (!empty($rows)) {
-                    $rows[count($rows) - 1]['count']++;
-                } else {
-                    $rows[] = ['label' => $text, 'count' => 0];
-                }
-            }
-            foreach ($rows as $i => $row) {
-                $rows[$i]['meta'] = $row['count'] ? [__n('%s subsection', '%s subsections', $row['count'], $row['count'])] : [];
-                $rows[$i]['count'] = null;
-            }
-        }
-        $count = count($rows);
-        return RailCard::rows(
-            'report-outline',
-            __('Outline'),
-            'fas fa-list-ol',
-            array_slice($rows, 0, self::OUTLINE_LIMIT),
-            $count > self::OUTLINE_LIMIT ? ['label' => __('%s more sections', $count - self::OUTLINE_LIMIT), 'href' => null] : null,
-            ['empty' => __('The report has no heading.')]
-        );
     }
 
     /**
