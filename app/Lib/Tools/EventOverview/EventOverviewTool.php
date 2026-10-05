@@ -100,7 +100,7 @@ class EventOverviewTool
         return $distribution === 4 && isset($scope['sgids'][(int)$sharingGroupId]);
     }
 
-    private function cached($kind, array $event, array $scope, callable $compute, $allowCompute = true)
+    public function cached($kind, array $event, array $scope, callable $compute, $allowCompute = true)
     {
         $key = self::CACHE_PREFIX . $kind . ':' . (int)$event['id'] . ':' . (int)$event['timestamp'] . ':' . $scope['key'];
         try {

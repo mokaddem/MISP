@@ -7,6 +7,7 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
 App::uses('EventOverviewTool', 'Tools/EventOverview');
 App::uses('EventContextTool', 'Tools/EventOverview');
 App::uses('EventMatrixTool', 'Tools/EventOverview');
+App::uses('EventSeenTimelineTool', 'Tools/EventOverview');
 App::uses('GalaxyMatrixLayout', 'Tools');
 App::uses('RedisTool', 'Tools');
 
@@ -4268,6 +4269,69 @@ class EventsController extends AppController
         $this->set('histogram', $histogram);
         $this->set('event', $event);
         $this->layout = false;
+    }
+
+    /**
+     * The Timeline tab's data, as JSON: how many attributes and objects are
+     * seen across the event's span, and those seen within a window of it.
+     *
+     * Query: from, to (`Y-m-d`), q, kind (attribute|object), types[],
+     * objects[], categories[], events[]; or object (an object id) for that
+     * object's dated attributes alone. Honours extended:1 / extending:1.
+     *
+     * @param int|string $id Event ID or UUID
+     */
+    public function viewEventTimeline($id = null)
+    {
+        $user = $this->Auth->user();
+        $event = $this->__overviewEvent($id);
+        $extensionSet = $this->__extensionViewContext($user, $event);
+        $members = [];
+        foreach ($extensionSet['ids'] as $memberId) {
+            $members[] = (int)$memberId === (int)$event['Event']['id']
+                ? $event['Event']
+                : $this->__overviewEvent($memberId)['Event'];
+        }
+        $tool = new EventSeenTimelineTool();
+        $query = $this->request->query;
+
+        if (isset($query['object'])) {
+            $children = $tool->objectChildren($user, $members, (int)$query['object']);
+            if ($children === null) {
+                throw new NotFoundException(__('Invalid object'));
+            }
+            return $this->RestResponse->viewData($children, 'json');
+        }
+
+        $list = function ($key) use ($query) {
+            $values = $query[$key] ?? [];
+            return array_values(array_filter(
+                array_map('strval', is_array($values) ? $values : [$values]),
+                'strlen'
+            ));
+        };
+        $timeline = $tool->timeline($user, $members, [
+            'from' => $query['from'] ?? null,
+            'to' => $query['to'] ?? null,
+            'q' => isset($query['q']) ? (string)$query['q'] : null,
+            'kind' => $query['kind'] ?? null,
+            'types' => $list('types'),
+            'objects' => $list('objects'),
+            'categories' => $list('categories'),
+            'events' => $list('events'),
+        ], gmdate('Y-m-d'));
+
+        $timeline['events'] = [];
+        foreach ($extensionSet['events'] as $memberId => $member) {
+            $timeline['events'][(int)$memberId] = [
+                'id' => (int)$member['id'],
+                'uuid' => $member['uuid'],
+                'info' => $member['info'],
+                'role' => $member['role'],
+                'color' => $member['palette']['badgeBorder'] ?? null,
+            ];
+        }
+        return $this->RestResponse->viewData($timeline, 'json');
     }
 
     /**
