@@ -157,17 +157,18 @@ body[data-controller="users"][data-action="change_pw"] {
     align-items: center;
 }
 
-:where([data-misp-theme="overmind"]) .dropdown-item:hover {
-    background-color: var(--primary);
-    color: #fff;
-}
-
 /* A destructive item hovers red, not teal under red text. */
 .dropdown-item.text-danger:hover,
 .dropdown-item.text-danger:focus-visible,
 .dropdown-item.text-danger:active {
     background-color: var(--bs-danger);
     color: #fff !important;
+}
+/* Overmind hovers with a tint, as its navbar does. */
+[data-misp-theme="overmind"] .dropdown-item.text-danger:hover,
+[data-misp-theme="overmind"] .dropdown-item.text-danger:focus-visible {
+    background-color: rgba(var(--bs-danger-rgb), .1);
+    color: var(--bs-danger-text-emphasis) !important;
 }
 [data-misp-mode="dark"] .dropdown-item.text-danger:not(:hover):not(:focus-visible):not(:active) {
     color: var(--bs-danger-text-emphasis) !important;
