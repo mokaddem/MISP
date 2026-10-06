@@ -1188,6 +1188,11 @@ class FeedsController extends AppController
             return $this->RestResponse->viewData($events, $this->response->type());
         }
         $this->set('events', $events);
+        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        $this->set('labelPlan', ValueLabelPriority::planFor(
+            ClassRegistry::init('AnalystProfile')
+                ->resolveFor($this->Auth->user())
+        ));
         $this->loadModel('Event');
         $this->set('threatLevels', $this->Event->ThreatLevel->listThreatLevels());
         $this->set('eventDescriptions', $this->Event->fieldDescriptions);
