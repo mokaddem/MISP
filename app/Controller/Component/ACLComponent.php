@@ -1158,6 +1158,8 @@ class ACLComponent extends Component
             'viewHoverEnrichment' => array('theming_enabled'),
             'viewSightings' => array('theming_enabled'),
             'viewLifecycle' => array('theming_enabled'),
+            'viewMatrix' => array('theming_enabled'),
+            'viewGalaxyMatrix' => array('theming_enabled'),
             'viewExternal' => array('theming_enabled'),
             'viewVerdict' => array('theming_enabled'),
             'viewVerdictAside' => array('theming_enabled'),

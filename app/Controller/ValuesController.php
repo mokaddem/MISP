@@ -869,6 +869,41 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Overview rail's galaxy matrix card, empty when the value carries
+     * no matrix technique.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewMatrix($b64value = null)
+    {
+        $this->__renderLivePanel($b64value, 'forMatrix', 'value_matrix');
+    }
+
+    /**
+     * One matrix galaxy in full, for the matrix card's modal (`?tab=`).
+     *
+     * @param string $b64value
+     * @param int $galaxyId
+     * @return void
+     */
+    public function viewGalaxyMatrix($b64value = null, $galaxyId = null)
+    {
+        $this->loadModel('ValueProfile');
+        $tab = $this->request->query('tab');
+        $profile = $this->ValueProfile->forGalaxyMatrix(
+            $this->Auth->user(),
+            $this->__decodeValue($b64value),
+            $galaxyId,
+            is_string($tab) ? $tab : null
+        );
+        if ($profile === null) {
+            throw new NotFoundException(__('Invalid galaxy'));
+        }
+        $this->__renderPanel($profile, 'value_galaxy_matrix');
+    }
+
+    /**
      * The Overview's external presence card.
      *
      * Live for feeds and sync servers, and a count rather than a list:

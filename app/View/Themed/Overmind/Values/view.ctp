@@ -16,9 +16,10 @@ App::uses('ValueLean', 'Tools/ValueProfile');
  */
 echo $this->element('genericElements/assetLoader', array(
     'css' => array(
-        'value-palette', 'value-widgets', 'misp-brush', 'value-profile',
+        'value-palette', 'value-widgets', 'misp-brush', 'misp-matrix',
+        'value-profile',
     ),
-    'js' => array('Chart.min', 'misp-brush', 'value-profile'),
+    'js' => array('Chart.min', 'misp-brush', 'misp-matrix', 'value-profile'),
 ));
 
 $profile = $valueProfile;
@@ -257,6 +258,9 @@ $panelChrome = array(
         $await(__('Lifecycle'), 'fas fa-hourglass-half',
             'var(--correlation)'),
     ),
+    // No skeleton: most values carry no matrix technique, and the card
+    // only appears when one does.
+    'viewMatrix' => array(),
     'viewExternal' => array(
         $await(__('External presence'), 'fas fa-cloud-arrow-down',
             'var(--enrichment)'),
@@ -572,14 +576,6 @@ $tabRegistry = array(
          * and the strip is the Timeline tab's *Activity on this value*,
          * each read through that tab's own method.
          *
-         * The rail is untouched, deliberately. Its four cards summed to
-         * 1466px against the left column's 1483 — within 2% — so it,
-         * and not the occurrence card, is what sets this tab's height
-         * once the card is shortened. A fifth rail card would have made
-         * the Overview taller while the complaint was that it is too
-         * tall. `31-overview-balance.md` §5 has the candidate that lost
-         * on exactly that count.
-         *
          * **Enrichment leads the column, and only where there is an
          * answer to lead with.** The Overview refused anything from
          * that tab for three phases, on the grounds that everything
@@ -602,8 +598,9 @@ $tabRegistry = array(
         'left' => $overviewLeft,
         'right' => array(
             $panel('viewVerdictCard'),
-            $panel('viewSightings'),
             $panel('viewLifecycle'),
+            $panel('viewMatrix'),
+            $panel('viewSightings'),
             $panel('viewExternal'),
         ),
     ),

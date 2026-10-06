@@ -11295,3 +11295,19 @@ a.vp-lane-tag:focus-visible {
 .vp-eb-cell-wait .vp-eb-cell-none-w {
     font-style: normal;
 }
+
+/* The galaxy matrix's weaker state is "only on its events" here, not
+ * "only on indicators" as on the event page. */
+html:root {
+    --misp-matrix-ind-bg: color-mix(in srgb, var(--bs-event) 7%, var(--bs-body-bg));
+    --misp-matrix-ind-border: color-mix(in srgb, var(--bs-event) 78%, var(--bs-body-color));
+    --misp-matrix-ind-hover: color-mix(in srgb, var(--bs-event) 16%, var(--bs-body-bg));
+    --misp-matrix-ind-icon: color-mix(in srgb, var(--bs-event) 75%, var(--bs-body-color));
+}
+
+html:root[data-misp-mode="dark"] {
+    --misp-matrix-ind-bg: color-mix(in srgb, var(--bs-event) 6%, var(--bs-body-bg));
+    --misp-matrix-ind-border: color-mix(in srgb, var(--bs-event) 80%, transparent);
+    --misp-matrix-ind-hover: color-mix(in srgb, var(--bs-event) 14%, var(--bs-body-bg));
+    --misp-matrix-ind-icon: var(--bs-event);
+}

@@ -28,6 +28,7 @@ App::uses('AuditActionMeta', 'Tools/ValueProfile');
 App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
 App::uses('ValueHoverTool', 'Tools/ValueProfile');
 App::uses('JsonTool', 'Tools');
+App::uses('EventMatrixTool', 'Tools/EventOverview');
 /*
  * For `NON_CORRELATING_TYPES` — the constant, not the model, so the
  * class has to be loaded rather than instantiated through `model()`.
@@ -172,6 +173,12 @@ class ValueProfile extends AppModel
      * see less of a value be shown more of its clusters.
      */
     const CONTEXT_GALAXY_CAP = 40;
+
+    /**
+     * The matrix card's guard: ATT&CK alone holds some 800 techniques, so
+     * the context card's cap would cut a well-labelled value short.
+     */
+    const MATRIX_GALAXY_CAP = 1000;
 
     /**
      * Most recent first. A value's newest occurrence is the one a
@@ -2422,6 +2429,139 @@ class ValueProfile extends AppModel
             return $b['count'] - $a['count'];
         });
         return $merged;
+    }
+
+    /**
+     * The Overview rail's galaxy matrix: the techniques of every matrix
+     * galaxy the value's occurrences, or the events holding it, are
+     * tagged with, by tactic.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array `value` and `matrix`, as EventMatrixTool::compact()
+     *     draws it with no origins and nothing left to roll up
+     */
+    public function forMatrix(array $user, $value,
+        array $options = array()
+    ) {
+        $hits = $this->matrixHits($user, $value, $options);
+        $parentNames = $this->model('Galaxy')->matrixParentNames(
+            EventMatrixTool::missingParents($hits),
+            $user
+        );
+        return array(
+            'value' => $value,
+            'matrix' => array(
+                'rolledUp' => true,
+                'galaxies' => EventMatrixTool::compact(
+                    $hits,
+                    0,
+                    $parentNames
+                ),
+                'origins' => array(),
+            ),
+        );
+    }
+
+    /**
+     * One matrix galaxy in full, for the matrix modal.
+     *
+     * @param array $user
+     * @param string $value
+     * @param int $galaxyId
+     * @param string|null $tab The tab to draw; the busiest when null
+     * @return array|null `value` and `matrix`, as EventMatrixTool::full();
+     *     null when the galaxy is no matrix this user may see
+     */
+    public function forGalaxyMatrix(array $user, $value, $galaxyId,
+        $tab = null
+    ) {
+        $galaxyModel = $this->model('Galaxy');
+        $galaxy = $galaxyModel->find('first', array(
+            'recursive' => -1,
+            'conditions' => array(
+                'Galaxy.id' => (int)$galaxyId,
+                $galaxyModel->buildConditions($user),
+            ),
+        ));
+        if (
+            empty($galaxy)
+            || !EventMatrixTool::isMatrixGalaxy($galaxy['Galaxy'])
+        ) {
+            return null;
+        }
+        $matrix = EventMatrixTool::full(
+            $galaxyModel->matrixSkeleton($user, $galaxy['Galaxy']),
+            $galaxy['Galaxy'],
+            $this->matrixHits($user, $value),
+            0,
+            $tab
+        );
+        $matrix['origins'] = array();
+        return array('value' => $value, 'matrix' => $matrix);
+    }
+
+    /**
+     * The value's galaxy tags as EventMatrixTool hits: a cluster on any
+     * occurrence is the strong state, one only on the events holding the
+     * value the weaker, counted in events.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array
+     */
+    private function matrixHits(array $user, $value,
+        array $options = array()
+    ) {
+        $valueModel = $this->model('Value');
+        $options += array('galaxy' => true);
+        $tags = $this->mergeTagScopes(
+            $valueModel->topTagsFor(
+                $user,
+                $value,
+                self::MATRIX_GALAXY_CAP,
+                $options
+            ),
+            $valueModel->eventTagsFor(
+                $user,
+                $value,
+                self::MATRIX_GALAXY_CAP,
+                $options
+            )
+        );
+        if (empty($tags)) {
+            return array();
+        }
+        $names = array();
+        $byName = array();
+        foreach ($tags as $name => $row) {
+            $names[$row['tag']['id']] = $name;
+            $byName[strtolower($name)] = $row;
+        }
+        $clusters = $this->model('GalaxyCluster')->getClustersByTags(
+            $names,
+            $user,
+            true,
+            false
+        );
+        $hits = array();
+        foreach ($clusters as $cluster) {
+            $cluster = $cluster['GalaxyCluster'];
+            $row = $byName[strtolower($cluster['tag_name'])] ?? null;
+            if ($row === null) {
+                continue;
+            }
+            $hits[] = array(
+                'cluster' => $cluster,
+                'event' => empty($row['occurrences']) ? array() : array(0),
+                'indicators' => empty($row['events'])
+                    ? array()
+                    : array(0 => $row['events']),
+            );
+        }
+        return $hits;
     }
 
     /**
