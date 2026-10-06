@@ -763,7 +763,7 @@
             return {
                 rules: [
                     { kind: 'landings',   enabled: true,  minSize: GROUP_MIN_SIZE },
-                    { kind: 'neighbours', enabled: false, minSize: GROUP_MIN_SIZE },
+                    { kind: 'neighbours', enabled: true,  minSize: GROUP_MIN_SIZE },
                     { kind: 'chains',     enabled: false, minSize: GROUP_MIN_SIZE },
                     { kind: 'degree',      enabled: false },
                     { kind: 'kcore',       enabled: false },
