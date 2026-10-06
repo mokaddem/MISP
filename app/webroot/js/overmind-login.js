@@ -306,7 +306,7 @@
         if (!raf) {
             draw();
         }
-    }).observe(root, {attributes: true, attributeFilter: ['data-bs-theme']});
+    }).observe(root, {attributes: true, attributeFilter: ['data-misp-mode']});
 
     readPalette();
     resize();

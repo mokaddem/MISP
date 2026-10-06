@@ -106,7 +106,7 @@
     --oml-c-node-alpha: 0.55;
 }
 
-[data-bs-theme="dark"] .oml {
+[data-misp-mode="dark"] .oml {
     --oml-ground-top: #061c25;
     --oml-ground-mid: #0C3A4A;
     --oml-ground-bottom: #13718E;
@@ -246,8 +246,8 @@
 }
 
 .oml-logo-dark { display: none !important; }
-[data-bs-theme="dark"] .oml-logo-light { display: none !important; }
-[data-bs-theme="dark"] .oml-logo-dark { display: block !important; }
+[data-misp-mode="dark"] .oml-logo-light { display: none !important; }
+[data-misp-mode="dark"] .oml-logo-dark { display: block !important; }
 
 .oml-brand-partners {
     display: flex;
