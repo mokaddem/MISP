@@ -31,6 +31,7 @@
     }
 
     $this->set('headerTitle', $headerTitle);
+    $this->set('headerBreadcrumbSuffix', '#' . $event['Event']['id']);
     $this->set('headerDescription', $headerDescription);
     $this->set('headerActions', $headerActions);
 
