@@ -150,10 +150,14 @@
 }
 .eo-switch [data-eo-graph-mode]:disabled { opacity: .45; cursor: not-allowed; }
 .eo-switch [data-eo-graph-mode]:focus-visible { outline: 2px solid var(--bs-correlation); outline-offset: 1px; }
-.eo-graph-pick { min-width: 14rem; max-width: 22rem; font-size: .84rem; }
-.eo-graph-pick .dropdown-item { display: flex; align-items: baseline; gap: .75rem; }
-.eo-graph-pick-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.eo-graph-pick-size { flex-shrink: 0; font-size: .76rem; opacity: .7; }
+.eo-graph-pick { min-width: 15rem; max-width: 22rem; padding: .35rem 0; font-size: .875rem; }
+.eo-graph-pick .dropdown-item { display: flex; align-items: center; gap: .55rem; padding: .45rem .9rem; }
+.eo-graph-pick .dropdown-item[aria-current="true"]:not(:hover):not(:focus):not(:active) {
+    background: color-mix(in srgb, var(--bs-primary) 16%, var(--bs-dropdown-bg)); color: var(--bs-emphasis-color);
+}
+.eo-graph-pick-mark { flex: 0 0 1rem; width: 1rem; }
+.eo-graph-pick-name { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eo-graph-pick .badge { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .eo-graph-strip { margin: 0; padding: .6rem 1rem; }
 .eo-graph-strip.card { flex-direction: row; align-items: center; flex-wrap: wrap; gap: .25rem .75rem; font-size: .86rem; }
 .eo-graph-strip .eo-card-title { font-size: .9rem; }

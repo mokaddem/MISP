@@ -149,8 +149,7 @@ $reportOrigin = function ($originId) {
              data-eo-text-counts="<?= h(__('%1$s objects, %2$s references')) ?>"
              data-eo-text-saved="<?= h(__('Saved graph: %s')) ?>"
              data-eo-text-saved-count="<?= h(__('%s saved graphs')) ?>"
-             data-eo-text-node-count="<?= h(__('%s nodes')) ?>"
-             data-eo-text-no-nodes="<?= h(__('empty')) ?>">
+             data-eo-text-node-count="<?= h(__('%s nodes')) ?>">
             <div class="eo-card-head">
                 <div class="misp-icon-tile eo-tile" style="--tile:var(--bs-correlation);--tile-bg:color-mix(in srgb, var(--bs-correlation) 12%, transparent);">
                     <i class="fas fa-circle-nodes"></i>

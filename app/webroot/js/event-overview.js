@@ -433,17 +433,23 @@
             graphs.forEach(function (g) {
                 var item = document.createElement('button');
                 item.type = 'button';
-                item.className = 'dropdown-item' + (g === saved ? ' active' : '');
+                item.className = 'dropdown-item';
                 item.setAttribute('aria-current', g === saved ? 'true' : 'false');
+                var mark = document.createElement('span');
+                mark.className = 'eo-graph-pick-mark';
+                if (g === saved) {
+                    var check = document.createElement('i');
+                    check.className = 'fas fa-check';
+                    mark.appendChild(check);
+                }
                 var name = document.createElement('span');
                 name.className = 'eo-graph-pick-name';
                 name.textContent = g.name || g.uuid;
                 var size = document.createElement('span');
-                size.className = 'eo-graph-pick-size';
-                size.textContent = g.node_count > 0
-                    ? fmt(card.getAttribute('data-eo-text-node-count'), [g.node_count])
-                    : card.getAttribute('data-eo-text-no-nodes');
-                item.append(name, size);
+                size.className = 'badge rounded-pill text-bg-secondary';
+                size.textContent = String(g.node_count || 0);
+                size.title = fmt(card.getAttribute('data-eo-text-node-count'), [g.node_count || 0]);
+                item.append(mark, name, size);
                 item.addEventListener('click', function () {
                     saved = g;
                     fillPick(graphs);
