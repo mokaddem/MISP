@@ -5732,6 +5732,28 @@ const AJAX_CONTAINER_SELECTOR = '.ajax-tab-content, .ajax-card';
 let ajaxLoadToken = 0;
 
 /**
+ * Responses of the containers marked data-share, by URL: a panel placed on
+ * several tabs is fetched once and drawn from the same answer everywhere.
+ */
+const sharedAjaxResponses = new Map();
+
+function fetchAjaxContainerHtml(url, shared) {
+    if (shared && sharedAjaxResponses.has(url)) {
+        return sharedAjaxResponses.get(url);
+    }
+    const response = fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.text();
+        });
+    if (shared) {
+        sharedAjaxResponses.set(url, response);
+        response.catch(() => sharedAjaxResponses.delete(url));
+    }
+    return response;
+}
+
+/**
  * Fetch an ajax container's URL into it, once, and run the scripts it brings.
  *
  * @param {Element} container carries data-url, gains data-loaded
@@ -5757,16 +5779,19 @@ function loadAjaxContainer(container) {
     const token = String(++ajaxLoadToken);
     container.dataset.loadToken = token;
 
-    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(res => {
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.text();
-        })
+    fetchAjaxContainerHtml(url, !!container.dataset.share)
         .then(html => {
             if (container.dataset.loadToken !== token) return;
             container.classList.remove('is-loading');
             container.innerHTML = html;
             container.dataset.loaded = '1';
+            // A link to the tab the panel already sits on goes nowhere
+            const pane = container.closest('.tab-pane');
+            if (pane && pane.id) {
+                container.querySelectorAll('[data-hide-on-own-tab]').forEach(function (link) {
+                    if (link.getAttribute('href') === '#' + pane.id) link.remove();
+                });
+            }
 
             // innerHTML does not execute <script>, so re-create each one.
             container.querySelectorAll('script').forEach(function (oldScript) {

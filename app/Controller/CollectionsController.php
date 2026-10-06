@@ -2,6 +2,7 @@
 App::uses('AppController', 'Controller');
 App::uses('ValueUrlTool', 'Tools/ValueProfile');
 App::uses('Value', 'Model');
+App::uses('CollectionRailCards', 'Tools/RailCards');
 
 class CollectionsController extends AppController
 {
@@ -430,6 +431,14 @@ class CollectionsController extends AppController
             'options'   => [],
             'paramType' => 'named',
         ];
+
+        if ($this->theme === 'Overmind') {
+            $railCards = new CollectionRailCards();
+            $this->set('railCards', RailCard::byId([
+                $railCards->inventory($elements),
+                $railCards->sources($elements),
+            ]));
+        }
 
         $this->set('id', $id);
         $this->loadModel('Event');

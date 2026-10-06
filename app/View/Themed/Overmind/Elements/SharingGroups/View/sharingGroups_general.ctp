@@ -110,19 +110,6 @@
                     </div>
                 </div>
             <?php endif; ?>
-
-            <!-- LINKED EVENTS -->
-            <div class="col-md-4">
-                <div class="text-muted small text-uppercase fw-bold mb-1">
-                    <?= __('Linked Events') ?>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <a href="<?= $baseurl ?>/events/index/searchsharinggroup:<?= h($sharingGroup['id']) ?>" class="btn btn-sm btn-outline-event rounded-pill px-3 fw-bold">
-                        <i class="misp-icon misp-icon-event misp-simple me-1"></i>
-                        <?= __n('%s event', '%s events', $sharingGroup['event_count'], $sharingGroup['event_count']) ?>
-                    </a>
-                </div>
-            </div>
         </div>
     </div>
 </div>

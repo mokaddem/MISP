@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('GalaxyClusterRailCards', 'Tools/RailCards');
 
 /**
  * @property GalaxyCluster $GalaxyCluster
@@ -208,6 +209,16 @@ class GalaxyClustersController extends AppController
         $this->GalaxyCluster->attachExtendByInfo($this->Auth->user(), $clusters);
         $cluster = $clusters[0];
         $cluster = $this->GalaxyCluster->attachExtendFromInfo($this->Auth->user(), $cluster);
+        if ($this->theme === 'Overmind') {
+            $railCards = new GalaxyClusterRailCards();
+            $clusterId = $cluster['GalaxyCluster']['id'];
+            $this->set('railCards', RailCard::byId([
+                $railCards->facts($cluster),
+                $railCards->relations($this->Auth->user(), $cluster),
+                $railCards->slot('cluster-activity', $clusterId),
+                $railCards->slot('cluster-latest', $clusterId),
+            ]));
+        }
         $this->set('id', $cluster['GalaxyCluster']['id']);
         $this->set('galaxy', ['Galaxy' => $cluster['GalaxyCluster']['Galaxy']]);
         $this->set('galaxy_id', $cluster['GalaxyCluster']['galaxy_id']);
@@ -227,6 +238,25 @@ class GalaxyClustersController extends AppController
             $this->Flash->warning(__('This cluster is not published. Users will not be able to use it'));
         }
         $this->set('title_for_layout', __('Galaxy cluster %s', $cluster['GalaxyCluster']['value']));
+    }
+
+    /**
+     * One of the cluster page's lazy rail cards.
+     *
+     * @param mixed $id ID or UUID of the cluster
+     * @param string $cardId
+     */
+    public function railCard($id, $cardId)
+    {
+        $user = $this->Auth->user();
+        $cluster = $this->GalaxyCluster->fetchIfAuthorized($user, $id, 'view', true, false);
+        $tag = $this->GalaxyCluster->Tag->find('first', [
+            'conditions' => $this->GalaxyCluster->Tag->nameCondition($cluster['GalaxyCluster']['tag_name']),
+            'fields' => ['id'],
+            'recursive' => -1,
+        ]);
+        $cluster['GalaxyCluster']['tag_id'] = $tag['Tag']['id'] ?? null;
+        $this->_renderRailCard((new GalaxyClusterRailCards())->lazy($cardId, $user, $cluster));
     }
 
     /**

@@ -1,4 +1,5 @@
 <?php
+    $railCards = $railCards ?? [];
     echo $this->element('genericElementsBS5/Layout/view_layout',
     [
         'data' => $taxonomy,
@@ -12,9 +13,11 @@
                 'left' => [
                     'Taxonomies/View/taxonomies_general',
                 ],
-                'right' => [
+                'right' => array_merge([
                     'Taxonomies/View/taxonomies_actions',
-                ]
+                ], $this->RailCard->rail($railCards, [
+                    'taxonomy-freshness', 'taxonomy-inventory', 'taxonomy-usage',
+                ], 'general')),
             ],
             [
                 'id' => 'tags',
@@ -28,6 +31,7 @@
                         'ajax' => sprintf('/taxonomies/taxonomy_tags/%s', h($taxonomy['id']))
                     ]
                 ],
+                'right' => $this->RailCard->rail($railCards, ['taxonomy-inventory'], 'tags'),
             ]
         ]
     ]);
