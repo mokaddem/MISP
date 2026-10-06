@@ -253,11 +253,13 @@ class AnalystProfileFormTool
     private function axisLabel($id)
     {
         $labels = array(
-            'quality' => __('quality'),
-            'lean + quality' => __('lean + quality'),
+            'quality' => __('signal strength'),
+            'lean + quality' => __('lean + signal strength'),
             'lean' => __('lean'),
             'relevance' => __('relevance'),
-            'quality — trust weighting' => __('quality — trust weighting'),
+            'quality — trust weighting' => __(
+                'signal strength — trust weighting'
+            ),
             'no axis — context' => __('context'),
             'no axis — display order' => __('display order'),
         );
@@ -314,7 +316,7 @@ class AnalystProfileFormTool
                 . ' way the lean came out. The two marked "reads the'
                 . ' value", a warninglist hit and a false-positive'
                 . ' sighting, argue for or against the lean instead and'
-                . ' are kept apart from the quality.'
+                . ' are kept apart from the signal strength.'
             ),
             'blocks' => array(
                 array(
@@ -446,7 +448,8 @@ class AnalystProfileFormTool
                     . ' documented it is, so its points are scored'
                     . ' against the verdict — a plus supports the'
                     . ' reading, a minus argues with it — and they sum'
-                    . ' beside the quality rather than into it. A big'
+                    . ' beside the signal strength rather than into it.'
+                    . ' A big'
                     . ' enough minus turns the verdict contested.'
                 ),
             );
@@ -616,7 +619,7 @@ class AnalystProfileFormTool
             'title' => __('Thresholds'),
             'blurb' => __(
                 'The cut-offs: which way the record leans, and which'
-                . ' quality band a score falls in.'
+                . ' signal-strength band a score falls in.'
             ),
             'blocks' => array(
                 array(
@@ -678,10 +681,10 @@ class AnalystProfileFormTool
                 array(
                     'kind' => 'fields',
                     'id' => 'quality',
-                    'title' => __('The quality bands'),
-                    'axis' => __('quality'),
+                    'title' => __('The signal-strength bands'),
+                    'axis' => __('signal strength'),
                     'blurb' => __(
-                        'The quality score is a running total of points.'
+                        'The signal strength is a running total of points.'
                         . ' These two numbers cut that total into three'
                         . ' bands, in the order the strip above reads:'
                         . ' below the first it is low, from the first it'
@@ -743,7 +746,8 @@ class AnalystProfileFormTool
                         . ' scores. With the shipped numbers, a value'
                         . ' one organisation reported and nobody sighted'
                         . ' never reads above low. This lowers the'
-                        . ' quality band only — the lean is untouched.'
+                        . ' signal-strength band only — the lean is'
+                        . ' untouched.'
                     ),
                     'fields' => array(
                         array(
@@ -1254,7 +1258,7 @@ class AnalystProfileFormTool
             'title' => __('Relevance'),
             'blurb' => __(
                 'Whether what the record says still holds today. Kept'
-                . ' separate from quality: an old value is not a'
+                . ' separate from signal strength: an old value is not a'
                 . ' better-evidenced one.'
             ),
             'blocks' => array(

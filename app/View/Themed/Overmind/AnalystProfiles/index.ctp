@@ -482,7 +482,7 @@ $this->set('headerActions', array(array(
                                 <?= h(__('No profile applies to you, so nothing'
                                     . ' on this instance is scored. Value pages'
                                     . ' still show their evidence; none of them'
-                                    . ' shows a quality.')) ?>
+                                    . ' shows a signal strength.')) ?>
                             </p>
                             <?php if ($default !== null && !$default['enabled']): ?>
                                 <?php

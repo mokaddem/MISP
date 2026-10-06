@@ -53,7 +53,7 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
 
     </div>
     <div class="ax ax-led">
-        <span class="ax-n"><?= h(__('quality')) ?></span>
+        <span class="ax-n"><?= h(__('signal strength')) ?></span>
         <b class="ax-v num">
             <?= h($quality['after']) ?>
             <?php if (!empty($quality['changed'])): ?>
@@ -93,9 +93,9 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     ?>
     <?= sprintf(
         h(__('Three readings, not one score: %1$slean%2$s is what the'
-            . ' record says this value is, %1$squality%2$s is how well'
-            . ' backed up that is, and %1$srelevance%2$s is whether it'
-            . ' still holds.')),
+            . ' record says this value is, %1$ssignal strength%2$s is how'
+            . ' well backed up that is, and %1$srelevance%2$s is whether'
+            . ' it still holds.')),
         '<b>',
         '</b>'
     ) ?>
@@ -105,7 +105,7 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
            . " harmless, with a false positive or a warning. Recording"
            . " it with to_ids unset is no vote. No points are"
            . " involved.\n\n"
-           . "Quality is the points: a plus means the record carries"
+           . "Signal strength is the points: a plus means the record carries"
            . " something — widely reported, published, attributed — and"
            . " a minus that it does not, whichever way the lean came"
            . " out.\n\n"
@@ -119,7 +119,7 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     <?php elseif ($lean['after'] === 'unflagged'): ?>
         <?= h(__('Nobody flagged this value for detection and nobody'
             . ' called it harmless, so it reads as recorded for context;'
-            . ' the quality still scores the record.')) ?>
+            . ' the signal strength still scores the record.')) ?>
     <?php elseif ($lean['after'] === 'none'): ?>
         <?= h(__('This value has a lean of none, so there is no ledger'
             . ' at all.')) ?>

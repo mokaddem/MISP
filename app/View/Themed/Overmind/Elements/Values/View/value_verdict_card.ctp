@@ -91,11 +91,11 @@ if (!empty($verdict['profile_id'])) {
                 'size' => 'lg',
             )) ?>
             <div class="vp-confidence" title="<?= h(sprintf(
-                __('Quality band: %s'),
+                __('Signal-strength band: %s'),
                 $verdict['band']
             )) ?>">
                 <span class="vp-confidence-label">
-                    <?= h(__('Quality')) ?>
+                    <?= h(__('Signal strength')) ?>
                 </span>
                 <span class="vp-confidence-track">
                     <?php for ($i = 1; $i <= 3; $i++): ?>

@@ -144,8 +144,8 @@ $number = function ($value) {
         <div class="wb-note bad mt-2">
             <b><?= h(__('A column does not add up.')) ?></b>
             <?= h(sprintf(
-                __('The rows in force sum to %1$s against a quality of'
-                    . ' %2$s, and the candidate\'s to %3$s against'
+                __('The rows in force sum to %1$s against a signal'
+                    . ' strength of %2$s, and the candidate\'s to %3$s against'
                     . ' %4$s. These should match — the comparison above'
                     . ' is unreliable until they do.'),
                 $detail['sums']['before']['ledger'],

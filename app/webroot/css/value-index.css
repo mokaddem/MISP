@@ -1646,7 +1646,7 @@
 
 .vi-thead,
 .vi-listwrap.is-table .vi-row {
-    --vi-cols: 22px minmax(90px, 1fr) 104px 106px 60px 124px 46px 64px 74px;
+    --vi-cols: 22px minmax(90px, 1fr) 104px 106px 84px 124px 46px 64px 74px;
 }
 
 .vi-listwrap.is-table .vi-row {
@@ -1893,7 +1893,7 @@
 @container (max-width: 1000px) {
     .vi-thead,
     .vi-listwrap.is-table .vi-row {
-        --vi-cols: 22px minmax(90px, 1fr) 106px 60px 124px 46px 64px 74px;
+        --vi-cols: 22px minmax(90px, 1fr) 106px 84px 124px 46px 64px 74px;
     }
 
     .vi-listwrap.is-table .vi-c-types,
@@ -1905,7 +1905,7 @@
 @container (max-width: 820px) {
     .vi-thead,
     .vi-listwrap.is-table .vi-row {
-        --vi-cols: 22px minmax(90px, 1fr) 106px 60px 124px 74px;
+        --vi-cols: 22px minmax(90px, 1fr) 106px 84px 124px 74px;
     }
 
     .vi-listwrap.is-table .vi-c-orgs,

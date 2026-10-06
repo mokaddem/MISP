@@ -48,7 +48,7 @@ $mediumWidth = max(0, min(100 - $lowWidth, $high - $medium));
 $highWidth = max(0, 100 - $lowWidth - $mediumWidth);
 ?>
 <div class="vi-tile" data-vi-tile="bands">
-    <div class="vi-tile__label"><i class="fas fa-gauge-high vi-tile__icon" aria-hidden="true"></i><?= h(__('Quality bands')) ?></div>
+    <div class="vi-tile__label"><i class="fas fa-gauge-high vi-tile__icon" aria-hidden="true"></i><?= h(__('Signal-strength bands')) ?></div>
     <div class="vi-tile__figure">
         <div class="vi-tile__value">
             <?= h(number_format($bands['high'])) ?>

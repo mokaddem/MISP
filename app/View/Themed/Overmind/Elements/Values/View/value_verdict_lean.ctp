@@ -245,7 +245,7 @@ $supermajority = isset($stances['supermajority'])
                               'These rows sum to this. Green argues'
                               . ' harmless, red argues threat.'
                           ) . ' ' . $leanScale . ' ' . __(
-                              'Not part of the quality score.'
+                              'Not part of the signal strength.'
                           )) ?>">
                         <?= h(($leanWeight > 0 ? '+' : '') . $leanWeight) ?>
                     </span>

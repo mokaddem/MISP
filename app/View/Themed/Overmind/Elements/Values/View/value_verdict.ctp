@@ -130,7 +130,7 @@ $qualityLabel = __(
             <div class="vp-vc-score" title="<?= h($qualityLabel) ?>">
                 <div class="vp-vc-score-heads">
                     <span><?= h(sprintf(
-                        __('Quality %s'),
+                        __('Signal strength %s'),
                         $verdict['band']
                     )) ?></span>
                     <span class="vp-vc-score-value">

@@ -209,10 +209,10 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
                aria-hidden="true"></i>
             <span class="vp-hc-lean"><?= h($treatment['label']) ?></span>
             <span class="vp-hc-band" title="<?= h(sprintf(
-                __('Quality band: %s'),
+                __('Signal-strength band: %s'),
                 $card['band']
             )) ?>">
-                <span class="vp-hc-k"><?= h(__('Quality')) ?></span>
+                <span class="vp-hc-k"><?= h(__('Signal strength')) ?></span>
                 <?php if ($card['quality'] === null): ?>
                     <span class="vp-hc-band-n vp-hc-absent">&mdash;</span>
                 <?php else: ?>

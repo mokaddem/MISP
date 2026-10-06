@@ -50,7 +50,7 @@
 if ($inForce === null) {
     $line = h(__(
         'No analyst profile is active, so assessments show a lean but'
-        . ' no quality score until a site admin enables one.'
+        . ' no signal strength until a site admin enables one.'
     ));
     $link = null;
 } else {

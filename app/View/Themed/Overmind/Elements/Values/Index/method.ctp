@@ -88,7 +88,7 @@ $axes = array(
         'words' => implode(' ', $relevances),
     ),
     array(
-        'axis' => __('Quality'),
+        'axis' => __('Signal strength'),
         'question' => __('How much weight does the evidence carry?'),
         'words' => implode(' ', $bands),
     ),

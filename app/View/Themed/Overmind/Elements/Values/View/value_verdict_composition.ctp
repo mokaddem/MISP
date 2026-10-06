@@ -34,7 +34,7 @@ $span = max($positive + $negative, 1);
                style="color: var(--enrichment);"></i>
             <span class="vp-aside-title">
                 <?= h($verdict['quality'] === null
-                    ? __('How the quality was reached')
+                    ? __('How the signal strength was reached')
                     : sprintf(
                         __('How %s was reached'),
                         $verdict['quality']

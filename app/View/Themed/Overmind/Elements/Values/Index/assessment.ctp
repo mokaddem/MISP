@@ -205,7 +205,7 @@ $signalText = function (array $signal) {
     <div class="vi-l2">
         <?= $leanChip ?>
 <?php if ($quality === null): ?>
-        <span class="vi-qual"><?= h(__('quality not scored')) ?></span>
+        <span class="vi-qual"><?= h(__('signal strength not scored')) ?></span>
 <?php else: ?>
         <span class="vi-qual"><b><?= h($quality) ?></b><?= h($card['band']) ?><?= $barSvg ?></span>
 <?php endif; ?>

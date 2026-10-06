@@ -129,14 +129,14 @@ class EnrichmentAnswer extends ValueSignalBase
             'per_agreeing' => array(
                 'type' => 'int',
                 'default' => 6,
-                'label' => __('Quality points per verdict agreeing with'
-                    . ' the reporters, before the module\'s grade'),
+                'label' => __('Signal-strength points per verdict agreeing'
+                    . ' with the reporters, before the module\'s grade'),
             ),
             'agreeing_cap' => array(
                 'type' => 'int',
                 'default' => 12,
                 'label' => __('Most the agreeing verdicts may add to the'
-                    . ' quality'),
+                    . ' signal strength'),
             ),
         );
         $this->config_schema = array(

@@ -51,9 +51,9 @@ foreach ($ledger as $group) {
 ?>
 <div class="vp-ledger-head"
      title="<?= h(__('What the record is worth, whatever it says about'
-         . ' the value. These rows sum to the quality score.')) ?>">
+         . ' the value. These rows sum to the signal strength.')) ?>">
     <i class="fas fa-list-check vp-ledger-head-mark"></i>
-    <?= h(__('Quality')) ?>
+    <?= h(__('Signal strength')) ?>
     <span class="vp-vc-axis-head-sub">
         <?= h(__('how the score was built')) ?>
     </span>
@@ -78,7 +78,7 @@ foreach ($ledger as $group) {
                     <th><?= __('Evidence') ?></th>
                     <th class="vp-ledger-contrib-col"
                         title="<?= h(__(
-                            'Points toward the quality score. A row'
+                            'Points toward the signal strength. A row'
                             . ' adds where the record has something and'
                             . ' deducts where it lacks it, whichever'
                             . ' way the value leans.'

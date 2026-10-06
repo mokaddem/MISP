@@ -353,7 +353,7 @@ $offerExtract = !$extracted && $wordy >= 2;
             <span><?= h(__('value')) ?></span>
             <span class="vi-c-types"><?= h(__('types')) ?></span>
             <span class="vi-c-lean"><?= h(__('lean')) ?></span>
-            <span class="vi-c-qual"><?= h(__('quality')) ?></span>
+            <span class="vi-c-qual"><?= h(__('signal strength')) ?></span>
             <span class="vi-c-rel"><?= h(__('relevance')) ?></span>
             <span class="vi-c-num vi-c-orgs"><?= h(__('orgs')) ?></span>
             <span class="vi-c-num vi-c-sig"><?= h(__('sightings')) ?></span>

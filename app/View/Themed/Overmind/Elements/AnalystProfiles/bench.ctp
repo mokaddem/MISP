@@ -229,12 +229,12 @@ $carry = array(
             )) ?>
 
             <div class="bench-sec">
-                <span><?= h(__('Quality')) ?></span>
+                <span><?= h(__('Signal strength')) ?></span>
             </div>
             <div class="bench-q">
                 <span class="now"><?= h($detail['totals']['after']) ?></span>
                 <span class="from">
-                    <?= h(__('quality')) ?><br>
+                    <?= h(__('signal strength')) ?><br>
                     <span class="num"><?= h($detail['totals']['before']) ?></span>
                     <?= h(__('under the profile in force')) ?>
                 </span>

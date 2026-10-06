@@ -57,7 +57,7 @@ if (($verdict['lean'] ?? null) === 'none'
     <div class="vp-vc-clock-head"
          title="<?= h(__('Counts down from the last time someone'
              . ' independent confirmed the value. It affects neither'
-             . ' the lean nor the quality.')) ?>">
+             . ' the lean nor the signal strength.')) ?>">
         <i class="fas fa-hourglass-half vp-vc-clock-mark"></i>
         <?= h(__('How long this reading holds')) ?>
     </div>

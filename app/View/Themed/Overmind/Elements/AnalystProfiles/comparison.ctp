@@ -55,7 +55,7 @@ $tone = array('up' => 'd-up', 'down' => 'd-dn', 'sideways' => 'd-0',
         <thead>
             <tr>
                 <th><?= h(__('Value')) ?></th>
-                <th class="r"><?= h(__('Quality')) ?></th>
+                <th class="r"><?= h(__('Signal strength')) ?></th>
                 <th class="wb-wide-only"><?= h(__('Band')) ?></th>
                 <th class="r" style="width:2.5rem"></th>
             </tr>

@@ -885,7 +885,7 @@ class ValueVerdictTool
         }
         if (!is_int($row['contribution'])) {
             return __('The contribution is not a whole number, so the'
-                . ' ledger could not sum to the quality.');
+                . ' ledger could not sum to the signal strength.');
         }
         if (empty($row['signal']) || !is_string($row['signal'])) {
             return __('The row states no signal.');
