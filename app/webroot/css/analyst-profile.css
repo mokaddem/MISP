@@ -795,13 +795,7 @@ input.num[type="number"]::-webkit-inner-spin-button {
 }
 .ap-acts form { display: inline; }
 .ap-act-primary { white-space: nowrap; }
-.ap-act-more {
-    line-height: 1;
-    color: var(--bs-secondary-color);
-    background: none;
-    border: 0;
-}
-.ap-act-more:hover { color: var(--bs-body-color); }
+.ap-act-more { line-height: 1; }
 
 .ap-inforce { font-size: .8125rem; line-height: 1.5; }
 .ap-when { white-space: nowrap; }

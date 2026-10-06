@@ -35,3 +35,21 @@ $danger-border-subtle-dark:    mix(#dc3545, $body-bg-dark, 45%);
 
 // The teal is under 4.5:1 for small labels on a dark card.
 $misp-accent-dark: tint-color($primary, 40%);
+
+// Dropdowns are the navbar's panels (css/overmind-navbar.css), value for value.
+$dropdown-padding-x:         .25rem;
+$dropdown-padding-y:         .25rem;
+$dropdown-font-size:         .875rem;
+$dropdown-color:             #2b1b1c;
+$dropdown-link-color:        #2b1b1c;
+$dropdown-border-color:      rgba(#0c3a4a, .11);
+$dropdown-border-radius:     .5rem;
+$dropdown-box-shadow:        0 1px 2px rgba(#0c3a4a, .06),
+                             0 8px 16px -6px rgba(#0c3a4a, .12),
+                             0 22px 44px -14px rgba(#0c3a4a, .26);
+$dropdown-link-hover-color:  #0c3a4a;
+$dropdown-link-hover-bg:     rgba($primary, .08);
+$dropdown-divider-bg:        rgba(#0c3a4a, .09);
+$dropdown-item-padding-y:    .25rem;
+$dropdown-item-padding-x:    .75rem;
+$dropdown-divider-margin-y:  .25rem;

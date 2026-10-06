@@ -157,17 +157,18 @@ body[data-controller="users"][data-action="change_pw"] {
     align-items: center;
 }
 
-:where([data-misp-theme="overmind"]) .dropdown-item:hover {
-    background-color: var(--primary);
-    color: #fff;
-}
-
 /* A destructive item hovers red, not teal under red text. */
 .dropdown-item.text-danger:hover,
 .dropdown-item.text-danger:focus-visible,
 .dropdown-item.text-danger:active {
     background-color: var(--bs-danger);
     color: #fff !important;
+}
+/* Overmind hovers with a tint, as its navbar does. */
+[data-misp-theme="overmind"] .dropdown-item.text-danger:hover,
+[data-misp-theme="overmind"] .dropdown-item.text-danger:focus-visible {
+    background-color: rgba(var(--bs-danger-rgb), .1);
+    color: var(--bs-danger-text-emphasis) !important;
 }
 [data-misp-mode="dark"] .dropdown-item.text-danger:not(:hover):not(:focus-visible):not(:active) {
     color: var(--bs-danger-text-emphasis) !important;
@@ -225,7 +226,21 @@ body[data-controller="users"][data-action="change_pw"] {
     border: none;
     margin:0.3rem;
     border-radius: 8px;
-    background: var(--misp-index-actions-bg, #fff);
+    background: var(--misp-index-actions-bg, transparent);
+}
+
+/* Row menu trigger: a ghost button drawn from the theme's own tokens. */
+.row-menu-toggle {
+    --bs-btn-color: var(--bs-secondary-color);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--bs-emphasis-color);
+    --bs-btn-hover-bg: var(--bs-secondary-bg);
+    --bs-btn-hover-border-color: var(--bs-border-color);
+    --bs-btn-active-color: var(--bs-emphasis-color);
+    --bs-btn-active-bg: var(--bs-secondary-bg);
+    --bs-btn-active-border-color: var(--bs-border-color);
+    --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
 }
 
 .checkbox-actions-wrapper > * {

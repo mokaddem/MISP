@@ -571,6 +571,7 @@ html[data-misp-mode] .checkbox-index input[type="checkbox"]:focus-visible {
 .dropdown-item > .fa {
   color: var(--hx-icon);
 }
+.dropdown-item[class*="text-"] > i,
 .dropdown-item:active > i,
 .dropdown-item.active > i {
   color: inherit;

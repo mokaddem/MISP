@@ -46,14 +46,14 @@ if ($field['data_path'] === 'Event.id') {
 <div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index">
     <div class="dropdown">
         <button
-            class="btn btn-sm btn-light p-1"
+            class="btn btn-sm p-1 row-menu-toggle"
             type="button"
             data-bs-toggle="dropdown"
             aria-expanded="false">
             <i class="fa-solid fa-ellipsis-vertical fs-5"></i>
         </button>
 
-        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+        <ul class="dropdown-menu dropdown-menu-end">
 
             <?php foreach ($actions as $action): ?>
 
@@ -94,17 +94,13 @@ if ($field['data_path'] === 'Event.id') {
                     <?php if ($action['type'] === 'navigate'): ?>
                         <?php if (!empty($action['download'])): ?>
                             <a class="dropdown-item" href="<?= h($url) ?>" download="<?= h($title_for_layout) . h($id) . '.json' ?>">
-                                <div>
-                                    <?= $renderIcon($action['icon']) ?>
-                                    <?= h($action['label']) ?>
-                                </div>
+                                <?= $renderIcon($action['icon']) ?>
+                                <?= h($action['label']) ?>
                             </a>
                         <?php else: ?>
                             <a class="dropdown-item" href="<?= h($url) ?>">
-                                <div>
-                                    <?= $renderIcon($action['icon']) ?>
-                                    <?= h($action['label']) ?>
-                                </div>
+                                <?= $renderIcon($action['icon']) ?>
+                                <?= h($action['label']) ?>
                             </a>
                         <?php endif; ?>
                     <?php elseif ($action['type'] === 'toggle'): ?>
@@ -152,14 +148,12 @@ if ($field['data_path'] === 'Event.id') {
                         ?>
                         <?php if ($label === "Publish" || $label === "Unpublish"): ?>
                             <a class="dropdown-item" href="<?= h($url) ?>" onclick="event.preventDefault(); openModal('<?= h($url) ?>','md');">
-                                <div>
-                                    <?= $renderIcon($iconClass) ?>
-                                    <?= h($label) ?>
-                                </div>
+                                <?= $renderIcon($iconClass) ?>
+                                <?= h($label) ?>
                             </a>
                         <?php else: ?>
                             <?= $this->Form->postLink(
-                                '<div>' . $renderIcon($iconClass) . h($label) . '</div>',
+                                $renderIcon($iconClass) . h($label),
                                 $url,
                                 [
                                     'escape' => false,
@@ -183,10 +177,8 @@ if ($field['data_path'] === 'Event.id') {
                         <a class="<?= trim($classes) ?>"
                            href="<?= h($url) ?>"
                            onclick="<?= h($onclick) ?>">
-                            <div>
-                                <?= $renderIcon($action['icon']) ?>
-                                <?= h($action['label']) ?>
-                            </div>
+                            <?= $renderIcon($action['icon']) ?>
+                            <?= h($action['label']) ?>
                         </a>
 
                     <?php elseif ($action['type'] === 'js'): ?>
@@ -196,10 +188,8 @@ if ($field['data_path'] === 'Event.id') {
                         <a class="<?= trim('dropdown-item ' . ($action['class'] ?? '')) ?>"
                            href="#"
                            onclick="event.preventDefault(); <?= h($onclick) ?>">
-                            <div>
-                                <?= $renderIcon($action['icon']) ?>
-                                <?= h($action['label']) ?>
-                            </div>
+                            <?= $renderIcon($action['icon']) ?>
+                            <?= h($action['label']) ?>
                         </a>
 
                     <?php elseif ($action['type'] === 'copy'): ?>
@@ -210,15 +200,13 @@ if ($field['data_path'] === 'Event.id') {
                         <a class="dropdown-item <?= h($action['class'] ?? '') ?>"
                            href="#"
                            onclick="event.preventDefault(); copyValueToClipboard('<?= h($copyValue) ?>', '<?= h($copyMessage) ?>');">
-                            <div>
-                                <?= $renderIcon($action['icon']) ?>
-                                <?= h($action['label']) ?>
-                            </div>
+                            <?= $renderIcon($action['icon']) ?>
+                            <?= h($action['label']) ?>
                         </a>
 
                     <?php elseif ($action['type'] === 'postLink'): ?>
                         <?= $this->Form->postLink(
-                            '<div>' . $renderIcon($action['icon']) . h($action['label']) . '</div>',
+                            $renderIcon($action['icon']) . h($action['label']),
                             $url,
                             [
                                 'escape' => false,
@@ -236,7 +224,7 @@ if ($field['data_path'] === 'Event.id') {
                         </a>
 
                     <?php elseif ($action['type'] === 'divider'): ?>
-                        <li><hr class="dropdown-divider"></li>
+                        <hr class="dropdown-divider">
 
                     <?php endif; ?>
 

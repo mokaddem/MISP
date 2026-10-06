@@ -93,12 +93,12 @@ $useConfirm = ($in_force !== null && $in_force['name'] !== $profile['name'])
     <?php endif; ?>
 
     <div class="dropdown">
-        <button class="btn btn-sm btn-light p-1 ap-act-more" type="button"
+        <button class="btn btn-sm p-1 row-menu-toggle ap-act-more" type="button"
                 data-bs-toggle="dropdown" aria-expanded="false"
                 title="<?= h(sprintf(__('More for %s'), $profile['name'])) ?>">
             <i class="fa-solid fa-ellipsis-vertical"></i>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+        <ul class="dropdown-menu dropdown-menu-end">
             <li>
                 <a class="<?= $item ?>" href="<?= h($this->Html->url(array(
                     'action' => 'view', $profile['id']))) ?>">
