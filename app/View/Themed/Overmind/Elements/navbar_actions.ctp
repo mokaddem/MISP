@@ -96,7 +96,7 @@
 
     /*
      * Hidden themes: applying every visible theme within TOUR_WINDOW shows a
-     * riddle; flipping dark mode FLIPS times within FLIP_WINDOW unmasks them.
+     * riddle, unseen ones first; flipping dark mode FLIPS times within FLIP_WINDOW unmasks them.
      */
     function initThemeEasterEgg() {
         const secrets = document.querySelectorAll('.theme-secret');
@@ -121,6 +121,11 @@
             __('Is that all of them? Ask the ones with two faces. Ask them again. And again.'),
             __('Light. Dark. Light. Dark. …Still there? Keep going.'),
         ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
+        const teaser = <?= json_encode(
+            __('Still stuck? Tour the themes once more, each lap whispers something new.'),
+            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG
+        ) ?>;
+        const SEEN_KEY = 'mispThemeHintsSeen';
 
         const visible = Array.from(new Set(Array.from(
             document.querySelectorAll('.set-bootstrap-theme:not(.is-secret)'),
@@ -148,7 +153,24 @@
                 }
             } catch (e) {}
             if (complete && typeof showToast === 'function') {
-                showToast(hints[Math.floor(Math.random() * hints.length)], 'dark', 12000);
+                let seen = [];
+                try {
+                    seen = JSON.parse(localStorage.getItem(SEEN_KEY)) || [];
+                } catch (e) {}
+                if (!Array.isArray(seen)) {
+                    seen = [];
+                }
+                let pool = hints.map((hint, i) => i).filter(i => !seen.includes(i));
+                if (!pool.length) {
+                    seen = [];
+                    pool = hints.map((hint, i) => i);
+                }
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                seen.push(pick);
+                try {
+                    localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+                } catch (e) {}
+                showToast(hints[pick] + ' ' + teaser, 'dark', 15000);
             }
         }
 
