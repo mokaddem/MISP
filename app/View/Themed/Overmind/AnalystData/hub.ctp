@@ -50,6 +50,17 @@ if (!empty($selectedType) && $selectedType !== 'Graph' && !empty($me['Role']['pe
             'url'   => $baseurl . '/analystData/add/' . $selectedType,
         ],
     ]);
+} elseif ($selectedType === 'Graph' && (!empty($me['Role']['perm_site_admin']) || (!empty($me['Role']['perm_add']) && !empty($me['Role']['perm_analyst_data'])))) {
+    $this->set('headerActions', [
+        [
+            'type'  => 'modal',
+            'label' => __('Import graphs'),
+            'icon'  => 'file-import',
+            'class' => 'btn btn-' . $types['Graph']['color'],
+            'url'   => $baseurl . '/analyst_graphs/import',
+            'size'  => 'lg',
+        ],
+    ]);
 }
 ?>
 

@@ -193,6 +193,14 @@ $fields[] = [
             'url' => $viewUrl,
         ],
         [
+            'type' => 'navigate',
+            'label' => __('Export'),
+            'icon' => 'file-export',
+            'url' => $baseurl . '/analyst_graphs/export/%uuid%',
+            'url_params_data_paths' => ['uuid' => $m . '.uuid'],
+            'requirement' => $m === 'Graph',
+        ],
+        [
             'type' => 'modal',
             'label' => __('Edit'),
             'icon' => 'pen-to-square',
@@ -229,6 +237,17 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
                 ],
                 // The type is baked into the URL so deleteSelection knows which model to hit.
                 'delete' => '/deleteSelection/' . $m,
+                'custom_actions' => $m !== 'Graph' ? [] : [
+                    [
+                        'id' => 'multi-export-graphs-button',
+                        'label' => __('Export'),
+                        'icon' => 'file-export',
+                        'onclick' => sprintf(
+                            "if (selectedItems.size) { window.location = '%s/analyst_graphs/export/' + JSON.stringify(Array.from(selectedItems.keys())); }",
+                            $baseurl
+                        ),
+                    ],
+                ],
             ],
             'fields' => $fields,
         ],

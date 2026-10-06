@@ -1,6 +1,7 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('AnalystGraphDocumentTool', 'Tools');
+App::uses('FileAccessTool', 'Tools');
 App::uses('JsonTool', 'Tools');
 App::uses('MispTheme', 'MispTheme');
 App::uses('Graph', 'Model');
@@ -23,6 +24,12 @@ class AnalystGraphsController extends AppController
 
     /** Graphs a record's Graphs card lists. */
     const TARGET_LIMIT = 100;
+
+    /** Graphs one export or one import carries. */
+    const TRANSFER_LIMIT = 100;
+
+    /** Bytes an imported file may hold. */
+    const IMPORT_MAX_BYTES = 67108864;
 
     public function beforeFilter()
     {
@@ -282,6 +289,324 @@ class AnalystGraphsController extends AppController
     }
 
     /**
+     * A graph, or a selection of them, as a file to import elsewhere. A graph
+     * exports as analystData/view returns it, a selection as analystData/index
+     * does, each holding only the nodes the user may read.
+     *
+     * @param string $ref A graph's uuid, or a JSON list of graph ids
+     */
+    public function export($ref)
+    {
+        $this->request->allowMethod(['get']);
+        $user = $this->Auth->user();
+        $single = Validation::uuid($ref);
+        if ($single) {
+            $conditions = ['Graph.uuid' => $ref];
+        } else {
+            $ids = json_decode($ref, true);
+            if (!is_array($ids) || empty($ids)) {
+                throw new BadRequestException(__('Name a graph, or a list of graph ids.'));
+            }
+            foreach ($ids as $id) {
+                if (!is_int($id) && !(is_string($id) && ctype_digit($id))) {
+                    throw new BadRequestException(__('Name a graph, or a list of graph ids.'));
+                }
+            }
+            if (count($ids) > self::TRANSFER_LIMIT) {
+                throw new BadRequestException(__('At most %s graphs at once.', self::TRANSFER_LIMIT));
+            }
+            $conditions = ['Graph.id' => array_map('strval', array_values($ids))];
+        }
+        $this->Graph->current_user = $user;
+        $rows = $this->Graph->find('all', [
+            'conditions' => ['AND' => [$conditions, $this->Graph->buildConditions($user)]],
+            'contain' => ['Orgc'],
+            'order' => ['Graph.id' => 'ASC'],
+        ]);
+        if (empty($rows)) {
+            throw new NotFoundException(__('Invalid graph.'));
+        }
+        $graphs = $this->__exported($user, $rows);
+        if ($single) {
+            $payload = $graphs[0];
+            $filename = 'analyst-graph-' . (trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($payload['Graph']['name'])), '-') ?: $payload['Graph']['uuid']) . '.json';
+        } else {
+            $payload = $graphs;
+            $filename = 'analyst-graphs-' . date('Y-m-d') . '.json';
+        }
+        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+        return $this->RestResponse->viewData($json, 'application/json', false, true, $filename);
+    }
+
+    /**
+     * New graphs owned by the user's organisation, from an export: each gets
+     * a uuid of its own and records the one it was copied from.
+     */
+    public function import()
+    {
+        $user = $this->Auth->user();
+        if (!$this->request->is('post')) {
+            if ($this->_isRest()) {
+                throw new MethodNotAllowedException(__('This endpoint only accepts POST requests.'));
+            }
+            $this->__setImportForm($user);
+            if ($this->request->is('ajax')) {
+                $this->layout = false;
+            }
+            return;
+        }
+        $posted = $this->request->data;
+        $form = isset($posted['Graph']['import']) && is_array($posted['Graph']['import']) ? $posted['Graph']['import'] : null;
+        try {
+            if ($form !== null) {
+                $options = $form;
+                $graphs = $this->__graphsIn(json_decode($this->__importText($form), true));
+                if (isset($form['target']) && is_string($form['target']) && $form['target'] !== '') {
+                    list($type, $uuid) = array_pad(explode(':', $form['target'], 2), 2, null);
+                    $options['target'] = ['type' => $type, 'uuid' => $uuid];
+                } else {
+                    unset($options['target']);
+                }
+            } elseif (is_array($posted) && array_key_exists('graphs', $posted)) {
+                $options = $posted;
+                $graphs = $this->__graphsIn($posted['graphs']);
+            } else {
+                $options = [];
+                $graphs = $this->__graphsIn($posted);
+            }
+            $report = $this->__importGraphs($user, $graphs, $options);
+        } catch (BadRequestException $e) {
+            if ($this->_isRest()) {
+                throw $e;
+            }
+            $this->Flash->error($e->getMessage());
+            return $this->redirect($this->referer(['controller' => 'analyst_data', 'action' => 'index', 'Graph'], true));
+        }
+        if ($this->_isRest()) {
+            return $this->RestResponse->viewData($report, 'json');
+        }
+        return $this->__importRedirect($report);
+    }
+
+    /**
+     * @param array $user
+     * @param array $rows Graph rows, with their document and Orgc
+     * @return array [{Graph: {...}}]
+     */
+    private function __exported(array $user, array $rows)
+    {
+        $documents = $nodes = [];
+        foreach ($rows as $i => $row) {
+            $documents[$i] = AnalystGraphDocumentTool::decode($row['Graph']['content']) ?: AnalystGraphDocumentTool::emptyDocument();
+            $nodes[$i] = $documents[$i]['nodes'] ?? [];
+        }
+        $visible = $this->AnalystGraphData->visibleNodeLists($user, $nodes);
+        $graphs = [];
+        foreach ($rows as $i => $row) {
+            $graph = $row['Graph'];
+            $document = $documents[$i];
+            $document['nodes'] = $visible[$i];
+            $document['view'] = (object)($document['view'] ?? []);
+            $graphs[] = ['Graph' => [
+                'uuid' => $graph['uuid'],
+                'name' => $graph['name'],
+                'description' => $graph['description'],
+                'authors' => $graph['authors'],
+                'object_type' => $graph['object_type'],
+                'object_uuid' => $graph['object_uuid'],
+                'orgc_uuid' => $graph['orgc_uuid'],
+                'Orgc' => [
+                    'uuid' => $graph['Orgc']['uuid'] ?? $graph['orgc_uuid'],
+                    'name' => $graph['Orgc']['name'] ?? null,
+                ],
+                'created' => $graph['created'],
+                'modified' => $graph['modified'],
+                'forked_from_uuid' => $graph['forked_from_uuid'],
+                'content' => $document,
+            ]];
+        }
+        return $graphs;
+    }
+
+    /**
+     * The JSON the import form carries: the uploaded file, else the pasted text.
+     *
+     * @param array $form
+     * @return string
+     * @throws BadRequestException
+     */
+    private function __importText(array $form)
+    {
+        $file = $form['file'] ?? null;
+        if (is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            if ($file['error'] !== UPLOAD_ERR_OK || empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+                throw new BadRequestException(__('The file could not be uploaded.'));
+            }
+            if ($file['size'] > self::IMPORT_MAX_BYTES) {
+                throw new BadRequestException(__('The file is larger than %s MB.', self::IMPORT_MAX_BYTES / 1048576));
+            }
+            return FileAccessTool::readFromFile($file['tmp_name'], $file['size']);
+        }
+        $text = isset($form['json']) && is_string($form['json']) ? trim($form['json']) : '';
+        if ($text === '') {
+            throw new BadRequestException(__('Choose an exported file, or paste its contents.'));
+        }
+        if (strlen($text) > self::IMPORT_MAX_BYTES) {
+            throw new BadRequestException(__('The text is larger than %s MB.', self::IMPORT_MAX_BYTES / 1048576));
+        }
+        return $text;
+    }
+
+    /**
+     * The graphs of an export, either shape, or of a REST view or index answer.
+     *
+     * @param mixed $payload
+     * @return array Unwrapped graphs
+     * @throws BadRequestException
+     */
+    private function __graphsIn($payload)
+    {
+        if (is_array($payload) && isset($payload['Graph']) && is_array($payload['Graph'])) {
+            $payload = $payload['Graph'];
+        }
+        if (!is_array($payload) || empty($payload)) {
+            throw new BadRequestException(__('This is not an analyst graph export.'));
+        }
+        if (array_keys($payload) !== range(0, count($payload) - 1)) {
+            $payload = [$payload];
+        }
+        if (count($payload) > self::TRANSFER_LIMIT) {
+            throw new BadRequestException(__('At most %s graphs at once.', self::TRANSFER_LIMIT));
+        }
+        $graphs = [];
+        foreach ($payload as $item) {
+            if (is_array($item) && isset($item['Graph']) && is_array($item['Graph'])) {
+                $item = $item['Graph'];
+            }
+            $graphs[] = is_array($item) ? $item : [];
+        }
+        return $graphs;
+    }
+
+    /**
+     * @param array $user
+     * @param array $graphs Unwrapped
+     * @param array $options `target` {type, uuid}, `distribution`, `sharing_group_id`
+     * @return array {imported: [summary], failed: [{index, name, errors}]}
+     * @throws BadRequestException
+     */
+    private function __importGraphs(array $user, array $graphs, array $options)
+    {
+        $target = null;
+        if (isset($options['target'])) {
+            $target = $options['target'];
+            if (!is_array($target) || !in_array($target['type'] ?? null, Graph::VALID_TARGETS, true) || !is_string($target['uuid'] ?? null) || !Validation::uuid($target['uuid'])) {
+                throw new BadRequestException(__('A target is a collection, an event or a galaxy cluster, named by its uuid.'));
+            }
+        }
+        $sharing = [];
+        if (isset($options['distribution']) && $options['distribution'] !== '') {
+            $sharing['distribution'] = (string)$options['distribution'];
+            if ($sharing['distribution'] === '4') {
+                $sharing['sharing_group_id'] = $options['sharing_group_id'] ?? null;
+                if (!ClassRegistry::init('SharingGroup')->canUse($user, $sharing['sharing_group_id'])) {
+                    throw new BadRequestException(__('Invalid Sharing Group or not authorised.'));
+                }
+            }
+        }
+        $imported = $failed = $ids = [];
+        $this->Graph->current_user = $user;
+        foreach ($graphs as $index => $graph) {
+            $name = isset($graph['name']) && is_string($graph['name']) ? $graph['name'] : '';
+            $original = isset($graph['uuid']) && is_string($graph['uuid']) && Validation::uuid($graph['uuid']) ? strtolower($graph['uuid']) : null;
+            $record = [
+                'name' => $name,
+                'description' => isset($graph['description']) && is_string($graph['description']) ? $graph['description'] : null,
+                'object_type' => $target['type'] ?? (is_string($graph['object_type'] ?? null) ? $graph['object_type'] : null),
+                'object_uuid' => $target['uuid'] ?? (is_string($graph['object_uuid'] ?? null) ? $graph['object_uuid'] : null),
+                'forked_from_uuid' => $original,
+            ] + $sharing;
+            if (isset($graph['authors']) && is_string($graph['authors']) && $graph['authors'] !== '') {
+                $record['authors'] = $graph['authors'];
+            }
+            if (array_key_exists('content', $graph)) {
+                $record['content'] = $graph['content'];
+            }
+            if (empty($record['object_type']) || empty($record['object_uuid'])) {
+                $failed[] = ['index' => $index, 'name' => $name, 'errors' => [
+                    'object_uuid' => [__('This graph names no target; choose one to import it onto.')],
+                ]];
+                continue;
+            }
+            $this->Graph->create();
+            if ($this->Graph->save(['Graph' => $record])) {
+                $ids[] = $this->Graph->id;
+            } else {
+                $failed[] = ['index' => $index, 'name' => $name, 'errors' => $this->Graph->validationErrors];
+            }
+        }
+        if (!empty($ids)) {
+            $imported = $this->Graph->summaries($user, ['Graph.id' => $ids]);
+        }
+        return ['imported' => $imported, 'failed' => $failed];
+    }
+
+    /**
+     * After an import from the form: the graph, when it is the only one, else
+     * the Graphs index.
+     *
+     * @param array $report __importGraphs()'s
+     * @return CakeResponse
+     */
+    private function __importRedirect(array $report)
+    {
+        $imported = $report['imported'];
+        if (!empty($report['failed'])) {
+            $reasons = [];
+            foreach ($report['failed'] as $failure) {
+                $errors = Hash::flatten((array)$failure['errors']);
+                $reasons[] = sprintf(
+                    '%s: %s',
+                    $failure['name'] !== '' ? $failure['name'] : __('Graph #%s', $failure['index'] + 1),
+                    implode(' ', array_slice(array_values($errors), 0, 3))
+                );
+            }
+            $message = empty($imported)
+                ? __('No graph was imported. %s', implode(' — ', $reasons))
+                : __('%s graph(s) imported, %s not. %s', count($imported), count($report['failed']), implode(' — ', $reasons));
+            $this->Flash->error($message);
+        } else {
+            $this->Flash->success(count($imported) === 1
+                ? __('Graph "%s" imported.', $imported[0]['name'])
+                : __('%s graphs imported.', count($imported)));
+        }
+        if (count($imported) === 1 && empty($report['failed'])) {
+            return $this->redirect('/analyst_graphs/view/' . $imported[0]['uuid']);
+        }
+        return $this->redirect(['controller' => 'analyst_data', 'action' => 'index', 'Graph']);
+    }
+
+    /**
+     * What the import form offers: where the graphs can land and who sees them.
+     *
+     * @param array $user
+     */
+    private function __setImportForm(array $user)
+    {
+        $levels = [];
+        foreach (ClassRegistry::init('Event')->distributionLevels as $level => $name) {
+            if ($level <= 4) {
+                $levels[$level] = $name;
+            }
+        }
+        $this->set('distributionLevels', $levels);
+        $this->set('sharingGroups', ClassRegistry::init('SharingGroup')->fetchAllAuthorised($user, 'name', 1));
+        $this->set('defaultDistribution', (int)(Configure::read('MISP.default_analyst_data_distribution') ?? 1));
+        $this->set('collections', $this->__orgCollections($user));
+        $this->set('transferLimit', self::TRANSFER_LIMIT);
+    }
+
+    /**
      * @param string $uuid
      * @return array
      * @throws NotFoundException
@@ -371,6 +696,23 @@ class AnalystGraphsController extends AppController
                 'label' => $graph['target']['label'],
             ];
         }
+        foreach ($this->__orgCollections($user) as $collection) {
+            if (!empty($targets) && $targets[0]['uuid'] === $collection['uuid']) {
+                continue;
+            }
+            $targets[] = $collection;
+        }
+        return $targets;
+    }
+
+    /**
+     * The collections the user's organisation created, newest first.
+     *
+     * @param array $user
+     * @return array [{type, uuid, label}]
+     */
+    private function __orgCollections(array $user)
+    {
         $collections = ClassRegistry::init('Collection')->find('all', [
             'conditions' => ['Collection.orgc_id' => $user['org_id']],
             'fields' => ['Collection.uuid', 'Collection.name'],
@@ -378,12 +720,13 @@ class AnalystGraphsController extends AppController
             'limit' => self::FORK_COLLECTIONS,
             'recursive' => -1,
         ]);
+        $targets = [];
         foreach ($collections as $collection) {
-            $uuid = strtolower($collection['Collection']['uuid']);
-            if (!empty($targets) && $targets[0]['uuid'] === $uuid) {
-                continue;
-            }
-            $targets[] = ['type' => 'Collection', 'uuid' => $uuid, 'label' => $collection['Collection']['name']];
+            $targets[] = [
+                'type' => 'Collection',
+                'uuid' => strtolower($collection['Collection']['uuid']),
+                'label' => $collection['Collection']['name'],
+            ];
         }
         return $targets;
     }
