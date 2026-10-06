@@ -58,7 +58,7 @@ echo $this->Form->create('Galaxy', [
         </div>
     </div>
 
-    <!-- CATEGORY / KIND -->
+    <!-- CATEGORY / SUB-CATEGORY -->
     <div class="row g-3 mt-0">
         <div class="col-md-6">
             <?= $this->Form->label('category', __('Category'), ['class' => 'form-label fw-semibold']) ?>
@@ -73,13 +73,13 @@ echo $this->Form->create('Galaxy', [
         </div>
 
         <div class="col-md-6">
-            <?= $this->Form->label('kind', __('Kind'), ['class' => 'form-label fw-semibold']) ?>
-            <?= $this->Form->select('kind', array_filter($galaxyKinds), [
+            <?= $this->Form->label('sub_category', __('Sub-category'), ['class' => 'form-label fw-semibold']) ?>
+            <?= $this->Form->select('sub_category', array_filter($galaxySubCategories), [
                 'class' => 'form-select bg-light',
-                'empty' => __('No kind'),
+                'empty' => __('No sub-category'),
                 // Without it CakePHP drops an option whose label matches an
                 // optgroup's - `technique` and `reference` are each a category
-                // and a kind, and would render nowhere.
+                // and a sub-category, and would render nowhere.
                 'showParents' => true,
             ]) ?>
             <div class="form-text">
@@ -187,21 +187,21 @@ echo $this->Form->create('Galaxy', [
 <?= $this->Form->end(); ?>
 
 <script>
-/* The second select offers the kinds in use under the category chosen in the
- * first - upstream's schema does not constrain one to the other, but offering
- * `actor` under `detection` would be offering nonsense. */
+/* The second select offers the sub-categories in use under the category
+ * chosen in the first - upstream's schema does not constrain one to the
+ * other, but offering `actor` under `detection` would be offering nonsense. */
 (function () {
-    var kinds = <?= json_encode($galaxyKinds, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+    var subCategories = <?= json_encode($galaxySubCategories, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
     var definitions = <?= json_encode($galaxyCategoryDescriptions, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
 
     var category = document.getElementById('GalaxyCategory');
-    var kind = document.getElementById('GalaxyKind');
+    var subCategory = document.getElementById('GalaxySubCategory');
     var definition = document.getElementById('GalaxyCategoryDefinition');
-    if (!category || !kind) {
+    if (!category || !subCategory) {
         return;
     }
-    var noKind = kind.querySelector('option[value=""]');
-    noKind = noKind ? noKind.textContent : '';
+    var noSubCategory = subCategory.querySelector('option[value=""]');
+    noSubCategory = noSubCategory ? noSubCategory.textContent : '';
 
     function option(value, label) {
         var el = document.createElement('option');
@@ -212,22 +212,22 @@ echo $this->Form->create('Galaxy', [
 
     function refresh(reset) {
         var chosen = category.value;
-        var current = reset ? '' : kind.value;
-        var available = kinds[chosen] || {};
-        kind.innerHTML = '';
-        kind.appendChild(option('', noKind));
+        var current = reset ? '' : subCategory.value;
+        var available = subCategories[chosen] || {};
+        subCategory.innerHTML = '';
+        subCategory.appendChild(option('', noSubCategory));
         var offered = false;
         Object.keys(available).forEach(function (name) {
-            kind.appendChild(option(name, available[name]));
+            subCategory.appendChild(option(name, available[name]));
             offered = offered || name === current;
         });
-        /* A kind set from outside this form - over the API, or by a definition
-         * file - stays on offer, so opening the form and saving it does not
-         * quietly drop what is stored. */
+        /* A sub-category set from outside this form - over the API, or by a
+         * definition file - stays on offer, so opening the form and saving it
+         * does not quietly drop what is stored. */
         if (current && !offered) {
-            kind.appendChild(option(current, current));
+            subCategory.appendChild(option(current, current));
         }
-        kind.value = current;
+        subCategory.value = current;
         if (definition) {
             definition.textContent = definitions[chosen]
                 || definition.dataset.default || '';

@@ -330,7 +330,8 @@ class ValueContextTool
      *
      * @param array $tags `ValueIntelligence::mergeTagScopes`' output
      * @param array $clusters Tag name => a `fetchGalaxyClusters` row
-     * @return array One entry per galaxy: `galaxy`, `kind`, `clusters`
+     * @return array One entry per galaxy: `galaxy`, `sub_category`,
+     *     `clusters`
      */
     public static function galaxies(array $tags, array $clusters)
     {
@@ -357,14 +358,15 @@ class ValueContextTool
                      */
                     'key' => $cluster['type'],
                     /*
-                     * `kindOf` answers null for a galaxy it does not
-                     * classify — a custom one, or a new upstream galaxy
-                     * this instance has and the map does not. The raw
-                     * galaxy type is then better than a blank heading.
+                     * `subCategoryOf` answers null for a galaxy it does
+                     * not classify — a custom one, or a new upstream
+                     * galaxy this instance has and the map does not. The
+                     * raw galaxy type is then better than a blank
+                     * heading.
                      */
-                    'kind' => GalaxyCategory::kindOf($cluster['type']) === null
-                        ? $cluster['type']
-                        : GalaxyCategory::kindOf($cluster['type']),
+                    'sub_category' => GalaxyCategory::subCategoryOf(
+                        $cluster['type']
+                    ) ?? $cluster['type'],
                     'clusters' => array(),
                 );
             }

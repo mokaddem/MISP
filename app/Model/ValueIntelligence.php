@@ -5217,7 +5217,7 @@ class ValueIntelligence extends AppModel
                  * neighbourhood happened to report most widely.
                  */
                 'key' => $row['type'],
-                'kind' => GalaxyCategory::kindOf($row['type']),
+                'sub_category' => GalaxyCategory::subCategoryOf($row['type']),
                 'attachment' => $attachment,
                 /*
                  * Names, not ids, and that is the second query this
@@ -5640,7 +5640,7 @@ class ValueIntelligence extends AppModel
             'recursive' => -1,
             'fields' => array('Galaxy.type', 'Galaxy.kill_chain_order'),
             'conditions' => array(
-                'Galaxy.type' => GalaxyCategory::typesOfKind(
+                'Galaxy.type' => GalaxyCategory::typesOfSubCategory(
                     GalaxyCategory::ATTACK_PATTERN
                 ),
             ),

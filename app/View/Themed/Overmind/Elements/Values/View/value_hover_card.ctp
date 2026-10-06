@@ -436,8 +436,8 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
                             ? $card['galaxy']['galaxy']
                             : '',
                     ), array('display' => 'leaf')) ?>
-                    <?php if (!empty($card['galaxy']['kind'])): ?>
-                        <span class="vp-hc-gx-t"><?= h($card['galaxy']['kind']) ?></span>
+                    <?php if (!empty($card['galaxy']['sub_category'])): ?>
+                        <span class="vp-hc-gx-t"><?= h($card['galaxy']['sub_category']) ?></span>
                     <?php endif; ?>
                     <?php if ($card['galaxy']['more'] > 0): ?>
                         <span class="vp-hc-gx-more">+<?=

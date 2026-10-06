@@ -193,7 +193,7 @@ $kindCounts = array();
 foreach (array('actor', 'campaign', 'malware', 'tool') as $kind) {
     $n = 0;
     foreach ($rows as $threat) {
-        if ($threat['kind'] === $kind) {
+        if ($threat['sub_category'] === $kind) {
             $n++;
         }
     }
@@ -212,7 +212,7 @@ $row = function (array $threat, $folded) use (
     $kindWords, $marks, $baseurl, $nameCounts, $claimLines, $view,
     $targetKindWords
 ) {
-    $kind = isset($threat['kind']) ? $threat['kind'] : '';
+    $kind = isset($threat['sub_category']) ? $threat['sub_category'] : '';
     $word = isset($kindWords[$kind])
         ? $kindWords[$kind]
         : str_replace('-', ' ', $kind);

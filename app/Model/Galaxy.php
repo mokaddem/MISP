@@ -154,7 +154,7 @@ class Galaxy extends AppModel
          * ingestion writes rather than becoming a second spelling of
          * unclassified that an `IS NULL` would miss.
          */
-        foreach (['category', 'kind'] as $classification) {
+        foreach (['category', 'sub_category'] as $classification) {
             if (isset($this->data['Galaxy'][$classification])
                 && $this->data['Galaxy'][$classification] === ''
             ) {
@@ -875,7 +875,7 @@ class Galaxy extends AppModel
                 $date = new DateTime();
                 $galaxy['Galaxy']['version'] = $date->getTimestamp();
                 if (empty($fieldList)) {
-                    $fieldList = ['name', 'namespace', 'description', 'version', 'distribution', 'icon', 'enabled', 'kill_chain_order', 'category', 'kind'];
+                    $fieldList = ['name', 'namespace', 'description', 'version', 'distribution', 'icon', 'enabled', 'kill_chain_order', 'category', 'sub_category'];
                 }
                 $saveSuccess = $this->save($galaxy, ['fieldList' => $fieldList]);
                 if (!$saveSuccess) {

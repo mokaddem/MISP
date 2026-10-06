@@ -372,9 +372,9 @@ class ValueHoverTool
         return array(
             'name' => $first['name'],
             'type' => $first['key'],
-            'kind' => $first['key'] === null
+            'sub_category' => $first['key'] === null
                 ? null
-                : GalaxyCategory::kindOf($first['key']),
+                : GalaxyCategory::subCategoryOf($first['key']),
             'more' => max(0, count($groups) - 1),
         );
     }

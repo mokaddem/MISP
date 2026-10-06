@@ -250,7 +250,7 @@ if ($warninglist !== null) {
 }
 if ($card['galaxy'] !== null) {
     $caveats[] = '<b>' . h($card['galaxy']['name']) . '</b> <span>'
-        . h($card['galaxy']['kind']) . '</span>'
+        . h($card['galaxy']['sub_category']) . '</span>'
         . ($card['galaxy']['more']
             ? h(sprintf(__n(', and %d more cluster',
                 ', and %d more clusters', $card['galaxy']['more']),
