@@ -149,6 +149,12 @@
 .mx-modal-galaxies[hidden] { display: none; }
 .mx-modal-legend { display: flex; align-items: center; gap: .9rem; font-size: .76rem; color: var(--bs-secondary-color); margin-left: auto; }
 .mx-modal-legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.mx-modal-unused { display: flex; align-items: center; gap: .4rem; margin: 0; min-height: 0; font-size: .76rem;
+    color: var(--bs-secondary-color); }
+.mx-modal-unused .form-check-input { margin-top: 0; }
+.mx-full-none { display: none; }
+.mx-hide-unused .mx-col.is-unused { display: none; }
+.mx-hide-unused .mx-full-none { display: block; }
 .mx-modal .modal-body { display: flex; flex-direction: column; padding: 0; min-height: 0; }
 .mx-full { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 .mx-full-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; padding: .5rem 1rem;

@@ -20,6 +20,10 @@
                     <span><span class="mx-sw"></span><?= h($strongLabel) ?></span>
                     <span><span class="mx-sw is-ind"></span><?= h($lightLabel) ?></span>
                 </div>
+                <div class="form-check form-switch mx-modal-unused">
+                    <input class="form-check-input" type="checkbox" role="switch" id="mx-hide-unused" data-mx-hide-unused>
+                    <label class="form-check-label" for="mx-hide-unused"><?= __('Hide unused columns') ?></label>
+                </div>
                 <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="<?= h(__('Close')) ?>"></button>
             </div>
             <div class="modal-body" data-mx-modal-body></div>

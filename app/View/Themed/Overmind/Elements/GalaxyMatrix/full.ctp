@@ -75,9 +75,12 @@ $button = function (array $item, $state, $index) use ($lightIcon) {
         <?php if (empty($matrix['columns'])): ?>
         <div class="mx-full-empty"><?= __('This tab has no techniques.') ?></div>
         <?php else: ?>
+        <?php if (max(array_column($matrix['columns'], 'active')) === 0): ?>
+        <div class="mx-full-empty mx-full-none"><?= __('No technique of this tab is used.') ?></div>
+        <?php endif; ?>
         <div class="mx-full-grid">
             <?php foreach ($matrix['columns'] as $column): ?>
-            <section class="mx-col">
+            <section class="mx-col<?= $column['active'] > 0 ? '' : ' is-unused' ?>">
                 <div class="mx-col-h" title="<?= h($column['label']) ?>">
                     <span><?= h($column['label']) ?></span>
                     <span class="mx-col-n"><?= $column['active'] > 0 ? (int)$column['active'] . ' / ' : '' ?><?= count($column['groups']) ?></span>
