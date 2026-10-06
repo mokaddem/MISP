@@ -304,11 +304,20 @@
     // A handful of nodes can afford the room a heavy graph cannot.
     var ROOMY_GRAPH_MAX = 12;
 
+    // Fewer alike nodes than this stay drawn one by one.
+    var FOLD_MIN_SIZE = 3;
+
     function viewerOptions(opts, kit, seed) {
         var nodes = (seed && seed.data && seed.data.nodes) || [];
         opts.UI.mode = 'viewer';
         opts.UI.extraPanels = [];
         opts.UI.sidebar = { collapsed: true };
+        // Alike objects hanging off the same nodes fold into one group; a
+        // double-click opens it.
+        opts.UI.simplify.rules = [
+            { kind: 'neighbours', minSize: FOLD_MIN_SIZE },
+            { kind: 'chains', minSize: FOLD_MIN_SIZE }
+        ];
         opts.simulation.layout = { type: 'structured', gap: nodes.length <= ROOMY_GRAPH_MAX ? 30 : 10 };
         opts.render.maxZoom = 1.5;
     }
@@ -347,7 +356,10 @@
         var structureSub = '';
         var saved = null;
         var savedCount = 0;
-        var savedMounted = false;
+        var savedShown = null;
+        var savedHandle = null;
+        var savedToken = 0;
+        var pick = card.querySelector('[data-eo-graph-pick]');
         var strip = card.parentElement.querySelector('[data-eo-graph-strip]');
         var reportCol = document.querySelector('[data-eo-col="report"]');
         var structureEmpty = card.getAttribute('data-eo-structure-empty') === '1';
@@ -398,15 +410,55 @@
                 ? fmt(card.getAttribute('data-eo-text-saved'), [saved.name || saved.uuid])
                     + (savedCount > 1 ? ' · ' + fmt(card.getAttribute('data-eo-text-saved-count'), [savedCount]) : '')
                 : structureSub;
-            if (mode === 'saved' && saved && !savedMounted && window.IntelGraph) {
-                savedMounted = true;
-                window.IntelGraph.mount(canvases.saved, { graph: saved.uuid, ui: { mode: 'viewer' } })
-                    .catch(function () { canvases.saved.textContent = card.getAttribute('data-eo-text-failed'); });
-            }
+            if (mode === 'saved') mountSaved();
+        }
+
+        function mountSaved() {
+            if (!saved || savedShown === saved.uuid || !window.IntelGraph) return;
+            savedShown = saved.uuid;
+            if (savedHandle) savedHandle.destroy();
+            savedHandle = null;
+            canvases.saved.textContent = '';
+            var token = ++savedToken;
+            window.IntelGraph.mount(canvases.saved, { graph: saved.uuid, ui: { mode: 'viewer' } }).then(function (handle) {
+                if (token === savedToken) savedHandle = handle;
+                else handle.destroy();
+            }, function () {
+                if (token === savedToken) canvases.saved.textContent = card.getAttribute('data-eo-text-failed');
+            });
+        }
+
+        function fillPick(graphs) {
+            pick.textContent = '';
+            graphs.forEach(function (g) {
+                var item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'dropdown-item' + (g === saved ? ' active' : '');
+                item.setAttribute('aria-current', g === saved ? 'true' : 'false');
+                var name = document.createElement('span');
+                name.className = 'eo-graph-pick-name';
+                name.textContent = g.name || g.uuid;
+                var size = document.createElement('span');
+                size.className = 'eo-graph-pick-size';
+                size.textContent = g.node_count > 0
+                    ? fmt(card.getAttribute('data-eo-text-node-count'), [g.node_count])
+                    : card.getAttribute('data-eo-text-no-nodes');
+                item.append(name, size);
+                item.addEventListener('click', function () {
+                    saved = g;
+                    fillPick(graphs);
+                    select('saved');
+                });
+                var li = document.createElement('li');
+                li.appendChild(item);
+                pick.appendChild(li);
+            });
         }
 
         buttons.forEach(function (b) {
-            b.addEventListener('click', function () { if (!b.disabled) select(b.getAttribute('data-eo-graph-mode')); });
+            b.addEventListener('click', function () {
+                if (!b.disabled && !b.hasAttribute('data-bs-toggle')) select(b.getAttribute('data-eo-graph-mode'));
+            });
         });
 
         if (structureEmpty) showBlank();
@@ -455,6 +507,13 @@
                 button.disabled = false;
                 button.title = button.getAttribute('data-eo-title-ready');
                 savedCount = graphs.length;
+                if (graphs.length > 1 && pick) {
+                    button.title = button.getAttribute('data-eo-title-pick');
+                    button.setAttribute('data-bs-toggle', 'dropdown');
+                    button.setAttribute('aria-expanded', 'false');
+                    card.querySelector('[data-eo-graph-caret]').classList.remove('d-none');
+                    fillPick(graphs);
+                }
                 // An empty saved graph stays one click away rather than hiding the structure.
                 if (drawn.length) {
                     savedDrawn = true;

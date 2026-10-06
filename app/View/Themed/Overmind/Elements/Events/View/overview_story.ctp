@@ -148,7 +148,9 @@ $reportOrigin = function ($originId) {
              data-eo-text-failed="<?= h(__('The graph could not be drawn.')) ?>"
              data-eo-text-counts="<?= h(__('%1$s objects, %2$s references')) ?>"
              data-eo-text-saved="<?= h(__('Saved graph: %s')) ?>"
-             data-eo-text-saved-count="<?= h(__('%s saved graphs')) ?>">
+             data-eo-text-saved-count="<?= h(__('%s saved graphs')) ?>"
+             data-eo-text-node-count="<?= h(__('%s nodes')) ?>"
+             data-eo-text-no-nodes="<?= h(__('empty')) ?>">
             <div class="eo-card-head">
                 <div class="misp-icon-tile eo-tile" style="--tile:var(--bs-correlation);--tile-bg:color-mix(in srgb, var(--bs-correlation) 12%, transparent);">
                     <i class="fas fa-circle-nodes"></i>
@@ -158,11 +160,16 @@ $reportOrigin = function ($originId) {
                     <div class="eo-card-sub text-truncate" data-eo-graph-sub>&nbsp;</div>
                 </div>
                 <div class="eo-switch" role="group" aria-label="<?= h(__('Graph source')) ?>">
-                    <button type="button" data-eo-graph-mode="saved" disabled
-                            title="<?= h(__('No saved graph on this event')) ?>"
-                            data-eo-title-ready="<?= h(__('Show the saved graph')) ?>">
-                        <i class="fas fa-bookmark"></i><?= __('Saved graph') ?>
-                    </button>
+                    <div class="dropdown d-inline-flex">
+                        <button type="button" data-eo-graph-mode="saved" disabled
+                                title="<?= h(__('No saved graph on this event')) ?>"
+                                data-eo-title-ready="<?= h(__('Show the saved graph')) ?>"
+                                data-eo-title-pick="<?= h(__('Choose a saved graph')) ?>">
+                            <i class="fas fa-bookmark"></i><?= __('Saved graph') ?>
+                            <i class="fas fa-caret-down d-none" data-eo-graph-caret></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end eo-graph-pick" data-eo-graph-pick></ul>
+                    </div>
                     <button type="button" class="active" data-eo-graph-mode="structure"
                             title="<?= h(__('Show how the objects reference each other')) ?>">
                         <i class="fas fa-sitemap"></i><?= __('Structure') ?>
