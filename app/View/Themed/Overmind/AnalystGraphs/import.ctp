@@ -25,7 +25,7 @@ echo $this->Form->create('Graph', [
     'accent' => $color,
     'eyebrow' => __('Analyst Graphs'),
     'title' => __('Import graphs'),
-    'description' => __('A file exported from this or another instance. Each graph arrives as a new graph of your organisation.'),
+    'description' => __("A file exported from this or another instance. Each graph keeps its uuid and becomes your organisation's; one this instance already holds is refused."),
     'icon' => 'fas fa-file-import',
     'titleIcon' => 'fas fa-file-import',
 ]) ?>

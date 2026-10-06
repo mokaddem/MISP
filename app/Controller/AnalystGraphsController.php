@@ -339,8 +339,8 @@ class AnalystGraphsController extends AppController
     }
 
     /**
-     * New graphs owned by the user's organisation, from an export: each gets
-     * a uuid of its own and records the one it was copied from.
+     * Graphs from an export, owned by the user's organisation. Each keeps its
+     * uuid; one this instance already holds or has blocklisted is refused.
      */
     public function import()
     {
@@ -516,16 +516,41 @@ class AnalystGraphsController extends AppController
         }
         $imported = $failed = $ids = [];
         $this->Graph->current_user = $user;
+        $blocklist = ClassRegistry::init('AnalystDataBlocklist');
         foreach ($graphs as $index => $graph) {
             $name = isset($graph['name']) && is_string($graph['name']) ? $graph['name'] : '';
-            $original = isset($graph['uuid']) && is_string($graph['uuid']) && Validation::uuid($graph['uuid']) ? strtolower($graph['uuid']) : null;
+            $refuse = function ($field, $message) use (&$failed, $index, $name) {
+                $failed[] = ['index' => $index, 'name' => $name, 'errors' => [$field => [$message]]];
+            };
+            $uuid = $graph['uuid'] ?? null;
+            if ($uuid !== null) {
+                if (!is_string($uuid) || !Validation::uuid($uuid)) {
+                    $refuse('uuid', __('Please provide a valid RFC 4122 UUID'));
+                    continue;
+                }
+                // Stored as each creator spelled it
+                $spellings = array_values(array_unique([$uuid, strtolower($uuid), strtoupper($uuid)]));
+                if ($this->Graph->find('count', ['conditions' => ['Graph.uuid' => $spellings], 'callbacks' => false])) {
+                    $refuse('uuid', __('A graph with this uuid already exists.'));
+                    continue;
+                }
+                if ($blocklist->hasAny(['AnalystDataBlocklist.analyst_data_uuid' => $spellings])) {
+                    $refuse('uuid', __('A graph with this uuid is blocklisted.'));
+                    continue;
+                }
+                $uuid = strtolower($uuid);
+            }
+            $forkedFrom = $graph['forked_from_uuid'] ?? null;
             $record = [
                 'name' => $name,
                 'description' => isset($graph['description']) && is_string($graph['description']) ? $graph['description'] : null,
                 'object_type' => $target['type'] ?? (is_string($graph['object_type'] ?? null) ? $graph['object_type'] : null),
                 'object_uuid' => $target['uuid'] ?? (is_string($graph['object_uuid'] ?? null) ? $graph['object_uuid'] : null),
-                'forked_from_uuid' => $original,
+                'forked_from_uuid' => is_string($forkedFrom) && Validation::uuid($forkedFrom) ? strtolower($forkedFrom) : null,
             ] + $sharing;
+            if ($uuid !== null) {
+                $record['uuid'] = $uuid;
+            }
             if (isset($graph['authors']) && is_string($graph['authors']) && $graph['authors'] !== '') {
                 $record['authors'] = $graph['authors'];
             }
@@ -533,9 +558,7 @@ class AnalystGraphsController extends AppController
                 $record['content'] = $graph['content'];
             }
             if (empty($record['object_type']) || empty($record['object_uuid'])) {
-                $failed[] = ['index' => $index, 'name' => $name, 'errors' => [
-                    'object_uuid' => [__('This graph names no target; choose one to import it onto.')],
-                ]];
+                $refuse('object_uuid', __('This graph names no target; choose one to import it onto.'));
                 continue;
             }
             $this->Graph->create();
