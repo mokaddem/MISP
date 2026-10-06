@@ -53,6 +53,9 @@
         // [[sharing group id, name]], the default level and the user's email.
         var analystSharing = Object.assign({ levels: [], sharingGroups: [], default: 1, authors: '' },
                                            cfg.analystSharing);
+        // What a canvas saved as an analyst graph can be shared with, as
+        // analystSharing; null for a user who may not create graphs.
+        var graphSharing = cfg.graphSharing || null;
         // Per object template ('uuid.version'), the ui-priority of each relation.
         var uiPriorities = cfg.uiPriorities || {};
         // The viewer's analyst profile as ValueLabelPriority::planFor() gives it,
@@ -2946,6 +2949,244 @@
                 iconClass: 'fas fa-eraser',
                 visible:   holdsFetchedCorrelations,
                 onclick:   removeFetchedCorrelations
+            }].concat(saveGraphMenu());
+        }
+
+        /* ── the canvas kept as an analyst graph ───────────────── */
+        // Saved onto the record the explorer started from; once saved, the same
+        // controls update that graph, and "Save as new" starts another.
+        var _savedGraph = null;   // { uuid, name, revision }
+
+        function graphTarget() {
+            if (!graphSharing || !window.IntelGraph) return null;
+            if (host.graphTarget) return host.graphTarget(kit);
+            if (host.load) return null;
+            var e = (_event && _event.Event) || {};
+            return e.uuid ? { type: 'Event', uuid: e.uuid, label: e.info || '' } : null;
+        }
+
+        function roundPosition(v) {
+            return Math.round(v * 10) / 10;
+        }
+
+        // The records on the canvas, where they sit now. An attribute drawn
+        // inside its object, or a node folded into a group, has no position
+        // of its own; anything that is not a MISP record (a feed, a server, a
+        // tag, a module's answer) cannot be kept.
+        function canvasDocument() {
+            var nodes = [], dropped = 0;
+            _graph.getMutableNodes().forEach(function (node) {
+                var item = graphItemOf(node);
+                if (!item) { dropped++; return; }
+                var out = item.type === 'Value'
+                    ? { type: 'Value', value: item.value }
+                    : { type: item.type, uuid: item.uuid };
+                if (!node.foldedInto && typeof node.x === 'number' && typeof node.y === 'number') {
+                    out.x = roundPosition(node.x);
+                    out.y = roundPosition(node.y);
+                    if (node.frozen) out.pinned = true;
+                }
+                nodes.push(out);
+            });
+            return { document: { version: 1, nodes: nodes }, dropped: dropped };
+        }
+
+        function failureText(err) {
+            return String((err && err.message) || err || 'unknown error');
+        }
+
+        function graphSaved(title, saved) {
+            document.querySelectorAll('[data-ig-graphs-card]').forEach(function (card) {
+                if (card.igReload) card.igReload();
+            });
+            refreshSaveControls();
+            _graph.notifier.success(title, '“' + saved.name + '”', {
+                action: {
+                    label:   'Open graph',
+                    onClick: function () { openInTab('/analyst_graphs/view/' + encodeURIComponent(saved.uuid)); }
+                }
+            });
+        }
+
+        function refreshSaveControls() {
+            if (_graph && typeof _graph.UIManager.refreshTopBar === 'function') _graph.UIManager.refreshTopBar();
+        }
+
+        function formRow(label, control) {
+            var row = el('div', 'pvt-form-element');
+            var l = el('label', null, label);
+            control.id = 'pe-save-graph-' + control.name;
+            l.htmlFor = control.id;
+            row.appendChild(l);
+            row.appendChild(control);
+            return row;
+        }
+
+        function selectOf(name, options, selected) {
+            var select = el('select');
+            select.name = name;
+            options.forEach(function (o) {
+                var opt = el('option', null, o[1]);
+                opt.value = String(o[0]);
+                opt.selected = String(o[0]) === String(selected);
+                select.appendChild(opt);
+            });
+            return select;
+        }
+
+        function saveGraphDialog() {
+            var target = graphTarget();
+            if (!target || !_graph) return;
+            var doc = canvasDocument();
+            var kept = doc.document.nodes.length;
+            if (!kept) {
+                _graph.notifier.warning('Nothing to save', 'No element on the canvas is a MISP record a graph can hold.');
+                return;
+            }
+
+            var form = el('form', 'pvt-form pe-save-graph');
+            var name = el('input');
+            name.name = 'name';
+            name.type = 'text';
+            name.maxLength = 191;
+            name.value = target.label || '';
+            var description = el('textarea');
+            description.name = 'description';
+            description.rows = 2;
+            var dist = selectOf('distribution', graphSharing.levels, graphSharing.default);
+            var sg = selectOf('sharing_group_id', [['', '—']].concat(graphSharing.sharingGroups), '');
+            var sgRow = formRow('Sharing group', sg);
+            var activate = el('input');
+            activate.name = 'activate';
+            activate.type = 'checkbox';
+            activate.checked = true;
+            var activateRow = el('label', 'pe-save-graph-check');
+            activateRow.appendChild(activate);
+            activateRow.appendChild(document.createTextNode(' Make it my active graph: “Add to graph” feeds it'));
+            var summary = el('p', 'pe-save-graph-summary', plural(kept, 'element', 'elements') + ' kept.'
+                + (doc.dropped === 1 ? ' 1 more is not a MISP record (a feed, a server, a tag or a module answer) and is left out.'
+                    : doc.dropped ? ' ' + doc.dropped + ' more are not MISP records (feeds, servers, tags or module answers) and are left out.'
+                    : ''));
+            var error = el('div', 'pvt-form-error');
+
+            form.appendChild(formRow('Name', name));
+            form.appendChild(formRow('Description', description));
+            form.appendChild(formRow('Distribution', dist));
+            form.appendChild(sgRow);
+            form.appendChild(activateRow);
+            form.appendChild(summary);
+            form.appendChild(error);
+            sgRow.hidden = dist.value !== '4';
+            dist.addEventListener('change', function () { sgRow.hidden = dist.value !== '4'; });
+
+            var busy = false;
+            var modal = _graph.UIManager.createModal({
+                header:  'Save as graph on this ' + (target.type === 'GalaxyCluster' ? 'galaxy cluster' : 'event'),
+                body:    form,
+                rawBody: true,
+                buttons: [
+                    { variant: 'secondary', text: 'Cancel', onClick: function () { modal.hide(); } },
+                    { variant: 'primary', text: 'Save', onClick: submit }
+                ]
+            });
+            if (!modal) return;
+            form.addEventListener('keydown', function (e) {
+                e.stopPropagation();
+                if (e.key === 'Escape') { e.preventDefault(); modal.hide(); }
+            });
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                submit();
+            });
+            requestAnimationFrame(function () { name.focus(); name.select(); });
+
+            function submit() {
+                if (busy) return;
+                var graphName = name.value.trim();
+                if (!graphName) { error.textContent = 'A graph needs a name.'; return; }
+                if (dist.value === '4' && !sg.value) { error.textContent = 'Pick the sharing group to share it with.'; return; }
+                busy = true;
+                error.textContent = '';
+                // Read again: the canvas may have moved while the dialog was open.
+                window.IntelGraph.create({
+                    name:             graphName,
+                    description:      description.value,
+                    target:           { type: target.type, uuid: target.uuid },
+                    distribution:     +dist.value,
+                    sharing_group_id: dist.value === '4' ? +sg.value : null,
+                    content:          canvasDocument().document
+                }, { activate: activate.checked }).then(function (created) {
+                    _savedGraph = {
+                        uuid:     created.uuid,
+                        name:     created.name || graphName,
+                        revision: parseInt(created.revision, 10) || 1
+                    };
+                    modal.hide();
+                    graphSaved('Saved as graph', _savedGraph);
+                }, function (err) {
+                    busy = false;
+                    error.textContent = 'Not saved: ' + failureText(err);
+                });
+            }
+        }
+
+        function updateGraph() {
+            if (!_savedGraph || !_graph) return;
+            var saved = _savedGraph;
+            window.IntelGraph.save(saved.uuid, canvasDocument().document, saved.revision).then(function (out) {
+                saved.revision = parseInt(out && out.revision, 10) || saved.revision;
+                graphSaved('Graph updated', saved);
+            }, function (err) {
+                if (err && err.status === 409) {
+                    _graph.notifier.warning('Not updated', '“' + saved.name + '” was saved elsewhere since.', {
+                        action: { label: 'Save as new', onClick: saveGraphDialog }
+                    });
+                    return;
+                }
+                _graph.notifier.error('Not updated', failureText(err));
+            });
+        }
+
+        function saveGraphMenu() {
+            return [{
+                text:          'Save canvas as graph…',
+                title:         'Keeps what is on the canvas as an analyst graph',
+                iconClass:     'fas fa-circle-nodes',
+                dividerBefore: true,
+                visible:       function () { return !_savedGraph && !!graphTarget(); },
+                onclick:       saveGraphDialog
+            }, {
+                text:          'Update saved graph',
+                title:         'Writes the canvas into the graph saved from it',
+                iconClass:     'fas fa-circle-nodes',
+                dividerBefore: true,
+                visible:       function () { return !!_savedGraph; },
+                onclick:       updateGraph
+            }, {
+                text:          'Save as new graph…',
+                iconClass:     'fas fa-plus',
+                visible:       function () { return !!_savedGraph; },
+                onclick:       saveGraphDialog
+            }];
+        }
+
+        function saveGraphActions() {
+            return [{
+                id:        'save-graph',
+                text:      function () { return _savedGraph ? 'Update graph' : 'Save as graph'; },
+                title:     function () {
+                    return _savedGraph
+                        ? 'Writes the canvas into “' + _savedGraph.name + '”'
+                        : 'Keeps what is on the canvas as an analyst graph';
+                },
+                iconClass: 'fas fa-circle-nodes',
+                visible:   function () { return !!graphTarget(); },
+                onclick:   function () { if (_savedGraph) updateGraph(); else saveGraphDialog(); },
+                menu:      function () {
+                    return _savedGraph
+                        ? [{ text: 'Save as new graph…', iconClass: 'fas fa-plus', onclick: saveGraphDialog }]
+                        : [];
+                }
             }];
         }
 
@@ -3610,6 +3851,7 @@
                         renderGroupExtra: groupTooltipExtra
                     },
                     simplify: simplifyOption(),
+                    topBar: { actions: saveGraphActions() },
                     mainHeader: { render: sidebarHeader },
                     neighborsPanel: { graph: neighborsGraph() },
                     propertiesPanel: {
@@ -4221,6 +4463,7 @@
                 canEdit:        d.peCanEdit === '1',
                 canAnalyst:     d.peCanAnalyst === '1',
                 analystSharing: readJson(d.peAnalystSharing, '{}', 'analyst sharing options'),
+                graphSharing:   readJson(d.peGraphSharing, 'null', 'graph sharing options'),
                 uiPriorities:   readJson(d.peUiPriorities, '{}', 'object template priorities'),
                 labelPlan:      readJson(d.peLabelPlan, 'null', 'analyst profile priorities'),
                 permitted:      readJson(d.pePermitted, 'null', 'analyst profile priorities'),

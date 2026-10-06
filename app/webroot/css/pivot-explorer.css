@@ -19,3 +19,34 @@
 .pvt-edge-synthetic path.dashed {
     stroke-dasharray: var(--pvt-edge-stroke-dasharray);
 }
+
+/* Save as graph: its select and textarea take the box pivotick gives
+   a form input. */
+.pe-save-graph .pvt-form-element > select,
+.pe-save-graph .pvt-form-element > textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--pvt-text-color-6);
+    background: var(--pvt-bg-color-0);
+    border: 1px solid var(--pvt-bg-color-5);
+    border-radius: 8px;
+}
+.pe-save-graph .pvt-form-element > select:focus,
+.pe-save-graph .pvt-form-element > textarea:focus {
+    outline: none;
+    border-color: var(--pvt-theme-primary);
+}
+.pe-save-graph-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+.pe-save-graph-summary {
+    margin: 0;
+    font-size: 12px;
+    color: var(--pvt-text-color-5);
+}
