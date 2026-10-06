@@ -50,3 +50,9 @@
     font-size: 12px;
     color: var(--pvt-text-color-5);
 }
+
+/* Pivotick's dialogs sit above the page's fixed navbar (1030) and sticky tab
+   bar (1020), on Bootstrap's modal layer. */
+.pivotick .pvt-modal-overlay {
+    z-index: 1055;
+}
