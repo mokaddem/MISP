@@ -3,25 +3,38 @@
     // Analyst relationships are gated on role alone, as analystData/add is.
     $canAnalyst = !empty($me['Role']['perm_add'])
         && !empty($me['Role']['perm_analyst_data']);
+    $canGraph = $this->Acl->canAccess('analystData', 'add')
+        && $this->Acl->canAccess('analystGraphs', 'save');
 
-    // What a drawn analyst relationship can be shared with, as the event
-    // page's explorer offers it.
+    // What a drawn analyst relationship or a saved graph can be shared with,
+    // as the event page's explorer offers it.
     $analystSharing = ['levels' => [], 'sharingGroups' => [], 'default' => 1];
-    if ($canAnalyst) {
+    $graphSharing = null;
+    if ($canAnalyst || $canGraph) {
         $levels = $distributionLevels ?? ClassRegistry::init('Event')->distributionLevels;
+        $sharing = ['levels' => [], 'sharingGroups' => []];
         foreach ([0, 1, 2, 3, 4] as $level) {
             if (isset($levels[$level])) {
-                $analystSharing['levels'][] = [$level, $levels[$level]];
+                $sharing['levels'][] = [$level, $levels[$level]];
             }
         }
         $sgs = ClassRegistry::init('SharingGroup')->fetchAllAuthorised($me, 'name', 1);
         asort($sgs);
         foreach ($sgs as $sgId => $sgName) {
-            $analystSharing['sharingGroups'][] = [(int)$sgId, $sgName];
+            $sharing['sharingGroups'][] = [(int)$sgId, $sgName];
         }
-        $analystSharing['default'] = (int)(Configure::read('MISP.default_analyst_data_distribution')
-            ?? Configure::read('MISP.default_event_distribution') ?? 1);
-        $analystSharing['authors'] = $me['email'] ?? '';
+        if ($canAnalyst) {
+            $analystSharing = $sharing + [
+                'default' => (int)(Configure::read('MISP.default_analyst_data_distribution')
+                    ?? Configure::read('MISP.default_event_distribution') ?? 1),
+                'authors' => $me['email'] ?? '',
+            ];
+        }
+        if ($canGraph) {
+            $graphSharing = $sharing + [
+                'default' => (int)(Configure::read('MISP.default_analyst_data_distribution') ?? 1),
+            ];
+        }
     }
 
     $pivotLabels = ClassRegistry::init('AnalystProfile')->pivotLabels($me);
@@ -40,6 +53,7 @@
      data-cpe-baseurl="<?= h($baseurl ?? '') ?>"
      data-cpe-can-analyst="<?= $canAnalyst ? '1' : '0' ?>"
      data-cpe-analyst-sharing="<?= h(json_encode($analystSharing)) ?>"
+     data-cpe-graph-sharing="<?= h(json_encode($graphSharing)) ?>"
      data-cpe-label-plan="<?= h(json_encode($pivotLabels['plan'])) ?>"
      data-cpe-permitted="<?= h(json_encode($pivotLabels['permitted'])) ?>"
      data-cpe-org-uuid="<?= h($me['Organisation']['uuid'] ?? '') ?>"

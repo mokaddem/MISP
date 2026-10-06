@@ -177,6 +177,7 @@
 
     function host(config) {
         var centre = null;
+        var cluster = null;
         return {
             cardEl:      config.cardEl,
             containerEl: config.containerEl,
@@ -186,6 +187,7 @@
                 baseurl:        config.baseurl,
                 canAnalyst:     config.canAnalyst,
                 analystSharing: config.analystSharing,
+                graphSharing:   config.graphSharing,
                 labelPlan:      config.labelPlan,
                 permitted:      config.permitted,
                 orgUuid:        config.orgUuid,
@@ -197,8 +199,15 @@
             load: function (kit) {
                 return fetchSeed(config.baseurl, config.clusterId).then(function (seed) {
                     centre = kit.clusterNodeId(seed.cluster);
+                    cluster = seed.cluster;
                     return { raw: seed, event: payloadOf(seed), data: graphData(seed, kit) };
                 });
+            },
+            // "Save as graph" keeps the canvas on the cluster it started from.
+            graphTarget: function () {
+                return cluster && cluster.uuid
+                    ? { type: 'GalaxyCluster', uuid: cluster.uuid, label: cluster.value || '' }
+                    : null;
             },
             pivots:     clusterPivots(config, function () { return centre; }),
             options:    clusterOptions(config),
@@ -233,6 +242,7 @@
             baseurl:        d.cpeBaseurl || '',
             canAnalyst:     d.cpeCanAnalyst === '1',
             analystSharing: readJson(d.cpeAnalystSharing, '{}', 'analyst sharing options'),
+            graphSharing:   readJson(d.cpeGraphSharing, 'null', 'graph sharing options'),
             labelPlan:      readJson(d.cpeLabelPlan, 'null', 'analyst profile priorities'),
             permitted:      readJson(d.cpePermitted, 'null', 'analyst profile priorities'),
             orgUuid:        d.cpeOrgUuid || '',
