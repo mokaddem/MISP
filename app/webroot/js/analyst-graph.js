@@ -657,6 +657,39 @@
             });
         }
 
+        // Moves the drawn nodes to where the document puts them, pinned as it
+        // says, and holds them there while anything still settles.
+        function place(doc) {
+            var g = graph();
+            doc.nodes.forEach(function (n) {
+                if (!hasPosition(n)) return;
+                var id = state.built.idOf[nodeKey(n)];
+                var node = id && !state.built.folded[id] ? g.getMutableNode(id) : null;
+                if (!node) return;
+                node.x = n.x;
+                node.y = n.y;
+                if (n.pinned) node.freeze();
+                else if (node.frozen) node.unfreeze();
+            });
+            holdLayout(g);
+            g.nextTick();
+        }
+
+        // This graph saved whole elsewhere on the page. A canvas with no edits
+        // of its own becomes the saved one; one with edits only gains and loses
+        // nodes, and keeps its base so its own save meets the conflict.
+        function adopt(report) {
+            if (!report || !report.changed) return Promise.resolve(handle);
+            return handle.ready.then(fetchData).then(function (payload) {
+                apply(payload);
+                if (!state.dirty) {
+                    place(payload.document);
+                    state.revision = payload.Graph.revision;
+                }
+                return handle;
+            });
+        }
+
         // The canvas node a report key (Type:uuid) is drawn as: an attribute
         // inside a drawn object is that object.
         function nodeOf(key) {
@@ -688,7 +721,8 @@
             refresh:    refresh,
             rebase:     rebase,
             followed:   followed,
-            destroy:    function () {
+            adopt:      adopt,
+            destroy:   function () {
                 var g = graph();
                 if (g && typeof g.destroy === 'function') g.destroy();
                 if (config.containerEl) config.containerEl.innerHTML = '';

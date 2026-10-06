@@ -1030,6 +1030,11 @@
         showNone();
     });
 
+    // A save made elsewhere on the page, now drawn here: the count moved.
+    IG().on('drawn', function (d) {
+        if (d && drawnUuid() === lower(d.graph)) renderHead();
+    });
+
     IG().on('active', function (d) {
         var g = d && d.graph;
         if (!opened) {

@@ -230,9 +230,14 @@
     }
 
     // Resolves the save's report; a stale base rejects with err.status 409
-    // and err.body.revision the stored one.
+    // and err.body.revision the stored one. A save that changed the graph is
+    // announced, so a copy drawn elsewhere on the page follows it.
     function save(uuid, doc, revision) {
-        return request('POST', graphPath('save', uuid), { content: doc, revision: revision });
+        return request('POST', graphPath('save', uuid), { content: doc, revision: revision }).then(function (report) {
+            touchActive(uuid, report);
+            if (report && report.changed) emit('saved', { graph: uuid, report: report });
+            return report;
+        });
     }
 
     /* ── the lazy loader ───────────────────────────────────── */
@@ -294,12 +299,21 @@
                     emit('drawn', { graph: handle.uuid(), report: report, handle: handle });
                 }, function () { /* never drawn: nothing to point at */ });
             }
+            function onSaved(e) {
+                if (!e.detail || e.detail.graph !== handle.uuid()) return;
+                var report = e.detail.report;
+                handle.adopt(report).then(function () {
+                    emit('drawn', { graph: handle.uuid(), report: report, handle: handle });
+                }, function () { /* never drawn: nothing to point at */ });
+            }
             document.addEventListener('intel-graph:added', onChange);
             document.addEventListener('intel-graph:removed', onChange);
+            document.addEventListener('intel-graph:saved', onSaved);
             var destroy = handle.destroy;
             handle.destroy = function () {
                 document.removeEventListener('intel-graph:added', onChange);
                 document.removeEventListener('intel-graph:removed', onChange);
+                document.removeEventListener('intel-graph:saved', onSaved);
                 destroy();
             };
             return handle;
