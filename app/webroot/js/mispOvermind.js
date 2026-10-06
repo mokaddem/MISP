@@ -6433,7 +6433,7 @@ function initIndexFilterDraft(root, opts) {
                 }
                 if (typeof initTomSelect === 'function') { initTomSelect(results); }
                 if (opts.onApplied) { opts.onApplied(); }
-                results.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                revealResultsTop();
             })
             .catch(function (error) {
                 if (error.name === 'AbortError') { return; }
@@ -6442,6 +6442,18 @@ function initIndexFilterDraft(root, opts) {
             .finally(function () {
                 if (inFlight === controller) { inFlight = null; setBusy(false); }
             });
+    }
+
+    // Only scroll when the results' top is out of sight, e.g. after a pager
+    // link at the foot of a long table; otherwise the filter bar stays put.
+    function revealResultsTop() {
+        const NAV_HEIGHT = 56;
+        const top = results.getBoundingClientRect().top;
+        if (top >= NAV_HEIGHT) { return; }
+        window.scrollTo({
+            top: Math.max(0, top + window.pageYOffset - NAV_HEIGHT - 8),
+            behavior: 'smooth'
+        });
     }
 
     function swap(doc, selector) {
