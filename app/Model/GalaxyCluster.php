@@ -11,6 +11,8 @@ App::uses('TmpFileTool', 'Tools');
  */
 class GalaxyCluster extends AppModel
 {
+    const GRAPH_RELATION_BUDGET = 500;
+
     public $useTable = 'galaxy_clusters';
 
     public $recursive = -1;
@@ -2110,40 +2112,122 @@ class GalaxyCluster extends AppModel
     }
 
     /**
-     * The relations stored on one cluster, each with the cluster it points
-     * at. A target is resolved by id: one uuid can name a cluster in several
-     * galaxies. A relation the user may not see, or whose target they may
+     * The clusters one cluster's galaxy relations join it to: the relations
+     * stored on it, or with $inbound those other clusters hold towards it.
+     * A far cluster is resolved by id: one uuid can name a cluster in several
+     * galaxies. A relation the user may not see, or whose far end they may
      * not see or this instance lacks, is left out.
      *
      * @param array $user
      * @param int|string $clusterId ID or UUID
+     * @param bool $inbound
      * @return array list of ['relation' => string, 'cluster' => array]
      */
-    public function outboundRelations(array $user, $clusterId)
+    public function clusterRelations(array $user, $clusterId, $inbound = false)
     {
         $cluster = $this->fetchIfAuthorized($user, $clusterId, 'view');
+        return $this->relationsOf($user, $cluster['GalaxyCluster']['id'], $inbound);
+    }
+
+    /**
+     * What the Pivot Explorer opens a cluster's graph on: the cluster with its
+     * elements and analyst data, and its galaxy relations both ways, each
+     * direction capped at GRAPH_RELATION_BUDGET, newest first.
+     *
+     * @param array $user
+     * @param int|string $clusterId ID or UUID
+     * @return array
+     */
+    public function graphSeed(array $user, $clusterId)
+    {
+        $backup = [$this->includeAnalystData, $this->includeAnalystDataRecursive];
+        $this->includeAnalystData = true;
+        $this->includeAnalystDataRecursive = true;
+        try {
+            $cluster = $this->fetchIfAuthorized($user, $clusterId, 'view');
+        } finally {
+            list($this->includeAnalystData, $this->includeAnalystDataRecursive) = $backup;
+        }
+        $cluster = $cluster['GalaxyCluster'];
+        $cluster['GalaxyElement'] = array_column($this->GalaxyElement->find('all', [
+            'conditions' => ['GalaxyElement.galaxy_cluster_id' => $cluster['id']],
+            'fields' => ['GalaxyElement.key', 'GalaxyElement.value'],
+            'recursive' => -1,
+        ]), 'GalaxyElement');
+        $budget = self::GRAPH_RELATION_BUDGET;
+        return [
+            'cluster' => $cluster,
+            'outbound' => $this->relationsOf($user, $cluster['id'], false, $budget),
+            'inbound' => $this->relationsOf($user, $cluster['id'], true, $budget),
+            'totals' => [
+                'outbound' => $this->relationCount($user, $cluster['id'], false),
+                'inbound' => $this->relationCount($user, $cluster['id'], true),
+            ],
+            'budget' => $budget,
+        ];
+    }
+
+    /**
+     * @param array $user
+     * @param int $clusterId
+     * @param bool $inbound
+     * @return array
+     */
+    private function relationConditions(array $user, $clusterId, $inbound)
+    {
+        $near = $inbound ? 'referenced_galaxy_cluster_id' : 'galaxy_cluster_id';
+        $far = $inbound ? 'galaxy_cluster_id' : 'referenced_galaxy_cluster_id';
+        return ['AND' => [
+            ["GalaxyClusterRelation.$near" => $clusterId],
+            ["GalaxyClusterRelation.$far >" => 0],
+            $this->GalaxyClusterRelation->buildConditions($user, false),
+        ]];
+    }
+
+    /**
+     * @param array $user
+     * @param int $clusterId
+     * @param bool $inbound
+     * @return int
+     */
+    private function relationCount(array $user, $clusterId, $inbound)
+    {
+        return $this->GalaxyClusterRelation->find('count', [
+            'conditions' => $this->relationConditions($user, $clusterId, $inbound),
+            'recursive' => -1,
+        ]);
+    }
+
+    /**
+     * @param array $user
+     * @param int $clusterId
+     * @param bool $inbound
+     * @param int|null $limit
+     * @return array list of ['relation' => string, 'cluster' => array]
+     */
+    private function relationsOf(array $user, $clusterId, $inbound, $limit = null)
+    {
+        $far = $inbound ? 'galaxy_cluster_id' : 'referenced_galaxy_cluster_id';
         $relations = $this->GalaxyClusterRelation->find('all', [
-            'conditions' => ['AND' => [
-                ['GalaxyClusterRelation.galaxy_cluster_id' => $cluster['GalaxyCluster']['id']],
-                ['GalaxyClusterRelation.referenced_galaxy_cluster_id >' => 0],
-                $this->GalaxyClusterRelation->buildConditions($user, false),
-            ]],
+            'conditions' => $this->relationConditions($user, $clusterId, $inbound),
             'fields' => [
-                'GalaxyClusterRelation.referenced_galaxy_cluster_id',
+                "GalaxyClusterRelation.$far",
                 'GalaxyClusterRelation.referenced_galaxy_cluster_type',
             ],
+            'order' => ['GalaxyClusterRelation.id' => 'DESC'],
+            'limit' => $limit,
             'recursive' => -1,
         ]);
         if (empty($relations)) {
             return [];
         }
-        $targetIds = array_unique(array_column(
+        $farIds = array_unique(array_column(
             array_column($relations, 'GalaxyClusterRelation'),
-            'referenced_galaxy_cluster_id'
+            $far
         ));
-        $targets = $this->fetchGalaxyClusters($user, [
+        $clusters = $this->fetchGalaxyClusters($user, [
             'conditions' => [
-                'GalaxyCluster.id' => array_values($targetIds),
+                'GalaxyCluster.id' => array_values($farIds),
                 'GalaxyCluster.deleted' => 0,
             ],
             'fields' => [
@@ -2153,20 +2237,20 @@ class GalaxyCluster extends AppModel
             'contain' => ['Galaxy' => ['fields' => ['Galaxy.name']]],
         ]);
         $byId = [];
-        foreach ($targets as $target) {
-            $galaxy = $target['GalaxyCluster']['Galaxy'] ?? $target['Galaxy'] ?? [];
-            unset($target['GalaxyCluster']['Galaxy']);
-            $byId[$target['GalaxyCluster']['id']] = $target['GalaxyCluster'] + [
+        foreach ($clusters as $cluster) {
+            $galaxy = $cluster['GalaxyCluster']['Galaxy'] ?? $cluster['Galaxy'] ?? [];
+            unset($cluster['GalaxyCluster']['Galaxy']);
+            $byId[$cluster['GalaxyCluster']['id']] = $cluster['GalaxyCluster'] + [
                 'galaxy_name' => $galaxy['name'] ?? null,
             ];
         }
         $result = [];
         foreach ($relations as $relation) {
             $relation = $relation['GalaxyClusterRelation'];
-            if (isset($byId[$relation['referenced_galaxy_cluster_id']])) {
+            if (isset($byId[$relation[$far]])) {
                 $result[] = [
                     'relation' => $relation['referenced_galaxy_cluster_type'],
-                    'cluster' => $byId[$relation['referenced_galaxy_cluster_id']],
+                    'cluster' => $byId[$relation[$far]],
                 ];
             }
         }

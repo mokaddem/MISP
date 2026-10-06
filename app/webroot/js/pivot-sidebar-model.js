@@ -919,13 +919,14 @@
         vm.card = { value: d.value, galaxy: d.galaxy_name || d.galaxy_type || null, tag_name: d.tag_name || null };
         vm.detail = known ? clusterDetail(known.cluster, known.galaxy) : null;
         // Another event's cluster: found by its tag first when the node has
-        // no uuid, then read in full.
-        var uuid = known ? null : d.uuid;
+        // no uuid, then read in full — by id when known, as one uuid can name
+        // a cluster in several galaxies.
+        var uuid = known ? null : (d.cluster_id ? String(d.cluster_id) : d.uuid);
         if (!known && !uuid && d.tag_name) {
             lazy(vm, env, 'cluster_tag', { method: 'POST', url: TAG_SEARCH, body: { tag: [d.tag_name] } },
                 function (rows) {
                     var row = (Array.isArray(rows) ? rows : []).filter(function (r) { return r && r.GalaxyCluster; })[0];
-                    if (row) uuid = row.GalaxyCluster.uuid;
+                    if (row) uuid = row.GalaxyCluster.id || row.GalaxyCluster.uuid;
                 });
         }
         if (uuid) {

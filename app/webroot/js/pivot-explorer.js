@@ -23,7 +23,9 @@
     // One explorer per host. The event page's host is read off #pe-card
     // (boot, below); another page hands its own, with any of these hooks:
     //
-    //   load(kit)                 → Promise<{ data, event? }>, the seed
+    //   load(kit)                 → Promise<{ data, event? }>, the seed; `event`
+    //                               may carry `records` beside its Event,
+    //                               whose notes the analyst panel reads
     //   pivots(kit)               → the pivot list
     //   options(opts, kit, seed)  → adjusts the pivotick options
     //   afterMount(graph, kit, seed)
@@ -229,6 +231,21 @@
             };
         }
 
+        // The analyst relationships on one record drawn as node selfId.
+        function eachRelationshipOn(rec, selfId, cb) {
+            if (isDeleted(rec)) return;
+            (rec.Relationship || []).forEach(function (rel) {
+                if (isDeleted(rel)) return;
+                var to = analystTargetId(rel);
+                cb(rel, selfId, to, to);
+            });
+            (rec.RelationshipInbound || []).forEach(function (rel) {
+                if (isDeleted(rel)) return;
+                var from = relationshipEndId(rel, rel.object_type, rel.object_uuid);
+                cb(rel, from, selfId, from);
+            });
+        }
+
         // Walk every analyst relationship touching the event, calling
         // cb(relationship, fromId, toId, farId): outbound ones from the event
         // itself, event-level attributes, objects, and objects' child attributes,
@@ -236,19 +253,7 @@
         // not the element walked. A tombstoned owner is skipped whole, exactly as
         // it is on the canvas.
         function eachAnalystRelationship(ev, cb) {
-            function walk(rec, selfId) {
-                if (isDeleted(rec)) return;
-                (rec.Relationship || []).forEach(function (rel) {
-                    if (isDeleted(rel)) return;
-                    var to = analystTargetId(rel);
-                    cb(rel, selfId, to, to);
-                });
-                (rec.RelationshipInbound || []).forEach(function (rel) {
-                    if (isDeleted(rel)) return;
-                    var from = relationshipEndId(rel, rel.object_type, rel.object_uuid);
-                    cb(rel, from, selfId, from);
-                });
-            }
+            function walk(rec, selfId) { eachRelationshipOn(rec, selfId, cb); }
             if (ev.uuid) walk(ev, 'event:' + ev.uuid);
             (ev.Attribute || []).forEach(function (a) { walk(a, 'attr:' + a.uuid); });
             (ev.Object || []).forEach(function (obj) {
@@ -490,7 +495,7 @@
             var named = {};
             (rec.Galaxy || []).forEach(function (g) {
                 (g.GalaxyCluster || []).forEach(function (c) {
-                    if (c.tag_name) named[c.tag_name] = { galaxy_type: g.type, galaxy_name: g.name, value: c.value, uuid: c.uuid };
+                    if (c.tag_name) named[c.tag_name] = { galaxy_type: g.type, galaxy_name: g.name, value: c.value, uuid: c.uuid, id: c.id };
                 });
             });
             var tags = [], clusters = [], seen = {};
@@ -498,7 +503,7 @@
                 var n = named[tagName] || {}, g = galaxyTag(tagName) || {};
                 clusters.push({ tag_name: tagName, galaxy_type: n.galaxy_type || g.galaxy_type,
                                 galaxy_name: n.galaxy_name, value: n.value || g.value || tagName,
-                                uuid: n.uuid, local: local || undefined });
+                                uuid: n.uuid, id: n.id, local: local || undefined });
             }
             (rec.Tag || []).forEach(function (t) {
                 if (!t || !t.name || t.hide_tag || seen[t.name]) return;
@@ -1200,12 +1205,14 @@
             }];
         }
 
-        // Every record of this event that can carry analyst data, by uuid.
+        // Every record of this event that can carry analyst data, by uuid, and
+        // those a host hands beside the event as `records`.
         var _analystIndex = null, _analystIndexFor = null;
         function analystSource(uuid) {
             if (!_analystIndex || _analystIndexFor !== _event) {
                 var ev = (_event && _event.Event) || {};
                 _analystIndex = {};
+                ((_event && _event.records) || []).forEach(function (r) { _analystIndex[r.uuid] = r; });
                 if (ev.uuid) _analystIndex[ev.uuid] = ev;
                 (ev.Attribute || []).forEach(function (a) { _analystIndex[a.uuid] = a; });
                 (ev.Object || []).forEach(function (o) {
@@ -1804,14 +1811,20 @@
             var c = l.cluster;
             return { id: id, data: { type: 'cluster', label: c.value, value: c.value,
                                      galaxy_type: c.galaxy_type, galaxy_name: c.galaxy_name,
-                                     tag_name: c.tag_name, uuid: c.uuid } };
+                                     tag_name: c.tag_name, uuid: c.uuid, cluster_id: c.id } };
         }
 
         // A cluster as Relationship::getRelatedElement resolves it.
         function clusterNode(id, rec) {
             var g = rec.Galaxy || {};
             return labelNode(id, { cluster: { tag_name: rec.tag_name, value: rec.value,
-                galaxy_type: rec.type || g.type, galaxy_name: g.name, uuid: rec.uuid } });
+                galaxy_type: rec.type || g.type, galaxy_name: g.name, uuid: rec.uuid, id: rec.id } });
+        }
+
+        // How MISP is asked for a cluster: one uuid can name a cluster in several
+        // galaxies, so by id when the node knows it.
+        function clusterRef(d) {
+            return d.cluster_id ? String(d.cluster_id) : d.uuid;
         }
 
         function tagEdge(from, to, rel) {
@@ -1998,14 +2011,20 @@
         }
 
         /* ── pivot: a cluster's galaxy relations ───────────────── */
-        // The relations stored on the selected cluster, outbound only: each
-        // target lands as a cluster node, so it merges with one already drawn.
-        var RELATED_CLUSTERS_PIVOT = 'related-clusters';
+        // The relations stored on the selected cluster, or with `inbound` those
+        // other clusters hold towards it: each far end lands as a cluster node,
+        // so it merges with one already drawn.
+        var CLUSTER_RELATION_PIVOTS = {
+            outbound: { id: 'related-clusters',  label: 'Related clusters' },
+            inbound:  { id: 'relating-clusters', label: 'Clusters relating to it' }
+        };
 
         var _relations = {};
-        function clusterRelations(uuid, signal) {
-            if (!_relations[uuid]) {
-                _relations[uuid] = fetch(baseurl + '/galaxy_clusters/relatedClusters/' + encodeURIComponent(uuid) + '.json', {
+        function clusterRelations(ref, direction, signal) {
+            var key = direction + ':' + ref;
+            if (!_relations[key]) {
+                _relations[key] = fetch(baseurl + '/galaxy_clusters/relatedClusters/' + encodeURIComponent(ref)
+                                        + (direction === 'inbound' ? '/inbound' : '') + '.json', {
                     credentials: 'same-origin',
                     signal: signal,
                     headers: { 'Accept': 'application/json' }
@@ -2016,45 +2035,49 @@
                 })
                 .then(function (payload) { return (payload && payload.relations) || []; })
                 .catch(function (err) {
-                    delete _relations[uuid];
+                    delete _relations[key];
                     throw err;
                 });
             }
-            return _relations[uuid];
+            return _relations[key];
         }
 
-        function relationsOf(nodes, signal) {
-            return Promise.all(nodes.map(function (n) { return clusterRelations(n.getData().uuid, signal); }));
+        function relationsOf(nodes, direction, signal) {
+            return Promise.all(nodes.map(function (n) { return clusterRelations(clusterRef(n.getData()), direction, signal); }));
         }
 
-        function relatedClustersResult(nodes, lists) {
-            var out = [], edges = [], seen = {};
+        // A far cluster as /galaxy_clusters/relatedClusters lists it.
+        function relatedClusterNode(c) {
+            var id = clusterNodeId(c);
+            return labelNode(id, { cluster: { tag_name: c.tag_name, value: c.value,
+                galaxy_type: c.type, galaxy_name: c.galaxy_name, uuid: c.uuid, id: c.id } });
+        }
+
+        function clusterRelationEdge(from, to, relation) {
+            return { id: 'clrel:' + from + '>' + to + ':' + relation, from: from, to: to,
+                     data: { kind: 'cluster-relation', label: relation || '' } };
+        }
+
+        function relatedClustersResult(nodes, lists, direction) {
+            var land = landing();
             nodes.forEach(function (n, i) {
                 lists[i].forEach(function (r) {
                     var c = r.cluster || {};
-                    if (!c.tag_name) return;
-                    var id = clusterNodeId(c);
-                    if (id === n.id) return;
-                    if (!seen[id]) {
-                        seen[id] = true;
-                        out.push(labelNode(id, { cluster: { tag_name: c.tag_name, value: c.value,
-                            galaxy_type: c.type, galaxy_name: c.galaxy_name, uuid: c.uuid } }));
-                    }
-                    var eid = 'clrel:' + n.id + '>' + id + ':' + r.relation;
-                    if (!seen[eid]) {
-                        seen[eid] = true;
-                        edges.push({ id: eid, from: n.id, to: id,
-                                     data: { kind: 'cluster-relation', label: r.relation || '' } });
-                    }
+                    if (!c.tag_name || clusterNodeId(c) === n.id) return;
+                    var id = land.node(relatedClusterNode(c));
+                    land.edge(direction === 'inbound'
+                        ? clusterRelationEdge(id, n.id, r.relation)
+                        : clusterRelationEdge(n.id, id, r.relation));
                 });
             });
-            return { nodes: out, edges: edges };
+            return land.result();
         }
 
-        function relatedClustersPivot() {
+        function relatedClustersPivot(direction) {
+            direction = direction === 'inbound' ? 'inbound' : 'outbound';
             return {
-                id:            RELATED_CLUSTERS_PIVOT,
-                label:         'Related clusters',
+                id:            CLUSTER_RELATION_PIVOTS[direction].id,
+                label:         CLUSTER_RELATION_PIVOTS[direction].label,
                 maxCandidates: NODE_BUDGET,
                 appliesTo: function (nodes) {
                     return nodes.filter(function (n) {
@@ -2063,13 +2086,13 @@
                     });
                 },
                 summarize: function (nodes, narrowing, ctx) {
-                    return relationsOf(nodes, ctx && ctx.signal).then(function (lists) {
+                    return relationsOf(nodes, direction, ctx && ctx.signal).then(function (lists) {
                         return { total: lists.reduce(function (s, l) { return s + l.length; }, 0) };
                     });
                 },
                 fetch: function (nodes, narrowing, ctx) {
-                    return relationsOf(nodes, ctx && ctx.signal).then(function (lists) {
-                        return relatedClustersResult(nodes, lists);
+                    return relationsOf(nodes, direction, ctx && ctx.signal).then(function (lists) {
+                        return relatedClustersResult(nodes, lists, direction);
                     });
                 }
             };
@@ -3521,7 +3544,8 @@
 
         function eventPivots() {
             return [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
-                    taggedEventsPivot(), relatedClustersPivot(), surroundingsPivot(),
+                    taggedEventsPivot(), relatedClustersPivot(), relatedClustersPivot('inbound'),
+                    surroundingsPivot(),
                     cardElementsPivot('all'), cardElementsPivot('ids'), cardElementsPivot('network'),
                     moreCorrelationsPivot()].concat(canEnrich ? [enrichPivot()] : []);
         }
@@ -4165,11 +4189,16 @@
             eventCardNode:    eventCardNode,
             foreignObjectNode: foreignObjectNode,
             clusterNode:      clusterNode,
+            clusterNodeId:    clusterNodeId,
+            clusterRef:       clusterRef,
+            relatedClusterNode: relatedClusterNode,
+            clusterRelationEdge: clusterRelationEdge,
             inEventEdge:      inEventEdge,
             sourceMap:        sourceMap,
             sourceNodeData:   sourceNodeData,
             sources:          SOURCES,
             eachAnalystRelationship: eachAnalystRelationship,
+            eachRelationshipOn: eachRelationshipOn,
             relationshipFarEnd: relationshipFarEnd,
             analystNodeId:    analystNodeId,
             mispNodeStyles:   mispNodeStyles,
@@ -4178,11 +4207,13 @@
             sharedPanel:      sharedPanel,
             analystPanel:     analystPanel,
             eventHasAnalystData: eventHasAnalystData,
+            analystFields:    analystFields,
             pivots: {
                 feedEvents:      feedEventsPivot,
                 tags:            tagPivot,
                 taggedEvents:    taggedEventsPivot,
                 relatedClusters: relatedClustersPivot,
+                relatingClusters: function () { return relatedClustersPivot('inbound'); },
                 surroundings:    surroundingsPivot,
                 cardElements:    cardElementsPivot,
                 // Null for a reader who may not run modules.

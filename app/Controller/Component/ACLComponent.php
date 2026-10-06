@@ -596,6 +596,7 @@ class ACLComponent extends Component
             'detach' => array('perm_tagger'),
             'edit' => array('perm_galaxy_editor'),
             'export_for_misp_galaxy' => array('*'),
+            'graph' => array('*'),
             'index' => array('*'),
             'publish' => array('AND' => ['perm_galaxy_editor', 'perm_publish']),
             'railCard' => array('*'),
