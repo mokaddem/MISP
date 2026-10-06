@@ -2,6 +2,7 @@
 App::uses('AppController', 'Controller');
 App::uses('GalaxyRailCards', 'Tools/RailCards');
 App::uses('GalaxyCategory', 'Tools');
+App::uses('EventMatrixTool', 'Tools/EventOverview');
 
 /**
  * @property Galaxy $Galaxy
@@ -112,11 +113,11 @@ class GalaxiesController extends AppController
             $this->set('clusterCount', $clusterCount);
             if ($this->theme === 'Overmind') {
                 $railCards = new GalaxyRailCards();
-                $this->set('railCards', RailCard::byId(array_filter([
+                $this->set('railCards', RailCard::byId([
                     $railCards->composition($this->Auth->user(), $galaxy),
                     $railCards->slot('galaxy-usage', $id),
-                    empty($galaxy['Galaxy']['kill_chain_order']) ? null : $railCards->slot('galaxy-matrix', $id),
-                ])));
+                ]));
+                $this->set('isMatrixGalaxy', EventMatrixTool::isMatrixGalaxy($galaxy['Galaxy']));
             }
         }
     }
@@ -132,6 +133,51 @@ class GalaxiesController extends AppController
         $user = $this->Auth->user();
         $galaxy = $this->Galaxy->fetchIfAuthorized($user, $id, 'view', true, false, true);
         $this->_renderRailCard((new GalaxyRailCards())->lazy($cardId, $user, $galaxy));
+    }
+
+    /**
+     * The galaxy's full matrix, one tab (`?tab=`, the busiest by default) at
+     * a time, the techniques carried by events the user can see standing out.
+     *
+     * @param int|string $id Galaxy ID or UUID
+     */
+    public function viewMatrix($id)
+    {
+        $user = $this->Auth->user();
+        $id = $this->Toolbox->findIdByUuid($this->Galaxy, $id);
+        $galaxy = $this->Galaxy->fetchIfAuthorized($user, $id, 'view', true, false, true);
+        if (!EventMatrixTool::isMatrixGalaxy($galaxy['Galaxy'])) {
+            throw new NotFoundException(__('Invalid galaxy'));
+        }
+        $skeleton = $this->Galaxy->matrixSkeleton($user, $galaxy['Galaxy']);
+        $tagNames = [];
+        foreach ($skeleton['tabs'] as $columns) {
+            foreach ($columns as $cells) {
+                foreach ($cells as $cell) {
+                    $tagNames[$cell['tag_name']] = true;
+                }
+            }
+        }
+        $tags = empty($tagNames) ? [] : ClassRegistry::init('Tag')->find('list', [
+            'conditions' => ['Tag.name' => array_map('strval', array_keys($tagNames))],
+            'fields' => ['Tag.id', 'Tag.name'],
+        ]);
+        $counts = ClassRegistry::init('EventTag')->countForTags(array_keys($tags), $user);
+        $eventCounts = [];
+        foreach ($counts as $tagId => $count) {
+            if ((int)$count > 0 && isset($tags[$tagId])) {
+                $eventCounts[$tags[$tagId]] = (int)$count;
+            }
+        }
+        $tab = $this->request->query('tab');
+        $matrix = EventMatrixTool::usage($skeleton, $galaxy['Galaxy'], $eventCounts, is_string($tab) ? $tab : null);
+        $matrix['origins'] = [];
+        if ($this->_isRest()) {
+            $matrix['origins'] = (object)$matrix['origins'];
+            return $this->RestResponse->viewData($matrix, 'json');
+        }
+        $this->set('matrix', $matrix);
+        $this->layout = false;
     }
 
     public function add()

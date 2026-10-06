@@ -32,6 +32,7 @@ $cell = function (array $item, array $extra = []) use (&$cellData, $origins) {
         'c' => $item['cluster']['id'] ?? null,
         'g' => $item['state'] === 'idle' ? null : ($item['cluster']['tag_name'] ?? null),
         'e' => !empty($item['onEvent']),
+        'k' => (int)($item['events'] ?? 0),
         'n' => (int)($item['indicators'] ?? 0),
         'o' => (int)($item['loose'] ?? 0),
         'f' => $foreign,

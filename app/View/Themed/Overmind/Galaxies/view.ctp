@@ -4,9 +4,16 @@ $railCards = $railCards ?? [];
 
 $this->set('headerTitle', $data['name']);
 
+if (!empty($isMatrixGalaxy)) {
+    echo $this->element('genericElements/assetLoader', [
+        'css' => ['misp-matrix'],
+        'js' => ['misp-matrix'],
+    ]);
+}
+
 echo $this->element('genericElementsBS5/Layout/view_layout', [
     'data' => $data,
-    'tabs' => [
+    'tabs' => array_values(array_filter([
         [
             'id' => 'general',
             'title' => __('General'),
@@ -18,7 +25,7 @@ echo $this->element('genericElementsBS5/Layout/view_layout', [
                 'Galaxies/View/galaxies_actions',
                 'Galaxies/View/galaxies_analyst_data',
             ], $this->RailCard->rail($railCards, [
-                'galaxy-composition', 'galaxy-usage', 'galaxy-matrix',
+                'galaxy-composition', 'galaxy-usage',
             ], 'general')),
         ],
         [
@@ -33,5 +40,15 @@ echo $this->element('genericElementsBS5/Layout/view_layout', [
             ],
             'right' => $this->RailCard->rail($railCards, ['galaxy-composition'], 'clusters'),
         ],
-    ],
+        empty($isMatrixGalaxy) ? null : [
+            'id' => 'matrix',
+            'title' => __('Matrix'),
+            'icon' => 'fas fa-table-cells',
+            'left' => [
+                [
+                    'ajax' => $baseurl . '/galaxies/viewMatrix/' . h($data['id']),
+                ],
+            ],
+        ],
+    ])),
 ]);

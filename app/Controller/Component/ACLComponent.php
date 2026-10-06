@@ -581,6 +581,7 @@ class ACLComponent extends Component
             'railCard' => array('*'),
             'view' => array('*'),
             'viewGraph' => array('*'),
+            'viewMatrix' => array('*'),
             'wipe_default' => array(),
         ),
         'galaxyClusterBlocklists' => array(

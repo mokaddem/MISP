@@ -159,13 +159,46 @@ class EventMatrixTool
      */
     public static function full(array $skeleton, array $galaxy, array $hits, $selfId, $tab = null)
     {
-        $galaxyId = (int)$galaxy['id'];
-        $collected = self::collect($hits, $selfId);
         $byTag = [];
-        foreach ($collected[$galaxyId]['cells'] ?? [] as $cell) {
+        foreach (self::collect($hits, $selfId)[(int)$galaxy['id']]['cells'] ?? [] as $cell) {
             $byTag[$cell['cluster']['tag_name']] = $cell;
         }
+        return self::fullOf($skeleton, $galaxy, $byTag, $tab);
+    }
 
+    /**
+     * One galaxy's full matrix with the techniques carried by the events the
+     * user can see in the strong state, for the galaxy page.
+     *
+     * @param array $skeleton slimSkeleton() of the galaxy, cells the user may see
+     * @param array $galaxy Galaxy row
+     * @param array $eventCounts cluster tag name => events carrying it
+     * @param string|null $tab as full() takes it
+     * @return array
+     */
+    public static function usage(array $skeleton, array $galaxy, array $eventCounts, $tab = null)
+    {
+        $byTag = [];
+        foreach ($eventCounts as $tagName => $count) {
+            $byTag[$tagName] = [
+                'state' => 'event',
+                'onEvent' => true,
+                'events' => (int)$count,
+                'indicators' => 0,
+                'loose' => 0,
+                'foreign' => false,
+                'origins' => [],
+            ];
+        }
+        return self::fullOf($skeleton, $galaxy, $byTag, $tab);
+    }
+
+    /**
+     * @param array $byTag cluster tag name => finished cell, for the used techniques
+     */
+    private static function fullOf(array $skeleton, array $galaxy, array $byTag, $tab)
+    {
+        $galaxyId = (int)$galaxy['id'];
         $tabKeys = array_map('strval', array_keys($skeleton['killChain']));
         foreach (array_keys($skeleton['tabs']) as $key) {
             if (!in_array((string)$key, $tabKeys, true)) {
@@ -267,6 +300,7 @@ class EventMatrixTool
             'label' => (string)$label,
             'state' => $hit === null ? 'idle' : $hit['state'],
             'onEvent' => $hit !== null && $hit['onEvent'],
+            'events' => $hit === null ? 0 : ($hit['events'] ?? 0),
             'indicators' => $hit === null ? 0 : $hit['indicators'],
             'loose' => $hit === null ? 0 : $hit['loose'],
             'foreign' => $hit !== null && $hit['foreign'],

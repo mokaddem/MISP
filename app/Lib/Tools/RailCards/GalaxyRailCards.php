@@ -1,6 +1,5 @@
 <?php
 App::uses('LazyRailCards', 'Tools/RailCards');
-App::uses('GalaxyMatrixLayout', 'Tools');
 
 /**
  * Rail cards for a galaxy. $galaxy is ['Galaxy' => [...]] with
@@ -10,7 +9,6 @@ class GalaxyRailCards extends LazyRailCards
 {
     const USAGE_LIMIT = 10;
     const CONTRIBUTOR_LIMIT = 3;
-    const MATRIX_TABS = 3;
 
     protected function railCardUrl()
     {
@@ -21,7 +19,6 @@ class GalaxyRailCards extends LazyRailCards
     {
         return [
             'galaxy-usage' => ['list', __('Most used'), 'fas fa-ranking-star', 'usage'],
-            'galaxy-matrix' => ['inventory', __('Matrix'), 'fas fa-table-cells', 'matrix'],
         ];
     }
 
@@ -189,81 +186,6 @@ class GalaxyRailCards extends LazyRailCards
                 ? ['label' => __('%s clusters in use', number_format(count($counts))), 'href' => '#tab-clusters']
                 : null,
             ['empty' => __('No event carries a cluster of this galaxy.'), 'lazy' => true]
-        );
-    }
-
-    /**
-     * The kill chain as a thumbnail: per tab, how many clusters sit under
-     * each tactic, in the tab's own order.
-     *
-     * @param array $user
-     * @param array $galaxy
-     * @return array
-     */
-    public function matrix(array $user, array $galaxy)
-    {
-        $order = (array)($galaxy['Galaxy']['kill_chain_order'] ?? []);
-        $GalaxyElement = ClassRegistry::init('GalaxyElement');
-        $conditions = $this->clusterConditions($user, $galaxy['Galaxy']['id']);
-        $conditions['AND'][] = ['GalaxyElement.key' => 'kill_chain', 'GalaxyCluster.deleted' => 0];
-        $rows = $GalaxyElement->find('all', [
-            'recursive' => -1,
-            'conditions' => $conditions,
-            'contain' => ['GalaxyCluster' => ['fields' => ['GalaxyCluster.id']]],
-            'fields' => ['GalaxyElement.value', 'GalaxyElement.galaxy_cluster_id'],
-        ]);
-        $cells = [];
-        $clusters = [];
-        foreach ($rows as $row) {
-            $parts = explode(':', $row['GalaxyElement']['value'], 2);
-            if (count($parts) !== 2) {
-                continue;
-            }
-            list($tab, $tactic) = $parts;
-            $clusterId = $row['GalaxyElement']['galaxy_cluster_id'];
-            $cells[$tab][$tactic][$clusterId] = true;
-            $clusters[$tab][$clusterId] = true;
-            $clusters[''][$clusterId] = true;
-        }
-        uksort($cells, function ($a, $b) use ($clusters) {
-            return count($clusters[$b]) <=> count($clusters[$a]);
-        });
-        $groups = [];
-        foreach (array_slice($cells, 0, self::MATRIX_TABS, true) as $tab => $tactics) {
-            $declared = array_map('strval', (array)($order[$tab] ?? []));
-            $columns = array_merge($declared, array_diff(array_map('strval', array_keys($tactics)), $declared));
-            $facets = [];
-            foreach ($columns as $tactic) {
-                if (!empty($tactics[$tactic])) {
-                    $facets[] = [
-                        'label' => GalaxyMatrixLayout::formatTactic($tactic),
-                        'count' => count($tactics[$tactic]),
-                    ];
-                }
-            }
-            $groups[] = [
-                'key' => 'tab-' . $tab,
-                'label' => GalaxyMatrixLayout::formatTactic($tab),
-                'icon' => 'fas fa-table-columns',
-                'count' => count($clusters[$tab]),
-                'facets' => $facets,
-            ];
-        }
-        $total = count($clusters[''] ?? []);
-        $hidden = count($cells) - count($groups);
-        list(, $title, $icon) = $this->head('galaxy-matrix');
-        return RailCard::inventory(
-            'galaxy-matrix',
-            $title,
-            $icon,
-            ['count' => $total, 'label' => __n('cluster on the kill chain', 'clusters on the kill chain', $total)],
-            $groups,
-            false,
-            [
-                'empty' => __('No cluster is placed on the kill chain.'),
-                'note' => $hidden > 0 ? __n('%s smaller tab is not shown.', '%s smaller tabs are not shown.', $hidden, $hidden) : null,
-                'lazy' => true,
-            ]
         );
     }
 }

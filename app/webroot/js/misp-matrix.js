@@ -2,6 +2,7 @@
 // pane that caps and scrolls, tactic ticks, folds, galaxy switcher), the
 // technique tooltip and popover, and the full matrix modal. A slot with a
 // data-url is fetched; one arriving in a lazy panel is mounted as it is.
+// The galaxy page draws the full matrix inline, in a [data-mx-inline] host.
 (function () {
     'use strict';
 
@@ -171,7 +172,10 @@
 
     function stateLines(f) {
         var out = '';
-        if (f.e) out += '<li class="mx-tip-l"><span class="mx-sw"></span>' + esc(texts.onEvent) + '</li>';
+        if (f.e) {
+            out += '<li class="mx-tip-l"><span class="mx-sw"></span>'
+                + esc(f.k > 0 ? say('eventOne', 'eventMany', f.k) : texts.onEvent) + '</li>';
+        }
         if (f.n > 0) {
             out += '<li class="mx-tip-l"><span class="mx-sw is-ind"></span>'
                 + esc(f.e ? say('onOne', 'onMany', f.n) : say('onlyOne', 'onlyMany', f.n)) + '</li>';
@@ -318,6 +322,20 @@
         });
     }
 
+    function loadInline(host, tab) {
+        var body = host.querySelector('[data-mx-inline-body]');
+        closePop();
+        hideTip();
+        body.innerHTML = loader();
+        var url = host.getAttribute('data-url') + (tab ? '?tab=' + encodeURIComponent(tab) : '');
+        fetchText(url).then(function (html) {
+            var fresh = el(html).querySelector('[data-mx-inline-body]');
+            if (fresh) body.replaceWith(fresh);
+        }, function () {
+            body.innerHTML = '<div class="mx-full-empty">' + esc(texts.failed) + '</div>';
+        });
+    }
+
     function openFull() {
         var c = card();
         var m = modal();
@@ -335,6 +353,7 @@
     }
 
     var HIDE_UNUSED = 'misp-matrix-hide-unused';
+    var HIDE_UNUSED_INLINE = 'misp-matrix-inline-hide-unused';
 
     function hideUnused(m, on) {
         m.classList.toggle('mx-hide-unused', on);
@@ -342,11 +361,12 @@
         if (box) box.checked = on;
     }
 
-    function savedHideUnused() {
+    function savedHideUnused(key, fallback) {
         try {
-            return window.localStorage.getItem(HIDE_UNUSED) !== '0';
+            var saved = window.localStorage.getItem(key);
+            return saved === null ? fallback : saved === '1';
         } catch (e) {
-            return true;
+            return fallback;
         }
     }
 
@@ -397,8 +417,10 @@
                 document.dispatchEvent(new CustomEvent('misp:overview-rolled-up', { detail: { source: 'matrix' } }));
             });
         } else if ((hit = t.closest('[data-mx-tab-pick]'))) {
+            var inline = hit.closest('[data-mx-inline]');
             var full = hit.closest('.mx-full');
-            loadFull(full.getAttribute('data-mx-full-galaxy'), hit.getAttribute('data-mx-tab-pick'));
+            if (inline) loadInline(inline, hit.getAttribute('data-mx-tab-pick'));
+            else loadFull(full.getAttribute('data-mx-full-galaxy'), hit.getAttribute('data-mx-tab-pick'));
         } else if ((hit = t.closest('[data-mx-full-pick]'))) {
             loadFull(hit.getAttribute('data-mx-full-pick'), null);
         }
@@ -408,9 +430,11 @@
         var box = e.target.closest && e.target.closest('[data-mx-hide-unused]');
         if (!box) return;
         closePop();
-        hideUnused(modal(), box.checked);
+        var container = box.closest('.mx-modal, [data-mx-inline]');
+        hideUnused(container, box.checked);
         try {
-            window.localStorage.setItem(HIDE_UNUSED, box.checked ? '1' : '0');
+            window.localStorage.setItem(container.hasAttribute('data-mx-inline') ? HIDE_UNUSED_INLINE : HIDE_UNUSED,
+                box.checked ? '1' : '0');
         } catch (err) {
             // Not remembered, still applied
         }
@@ -419,7 +443,7 @@
     function onOver(e) {
         if (pop) return;
         var t = e.target.closest && e.target.closest('[data-matrix-cell], .mx-tick');
-        if (!t || !t.closest('[data-matrix-card], #mx-modal')) return;
+        if (!t || !t.closest('[data-matrix-card], #mx-modal, [data-mx-inline]')) return;
         if (t.classList.contains('mx-tick')) {
             var n = +t.getAttribute('data-n');
             showTip(t, '<b>' + esc(t.getAttribute('aria-label')) + '</b>' + esc(say('tickOne', 'tickMany', n)));
@@ -448,7 +472,7 @@
 
     function onScroll(e) {
         if (!e.target.closest) return;
-        if (e.target.closest('[data-matrix-card], #mx-modal')) {
+        if (e.target.closest('[data-matrix-card], #mx-modal, [data-mx-inline]')) {
             hideTip();
             closePop();
             if (e.target.classList && e.target.classList.contains('mx-pane')) spy();
@@ -469,11 +493,17 @@
             if (old && old !== m) old.remove();
             document.body.appendChild(m);
             m.addEventListener('hidden.bs.modal', closePop);
-            hideUnused(m, savedHideUnused());
+            hideUnused(m, savedHideUnused(HIDE_UNUSED, true));
         }
         wire();
         if (slot.hasAttribute('data-url')) reload();
         else ready();
+    }
+
+    function mountInline(host) {
+        texts = readJson(host.getAttribute('data-mx-text'), {});
+        hideUnused(host, savedHideUnused(HIDE_UNUSED_INLINE, false));
+        wire();
     }
 
     function wire() {
@@ -500,9 +530,13 @@
     function boot() {
         var target = document.querySelector('[data-mx-slot]');
         if (target) mount(target);
+        var inline = document.querySelector('[data-mx-inline]');
+        if (inline) mountInline(inline);
         document.addEventListener('misp:container-loaded', function (e) {
             var arrived = e.target.querySelector && e.target.querySelector('[data-mx-slot]');
             if (arrived) mount(arrived);
+            var arrivedInline = e.target.querySelector && e.target.querySelector('[data-mx-inline]');
+            if (arrivedInline) mountInline(arrivedInline);
         });
     }
 
