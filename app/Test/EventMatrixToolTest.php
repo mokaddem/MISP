@@ -240,6 +240,41 @@ class EventMatrixToolTest extends TestCase
         $this->assertSame('attack-enterprise', EventMatrixTool::full($skeleton, self::ATTACK, $hits, 13, 'nope')['tab']);
     }
 
+    public function testUsageMarksTheTechniquesEventsCarryWithTheirEventCount()
+    {
+        $cell = function ($id, $value, $externalId) {
+            return [
+                'id' => $id, 'uuid' => 'c' . $id, 'value' => $value, 'external_id' => $externalId,
+                'tag_name' => 'misp-galaxy:mitre-attack-pattern="' . $value . '"', 'default' => true,
+            ];
+        };
+        $phishing = $cell(1, 'Phishing - T1566', 'T1566');
+        $exploit = $cell(3, 'Exploit Public-Facing Application - T1190', 'T1190');
+        $mobile = $cell(5, 'Exfiltration Over C2 Channel - T1646', 'T1646');
+        $skeleton = EventMatrixTool::slimSkeleton([
+            'killChain' => [
+                'attack-enterprise' => ['initial-access'],
+                'mobile-attack-Android' => ['exfiltration'],
+            ],
+            'tabs' => [
+                'attack-enterprise' => ['initial-access' => [$exploit, $phishing]],
+                'mobile-attack-Android' => ['exfiltration' => [$mobile]],
+            ],
+        ]);
+        $full = EventMatrixTool::usage($skeleton, self::ATTACK, [$mobile['tag_name'] => 7]);
+
+        $this->assertSame('mobile-attack-Android', $full['tab']);
+        $this->assertSame([0, 1], array_column($full['tabs'], 'active'));
+        $used = $full['columns'][0]['groups'][0];
+        $this->assertSame('event', $used['state']);
+        $this->assertTrue($used['own']['onEvent']);
+        $this->assertSame(7, $used['own']['events']);
+
+        $enterprise = EventMatrixTool::usage($skeleton, self::ATTACK, [$mobile['tag_name'] => 7], 'attack-enterprise');
+        $this->assertSame(['idle', 'idle'], array_column($enterprise['columns'][0]['groups'], 'state'));
+        $this->assertSame(0, $enterprise['columns'][0]['groups'][0]['own']['events']);
+    }
+
     public function testTabLabels()
     {
         $this->assertSame('ICS · Field Controller/RTU/PLC/IED', EventMatrixTool::tabLabel('ics-attack-Field-Controller/RTU/PLC/IED', 'mitre-attack-pattern'));
