@@ -225,7 +225,21 @@ body[data-controller="users"][data-action="change_pw"] {
     border: none;
     margin:0.3rem;
     border-radius: 8px;
-    background: var(--misp-index-actions-bg, #fff);
+    background: var(--misp-index-actions-bg, transparent);
+}
+
+/* Row menu trigger: a ghost button drawn from the theme's own tokens. */
+.row-menu-toggle {
+    --bs-btn-color: var(--bs-secondary-color);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--bs-emphasis-color);
+    --bs-btn-hover-bg: var(--bs-secondary-bg);
+    --bs-btn-hover-border-color: var(--bs-border-color);
+    --bs-btn-active-color: var(--bs-emphasis-color);
+    --bs-btn-active-bg: var(--bs-secondary-bg);
+    --bs-btn-active-border-color: var(--bs-border-color);
+    --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
 }
 
 .checkbox-actions-wrapper > * {

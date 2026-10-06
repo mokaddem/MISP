@@ -35,3 +35,15 @@ $danger-border-subtle-dark:    mix(#dc3545, $body-bg-dark, 45%);
 
 // The teal is under 4.5:1 for small labels on a dark card.
 $misp-accent-dark: tint-color($primary, 40%);
+
+// Dropdowns are the navbar's panels: inset rounded items on a soft lift.
+$dropdown-padding-x:         .25rem;
+$dropdown-padding-y:         .25rem;
+$dropdown-font-size:         .875rem;
+$dropdown-border-color:      rgba(#2b1b1c, .1);
+$dropdown-border-radius:     .5rem;
+$dropdown-box-shadow:        0 1px 2px rgba(#2b1b1c, .06),
+                             0 6px 12px -4px rgba(#2b1b1c, .1),
+                             0 18px 36px -12px rgba(#0c3a4a, .26);
+$dropdown-item-padding-x:    .75rem;
+$dropdown-divider-margin-y:  .25rem;

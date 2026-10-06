@@ -209,13 +209,13 @@ if ($field['data_path'] === 'existing_tag.Tag.id') {
     <!-- Dropdown -->
     <div class="dropdown">
         <button 
-            class="btn btn-sm btn-light dropdown-toggle p-1"
+            class="btn btn-sm dropdown-toggle p-1 row-menu-toggle"
             type="button"
             data-bs-toggle="dropdown">
             <i class="fas fa-chevron-down"></i>
         </button>
 
-        <ul class="dropdown-menu shadow-sm">
+        <ul class="dropdown-menu">
 
             <?php foreach ($actions as $action): ?>
 
@@ -256,17 +256,13 @@ if ($field['data_path'] === 'existing_tag.Tag.id') {
                     <?php if ($action['type'] === 'link'): ?>
                         <?php if (!empty($action['download'])): ?>
                             <a class="dropdown-item" href="<?= h($url) ?>" download="<?= h($title_for_layout) . h($id) . '.json' ?>">
-                                <div>
-                                    <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
-                                    <?= h($action['label']) ?>
-                                </div>
+                                <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
+                                <?= h($action['label']) ?>
                             </a>
                         <?php else: ?>
                             <a class="dropdown-item" href="<?= h($url) ?>">
-                                <div>
-                                    <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
-                                    <?= h($action['label']) ?>
-                                </div>
+                                <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
+                                <?= h($action['label']) ?>
                             </a>
                         <?php endif; ?>
                     <?php elseif ($action['type'] === 'toggle'): ?>
@@ -308,14 +304,12 @@ if ($field['data_path'] === 'existing_tag.Tag.id') {
                         ?>
                         <?php if ($label === "Publish" || $label === "Unpublish"): ?>
                             <a class="dropdown-item" href="<?= h($url) ?>" onclick="event.preventDefault(); openModal('<?= h($url) ?>','md');">
-                                <div>
-                                    <i class="fas fa-<?= $iconClass ?> me-2"></i>
-                                    <?= h($label) ?>
-                                </div>
+                                <i class="fas fa-<?= $iconClass ?> me-2"></i>
+                                <?= h($label) ?>
                             </a>
                         <?php else: ?>
                             <?= $this->Form->postLink(
-                                '<div><i class="fas fa-' . h($iconClass) . ' me-2"></i>' . h($label) . '</div>',
+                                '<i class="fas fa-' . h($iconClass) . ' me-2"></i>' . h($label),
                                 $url,
                                 [
                                     'escape' => false,
@@ -336,10 +330,8 @@ if ($field['data_path'] === 'existing_tag.Tag.id') {
                         <a class="<?= h(trim($classes)) ?>"
                         href="<?= h($url) ?>"
                         onclick="<?= h($onclick) ?>">
-                            <div>
-                                <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
-                                <?= h($action['label']) ?>
-                            </div>
+                            <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
+                            <?= h($action['label']) ?>
                         </a>
 
                     <?php elseif ($action['type'] === 'ajax'): ?>
@@ -355,14 +347,12 @@ if ($field['data_path'] === 'existing_tag.Tag.id') {
                         <a class="<?= trim($classes) ?>"
                         href="<?= h($url) ?>"
                         onclick="<?= h($onclick) ?>">
-                            <div>
-                                <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
-                                <?= h($action['label']) ?>
-                            </div>
+                            <i class="fas fa-<?= h($action['icon']) ?> me-2"></i>
+                            <?= h($action['label']) ?>
                         </a>
 
                     <?php elseif ($action['type'] === 'divider'): ?>
-                        <li><hr class="dropdown-divider"></li>
+                        <hr class="dropdown-divider">
 
                     <?php endif; ?>
 
