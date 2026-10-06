@@ -30,15 +30,15 @@
                     'description' => __('What this galaxy\'s clusters represent, so a consumer can ask for the galaxies naming a threat without knowing their names. Left unset means nobody has classified it.'),
                 ),
                 array(
-                    'field' => 'kind',
-                    'label' => __('Kind'),
+                    'field' => 'sub_category',
+                    'label' => __('Sub-category'),
                     'class' => 'span3',
                     'type' => 'dropdown',
-                    'options' => array_filter($galaxyKinds),
-                    'empty' => __('No kind'),
+                    'options' => array_filter($galaxySubCategories),
+                    'empty' => __('No sub-category'),
                     // Without it CakePHP drops an option whose label matches
                     // an optgroup's - `technique` and `reference` are each a
-                    // category and a kind, and would render nowhere.
+                    // category and a sub-category, and would render nowhere.
                     'showParents' => true,
                     'description' => __('The finer distinction inside the category. Optional even when a category is set.'),
                 ),
@@ -92,15 +92,15 @@
 ?>
 <script type="text/javascript">
 (function () {
-    var kinds = <?php echo json_encode($galaxyKinds, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+    var subCategories = <?php echo json_encode($galaxySubCategories, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
     var definitions = <?php echo json_encode($galaxyCategoryDescriptions, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
     $(function () {
         var $category = $('#GalaxyCategory');
-        var $kind = $('#GalaxyKind');
-        if ($category.length === 0 || $kind.length === 0) {
+        var $subCategory = $('#GalaxySubCategory');
+        if ($category.length === 0 || $subCategory.length === 0) {
             return;
         }
-        var noKind = $kind.find('option[value=""]').first().text();
+        var noSubCategory = $subCategory.find('option[value=""]').first().text();
         var $anchor = $category.closest('.input');
         var $static = $anchor.next('small.form-field-description');
         var $definition = $('<small class="clear form-field-description"></small>')
@@ -108,21 +108,21 @@
 
         function refresh(reset) {
             var category = $category.val();
-            var current = reset ? '' : $kind.val();
-            var available = kinds[category] || {};
-            $kind.empty().append($('<option></option>').val('').text(noKind));
+            var current = reset ? '' : $subCategory.val();
+            var available = subCategories[category] || {};
+            $subCategory.empty().append($('<option></option>').val('').text(noSubCategory));
             var offered = false;
-            $.each(available, function (kind, label) {
-                $kind.append($('<option></option>').val(kind).text(label));
-                offered = offered || kind === current;
+            $.each(available, function (subCategory, label) {
+                $subCategory.append($('<option></option>').val(subCategory).text(label));
+                offered = offered || subCategory === current;
             });
-            // A kind set from outside this form - over the API, or by a
+            // A sub-category set from outside this form - over the API, or by a
             // definition file - stays on offer, so opening the form and
             // saving it does not quietly drop what is stored.
             if (current && !offered) {
-                $kind.append($('<option></option>').val(current).text(current));
+                $subCategory.append($('<option></option>').val(current).text(current));
             }
-            $kind.val(current);
+            $subCategory.val(current);
             $definition.text(definitions[category] || '');
         }
 

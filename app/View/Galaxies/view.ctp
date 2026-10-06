@@ -6,12 +6,12 @@
     $table_data[] = array('key' => __('Name'), 'value' => $galaxy['Galaxy']['name']);
     $table_data[] = array('key' => __('Namespace'), 'value' => $galaxy['Galaxy']['namespace']);
     $galaxyCategory = $galaxy['Galaxy']['category'] ?? '';
-    $galaxyKind = $galaxy['Galaxy']['kind'] ?? '';
+    $galaxySubCategory = $galaxy['Galaxy']['sub_category'] ?? '';
     $table_data[] = array(
         'key' => __('Category'),
         'value' => empty($galaxyCategory) ?
             __('Not classified') :
-            (empty($galaxyKind) ? $galaxyCategory : $galaxyCategory . ' / ' . $galaxyKind)
+            (empty($galaxySubCategory) ? $galaxyCategory : $galaxyCategory . ' / ' . $galaxySubCategory)
     );
     $table_data[] = array('key' => __('UUID'), 'value' => $galaxy['Galaxy']['uuid']);
     $table_data[] = array('key' => __('Description'), 'value' => $galaxy['Galaxy']['description']);

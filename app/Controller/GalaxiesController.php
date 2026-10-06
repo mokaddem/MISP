@@ -279,26 +279,27 @@ class GalaxiesController extends AppController
      * is the half no shipped classification can cover, because a local
      * galaxy's `type` is the UUID it was given.
      *
-     * The kinds go out as one map rather than one flat list so the form
-     * can narrow the second select to the category chosen in the first.
+     * The sub-categories go out as one map rather than one flat list so
+     * the form can narrow the second select to the category chosen in the
+     * first.
      *
      * @return void
      */
     private function __setCategories()
     {
         $categories = [];
-        $kinds = [];
+        $subCategories = [];
         $descriptions = [];
         foreach (GalaxyCategory::categories() as $category) {
             $categories[$category] = $category;
-            $kinds[$category] = [];
-            foreach (GalaxyCategory::kindsIn($category) as $kind) {
-                $kinds[$category][$kind] = $kind;
+            $subCategories[$category] = [];
+            foreach (GalaxyCategory::subCategoriesIn($category) as $subCategory) {
+                $subCategories[$category][$subCategory] = $subCategory;
             }
             $descriptions[$category] = GalaxyCategory::describe($category);
         }
         $this->set('galaxyCategories', $categories);
-        $this->set('galaxyKinds', $kinds);
+        $this->set('galaxySubCategories', $subCategories);
         $this->set('galaxyCategoryDescriptions', $descriptions);
     }
 

@@ -146,8 +146,8 @@ $this->set('headerDescription', $headerDescription);
                 <?php else: ?>
                     <div class="d-inline-flex align-items-center gap-2">
                         <span class="bg-light rounded px-2 py-1"><?= h($data['category']) ?></span>
-                        <?php if (!empty($data['kind'])): ?>
-                            <span class="text-muted small"><?= h($data['kind']) ?></span>
+                        <?php if (!empty($data['sub_category'])): ?>
+                            <span class="text-muted small"><?= h($data['sub_category']) ?></span>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>

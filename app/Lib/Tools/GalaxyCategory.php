@@ -12,9 +12,9 @@
  * sits beside UKHSA Culture Collections, Firearms and Cancer.
  *
  * **The answer lives on the galaxy.** `galaxies.category` and
- * `galaxies.kind` were added by migration 164 and are ingested straight
- * from the definition files, because `__load_galaxies` saves whatever a
- * definition carries. This class reads that column and holds the
+ * `galaxies.sub_category` were added by a migration and are ingested
+ * straight from the definition files, because `__load_galaxies` saves
+ * whatever a definition carries. This class reads that column and holds the
  * vocabulary the column is written against.
  *
  * **It used to carry an interim table of 94 galaxy types, and that
@@ -47,7 +47,7 @@
  *
  * **Proposed upstream 2026-09-18**, with the deleted table as its
  * starting content: misp-galaxy `prd/2026-09-18-galaxy-category.md`,
- * which asks for `category` and `kind` on the galaxy definition, and
+ * which asks for `category` and `sub_category` on the galaxy definition, and
  * classifies 99 of the 135 shipped galaxies.
  *
  * **Why a named threat is a galaxy cluster and nothing else.** Measured
@@ -141,15 +141,15 @@ class GalaxyCategory
     const TOOL = 'tool';
 
     /**
-     * The `TECHNIQUE` kind whose clusters carry a `kill_chain` element,
+     * The `TECHNIQUE` sub-category whose clusters carry a `kill_chain` element,
      * which is what a tactic roll-up reads. Named because two callers
      * ask for it now — `isAttackPattern` and the tactic chain.
      */
     const ATTACK_PATTERN = 'attack-pattern';
 
     /**
-     * The vocabulary itself: category => definition and the kinds in
-     * use under it.
+     * The vocabulary itself: category => definition and the
+     * sub-categories in use under it.
      *
      * This is what `galaxies/add` and `galaxies/edit` offer, and it is
      * the same eight values as misp-galaxy's proposed
@@ -158,50 +158,51 @@ class GalaxyCategory
      * classified here has to mean the same thing as one classified
      * upstream, so the two lists cannot be allowed to drift.
      *
-     * The kinds are *the kinds in use*, not a closed set: upstream's
-     * schema does not constrain `kind` to its category, and `reference`
+     * The sub-categories are *the ones in use*, not a closed set:
+     * upstream's schema does not constrain `sub_category` to its
+     * category, and `reference`
      * has none at all because the non-security galaxies are one
      * undifferentiated group. The form narrows to this map because
      * offering `actor` under `detection` would be offering nonsense,
      * not because a stored value outside it is invalid.
      *
      * @var array category => array('description' => string,
-     *     'kinds' => array)
+     *     'sub_categories' => array)
      */
     private static $vocabulary = array(
         self::NAMED_THREAT => array(
             'description' => 'The clusters name something conducting or constituting an intrusion. The dividing line is curation rather than menace: a curated list of firms selling intrusion capability belongs here, a directory of every agency that exists does not.',
-            'kinds' => array(self::ACTOR, self::CAMPAIGN, self::MALWARE,
+            'sub_categories' => array(self::ACTOR, self::CAMPAIGN, self::MALWARE,
                 self::TOOL),
         ),
         self::TECHNIQUE => array(
             'description' => 'The clusters describe adversary behaviour - where in an intrusion, and how. Attack patterns, techniques and tactics.',
-            'kinds' => array(self::ATTACK_PATTERN, 'technique', 'tactic'),
+            'sub_categories' => array(self::ATTACK_PATTERN, 'technique', 'tactic'),
         ),
         self::VICTIM => array(
             'description' => 'The clusters describe who was hit: a sector, a place, a target description.',
-            'kinds' => array('sector', 'location', 'target'),
+            'sub_categories' => array('sector', 'location', 'target'),
         ),
         self::DEFENSIVE => array(
             'description' => 'The clusters describe what to do about it: courses of action, mitigations, countermeasures, controls.',
-            'kinds' => array('course-of-action', 'control'),
+            'sub_categories' => array('course-of-action', 'control'),
         ),
         self::DETECTION => array(
             'description' => 'The clusters describe how something would be caught: detection rules, analytics, detection strategies, data sources.',
-            'kinds' => array('rule', 'strategy', 'data-source'),
+            'sub_categories' => array('rule', 'strategy', 'data-source'),
         ),
         self::TARGETING => array(
             'description' => 'The clusters describe what is exposed: assets, platforms, services.',
-            'kinds' => array('asset', 'platform', 'service'),
+            'sub_categories' => array('asset', 'platform', 'service'),
         ),
         self::CONTEXT => array(
             'description' => 'The clusters name entities that appear alongside threat intelligence without being a threat themselves - who published a report, a vendor, a branded vulnerability, a reference list of sources.',
-            'kinds' => array('producer', 'organisation', 'vulnerability',
+            'sub_categories' => array('producer', 'organisation', 'vulnerability',
                 'reference'),
         ),
         self::REFERENCE => array(
             'description' => 'The clusters are a reference list from another domain, carried in MISP for sharing rather than to describe an intrusion - an industry classification, a species list, an equipment catalogue.',
-            'kinds' => array(),
+            'sub_categories' => array(),
         ),
     );
 
@@ -215,12 +216,12 @@ class GalaxyCategory
      * table; with it deleted they answer nothing, so every galaxy reads
      * as unclassified rather than as some other category.
      *
-     * @var array|null type => array(category, kind)
+     * @var array|null type => array(category, sub_category)
      */
     private static $ingested = null;
 
     /**
-     * @return array type => array(category, kind)
+     * @return array type => array(category, sub_category)
      */
     private static function ingested()
     {
@@ -239,13 +240,13 @@ class GalaxyCategory
          * during an upgrade, not an error worth a stack trace in the
          * log every time a value page is drawn.
          */
-        if (!isset($schema['category']) || !isset($schema['kind'])) {
+        if (!isset($schema['category']) || !isset($schema['sub_category'])) {
             return self::$ingested;
         }
         $rows = $model->find('all', array(
             'recursive' => -1,
             'fields' => array('Galaxy.type', 'Galaxy.category',
-                'Galaxy.kind'),
+                'Galaxy.sub_category'),
             'conditions' => array('Galaxy.category !=' => ''),
         ));
         foreach ($rows as $row) {
@@ -255,7 +256,7 @@ class GalaxyCategory
             }
             self::$ingested[$row['type']] = array(
                 $row['category'],
-                empty($row['kind']) ? null : $row['kind'],
+                empty($row['sub_category']) ? null : $row['sub_category'],
             );
         }
         return self::$ingested;
@@ -277,7 +278,8 @@ class GalaxyCategory
 
     /**
      * @param string $galaxyType `galaxies.type`
-     * @return array|null category and kind, or null if unrecognised
+     * @return array|null category and sub-category, or null if
+     *     unrecognised
      */
     public static function of($galaxyType)
     {
@@ -288,7 +290,7 @@ class GalaxyCategory
         }
         return array(
             'category' => $known[$galaxyType][0],
-            'kind' => $known[$galaxyType][1],
+            'sub_category' => $known[$galaxyType][1],
         );
     }
 
@@ -308,12 +310,12 @@ class GalaxyCategory
     /**
      * @param string $galaxyType
      * @return string|null `actor`, `campaign`, `malware`, `tool` for a
-     *     named threat; the category's own kind otherwise
+     *     named threat; the category's own sub-category otherwise
      */
-    public static function kindOf($galaxyType)
+    public static function subCategoryOf($galaxyType)
     {
         $found = self::of($galaxyType);
-        return $found === null ? null : $found['kind'];
+        return $found === null ? null : $found['sub_category'];
     }
 
     /**
@@ -321,7 +323,7 @@ class GalaxyCategory
      * the ones that carry a `kill_chain` element naming their tactic,
      * and so the ones a tactic roll-up can place.
      *
-     * The other two `TECHNIQUE` kinds are excluded and each for its own
+     * The other two `TECHNIQUE` sub-categories are excluded and each for its own
      * reason. A `tactic` galaxy's clusters *are* tactics, so collapsing
      * them would have a tactic counting itself; a `technique` galaxy is
      * another framework's technique list, whose tactic vocabulary is
@@ -335,21 +337,22 @@ class GalaxyCategory
         $found = self::of($galaxyType);
         return $found !== null
             && $found['category'] === self::TECHNIQUE
-            && $found['kind'] === self::ATTACK_PATTERN;
+            && $found['sub_category'] === self::ATTACK_PATTERN;
     }
 
     /**
-     * Every galaxy type of one kind, for a caller that has to ask in
-     * SQL rather than over rows already read.
+     * Every galaxy type of one sub-category, for a caller that has to
+     * ask in SQL rather than over rows already read.
      *
-     * @param string $kind One of the `kinds` in the vocabulary above
+     * @param string $subCategory One of the `sub_categories` in the
+     *     vocabulary above
      * @return array Galaxy types
      */
-    public static function typesOfKind($kind)
+    public static function typesOfSubCategory($subCategory)
     {
         $types = array();
         foreach (self::ingested() as $type => $pair) {
-            if ($pair[1] === $kind) {
+            if ($pair[1] === $subCategory) {
                 $types[] = $type;
             }
         }
@@ -385,18 +388,18 @@ class GalaxyCategory
     }
 
     /**
-     * The kinds in use under one category.
+     * The sub-categories in use under one category.
      *
      * @param string $category
      * @return array Empty both for `reference`, which has none, and for
      *     a category outside the vocabulary
      */
-    public static function kindsIn($category)
+    public static function subCategoriesIn($category)
     {
         if (!isset(self::$vocabulary[$category])) {
             return array();
         }
-        return self::$vocabulary[$category]['kinds'];
+        return self::$vocabulary[$category]['sub_categories'];
     }
 
     /**
