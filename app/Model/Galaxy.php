@@ -1,6 +1,8 @@
 <?php
 App::uses('AppModel', 'Model');
 App::uses('GalaxyMatrixLayout', 'Tools');
+App::uses('EventMatrixTool', 'Tools/EventOverview');
+App::uses('RedisTool', 'Tools');
 
 /**
  * @property GalaxyCluster $GalaxyCluster
@@ -18,6 +20,9 @@ class Galaxy extends AppModel
      * alphabet is refused on save and dropped on capture.
      */
     const ICON_NAME_PATTERN = '/^[a-z0-9-]*$/';
+
+    const MATRIX_SKELETON_PREFIX = 'misp:galaxy:matrix-skeleton:';
+    const MATRIX_SKELETON_TTL = 86400;
 
     public $actsAs = array(
         'AuditLog',
@@ -1537,5 +1542,104 @@ class Galaxy extends AppModel
         $converted['authors'] = array_values($converted['authors']);
         $converted['values'] = $values;
         return $converted;
+    }
+
+    /**
+     * A galaxy's matrix skeleton, cached until the galaxy or its cluster set
+     * changes, keeping the custom clusters the user may not see out.
+     *
+     * @param array $user
+     * @param array $galaxy Galaxy row
+     * @return array see EventMatrixTool::slimSkeleton()
+     */
+    public function matrixSkeleton(array $user, array $galaxy)
+    {
+        $stamp = $this->GalaxyCluster->find('first', [
+            'recursive' => -1,
+            'fields' => ['COUNT(*) AS n', 'MAX(GalaxyCluster.id) AS m'],
+            'conditions' => ['GalaxyCluster.galaxy_id' => (int)$galaxy['id']],
+        ]);
+        $key = self::MATRIX_SKELETON_PREFIX . (int)$galaxy['id'] . ':'
+            . (int)$galaxy['version'] . ':' . (int)($stamp[0]['n'] ?? 0) . ':' . (int)($stamp[0]['m'] ?? 0);
+        $skeleton = null;
+        try {
+            $redis = RedisTool::init();
+            $hit = $redis->get($key);
+            if ($hit !== false) {
+                $skeleton = RedisTool::deserialize($hit);
+            }
+        } catch (Exception $e) {
+            $redis = null;
+        }
+        if ($skeleton === null) {
+            $skeleton = EventMatrixTool::slimSkeleton($this->getMatrix($user, (int)$galaxy['id']));
+            if ($redis) {
+                try {
+                    $redis->setex($key, self::MATRIX_SKELETON_TTL, RedisTool::serialize($skeleton));
+                } catch (Exception $e) {
+                    // An uncached skeleton is still the skeleton
+                }
+            }
+        }
+
+        if (!empty($user['Role']['perm_site_admin'])) {
+            return $skeleton;
+        }
+        $visible = array_flip($this->GalaxyCluster->find('column', [
+            'recursive' => -1,
+            'fields' => ['GalaxyCluster.id'],
+            'conditions' => [
+                'GalaxyCluster.galaxy_id' => (int)$galaxy['id'],
+                'GalaxyCluster.default' => false,
+                $this->GalaxyCluster->buildConditions($user),
+            ],
+        ]));
+        foreach ($skeleton['tabs'] as $tab => $columns) {
+            foreach ($columns as $column => $cells) {
+                $skeleton['tabs'][$tab][$column] = array_values(array_filter($cells, function ($cell) use ($visible) {
+                    return $cell['default'] || isset($visible[$cell['id']]);
+                }));
+            }
+        }
+        return $skeleton;
+    }
+
+    /**
+     * Names of parent techniques the hits do not carry themselves.
+     *
+     * @param array $missing galaxy id => parent T-ids, as EventMatrixTool::missingParents() lists them
+     * @param array $user
+     * @return array galaxy id => [T-id => name]
+     */
+    public function matrixParentNames(array $missing, array $user)
+    {
+        $names = [];
+        foreach ($missing as $galaxyId => $externalIds) {
+            $rows = $this->GalaxyCluster->find('all', [
+                'recursive' => -1,
+                'fields' => ['GalaxyCluster.value', 'GalaxyElement.value'],
+                'joins' => [[
+                    'table' => 'galaxy_elements',
+                    'alias' => 'GalaxyElement',
+                    'type' => 'INNER',
+                    'conditions' => [
+                        'GalaxyElement.galaxy_cluster_id = GalaxyCluster.id',
+                        'GalaxyElement.key' => 'external_id',
+                        'GalaxyElement.value' => $externalIds,
+                    ],
+                ]],
+                'conditions' => [
+                    'GalaxyCluster.galaxy_id' => $galaxyId,
+                    $this->GalaxyCluster->buildConditions($user),
+                ],
+            ]);
+            foreach ($rows as $row) {
+                $externalId = $row['GalaxyElement']['value'];
+                $names[$galaxyId][$externalId] = GalaxyMatrixLayout::cellLabel(
+                    $row['GalaxyCluster']['value'], $externalId
+                );
+            }
+        }
+        return $names;
     }
 }

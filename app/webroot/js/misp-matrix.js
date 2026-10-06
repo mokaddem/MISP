@@ -1,6 +1,7 @@
-// The Overmind event overview's galaxy matrix: the rail card (a pane that
-// caps and scrolls, tactic ticks, folds, galaxy switcher), the technique
-// tooltip and popover, and the full matrix modal.
+// The Overmind galaxy matrix of the event and value pages: the rail card (a
+// pane that caps and scrolls, tactic ticks, folds, galaxy switcher), the
+// technique tooltip and popover, and the full matrix modal. A slot with a
+// data-url is fetched; one arriving in a lazy panel is mounted as it is.
 (function () {
     'use strict';
 
@@ -53,16 +54,20 @@
             closePop();
             hideTip();
             slot.innerHTML = html;
-            var c = card();
-            if (!c) return;
-            texts = readJson(c.getAttribute('data-mx-text'), {});
-            fitPane();
+            ready();
         }, function () {
             if (card()) {
                 slot.querySelector('[data-matrix-card]').insertAdjacentHTML('beforeend',
                     '<div class="mx-gate">' + esc(texts.failed || '') + '</div>');
             }
         });
+    }
+
+    function ready() {
+        var c = card();
+        if (!c) return;
+        texts = readJson(c.getAttribute('data-mx-text'), {});
+        fitPane();
     }
 
     function readJson(raw, fallback) {
@@ -244,7 +249,7 @@
         closePop();
         hideTip();
         var acts = '';
-        if (f.n > 0 && f.g) {
+        if (f.n > 0 && f.g && texts.showOne) {
             acts += '<button type="button" class="mx-pop-act" data-mx-show><i class="misp-icon misp-icon-attribute misp-simple"></i>'
                 + esc(say('showOne', 'showMany', f.n)) + '</button>';
         }
@@ -423,15 +428,28 @@
     }
 
     function reload() {
-        if (slot) load(slot.getAttribute('data-url'));
+        if (slot && slot.hasAttribute('data-url')) load(slot.getAttribute('data-url'));
     }
 
-    function boot() {
-        slot = document.querySelector('[data-mx-slot]');
-        if (!slot) return;
-        var m = modal();
-        if (m && m.parentElement !== document.body) document.body.appendChild(m);
-        if (m) m.addEventListener('hidden.bs.modal', closePop);
+    var wired = false;
+
+    function mount(target) {
+        slot = target;
+        var m = slot.parentElement.querySelector('.mx-modal') || modal();
+        if (m && m.parentElement !== document.body) {
+            var old = modal();
+            if (old && old !== m) old.remove();
+            document.body.appendChild(m);
+            m.addEventListener('hidden.bs.modal', closePop);
+        }
+        wire();
+        if (slot.hasAttribute('data-url')) reload();
+        else ready();
+    }
+
+    function wire() {
+        if (wired) return;
+        wired = true;
         document.addEventListener('click', onClick);
         document.addEventListener('mouseover', onOver);
         document.addEventListener('mouseout', onOut);
@@ -445,7 +463,17 @@
         document.addEventListener('misp:overview-rolled-up', function (e) {
             if (!e.detail || e.detail.source !== 'matrix') reload();
         });
-        reload();
+        // A card that arrived in a hidden tab measured nothing
+        document.addEventListener('shown.bs.tab', fitPane);
+    }
+
+    function boot() {
+        var target = document.querySelector('[data-mx-slot]');
+        if (target) mount(target);
+        document.addEventListener('misp:container-loaded', function (e) {
+            var arrived = e.target.querySelector && e.target.querySelector('[data-mx-slot]');
+            if (arrived) mount(arrived);
+        });
     }
 
     if (document.readyState === 'loading') {

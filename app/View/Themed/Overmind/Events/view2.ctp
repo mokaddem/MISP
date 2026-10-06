@@ -35,7 +35,7 @@
     $this->set('headerActions', $headerActions);
 
     echo $this->element('genericElements/assetLoader', [
-        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min', 'event-overview', 'event-matrix',
+        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min', 'event-overview', 'misp-matrix',
             'misp-brush', 'misp-timeline', 'event-seen-timeline'],
         'css' => ['event-overview', 'misp-matrix', 'misp-brush', 'misp-timeline'],
     ]);

@@ -1,5 +1,5 @@
-/* Galaxy matrix of the Overmind event page: the rail card and the full
- * matrix modal. A theme recolours the two states by setting the
+/* Galaxy matrix of the Overmind event and value pages: the rail card and
+ * the full matrix modal. A theme recolours the two states by setting the
  * --misp-matrix-* tokens; these are the fallback. */
 :root {
     --misp-matrix-event-bg: color-mix(in srgb, var(--bs-galaxy) 11%, var(--bs-body-bg));
@@ -10,6 +10,7 @@
     --misp-matrix-ind-fg: var(--bs-body-color);
     --misp-matrix-ind-border: color-mix(in srgb, var(--bs-attribute) 78%, var(--bs-body-color));
     --misp-matrix-ind-hover: color-mix(in srgb, var(--bs-attribute) 16%, var(--bs-body-bg));
+    --misp-matrix-ind-icon: color-mix(in srgb, var(--bs-attribute) 75%, var(--bs-body-color));
     --misp-matrix-idle-bg: var(--bs-tertiary-bg);
     --misp-matrix-idle-fg: var(--bs-secondary-color);
 }
@@ -21,6 +22,7 @@
     --misp-matrix-ind-bg: color-mix(in srgb, var(--bs-attribute) 6%, var(--bs-body-bg));
     --misp-matrix-ind-border: color-mix(in srgb, var(--bs-attribute) 80%, transparent);
     --misp-matrix-ind-hover: color-mix(in srgb, var(--bs-attribute) 14%, var(--bs-body-bg));
+    --misp-matrix-ind-icon: var(--bs-attribute);
     --misp-matrix-idle-bg: var(--bs-secondary-bg);
 }
 
@@ -93,8 +95,7 @@
 .mx-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .mx-tid { display: inline-flex; align-items: center; gap: .25rem; font-family: var(--bs-font-monospace);
     font-size: .68rem; font-weight: 600; opacity: .85; white-space: nowrap; }
-.mx-tid .misp-icon { font-size: .62rem; color: color-mix(in srgb, var(--bs-attribute) 75%, var(--bs-body-color)); }
-[data-misp-mode="dark"] .mx-tid .misp-icon { color: var(--bs-attribute); }
+.mx-tid .misp-icon { font-size: .62rem; color: var(--misp-matrix-ind-icon); }
 .mx-badge { font-size: .62rem; padding: .12rem .3rem; line-height: 1; font-weight: 600; }
 
 .mx-subs { margin: 3px 0 2px 16px; padding-left: 7px; border-left: 2px solid var(--bs-border-color);

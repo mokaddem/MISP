@@ -9,7 +9,6 @@ App::uses('EventContextTool', 'Tools/EventOverview');
 App::uses('EventMatrixTool', 'Tools/EventOverview');
 App::uses('EventSeenTimelineTool', 'Tools/EventOverview');
 App::uses('GalaxyMatrixLayout', 'Tools');
-App::uses('RedisTool', 'Tools');
 
 /**
  * @property Event $Event
@@ -4055,7 +4054,8 @@ class EventsController extends AppController
         $event = $this->__overviewEvent($id);
         $selfId = (int)$event['Event']['id'];
         list($hits, $rolledUp, $extensionSet) = $this->__matrixHits($user, $event);
-        $parentNames = $this->__matrixParentNames(EventMatrixTool::missingParents($hits), $user);
+        $this->loadModel('Galaxy');
+        $parentNames = $this->Galaxy->matrixParentNames(EventMatrixTool::missingParents($hits), $user);
         $matrix = [
             'rolledUp' => $rolledUp,
             'galaxies' => EventMatrixTool::compact($hits, $selfId, $parentNames),
@@ -4090,7 +4090,7 @@ class EventsController extends AppController
         if (empty($galaxy) || !EventMatrixTool::isMatrixGalaxy($galaxy['Galaxy'])) {
             throw new NotFoundException(__('Invalid galaxy'));
         }
-        $skeleton = $this->__matrixSkeleton($user, $galaxy['Galaxy']);
+        $skeleton = $this->Galaxy->matrixSkeleton($user, $galaxy['Galaxy']);
         list($hits, $rolledUp, $extensionSet) = $this->__matrixHits($user, $event);
         $tab = $this->request->query('tab');
         $matrix = EventMatrixTool::full(
@@ -4105,110 +4105,6 @@ class EventsController extends AppController
         $this->set('matrix', $matrix);
         $this->set('event', $event);
         $this->layout = false;
-    }
-
-    /**
-     * A galaxy's matrix skeleton, cached until the galaxy or its cluster set
-     * changes, keeping the custom clusters the user may not see out.
-     *
-     * @param array $user
-     * @param array $galaxy Galaxy row
-     * @return array see EventMatrixTool::slimSkeleton()
-     */
-    private function __matrixSkeleton(array $user, array $galaxy)
-    {
-        $GalaxyCluster = $this->Galaxy->GalaxyCluster;
-        $stamp = $GalaxyCluster->find('first', [
-            'recursive' => -1,
-            'fields' => ['COUNT(*) AS n', 'MAX(GalaxyCluster.id) AS m'],
-            'conditions' => ['GalaxyCluster.galaxy_id' => (int)$galaxy['id']],
-        ]);
-        $key = EventOverviewTool::CACHE_PREFIX . 'matrix-skeleton:' . (int)$galaxy['id'] . ':'
-            . (int)$galaxy['version'] . ':' . (int)($stamp[0]['n'] ?? 0) . ':' . (int)($stamp[0]['m'] ?? 0);
-        $skeleton = null;
-        try {
-            $redis = RedisTool::init();
-            $hit = $redis->get($key);
-            if ($hit !== false) {
-                $skeleton = RedisTool::deserialize($hit);
-            }
-        } catch (Exception $e) {
-            $redis = null;
-        }
-        if ($skeleton === null) {
-            $skeleton = EventMatrixTool::slimSkeleton($this->Galaxy->getMatrix($user, (int)$galaxy['id']));
-            if ($redis) {
-                try {
-                    $redis->setex($key, EventOverviewTool::CACHE_TTL, RedisTool::serialize($skeleton));
-                } catch (Exception $e) {
-                    // An uncached skeleton is still the skeleton
-                }
-            }
-        }
-
-        if ($this->_isSiteAdmin()) {
-            return $skeleton;
-        }
-        $visible = array_flip($GalaxyCluster->find('column', [
-            'recursive' => -1,
-            'fields' => ['GalaxyCluster.id'],
-            'conditions' => [
-                'GalaxyCluster.galaxy_id' => (int)$galaxy['id'],
-                'GalaxyCluster.default' => false,
-                $GalaxyCluster->buildConditions($user),
-            ],
-        ]));
-        foreach ($skeleton['tabs'] as $tab => $columns) {
-            foreach ($columns as $column => $cells) {
-                $skeleton['tabs'][$tab][$column] = array_values(array_filter($cells, function ($cell) use ($visible) {
-                    return $cell['default'] || isset($visible[$cell['id']]);
-                }));
-            }
-        }
-        return $skeleton;
-    }
-
-    /**
-     * Names of parent techniques the event does not carry itself.
-     *
-     * @param array $missing galaxy id => parent T-ids
-     * @param array $user
-     * @return array galaxy id => [T-id => name]
-     */
-    private function __matrixParentNames(array $missing, array $user)
-    {
-        $names = [];
-        if (empty($missing)) {
-            return $names;
-        }
-        $this->loadModel('GalaxyCluster');
-        foreach ($missing as $galaxyId => $externalIds) {
-            $rows = $this->GalaxyCluster->find('all', [
-                'recursive' => -1,
-                'fields' => ['GalaxyCluster.value', 'GalaxyElement.value'],
-                'joins' => [[
-                    'table' => 'galaxy_elements',
-                    'alias' => 'GalaxyElement',
-                    'type' => 'INNER',
-                    'conditions' => [
-                        'GalaxyElement.galaxy_cluster_id = GalaxyCluster.id',
-                        'GalaxyElement.key' => 'external_id',
-                        'GalaxyElement.value' => $externalIds,
-                    ],
-                ]],
-                'conditions' => [
-                    'GalaxyCluster.galaxy_id' => $galaxyId,
-                    $this->GalaxyCluster->buildConditions($user),
-                ],
-            ]);
-            foreach ($rows as $row) {
-                $externalId = $row['GalaxyElement']['value'];
-                $names[$galaxyId][$externalId] = GalaxyMatrixLayout::cellLabel(
-                    $row['GalaxyCluster']['value'], $externalId
-                );
-            }
-        }
-        return $names;
     }
 
     /**
