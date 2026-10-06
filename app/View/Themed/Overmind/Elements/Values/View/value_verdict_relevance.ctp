@@ -3,7 +3,7 @@
  * The clock band — relevance, at the rank the other two axes have.
  *
  * D11's three axes were not three on this tab. Lean carried its badge,
- * the escalation that decided it and a table of who says what; quality
+ * the escalation that decided it and a table of who says what; signal strength
  * carried the number, the band and a ledger whose rows sum to it
  * exactly. Relevance carried one clause of the hero's sentence and a
  * 90-day line in the rail — a reader could see *what* the axis
@@ -19,7 +19,7 @@
  * the order the argument is made.
  *
  * It costs no query. `$verdict['relevance']` is built inside
- * `ValueVerdictTool::assess()` from the context the quality already
+ * `ValueVerdictTool::assess()` from the context the signal strength already
  * read, so every fact drawn here was on the tab before this band
  * existed and was being thrown away at render.
  *

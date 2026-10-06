@@ -1284,7 +1284,7 @@
 /* ------------------------------------------------------------------
  * The three axes
  * ------------------------------------------------------------------
- * The lean owns the hue. Quality is a magnitude and carries none —
+ * The lean owns the hue. Signal strength is a magnitude and carries none —
  * `value-palette.css` says why. Relevance is categorical and would
  * have taken a fourth, so it is a word and a figure, and its word
  * carries the only other colour on the row.
@@ -1337,7 +1337,7 @@
     margin-right: 4px;
 }
 
-.vi-qual {
+.vi-strength {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1346,7 +1346,7 @@
     color: var(--vi-lacks);
 }
 
-.vi-qual b {
+.vi-strength b {
     font-family: var(--bs-font-monospace);
     font-size: 0.75rem;
     font-weight: 600;
@@ -1494,7 +1494,7 @@
 
 .vi-row.is-done .vi-types,
 .vi-row.is-done .vi-counts,
-.vi-row.is-done .vi-qual,
+.vi-row.is-done .vi-strength,
 .vi-row.is-done .vi-rel,
 .vi-row.is-done .vi-sig--top,
 .vi-row.is-done .vi-l3,
@@ -1688,7 +1688,7 @@
 /*
  * **§12.8, decided.** The uniform row has no line for the warninglist
  * sentence, and dropping it silently is the one omission the contract
- * calls load-bearing: it is what stops a reader taking a high-quality
+ * calls load-bearing: it is what stops a reader taking a strong-signal
  * *Asserted benign* chip for a clean bill, when neither warninglist
  * category means the reporting organisations were wrong. So the table
  * carries a mark against the value, titled and labelled with the
@@ -1760,7 +1760,7 @@
     padding-left: 0;
 }
 
-.vi-c-qual {
+.vi-c-strength {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -1769,7 +1769,7 @@
     color: var(--vi-lacks);
 }
 
-.vi-c-qual b {
+.vi-c-strength b {
     font-family: var(--bs-font-monospace);
     font-size: 0.7rem;
     font-weight: 600;
@@ -1854,7 +1854,7 @@
  */
 .vi-listwrap.is-table .vi-row[data-s="failed"] .vi-c-types,
 .vi-listwrap.is-table .vi-row[data-s="failed"] .vi-c-lean,
-.vi-listwrap.is-table .vi-row[data-s="failed"] .vi-c-qual,
+.vi-listwrap.is-table .vi-row[data-s="failed"] .vi-c-strength,
 .vi-listwrap.is-table .vi-row[data-s="failed"] .vi-c-rel,
 .vi-listwrap.is-table .vi-row[data-s="failed"] .vi-c-num {
     display: none;
@@ -1874,8 +1874,8 @@
     grid-column: -2 / -1;
 }
 
-.vi-listwrap.is-table .vi-row[data-s="queued"] .vi-c-qual,
-.vi-listwrap.is-table .vi-row[data-s="flight"] .vi-c-qual,
+.vi-listwrap.is-table .vi-row[data-s="queued"] .vi-c-strength,
+.vi-listwrap.is-table .vi-row[data-s="flight"] .vi-c-strength,
 .vi-listwrap.is-table .vi-row[data-s="queued"] .vi-c-types,
 .vi-listwrap.is-table .vi-row[data-s="flight"] .vi-c-types {
     visibility: hidden;
@@ -1922,9 +1922,9 @@
         --vi-cols: 22px minmax(80px, 1fr) 106px 74px;
     }
 
-    .vi-listwrap.is-table .vi-c-qual,
+    .vi-listwrap.is-table .vi-c-strength,
     .vi-listwrap.is-table .vi-c-rel,
-    .vi-thead .vi-c-qual,
+    .vi-thead .vi-c-strength,
     .vi-thead .vi-c-rel {
         display: none;
     }
@@ -2142,12 +2142,12 @@
  * real widths, so a profile that moves `high` to 80 draws a visibly
  * narrower one.
  *
- * **No hue, and that is the rule rather than a preference.** Quality
+ * **No hue, and that is the rule rather than a preference.** Signal strength
  * is a magnitude; `value-palette.css` reserves colour for the lean,
  * and a three-colour scale here would teach a reader that a band has a
  * colour — which is exactly what the worklist spent three phases not
  * saying. The bands separate by ink weight instead: the same
- * `--vi-carries` against `--vi-lacks` pairing the row's quality bar
+ * `--vi-carries` against `--vi-lacks` pairing the row's signal-strength bar
  * uses for filled against unfilled, with one step between them.
  *
  * The 2px gap is the surface showing through, which is what keeps
@@ -2185,7 +2185,7 @@
 
 /*
  * The faintest ink, because *low* is the band a record lands in when
- * nothing carried it further — the same reading the row's quality bar
+ * nothing carried it further — the same reading the row's signal-strength bar
  * gives an unfilled segment.
  */
 .vi-bandbar__seg--low {
@@ -2202,7 +2202,7 @@
 
 /*
  * **Proportional figures, deliberately.** `tabular-nums` is for
- * columns that must align down the page — the worklist's quality
+ * columns that must align down the page — the worklist's signal strength
  * scores and day counts have it. A single large number set tabular
  * looks gappy, because every digit takes the width of a `0`.
  */

@@ -23,7 +23,7 @@
  * The rows that do read the value — the warninglist's hits and
  * false-positive sightings — are not in this table. They are in the
  * lean band above, which is the surface that explains the reading, and
- * keeping them out is what lets this table sum to the quality exactly.
+ * keeping them out is what lets this table sum to the signal strength exactly.
  *
  * Contradictions are a group inside this table rather than a card of
  * their own: they are ledger rows whose contribution is `unresolved`,
@@ -57,9 +57,9 @@ foreach ($ledger as $group) {
     <span class="vp-vc-axis-head-sub">
         <?= h(__('how the score was built')) ?>
     </span>
-    <?php if (isset($verdict['quality'])): ?>
+    <?php if (isset($verdict['signal_strength'])): ?>
         <span class="vp-vc-axis-head-total">
-            <?= h((int)$verdict['quality']) ?> / 100
+            <?= h((int)$verdict['signal_strength']) ?> / 100
         </span>
     <?php endif; ?>
 </div>
@@ -217,7 +217,7 @@ foreach ($ledger as $group) {
      * A foot rather than a band of its own, which is the difference
      * between this axis and the other two: relevance and lean needed
      * somewhere to show their working and got `vp-vc-clock` and
-     * `vp-vc-lean`, while quality's working is the table directly
+     * `vp-vc-lean`, while signal strength's working is the table directly
      * above. What it never said is where the boundary is — `low`
      * against a `medium` floor of 30 — or, twice over, that the points
      * are not what decided the band at all. That sentence belongs

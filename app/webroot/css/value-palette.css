@@ -74,7 +74,7 @@
     --vp-dir-against-ink: var(--vp-ben-ink);
 
     /*
-     * The quality axis, which has **no hue of its own, deliberately**
+     * The signal-strength axis, which has **no hue of its own, deliberately**
      * (`review-2026-09-13.md` §D1, and the colour swipe that followed
      * it).
      *
@@ -89,7 +89,7 @@
      * as loudly.
      *
      * **And a hue of its own was worse.** Measured on the rendered
-     * pane, a teal ledger put the quality axis in two colours at once
+     * pane, a teal ledger put the signal-strength axis in two colours at once
      * — the hero gauge is painted in `--vp-vc-color`, the *lean's*
      * hue, so the number read amber while the rows that sum to it read
      * teal — and it borrowed the family the relevance clock speaks in
@@ -98,7 +98,7 @@
      *
      * What the card actually has is two *categorical* axes — which
      * reading, which relevance state — and they are what hues are for.
-     * Quality is a magnitude, and a row's ▲ or ▼ is a **sign, not a
+     * Signal strength is a magnitude, and a row's ▲ or ▼ is a **sign, not a
      * state**. So it is drawn the way a sign is drawn: ink weight,
      * glyph, and whether the bar is filled at all. Three redundant
      * cues and no sixth colour.

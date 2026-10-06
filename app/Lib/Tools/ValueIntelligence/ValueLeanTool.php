@@ -14,7 +14,7 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * file owns the first. It is deliberately not a number: an engine
  * reading MISP's own tables can say *"four organisations flagged this
  * as an indicator and nobody contradicted them"*, and that is a
- * statement about the record rather than about the value. The quality
+ * statement about the record rather than about the value. The signal strength
  * ledger says how thin or thick that record is; the lean says which way
  * it points.
  *
@@ -110,7 +110,7 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  * `decided_by = 'lean_disputed'` so the band stops naming the lean the
  * rule discarded.
  *
- * **The lean rows and not the quality**: weighed against the whole
+ * **The lean rows and not the signal strength**: weighed against the whole
  * ledger the rule would fire on thin records rather than contradictory
  * ones — a value with no galaxy, no first-seen, no sighting and
  * nothing recent would trip it on absence penalties alone.
@@ -119,7 +119,7 @@ App::uses('ValueEscalationBase', 'Model/ValueEscalations');
  *
  * A signal that fails to load is named in the ledger's `not_counted`
  * list. A conflict rule has no ledger row to be missing from — it
- * contributes nothing to the quality — so a rule that could not run
+ * contributes nothing to the signal strength — so a rule that could not run
  * would leave the lean unescalated with no trace anywhere the reader
  * looks. That is a silent change of answer, so `rule_errors` comes back
  * beside the lean and is rendered with it.

@@ -38,7 +38,7 @@ $rest = count($signals) - count($top);
 
 /*
  * The band as a three-segment meter. `none` lights nothing, which is
- * the reading it deserves: a band of `none` is not a low quality, it is
+ * the reading it deserves: a band of `none` is not a low signal strength, it is
  * an assessment that never got one.
  */
 $bandLevels = array('none' => 0, 'low' => 1, 'medium' => 2, 'high' => 3);
@@ -87,7 +87,7 @@ if (!empty($verdict['profile_id'])) {
         <div>
             <?= $this->element('Values/View/value_lean', array(
                 'lean' => $verdict['lean'],
-                'quality' => $verdict['quality'],
+                'signalStrength' => $verdict['signal_strength'],
                 'size' => 'lg',
             )) ?>
             <div class="vp-confidence" title="<?= h(sprintf(

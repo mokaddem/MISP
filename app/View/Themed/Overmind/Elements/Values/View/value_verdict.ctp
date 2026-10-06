@@ -36,11 +36,11 @@ $uid = 'vp' . substr(md5($valueIntelligence['value'] . '-verdict'), 0, 8);
 
 $lean = $verdict['lean'];
 $treatment = ValueLean::treatment($lean);
-$quality = $verdict['quality'];
+$signalStrength = $verdict['signal_strength'];
 $warninglist = $verdict['warninglist'] ?? null;
 
 /*
- * Quality reads as **how much record there is**, and it says so —
+ * Signal strength reads as **how much record there is**, and it says so —
  * `review-2026-09-13.md` §D1. It used to read *how strongly the record
  * supports <the lean>*, which was the anchoring's own claim: every row
  * was multiplied by the lean's polarity, so the number really did
@@ -54,7 +54,7 @@ $warninglist = $verdict['warninglist'] ?? null;
  * One ruler either way, so two values stay comparable — which is what
  * the sentence this replaces was really defending.
  */
-$qualityLabel = __(
+$signalStrengthLabel = __(
     'How well documented the record is: corroboration, publication,'
     . ' attribution, dates. Not whether the value is a threat.'
 );
@@ -70,7 +70,7 @@ $qualityLabel = __(
     <?php
     /*
      * ----------------------------------------------------------
-     * 1. Hero — the lean, the quality, and the reason
+     * 1. Hero — the lean, the signal strength, and the reason
      * ----------------------------------------------------------
      */
     ?>
@@ -95,8 +95,8 @@ $qualityLabel = __(
         <?php /*
          * The hero's paragraph, drawn only where there is one to draw.
          * `summary` is the key D11 left open — the composition of lean,
-         * relevance and quality into a sentence — and `ValueSummaryTool`
-         * has written it since 2026-09-13
+         * relevance and signal strength into a sentence — and
+         * `ValueSummaryTool` has written it since 2026-09-13
          * (`prd/analyst-profile/10-wiring.md` §13). The guard stays: a
          * lean with nothing weighed behind it stops the sentence after
          * one clause, and the builder returns nothing rather than a
@@ -126,19 +126,19 @@ $qualityLabel = __(
          * thing on it that was not true.
          */
         ?>
-        <?php if ($quality !== null && $verdict['band'] !== 'none'): ?>
-            <div class="vp-vc-score" title="<?= h($qualityLabel) ?>">
+        <?php if ($signalStrength !== null && $verdict['band'] !== 'none'): ?>
+            <div class="vp-vc-score" title="<?= h($signalStrengthLabel) ?>">
                 <div class="vp-vc-score-heads">
                     <span><?= h(sprintf(
                         __('Signal strength %s'),
                         $verdict['band']
                     )) ?></span>
                     <span class="vp-vc-score-value">
-                        <?= h($quality) ?> / 100
+                        <?= h($signalStrength) ?> / 100
                     </span>
                 </div>
                 <?php /*
-                 * Clamped, because a quality can be negative: the
+                 * Clamped, because a signal strength can be negative: the
                  * ledger sums to it exactly,
                  * so a record with more absences than substance nets
                  * below zero — `awake-weaves.cyou` closes at −1 on the
@@ -165,8 +165,8 @@ $qualityLabel = __(
                  *
                  * Every other axis on this card draws its thresholds:
                  * the lean's track carries both supermajority marks and
-                 * the clock's carries the day it expires. Quality
-                 * printed a word — `Quality medium` — over a bar with
+                 * the clock's carries the day it expires. Signal strength
+                 * printed a word — `Signal strength medium` — over a bar with
                  * nothing on it, and the only thing that said where
                  * `medium` starts was a sentence under a table 500px
                  * further down. Same grammar, same two-pixel mark, and
@@ -187,7 +187,7 @@ $qualityLabel = __(
                 ?>
                 <div class="vp-vc-score-track">
                     <span class="vp-vc-score-fill"
-                          style="width: <?= max(0, min(100, (int)$quality)) ?>%;"
+                          style="width: <?= max(0, min(100, (int)$signalStrength)) ?>%;"
                     ></span>
                     <?php foreach ($marks as $band => $at): ?>
                         <?php if ($at > 0 && $at < 100): ?>

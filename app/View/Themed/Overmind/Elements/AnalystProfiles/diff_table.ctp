@@ -14,10 +14,10 @@
  * this edit move the number*, which is a direction of its own.
  *
  * The rows span both axes (`ValueVerdictDiffTool::diff()`), so the
- * quality-axis subset sums to the quality exactly and the lean rows
- * to `lean_weight` — that exactness is the whole reason this diff is
+ * signal-strength-axis subset sums to the signal strength exactly and the lean
+ * rows to `lean_weight` — that exactness is the whole reason this diff is
  * arithmetic rather than impressionistic. The footer checks `sums`,
- * which the tool narrows to the quality axis, and says so per column
+ * which the tool narrows to the signal-strength axis, and says so per column
  * rather than asserting it.
  *
  * @var array $detail The diff
@@ -149,9 +149,9 @@ $number = function ($value) {
                     . ' %4$s. These should match — the comparison above'
                     . ' is unreliable until they do.'),
                 $detail['sums']['before']['ledger'],
-                $detail['sums']['before']['quality'],
+                $detail['sums']['before']['signal_strength'],
                 $detail['sums']['after']['ledger'],
-                $detail['sums']['after']['quality']
+                $detail['sums']['after']['signal_strength']
             )) ?>
         </div>
     <?php endif; ?>

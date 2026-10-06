@@ -1,8 +1,8 @@
 <?php
 /**
- * The assessment: lean, relevance and quality, at one rank.
+ * The assessment: lean, relevance and signal strength, at one rank.
  *
- * Quality is the only axis with an additive ledger, so it is the only
+ * Signal strength is the only axis with an additive ledger, so it is the only
  * one a design can show its work for — and every prototype in 8b put
  * its visual mass there and listed the other two as fields. Two of the
  * three axes ended up rendered as peers of *"saved: nothing, ever"*.
@@ -16,7 +16,7 @@
 App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
 $lean = $axes['lean'];
 $relevance = $axes['relevance'];
-$quality = $axes['quality'];
+$signalStrength = $axes['signal_strength'];
 $band = $axes['band'];
 $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
 ?>
@@ -55,10 +55,10 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     <div class="ax ax-led">
         <span class="ax-n"><?= h(__('signal strength')) ?></span>
         <b class="ax-v num">
-            <?= h($quality['after']) ?>
-            <?php if (!empty($quality['changed'])): ?>
+            <?= h($signalStrength['after']) ?>
+            <?php if (!empty($signalStrength['changed'])): ?>
                 <span class="ax-was"><?= h(sprintf(
-                    __('was %s'), $quality['before']
+                    __('was %s'), $signalStrength['before']
                 )) ?></span>
             <?php endif; ?>
         </b>
@@ -78,7 +78,7 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     /*
      * One line on screen, the rest behind the `i` — 09b-revisions §3.7
      * asked for that length and this is it. The wording is the plain
-     * one: *lean axis*, *quality axis* and *anchored row* are exact
+     * one: *lean axis*, *signal-strength axis* and *anchored row* are exact
      * and they are also the phrases a reader has to already know the
      * model to parse, which is the wrong way round for the sentence
      * whose job is teaching the model.

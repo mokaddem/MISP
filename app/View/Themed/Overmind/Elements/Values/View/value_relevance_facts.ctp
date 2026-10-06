@@ -6,7 +6,7 @@
  * the axis it was only summarising. Until 2026-09-13 relevance reached
  * that tab as one clause of the hero's sentence and a bare chart in the
  * rail, while lean carried its rule and its per-organisation table and
- * quality carried the whole ledger — two axes showing their work and
+ * signal strength carried the whole ledger — two axes showing their work and
  * the third asserting a number. Nothing about the data made that
  * necessary: `$verdict['relevance']` is the same block this element
  * reads, already built by the same `ValueRelevanceTool::relevanceFor()`

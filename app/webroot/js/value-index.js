@@ -269,7 +269,7 @@
                     state: 'queued',
                     toggled: false,
                     lean: null,
-                    quality: null,
+                    signalStrength: null,
                     cell: null,
                     i: i
                 });
@@ -480,11 +480,13 @@
                 val.textContent = row.said;
             }
             var card = row.fill.querySelector('.vi-card');
-            var quality = card
-                ? card.getAttribute('data-vi-quality')
+            var signalStrength = card
+                ? card.getAttribute('data-vi-signal-strength')
                 : '';
             row.lean = card ? card.getAttribute('data-vi-lean') : null;
-            row.quality = quality ? parseInt(quality, 10) : null;
+            row.signalStrength = signalStrength
+                ? parseInt(signalStrength, 10)
+                : null;
             row.state = 'todo';
             self.flying--;
             self.pump();
@@ -522,7 +524,8 @@
          */
         here.sort(function (a, b) {
             var by = rank(a.lean) - rank(b.lean);
-            return by ? by : (b.quality || 0) - (a.quality || 0);
+            return by ? by : (b.signalStrength || 0)
+                - (a.signalStrength || 0);
         });
         return here.concat(coming);
     };

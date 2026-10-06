@@ -440,7 +440,7 @@ class ValueExclusionTool
      *
      * Three feeds mirroring one OSINT source are one piece of external
      * corroboration, not three, and counting them separately is the
-     * cheapest way for a value's quality to look better than its
+     * cheapest way for a value's signal strength to look better than its
      * evidence.
      *
      * **MISP does not record what a feed mirrors.** The `feeds` table

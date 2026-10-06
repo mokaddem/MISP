@@ -2,16 +2,17 @@
 /**
  * Where the bands sit.
  *
- * A reader who disagrees with a quality band needs the cut-off before
+ * A reader who disagrees with a signal-strength band needs the cut-off before
  * the disagreement is about anything, and the conditions strip already
  * links to the profile that holds it. This is the number that link
  * would take them to.
  *
  * **`min_signals` is on the tile because it is the surprise.** A value
  * scoring 80 still bands `medium` if only two signals added points —
- * quality is high when several independent readings agree, not when
- * one is generous (`ValueVerdictTool::qualityBand()`). That is the one rule
- * here a reader cannot infer from a band they are looking at, and
+ * signal strength is high when several independent readings agree, not
+ * when one is generous (`ValueVerdictTool::signalStrengthBand()`). That
+ * is the one rule here a reader cannot infer from a band they are
+ * looking at, and
  * leaving it off would make the tile's two numbers a promise the
  * engine does not keep.
  *
@@ -23,10 +24,10 @@
  * position rather than a quantity.** *60* means nothing without the
  * 0–100 it sits on, and the three segments are the three bands at
  * their real widths — a profile that moved `high` to 80 draws a
- * visibly narrower one. It carries **no hue**: quality is a magnitude
+ * visibly narrower one. It carries **no hue**: signal strength is a magnitude
  * and `value-palette.css` reserves colour for the lean, so the bands
  * separate by ink weight, which is the same *carries* against *lacks*
- * pairing the worklist's quality bar already uses.
+ * pairing the worklist's signal-strength bar already uses.
  *
  * Free: the thresholds come from the profile phase 7 already resolved.
  * Where a profile declares none, the figures shown are the engine's

@@ -150,7 +150,7 @@ abstract class ValueSignalBase
      * The default, so a drop-in signal that declares nothing is
      * treated as the thing nearly every signal is.
      */
-    const AXIS_QUALITY = 'quality';
+    const AXIS_SIGNAL_STRENGTH = 'signal_strength';
 
     /**
      * The ledger's groups. A profile may move a signal between them;
@@ -242,7 +242,7 @@ abstract class ValueSignalBase
     public $evidence_class = self::EVIDENCE_AGGREGATE;
 
     /**
-     * AXIS_LEAN or AXIS_QUALITY — which axis this signal's rows
+     * AXIS_LEAN or AXIS_SIGNAL_STRENGTH — which axis this signal's rows
      * belong to, and therefore whether the engine anchors them.
      *
      * A signal whose poles are not all one axis overrides it per row:
@@ -250,7 +250,7 @@ abstract class ValueSignalBase
      * shipped signal that needs it — its hits read the value, its
      * *no hit* does not.
      */
-    public $axis = self::AXIS_QUALITY;
+    public $axis = self::AXIS_SIGNAL_STRENGTH;
 
     /**
      * Whether this signal's evidence is already counted as voices in

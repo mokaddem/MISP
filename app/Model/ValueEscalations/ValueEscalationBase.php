@@ -29,8 +29,8 @@
  *
  * ## The one asymmetry with a signal, and it matters
  *
- * A signal that will not load is reported in the quality ledger's
- * `not_counted` list, because a quality computed from eight of nine
+ * A signal that will not load is reported in the signal-strength ledger's
+ * `not_counted` list, because a signal strength computed from eight of nine
  * signals and presented as if nine ran is a quiet lie. An escalation
  * contributes nothing to the ledger, so it has nowhere in `not_counted`
  * to be reported — and a rule that could not run leaves the lean

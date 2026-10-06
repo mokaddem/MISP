@@ -4,7 +4,7 @@
  *
  * The method note says what the three axes *are*; this says how much
  * machinery is behind them. A reader meeting an assessment for the
- * first time has no sense of whether a quality score is one rule of
+ * first time has no sense of whether a signal-strength score is one rule of
  * thumb or a dozen independent readings, and the difference decides
  * how much weight they give it.
  *
@@ -22,7 +22,7 @@
  * is memoised, so all three are reads of an array already in memory.
  * The element is drawn only when a profile is in force — the caller
  * omits it otherwise, rather than drawing a *0 signals* tile beside a
- * strip that already says assessments carry no quality.
+ * strip that already says assessments carry no signal strength.
  *
  * @var array{signals: int, exclusions: int, escalations: int} $weighs
  */

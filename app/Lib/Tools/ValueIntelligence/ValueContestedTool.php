@@ -45,7 +45,7 @@
  * disagree.
  *
  * What does **not** go in them is anything the ledger netted off. The
- * exact-sum invariant means a fact that moved the quality is visible as
+ * exact-sum invariant means a fact that moved the signal strength is visible as
  * a row and adding it here again would be double-counting in prose.
  * Only two facts on this page survive scoring without being scored, and
  * both are resolutions by rule:
@@ -186,7 +186,7 @@ class ValueContestedTool
     {
         /*
          * The lean ledger, which is a separate list rather than the
-         * positive half of the quality one. A case is *what reads the
+         * positive half of the signal strength one. A case is *what reads the
          * value this way*, and splitting the whole ledger by sign would
          * put five absences — no galaxy, no first-seen, no sighting,
          * nothing recent, no feed — under a heading claiming they read

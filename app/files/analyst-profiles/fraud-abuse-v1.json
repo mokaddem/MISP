@@ -167,11 +167,11 @@
         "thresholds": {
             "lean_supermajority": 0.66,
             "dispute_stale_factor": 0.5,
-            "quality_bands": {
+            "signal_strength_bands": {
                 "high": 60,
                 "medium": 30
             },
-            "quality_high_min_signals": 4,
+            "signal_strength_high_min_signals": 4,
             "thin_record_clamp": {
                 "max_voices": 1,
                 "max_sightings": 0,

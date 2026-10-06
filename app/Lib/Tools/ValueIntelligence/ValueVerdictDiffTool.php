@@ -17,7 +17,7 @@ App::uses('ValueVerdictTool', 'Tools/ValueIntelligence');
  *
  * **This is only renderable because nothing is normalised.** The
  * exact-sum invariant means each column still
- * adds up to its own quality, so a diff of two ledgers is arithmetic
+ * adds up to its own signal strength, so a diff of two ledgers is arithmetic
  * rather than impressionistic — and `sums` says so per column rather
  * than asserting it, because an invariant nobody checks is a comment.
  * A column that does not add up is reported, not hidden: it would mean
@@ -58,11 +58,11 @@ class ValueVerdictDiffTool
                 isset($afterRows[$id]) ? $afterRows[$id] : null
             );
         }
-        $beforeQuality = isset($before['quality'])
-            ? (int)$before['quality']
+        $beforeSignalStrength = isset($before['signal_strength'])
+            ? (int)$before['signal_strength']
             : 0;
-        $afterQuality = isset($after['quality'])
-            ? (int)$after['quality']
+        $afterSignalStrength = isset($after['signal_strength'])
+            ? (int)$after['signal_strength']
             : 0;
         $beforeLean = isset($before['lean_weight'])
             ? (int)$before['lean_weight']
@@ -81,16 +81,16 @@ class ValueVerdictDiffTool
             'rows' => $rows,
             'moved' => $moved,
             /*
-             * The quality's, and it says so: `rows` spans both axes,
+             * The signal strength's, and it says so: `rows` spans both axes,
              * so the deltas only sum to this over the rows
-             * whose `axis` is `quality`. `lean_totals` is the other
+             * whose `axis` is `signal_strength`. `lean_totals` is the other
              * half, and the two together are what a reader adding the
              * table up by hand arrives at.
              */
             'totals' => array(
-                'before' => $beforeQuality,
-                'after' => $afterQuality,
-                'delta' => $afterQuality - $beforeQuality,
+                'before' => $beforeSignalStrength,
+                'after' => $afterSignalStrength,
+                'delta' => $afterSignalStrength - $beforeSignalStrength,
             ),
             'lean_totals' => array(
                 'before' => $beforeLean,
@@ -103,17 +103,17 @@ class ValueVerdictDiffTool
              * conjunction, so a caller that only wants to know whether
              * the diff can be trusted reads one key.
              *
-             * **Quality rows only**: those are what sums to the
-             * quality printed under the column. The
+             * **Signal-strength rows only**: those are what sums to the
+             * signal strength printed under the column. The
              * lean rows sum to `lean_weight` and are checked beside
              * them rather than folded in, which is the same invariant
              * held per axis rather than over a mixture.
              */
             'sums' => self::sums(
-                self::rowsById($before, ValueVerdictTool::AXIS_QUALITY),
-                self::rowsById($after, ValueVerdictTool::AXIS_QUALITY),
-                $beforeQuality,
-                $afterQuality
+                self::rowsById($before, ValueVerdictTool::AXIS_SIGNAL_STRENGTH),
+                self::rowsById($after, ValueVerdictTool::AXIS_SIGNAL_STRENGTH),
+                $beforeSignalStrength,
+                $afterSignalStrength
             ),
             'lean_sums' => self::sums(
                 self::rowsById($before, ValueVerdictTool::AXIS_LEAN),
@@ -126,7 +126,7 @@ class ValueVerdictDiffTool
             'axes' => self::axes($before, $after),
             'not_counted' => $notCounted,
             'changed' => !empty($moved)
-                || $beforeQuality !== $afterQuality
+                || $beforeSignalStrength !== $afterSignalStrength
                 || $beforeLean !== $afterLean
                 || self::axesMoved($before, $after)
                 || self::notCountedMoved($notCounted),
@@ -152,9 +152,9 @@ class ValueVerdictDiffTool
             'moved' => $moved,
             /*
              * Which way, so a design can colour the row without
-             * asserting that the change is wrong. A quality that rose is
-             * `up`; one that fell is `down`; a lean or band that moved
-             * with the quality unchanged is `sideways`, which is a real
+             * asserting that the change is wrong. A signal strength that rose
+             * is `up`; one that fell is `down`; a lean or band that moved
+             * with the signal strength unchanged is `sideways`, which is a real
              * outcome — a clamp or a conflict rule firing differently.
              */
             'direction' => self::direction($before, $after),
@@ -168,8 +168,8 @@ class ValueVerdictDiffTool
      */
     private static function direction(array $before, array $after)
     {
-        $delta = (int)(isset($after['quality']) ? $after['quality'] : 0)
-            - (int)(isset($before['quality']) ? $before['quality'] : 0);
+        $delta = (int)($after['signal_strength'] ?? 0)
+            - (int)($before['signal_strength'] ?? 0);
         if ($delta > 0) {
             return 'up';
         }
@@ -182,7 +182,7 @@ class ValueVerdictDiffTool
     /**
      * The three axes and the two derived words, before and after.
      *
-     * `relevance` is here although the quality never reads it:
+     * `relevance` is here although the signal strength never reads it:
      * the axes are independent of each other, not invisible to a diff,
      * and a candidate that changed a TTL has changed the assessment
      * without touching a single ledger row. A diff that showed no
@@ -197,9 +197,9 @@ class ValueVerdictDiffTool
         $axes = array();
         foreach (array(
             'lean' => 'lean',
-            'quality' => 'quality',
+            'signal_strength' => 'signal_strength',
             /*
-             * The lean's own arithmetic, which the quality cannot stand
+             * The lean's own arithmetic, which the signal strength cannot stand
              * in for because the two are separate sums. An edit to a
              * lean signal's weight moves this and nothing else, so a
              * headline without it would report *nothing changed* about
@@ -220,7 +220,7 @@ class ValueVerdictDiffTool
          * comparable state a diff can test, the label a reader sees,
          * and the runway — the shelf the value page already draws. A
          * caller handed only the state reduces the axis to a string,
-         * and renders a clock as a word while quality gets a bar.
+         * and renders a clock as a word while signal strength gets a bar.
          */
         $axes['relevance'] = self::pair(
             self::relevanceState($before),
@@ -354,14 +354,14 @@ class ValueVerdictDiffTool
             'group' => isset($present['kind']) ? $present['kind'] : null,
             /*
              * Which axis the row's points land on, carried so a caller
-             * can sum per axis — `totals` is the quality's, and a lean
+             * can sum per axis — `totals` is the signal strength's, and a lean
              * row's delta does not belong in it. Defaulted rather than
              * required, because a row that carries no axis is a
-             * quality row by construction.
+             * signal-strength row by construction.
              */
             'axis' => isset($present['axis'])
                 ? $present['axis']
-                : ValueVerdictTool::AXIS_QUALITY,
+                : ValueVerdictTool::AXIS_SIGNAL_STRENGTH,
             /*
              * The candidate's prose where there is one. A row whose
              * points changed usually says something different about the
@@ -433,11 +433,11 @@ class ValueVerdictDiffTool
          * the lean.
          *
          * `$axis` narrows it for the sums below, which still have to be
-         * per axis: the quality rows sum to the quality and the lean
-         * rows to `lean_weight`, and adding the two together would
+         * per axis: the signal-strength rows sum to the signal strength and the
+         * lean rows to `lean_weight`, and adding the two together would
          * report a drift that is not there.
          */
-        if ($axis !== ValueVerdictTool::AXIS_QUALITY) {
+        if ($axis !== ValueVerdictTool::AXIS_SIGNAL_STRENGTH) {
             $lean = isset($verdict['lean_ledger'])
                 && is_array($verdict['lean_ledger'])
                     ? $verdict['lean_ledger']
@@ -497,16 +497,16 @@ class ValueVerdictDiffTool
     }
 
     /**
-     * Whether each column adds up to the quality printed under it.
+     * Whether each column adds up to the signal strength printed under it.
      *
      * @param array $beforeRows
      * @param array $afterRows
-     * @param int $beforeQuality
-     * @param int $afterQuality
+     * @param int $beforeSignalStrength
+     * @param int $afterSignalStrength
      * @return array
      */
     private static function sums(array $beforeRows, array $afterRows,
-        $beforeQuality, $afterQuality
+        $beforeSignalStrength, $afterSignalStrength
     ) {
         $beforeSum = 0;
         foreach ($beforeRows as $row) {
@@ -519,16 +519,16 @@ class ValueVerdictDiffTool
         return array(
             'before' => array(
                 'ledger' => $beforeSum,
-                'quality' => $beforeQuality,
-                'ok' => $beforeSum === $beforeQuality,
+                'signal_strength' => $beforeSignalStrength,
+                'ok' => $beforeSum === $beforeSignalStrength,
             ),
             'after' => array(
                 'ledger' => $afterSum,
-                'quality' => $afterQuality,
-                'ok' => $afterSum === $afterQuality,
+                'signal_strength' => $afterSignalStrength,
+                'ok' => $afterSum === $afterSignalStrength,
             ),
-            'ok' => $beforeSum === $beforeQuality
-                && $afterSum === $afterQuality,
+            'ok' => $beforeSum === $beforeSignalStrength
+                && $afterSum === $afterSignalStrength,
         );
     }
 
@@ -537,7 +537,7 @@ class ValueVerdictDiffTool
      *
      * This is half the diff on an exclusions edit: switching `orgs.own`
      * on moves rows out of every aggregate and into a policy note, and
-     * a diff that only compared ledgers would show a quality drop with
+     * a diff that only compared ledgers would show a signal-strength drop with
      * nothing to attribute it to.
      *
      * @param array $before

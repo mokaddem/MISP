@@ -23,7 +23,7 @@
  * the difference — which is checked as a byte diff of two rows rather
  * than by reading them (§7.3).
  *
- * Three axes and one hue: the lean owns the colour, quality is a
+ * Three axes and one hue: the lean owns the colour, signal strength is a
  * magnitude drawn with none, and relevance is a word plus a figure.
  * `value_hover_card.ctp` carries that argument at length; this row is
  * the same assessment at a list's density.
@@ -91,18 +91,18 @@ $typesText = $types
     : '';
 
 /*
- * The quality bar, five segments of a fifth each. It carries the
+ * The signal-strength bar, five segments of a fifth each. It carries the
  * magnitude and no hue at all — a bar that took a fourth colour would
  * make the row's one coloured thing stop being the lean.
  */
-$quality = $card['quality'];
+$signalStrength = $card['signal_strength'];
 /*
  * Clamped at both ends: the engine's score can run below zero, and a
  * negative segment count would draw the bar backwards.
  */
-$filled = $quality === null
+$filled = $signalStrength === null
     ? 0
-    : max(0, min(5, (int)round($quality / 20)));
+    : max(0, min(5, (int)round($signalStrength / 20)));
 $bar = '';
 for ($i = 0; $i < 5; $i++) {
     /*
@@ -124,7 +124,7 @@ $barSvg = '<svg class="vi-qbar" width="43" height="4" viewBox="0 0 43 4"'
 /*
  * The warninglist sentence, which the compact view has no line for and
  * may not simply drop (§12.8). It is the one that stops a reader taking
- * a high-quality *Asserted benign* chip for a clean bill — neither
+ * a strong-signal *Asserted benign* chip for a clean bill — neither
  * category means the reporting organisations were wrong — so the table
  * carries it as a mark against the value, titled with the sentence
  * itself. The card prints it in full a keystroke away.
@@ -177,7 +177,7 @@ $signalText = function (array $signal) {
  */
 ?>
 <div class="vi-card" data-vi-lean="<?= h($card['lean']) ?>"
-     data-vi-quality="<?= h($quality === null ? '' : $quality) ?>">
+     data-vi-signal-strength="<?= h($signalStrength === null ? '' : $signalStrength) ?>">
     <div class="vi-l1">
         <span class="vi-val"><?= h($card['value']) ?></span>
 <?php if ($typesText !== ''): ?>
@@ -204,10 +204,10 @@ $signalText = function (array $signal) {
     </div>
     <div class="vi-l2">
         <?= $leanChip ?>
-<?php if ($quality === null): ?>
-        <span class="vi-qual"><?= h(__('signal strength not scored')) ?></span>
+<?php if ($signalStrength === null): ?>
+        <span class="vi-strength"><?= h(__('signal strength not scored')) ?></span>
 <?php else: ?>
-        <span class="vi-qual"><b><?= h($quality) ?></b><?= h($card['band']) ?><?= $barSvg ?></span>
+        <span class="vi-strength"><b><?= h($signalStrength) ?></b><?= h($card['band']) ?><?= $barSvg ?></span>
 <?php endif; ?>
         <span class="vi-rel"><?= $relevanceCell ?></span>
 <?php
@@ -294,7 +294,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
  * and what does not fit is not shown here rather than wrapped: a row
  * that grows with what it has to say is the card, and the card is one
  * keystroke away. §12.8 lists what is dropped — the summary, the whole
- * ledger, the galaxy and the quality band word.
+ * ledger, the galaxy and the signal-strength band word.
  */
 ?>
 <div class="vi-cells">
@@ -308,11 +308,11 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
     </span>
     <span class="vi-c-types"><?= h($typesText) ?></span>
     <span class="vi-c-lean"><?= $leanChip ?></span>
-    <span class="vi-c-qual">
-<?php if ($quality === null): ?>
+    <span class="vi-c-strength">
+<?php if ($signalStrength === null): ?>
         <span><?= h(__('not scored')) ?></span>
 <?php else: ?>
-        <b><?= h($quality) ?></b><?= $barSvg ?>
+        <b><?= h($signalStrength) ?></b><?= $barSvg ?>
 <?php endif; ?>
     </span>
     <span class="vi-c-rel"><?= $relevanceCell ?></span>

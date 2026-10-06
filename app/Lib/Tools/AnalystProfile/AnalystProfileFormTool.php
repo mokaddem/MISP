@@ -50,7 +50,7 @@ App::uses('WarninglistCategory', 'Tools');
  *   well as its values, because a profile may name a signal this
  *   instance does not have and the palette has to say so rather than
  *   drop it (`03-signals.md` §4.4).
- * - **`strip`** — the quality bands against the attainable bound. One
+ * - **`strip`** — the signal-strength bands against the attainable bound. One
  *   block, one section, and it exists because a boundary is only wrong
  *   *relative to* something and the something has to be drawn.
  *
@@ -122,9 +122,9 @@ class AnalystProfileFormTool
      * the sections has to say the same thing about them, and because a
      * wrong entry teaches the wrong thing on every page. Six of the
      * seven reach exactly one axis, which is the fastest available
-     * proof that a profile is not a set of quality weights.
+     * proof that a profile is not a set of signal-strength weights.
      *
-     * `thresholds` reaches two: the quality bands are cut from the
+     * `thresholds` reaches two: the signal-strength bands are cut from the
      * score, and `lean_supermajority` lives in the same section. It is
      * the one section whose blocks carry their own tag as well.
      *
@@ -134,24 +134,24 @@ class AnalystProfileFormTool
      */
     const SECTION_AXIS = array(
         /*
-         * `lean + quality` since `review-2026-09-13.md` §D1, because the
-         * catalogue stopped being one axis. Nine signals weigh the
+         * `lean + signal strength` since `review-2026-09-13.md` §D1, because
+         * the catalogue stopped being one axis. Nine signals weigh the
          * record and two read the value — `lifecycle.warninglist`'s
          * hits and `sightings.false_positive` — and an analyst editing
          * either of those two is moving the reading, not the band. The
-         * chip said `quality` over a table where that was true of nine
+         * chip said `signal_strength` over a table where that was true of nine
          * rows out of eleven.
          *
          * The per-row half is `sectionSignals()`, which labels each
          * signal with its own axis; this is the header, and a header
          * over a mixed table names both.
          */
-        'signals' => 'lean + quality',
-        'thresholds' => 'lean + quality',
+        'signals' => 'lean + signal strength',
+        'thresholds' => 'lean + signal strength',
         'escalations' => 'lean',
-        'exclusions' => 'quality',
+        'exclusions' => 'signal_strength',
         'relevance' => 'relevance',
-        'reference' => 'quality — trust weighting',
+        'reference' => 'signal strength — trust weighting',
         'enrichment' => 'no axis — context',
         /*
          * `context` reaches no axis at all: it decides which labels a
@@ -163,7 +163,7 @@ class AnalystProfileFormTool
          * not change anybody's score.
          */
         'context' => 'no axis — display order',
-        'galaxies' => 'lean + quality',
+        'galaxies' => 'lean + signal strength',
     );
 
     /**
@@ -253,11 +253,11 @@ class AnalystProfileFormTool
     private function axisLabel($id)
     {
         $labels = array(
-            'quality' => __('signal strength'),
-            'lean + quality' => __('lean + signal strength'),
+            'signal_strength' => __('signal strength'),
+            'lean + signal strength' => __('lean + signal strength'),
             'lean' => __('lean'),
             'relevance' => __('relevance'),
-            'quality — trust weighting' => __(
+            'signal strength — trust weighting' => __(
                 'signal strength — trust weighting'
             ),
             'no axis — context' => __('context'),
@@ -512,7 +512,7 @@ class AnalystProfileFormTool
          * The toggle comes first, then the generated maps. There is no
          * editorial band: D16 removed it, because what a signal is worth
          * in principle is `points.cap` in the next column, in points,
-         * and *band* now means the quality band and nothing else.
+         * and *band* now means the signal-strength band and nothing else.
          *
          * **And there is no ledger group.** It was a select on every
          * signal row and it is the one control here that cannot change
@@ -606,9 +606,9 @@ class AnalystProfileFormTool
     private function sectionThresholds(array $parameters, array $sources)
     {
         $section = $this->section($parameters, 'thresholds');
-        $bands = isset($section['quality_bands'])
-            && is_array($section['quality_bands'])
-            ? $section['quality_bands']
+        $bands = isset($section['signal_strength_bands'])
+            && is_array($section['signal_strength_bands'])
+            ? $section['signal_strength_bands']
             : array();
         $clamp = isset($section['thin_record_clamp'])
             && is_array($section['thin_record_clamp'])
@@ -676,11 +676,11 @@ class AnalystProfileFormTool
                 ),
                 array(
                     'kind' => 'strip',
-                    'id' => 'quality_bands',
+                    'id' => 'signal_strength_bands',
                 ) + $this->bandStrip($parameters),
                 array(
                     'kind' => 'fields',
-                    'id' => 'quality',
+                    'id' => 'signal_strength',
                     'title' => __('The signal-strength bands'),
                     'axis' => __('signal strength'),
                     'blurb' => __(
@@ -700,8 +700,8 @@ class AnalystProfileFormTool
                                 ? $bands['medium']
                                 : null,
                             'default' => 30,
-                            'path' => array('thresholds', 'quality_bands',
-                                'medium'),
+                            'path' => array('thresholds',
+                                'signal_strength_bands', 'medium'),
                         ),
                         array(
                             'key' => 'high',
@@ -712,17 +712,17 @@ class AnalystProfileFormTool
                                 ? $bands['high']
                                 : null,
                             'default' => 60,
-                            'path' => array('thresholds', 'quality_bands',
-                                'high'),
+                            'path' => array('thresholds',
+                                'signal_strength_bands', 'high'),
                         ),
                         array(
-                            'key' => 'quality_high_min_signals',
+                            'key' => 'signal_strength_high_min_signals',
                             'label' => __('Signals needed for high'),
                             'type' => 'int',
                             'unit' => __('signals'),
                             'value' => isset(
-                                $section['quality_high_min_signals'])
-                                ? $section['quality_high_min_signals']
+                                $section['signal_strength_high_min_signals'])
+                                ? $section['signal_strength_high_min_signals']
                                 : null,
                             'default' => 4,
                             'help' => __(
@@ -732,7 +732,7 @@ class AnalystProfileFormTool
                                 . ' on its own.'
                             ),
                             'path' => array('thresholds',
-                                'quality_high_min_signals'),
+                                'signal_strength_high_min_signals'),
                         ),
                     ),
                 ),
@@ -3269,9 +3269,9 @@ class AnalystProfileFormTool
     public function bandStrip(array $parameters)
     {
         $thresholds = $this->section($parameters, 'thresholds');
-        $bands = isset($thresholds['quality_bands'])
-            && is_array($thresholds['quality_bands'])
-            ? $thresholds['quality_bands']
+        $bands = isset($thresholds['signal_strength_bands'])
+            && is_array($thresholds['signal_strength_bands'])
+            ? $thresholds['signal_strength_bands']
             : array();
         $high = isset($bands['high']) ? (int)$bands['high'] : 60;
         $medium = isset($bands['medium']) ? (int)$bands['medium'] : 30;

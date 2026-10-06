@@ -9,7 +9,7 @@
  * clipped line.
  *
  * **Three axes, and hue belongs to exactly one of them.** The lean owns
- * the colour — the rail, the glyph and the marked bar. Quality is a
+ * the colour — the rail, the glyph and the marked bar. Signal strength is a
  * magnitude and carries no hue at all (`value-palette.css` says why);
  * relevance is categorical and would have taken a fourth, so it is
  * drawn as a *number* opposite *last seen* and its state rides in ink
@@ -213,10 +213,10 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
                 $card['band']
             )) ?>">
                 <span class="vp-hc-k"><?= h(__('Signal strength')) ?></span>
-                <?php if ($card['quality'] === null): ?>
+                <?php if ($card['signal_strength'] === null): ?>
                     <span class="vp-hc-band-n vp-hc-absent">&mdash;</span>
                 <?php else: ?>
-                    <span class="vp-hc-band-n"><?= h($card['quality']) ?></span>
+                    <span class="vp-hc-band-n"><?= h($card['signal_strength']) ?></span>
                 <?php endif; ?>
                 <span class="vp-hc-segs" aria-hidden="true">
                     <?php for ($i = 1; $i <= 3; $i++): ?>

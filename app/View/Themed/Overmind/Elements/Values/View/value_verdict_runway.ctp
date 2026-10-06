@@ -2,7 +2,7 @@
 /**
  * The hero's shelf-life figure — relevance, read at a glance.
  *
- * The hero's third axis. Lean has the badge and quality the gauge;
+ * The hero's third axis. Lean has the badge and signal strength the gauge;
  * relevance used to be the last clause of the sentence, which is where
  * a reader stops reading. Drawn the way the hover card draws its
  * runway: a label, the days as the figure, the state in small caps

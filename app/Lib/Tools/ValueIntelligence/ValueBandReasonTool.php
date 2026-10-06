@@ -3,20 +3,20 @@
 /**
  * What the ledger's total banded as, and against what.
  *
- * The smallest of the axis explanations, because quality is the axis
+ * The smallest of the axis explanations, because signal strength is the axis
  * that already shows its working: the ledger prints every signal and
  * its points, and the invariant is that those rows sum to the number
  * in the hero exactly. Nothing about the arithmetic is missing.
  *
- * **The band is.** A reader sees `Quality low · 19 / 100` and a ledger
+ * **The band is.** A reader sees `Signal strength low · 19 / 100` and a ledger
  * summing to 19, and nothing else on the page says what `low` means —
  * where `medium` starts, how far off this record is, or whether the
  * points are even what decided it. Lean names its supermajority and
- * relevance its TTL; this names the setting quality is banded by.
+ * relevance its TTL; this names the setting signal strength is banded by.
  *
  * **And twice the band is not the points at all.** The thin-record
  * clamp lowers it — a record with one source and no sightings cannot
- * pass `low` however well it scores — and `quality_high_min_signals`
+ * pass `low` however well it scores — and `signal_strength_high_min_signals`
  * holds it — points past the `high` floor on too few independent
  * readings stay `medium`. Both are stated in the profile, both are
  * deliberate, and a reader meeting either sees a number and a band

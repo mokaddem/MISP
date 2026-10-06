@@ -6,7 +6,7 @@
  *
  * Two families. **Confidence** — `admiralty-scale`'s information
  * credibility and `estimative-language`'s likelihood and analytic
- * confidence — is how sure the reporter is, scored on the quality
+ * confidence — is how sure the reporter is, scored on the signal strength
  * axis by `record.stated_confidence`. **False-positive warnings** —
  * the `false-positive` taxonomy's `risk` and `confirmed` — say the
  * value may be harmless, and are a benign voice in the lean.

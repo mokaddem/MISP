@@ -8,7 +8,7 @@
  * cards made the reader reassemble it. They are bands of one card here,
  * in the order the argument is made.
  *
- * There is deliberately no single quality. The tug-of-war bar puts the
+ * There is deliberately no single signal strength. The tug-of-war bar puts the
  * two weights against each other — **two wedges, not three**: the
  * engine produces no `unresolved` weight to draw between them.
  *

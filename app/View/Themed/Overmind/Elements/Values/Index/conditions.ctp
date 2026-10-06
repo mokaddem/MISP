@@ -26,7 +26,7 @@
  *
  * **No profile in force is a state, not a failure.** A site admin can
  * disable the default, and every assessment on the instance then
- * carries a lean and no quality, because no signal can fire to band
+ * carries a lean and no signal strength, because no signal can fire to band
  * one. That is worth saying plainly; it is the one condition on this
  * page a reader could otherwise mistake for a broken engine.
  *

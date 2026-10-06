@@ -84,8 +84,8 @@ $tone = array('up' => 'd-up', 'down' => 'd-dn', 'sideways' => 'd-0',
                         <?php endif; ?>
                     </td>
                     <td class="r num">
-                        <?= h($axes['quality']['before']) ?> &rarr;
-                        <?= h($axes['quality']['after']) ?>
+                        <?= h($axes['signal_strength']['before']) ?> &rarr;
+                        <?= h($axes['signal_strength']['after']) ?>
                     </td>
                     <td class="wb-wide-only wb-sub">
                         <?php if (!empty($band['changed'])): ?>

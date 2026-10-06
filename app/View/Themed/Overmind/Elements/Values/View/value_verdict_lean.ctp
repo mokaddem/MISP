@@ -48,11 +48,11 @@ $errors = isset($verdict['rule_errors'])
 
 /*
  * The lean ledger, which belongs here and used to be filed with the
- * quality's. `review-2026-09-13.md` §D1 took the two axes apart: the
+ * signal strength's. `review-2026-09-13.md` §D1 took the two axes apart: the
  * warninglist's hits and false-positive sightings are the only rows
  * that read the *value*, so they are the only rows that anchor — and
  * that leaves them out of the table below, which now sums to the
- * quality alone.
+ * signal strength alone.
  *
  * They cannot simply disappear with it. A `−38` listing is the
  * heaviest thing on a benign record and the band above says the

@@ -13,7 +13,7 @@
  * **The first question changed in phase 5.** It used to be *has the
  * score decayed past its model's threshold*, drawn as one bar per
  * decaying model — a score MISP computes largely from the value's own
- * tags multiplied by a time factor, which the assessment's quality
+ * tags multiplied by a time factor, which the assessment's signal strength
  * ledger now scores directly and without the double counting
  * (`prd/analyst-profile/06-staleness.md` §4). What is here instead is
  * the relevance axis at card scale: the state, the runway, and the date

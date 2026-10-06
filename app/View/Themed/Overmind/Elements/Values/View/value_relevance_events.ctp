@@ -9,9 +9,9 @@
  * (`value-intelligence-live/00-contract.md` §14.6).
  *
  * Shared with the Assessment tab's clock band, where it is the nearest
- * thing the relevance axis has to the quality ledger: the dates that
+ * thing the relevance axis has to the signal-strength ledger: the dates that
  * produced the number, each attributed, with the one currently holding
- * it marked. Quality shows every signal that moved it; this shows every
+ * it marked. Signal strength shows every signal that moved it; this shows every
  * observation that moved the clock. Extracted rather than rewritten for
  * the reason `value_relevance_facts.ctp` gives at length.
  *

@@ -10,7 +10,7 @@
  * evidence than below it.
  *
  * Which cards appear is a property of the value, the same way the main
- * column's layout is. A contested value has no single quality to
+ * column's layout is. A contested value has no single signal strength to
  * compose, and an agreeing one has no warninglist hit to explain.
  *
  * Lazily loaded into `.ajax-card` from

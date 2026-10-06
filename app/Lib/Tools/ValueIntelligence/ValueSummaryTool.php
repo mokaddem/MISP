@@ -64,8 +64,8 @@ class ValueSummaryTool
         }
 
         $clauses = array(self::leanClause($lean, $decidedBy));
-        $quality = self::qualityClause($band);
-        if ($quality === null) {
+        $signalStrength = self::signalStrengthClause($band);
+        if ($signalStrength === null) {
             /*
              * A lean with no scored evidence behind it: the record says
              * something and nothing has been weighed. Saying *the
@@ -74,7 +74,7 @@ class ValueSummaryTool
              */
             return implode(' ', $clauses);
         }
-        $clauses[] = $quality . '.';
+        $clauses[] = $signalStrength . '.';
         return implode(' ', $clauses);
     }
 
@@ -142,7 +142,7 @@ class ValueSummaryTool
      * @param string $band
      * @return string|null Null where nothing was weighed
      */
-    private static function qualityClause($band)
+    private static function signalStrengthClause($band)
     {
         switch ($band) {
             case 'high':

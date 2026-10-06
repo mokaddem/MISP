@@ -683,7 +683,7 @@ class ValuesController extends AppController
         );
         /*
          * And the Assessment tab's pill, for the same reason and at a
-         * higher price. It names a lean and a quality, and the tab
+         * higher price. It names a lean and a signal strength, and the tab
          * below it computes both: a pill that did not would contradict
          * the body under it.
          *
@@ -990,7 +990,7 @@ class ValuesController extends AppController
      *
      * `prd/analyst-profile/06-staleness.md` §4 is the retirement and its
      * reason: MISP's decay score is largely a restatement of the value's
-     * tags multiplied by a time factor, and the assessment's quality
+     * tags multiplied by a time factor, and the assessment's signal strength
      * ledger already scores those tags directly with a per-row audit
      * trail. So the page takes the time factor and leaves the base
      * score. `decaying_models` itself is untouched — the decaying tool,

@@ -1456,8 +1456,8 @@ class ValueIntelligence extends AppModel
      * **No profile in force is a real state.** `resolveFor()` returns
      * null when a site admin has disabled the default and the reader
      * owns nothing, and every assessment on the instance then carries
-     * a lean and no quality — `ValueVerdictTool::qualityBand()` bands
-     * `none` when no signal can fire. That is worth a sentence, which
+     * a lean and no signal strength — `ValueVerdictTool::signalStrengthBand()`
+     * bands `none` when no signal can fire. That is worth a sentence, which
      * is the caller's to write; this returns null and says so.
      *
      * **It costs nothing on a page that assessed anything.**
@@ -1571,7 +1571,7 @@ class ValueIntelligence extends AppModel
      * **Three of the tiles describe a profile, so they are null when
      * none is in force.** A site admin can disable the default, and a
      * *0 signals* tile beside a strip already saying assessments carry
-     * no quality is a second, worse way of saying the same thing. The
+     * no signal strength is a second, worse way of saying the same thing. The
      * template draws what it is given and omits what it is not — the
      * page's rule that a block with nothing to say is absent rather
      * than drawn empty.
@@ -1601,23 +1601,27 @@ class ValueIntelligence extends AppModel
                 && is_array($parameters['thresholds'])
                 ? $parameters['thresholds']
                 : array();
-            $quality = isset($thresholds['quality_bands'])
-                && is_array($thresholds['quality_bands'])
-                ? $thresholds['quality_bands']
+            $declared = isset($thresholds['signal_strength_bands'])
+                && is_array($thresholds['signal_strength_bands'])
+                ? $thresholds['signal_strength_bands']
                 : array();
             /*
-             * The fallbacks are `ValueVerdictTool::qualityBand()`'s
+             * The fallbacks are `ValueVerdictTool::signalStrengthBand()`'s
              * own, so a profile that declares no bands is described by
              * the numbers the engine would actually use rather than by
              * a blank.
              */
             $bands = array(
-                'high' => isset($quality['high']) ? (int)$quality['high'] : 60,
-                'medium' => isset($quality['medium'])
-                    ? (int)$quality['medium']
+                'high' => isset($declared['high'])
+                    ? (int)$declared['high']
+                    : 60,
+                'medium' => isset($declared['medium'])
+                    ? (int)$declared['medium']
                     : 30,
-                'min_signals' => isset($thresholds['quality_high_min_signals'])
-                    ? (int)$thresholds['quality_high_min_signals']
+                'min_signals' => isset(
+                    $thresholds['signal_strength_high_min_signals']
+                )
+                    ? (int)$thresholds['signal_strength_high_min_signals']
                     : 4,
             );
             $plan = ValueEnrichmentTool::planFor($profile);
@@ -16556,7 +16560,7 @@ class ValueIntelligence extends AppModel
      * ninety days behind it: the relevance runway, which is
      * `06-staleness.md` §4.2's *remaining shelf life* — computed from
      * dates rather than from stored scores, which is why it can be
-     * reconstructed for any past day and the quality cannot. It is also
+     * reconstructed for any past day and the signal strength cannot. It is also
      * the only place the Verdict tab says anything at all about the
      * second of D11's three axes.
      *
@@ -16632,7 +16636,7 @@ class ValueIntelligence extends AppModel
     }
 
     /**
-     * Every fact the quality ledger reads, for one value and one
+     * Every fact the signal-strength ledger reads, for one value and one
      * viewer.
      *
      * The contract — every key, and which evidence class it belongs to
@@ -16773,7 +16777,7 @@ class ValueIntelligence extends AppModel
              * evidence anybody else on the instance holds. The honest
              * consequence, stated rather than hidden, is that two
              * organisations on one instance can legitimately read
-             * different quality numbers for the same value — because
+             * different signal strength numbers for the same value — because
              * they know different things about it. Each ledger says
              * why, on the row.
              *

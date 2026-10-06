@@ -81,7 +81,7 @@ this instance's own:
 
 | Value | Reading |
 |---|---|
-| `8.8.8.8` | contested, quality 57, a warninglist against eight reporting organisations |
+| `8.8.8.8` | contested, signal strength 57, a warninglist against eight reporting organisations |
 | `google.com` | asserted benign, 37 |
 | `45.155.205.233` | contested, 11, driven by false-positive sightings rather than a warninglist |
 | `27304b246c7d5b4e149124d5f93c5b01` | asserted threat, 19 |

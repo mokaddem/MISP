@@ -7,12 +7,12 @@ App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
  * matter operationally, today?
  *
  * MISP's decaying models answer *how bad is this* and *how stale is
- * this* in one number, while the quality ledger already answers the
+ * this* in one number, while the signal-strength ledger already answers the
  * first from more evidence with an audit trail. What is taken from them
  * here is the time factor; what is left is the base score.
  *
  * **No ledger row, ever.** Relevance is its own axis, so nothing here
- * returns points and nothing here can move the lean or the quality sum.
+ * returns points and nothing here can move the lean or the signal-strength sum.
  * That is not a style rule: staleness emitted as threat-signed points
  * would let silence promote a value to definite BENIGN and let a
  * freshly-confirmed value fall *out* of it. An axis that never touches
@@ -54,7 +54,7 @@ App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
  * one from the other and calling the difference an encoding lag is
  * unsound: a row edited long after its event was published reads as
  * hundreds of days of lag, flags the timeline uncertain, and would take
- * points off the quality through `record.temporal_precision` as well.
+ * points off the signal strength through `record.temporal_precision` as well.
  *
  * The axis uses `undated_assumed_days` instead — **a declared
  * assumption, not a reading.** When no occurrence carries

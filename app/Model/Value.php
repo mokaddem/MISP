@@ -424,7 +424,7 @@ class Value extends AppModel
      * for `_FROM`, `last_seen` for `_AT` — so a zero means precisely
      * *this date is a row write*. They differ from
      * `recordSummaryFor`'s single `dated`, which counts `first_seen`
-     * only because the quality ledger asks a different question.
+     * only because the signal-strength ledger asks a different question.
      *
      * @param array $user
      * @param string $value
@@ -969,7 +969,7 @@ class Value extends AppModel
      * Everything the assessment's aggregate class needs about the
      * record, in one query.
      *
-     * `occurrenceSummaryFor`'s five numbers plus the three the quality
+     * `occurrenceSummaryFor`'s five numbers plus the three the signal strength
      * ledger reads — how much of the reporting is published, how many
      * occurrences date their own observation, and the worst
      * encoding-against-event lag — because they are all single-row
@@ -989,7 +989,7 @@ class Value extends AppModel
      * the encoding date against the date the event says the thing
      * happened. `06-staleness.md` §3.6 makes it one of the two inputs
      * that put the relevance axis into *timeline uncertain*, and
-     * `record.temporal_precision` reads the same fact as a quality
+     * `record.temporal_precision` reads the same fact as a signal strength
      * signal.
      *
      * @param array $user

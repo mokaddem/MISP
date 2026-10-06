@@ -86,7 +86,7 @@ $directionStyle = $leanNow === null
  *
  * The recompute answers this fragment and nothing else, so the
  * contribution column beside it used to keep whatever the page loaded
- * with — a confident `+7` next to a quality that had just moved to 48.
+ * with — a confident `+7` next to a signal strength that had just moved to 48.
  * The numbers ride back with the fragment and the editor writes them
  * into the cells; the labels come too, because the column's wording is
  * translated and the script has no business holding a copy.

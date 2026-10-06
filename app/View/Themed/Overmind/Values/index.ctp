@@ -82,7 +82,7 @@ $this->set('headerDescription', __(
  * when none is**, which is this page's rule rather than this row's: a
  * block with nothing to say is omitted, not drawn empty. A site admin
  * can disable the instance default, and a *0 signals* tile beside a
- * strip already saying assessments carry no quality would be a second,
+ * strip already saying assessments carry no signal strength would be a second,
  * worse way of saying it.
  */
 ?>

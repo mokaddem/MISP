@@ -178,7 +178,7 @@ function boot() {
     /*
      * The recompute answers the bench and nothing else, so the
      * contribution column in the signals pane would keep the numbers
-     * the page loaded with — a confident `+7` beside a quality that had
+     * the page loaded with — a confident `+7` beside a signal strength that had
      * just moved to 48. The fragment carries the new ledger back and
      * this writes it into the cells, which is the whole reason the
      * column can be trusted enough to colour.

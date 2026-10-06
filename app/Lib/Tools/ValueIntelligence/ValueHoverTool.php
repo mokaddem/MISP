@@ -117,7 +117,7 @@ class ValueHoverTool
             'value' => $context['value'],
             'types' => self::types($context),
             'lean' => $verdict['lean'],
-            'quality' => $verdict['quality'],
+            'signal_strength' => $verdict['signal_strength'],
             'band' => $verdict['band'],
             'relevance' => self::relevance($verdict),
             'counts' => array(

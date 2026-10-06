@@ -1,6 +1,6 @@
 <?php
 /**
- * The quality bands, drawn against what the enabled signals can
+ * The signal-strength bands, drawn against what the enabled signals can
  * actually reach.
  *
  * The bound is not a setting: it is the largest positive value in each

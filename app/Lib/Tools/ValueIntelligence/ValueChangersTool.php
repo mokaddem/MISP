@@ -16,8 +16,8 @@ App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
  * derivation itself. The lean line appends organisations to a copy of
  * the context and re-runs the lean rules until the answer changes, so
  * the sentence is true by construction rather than by a second
- * implementation of the same precedence. The quality line asks the
- * banding what a hypothetical quality would band as, so a clamp or a
+ * implementation of the same precedence. The signal-strength line asks the
+ * banding what a hypothetical signal strength would band as, so a clamp or a
  * minimum-signal count cannot be quietly ignored by the prose.
  *
  * **The cheapest changer per axis, not all of them.** A reader wants
@@ -26,7 +26,7 @@ App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
  * that firms the record's own assertion is preferred, because that is
  * the direction a reader is usually checking.
  *
- * **Nothing here knows a signal by name.** The quality line needs a
+ * **Nothing here knows a signal by name.** The signal-strength line needs a
  * unit a reader can supply more of — an organisation, a sighting, a
  * galaxy cluster — and it gets it from the signal's own `$unit`
  * declaration, so a rule dropped into an instance's own signal
@@ -50,7 +50,7 @@ class ValueChangersTool
     const PROBE_ORG_ID = 2000000000;
 
     /**
-     * How many of a signal's own units the quality probe will imagine.
+     * How many of a signal's own units the signal-strength probe will imagine.
      *
      * Every shipped unit is capped well inside this, so the bound only
      * ever stops a profile whose cap is enormous and whose per-unit
@@ -90,7 +90,7 @@ class ValueChangersTool
          * so the answer is arithmetic on the runway and re-running the
          * derivation would tell nobody anything the subtraction does
          * not. `ValueRelevanceTool::changerFor` owns it for the same
-         * reason `qualityChanger` asks the banding: the sentence must
+         * reason `signalStrengthChanger` asks the banding: the sentence must
          * come from whatever would have to honour it.
          */
         $relevance = isset($verdict['relevance'])
@@ -99,9 +99,10 @@ class ValueChangersTool
         if ($relevance !== null) {
             $changers[] = $relevance;
         }
-        $quality = $this->qualityChanger($verdict, $context, $profile);
-        if ($quality !== null) {
-            $changers[] = $quality;
+        $signalStrength = $this->signalStrengthChanger($verdict, $context,
+            $profile);
+        if ($signalStrength !== null) {
+            $changers[] = $signalStrength;
         }
         return $changers;
     }
@@ -115,7 +116,7 @@ class ValueChangersTool
      * the ledger came out against the record's own assertion* moves
      * when the ledger does, so the line is about points rather than
      * organisations — and it is the one place where the lean axis and
-     * the quality axis are the same sentence.
+     * the signal-strength axis are the same sentence.
      *
      * @param array $verdict
      * @param array $context
@@ -137,10 +138,10 @@ class ValueChangersTool
                     ? 'up'
                     : 'down',
                 /*
-                 * `lean_weight` and not `quality`, which are separate
+                 * `lean_weight` and not `signal_strength`, which are separate
                  * sums: the lean-disputed check weighs the rows that
                  * read the value, so the gap a reader would have to
-                 * close is on that axis. Off the quality it would name
+                 * close is on that axis. Off the signal strength it would name
                  * a number nothing is measuring against — and on a
                  * record whose every row weighs rather than reads, a
                  * number no amount of evidence about the value could
@@ -310,7 +311,7 @@ class ValueChangersTool
     }
 
     /**
-     * What would move the quality band.
+     * What would move the signal-strength band.
      *
      * Three cases, in the order they are worth reading. A band held
      * down by the thin-record clamp is not short of points and saying
@@ -325,20 +326,20 @@ class ValueChangersTool
      * @param array|null $profile
      * @return array|null
      */
-    private function qualityChanger(array $verdict, array $context,
+    private function signalStrengthChanger(array $verdict, array $context,
         $profile
     ) {
         if ($verdict['band'] === 'none' || empty($verdict['ledger'])) {
             return null;
         }
         if ($verdict['band'] === 'high') {
-            return $this->qualityDrop($verdict, $profile);
+            return $this->signalStrengthDrop($verdict, $profile);
         }
         $clamped = $this->clampPhrase($verdict, $context, $profile);
         if ($clamped !== null) {
             return $clamped;
         }
-        return $this->qualityClimb($verdict, $profile);
+        return $this->signalStrengthClimb($verdict, $profile);
     }
 
     /**
@@ -374,10 +375,10 @@ class ValueChangersTool
         $target = $verdict['band'] === 'medium' ? 'high' : 'medium';
         $enough = max(
             (int)$this->thresholds($profile,
-                'quality_high_min_signals', 4),
+                'signal_strength_high_min_signals', 4),
             (int)$verdict['signals']['fired']
         );
-        $reachable = ValueVerdictTool::qualityBand(
+        $reachable = ValueVerdictTool::signalStrengthBand(
             $this->bandFloor($profile, $target),
             array('fired' => $enough, 'supporting' => $enough),
             $profile,
@@ -403,7 +404,7 @@ class ValueChangersTool
          */
         if ($this->gradesAModule($context)) {
             return array(
-                'axis' => 'quality',
+                'axis' => 'signal_strength',
                 'direction' => 'up',
                 'text' => sprintf(
                     __('A second source: one more organisation'
@@ -416,7 +417,7 @@ class ValueChangersTool
             );
         }
         return array(
-            'axis' => 'quality',
+            'axis' => 'signal_strength',
             'direction' => 'up',
             'text' => sprintf(
                 $this->sightingsReadable($context)
@@ -477,11 +478,11 @@ class ValueChangersTool
      * @param array|null $profile
      * @return array|null
      */
-    private function qualityClimb(array $verdict, $profile)
+    private function signalStrengthClimb(array $verdict, $profile)
     {
         $target = $verdict['band'] === 'medium' ? 'high' : 'medium';
         $floor = $this->bandFloor($profile, $target);
-        $gap = $floor - (int)$verdict['quality'];
+        $gap = $floor - (int)$verdict['signal_strength'];
         if ($gap <= 0) {
             /*
              * The points are already there and something else is
@@ -494,7 +495,7 @@ class ValueChangersTool
         $lever = $this->cheapestLever($verdict, $profile, $gap);
         if ($lever === null) {
             return array(
-                'axis' => 'quality',
+                'axis' => 'signal_strength',
                 'direction' => 'up',
                 'text' => sprintf(
                     __('%1$d more points would take it to the %2$s'
@@ -505,7 +506,7 @@ class ValueChangersTool
             );
         }
         return array(
-            'axis' => 'quality',
+            'axis' => 'signal_strength',
             'direction' => 'up',
             'text' => sprintf(
                 __('%1$s — the record reaches the %2$s band.'),
@@ -528,28 +529,28 @@ class ValueChangersTool
      * @param array|null $profile
      * @return array|null
      */
-    private function qualityDrop(array $verdict, $profile)
+    private function signalStrengthDrop(array $verdict, $profile)
     {
         $rows = $this->supportingRows($verdict);
         if (empty($rows)) {
             return null;
         }
-        $quality = (int)$verdict['quality'];
+        $signalStrength = (int)$verdict['signal_strength'];
         $signals = array(
             'fired' => (int)$verdict['signals']['fired'],
             'supporting' => (int)($verdict['signals']['supporting'] ?? 0),
         );
         $removed = 0;
         foreach ($rows as $row) {
-            $quality -= $row['contribution'];
+            $signalStrength -= $row['contribution'];
             $signals['fired']--;
             $signals['supporting']--;
             $removed++;
-            $band = ValueVerdictTool::qualityBand($quality, $signals,
-                $profile);
+            $band = ValueVerdictTool::signalStrengthBand($signalStrength,
+                $signals, $profile);
             if ($band !== 'high') {
                 return array(
-                    'axis' => 'quality',
+                    'axis' => 'signal_strength',
                     'direction' => 'down',
                     'text' => $removed === 1
                         ? sprintf(
@@ -588,15 +589,15 @@ class ValueChangersTool
         if ($target !== 'high') {
             return null;
         }
-        $minimum = $this->thresholds($profile, 'quality_high_min_signals',
-            4);
+        $minimum = $this->thresholds($profile,
+            'signal_strength_high_min_signals', 4);
         $short = (int)$minimum
             - (int)($verdict['signals']['supporting'] ?? 0);
         if ($short <= 0) {
             return null;
         }
         return array(
-            'axis' => 'quality',
+            'axis' => 'signal_strength',
             'direction' => 'up',
             'text' => sprintf(
                 __('The points are already there; %1$d more of the'
@@ -677,7 +678,7 @@ class ValueChangersTool
                 continue;
             }
             /*
-             * And a lean signal cannot close a *quality* gap, since
+             * And a lean signal cannot close a *signal strength* gap, since
              * the two are separate sums: a false-positive sighting
              * moves what the record says the value is, not how much
              * record there is.
@@ -854,9 +855,9 @@ class ValueChangersTool
      * dispute can leave a categorical lean on the record and a
      * contested one on the page.
      *
-     * It deliberately does not look at the sign of the quality. A
+     * It deliberately does not look at the sign of the signal strength. A
      * benign lean disputed by its ledger re-anchors *positive* — the
-     * threat-signed sum was what disputed it — so a negative-quality
+     * threat-signed sum was what disputed it — so a negative-signal-strength
      * test finds only half the cases, and the half it misses is the one
      * where the stance probe then reports a change into the state the
      * value is already in.
@@ -929,7 +930,7 @@ class ValueChangersTool
      */
     private function bandFloor($profile, $band)
     {
-        $bands = $this->thresholds($profile, 'quality_bands', array());
+        $bands = $this->thresholds($profile, 'signal_strength_bands', array());
         if (isset($bands[$band]) && is_numeric($bands[$band])) {
             return (int)$bands[$band];
         }

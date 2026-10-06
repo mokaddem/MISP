@@ -11,7 +11,7 @@
  * where the reader already is, and `/values/*` is the one place they
  * do not need it.
  *
- * **Hue belongs to the lean and to nothing else here.** Quality is a
+ * **Hue belongs to the lean and to nothing else here.** Signal strength is a
  * magnitude and is drawn in ink weight; relevance is categorical and
  * would have taken a fourth colour, so it is a figure opposite *last
  * seen* instead. `value-palette.css` carries that argument in full.
@@ -243,7 +243,7 @@
 .vp-hc-band-n.vp-hc-absent { font-weight: 500; color: var(--vp-hc-mute); }
 /*
  * The band is ordinal, so the meter is discrete: three segments, lit
- * or hollow. Ink weight only — quality gets no hue of its own.
+ * or hollow. Ink weight only — signal strength gets no hue of its own.
  */
 .vp-hc-segs { align-self: center; display: inline-flex; gap: 2px; }
 .vp-hc-seg {

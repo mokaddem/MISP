@@ -3,7 +3,7 @@
 /**
  * Whether the record can date its own observations.
  *
- * The quality reading of the fact that makes the relevance axis say
+ * The signal-strength reading of the fact that makes the relevance axis say
  * *timeline uncertain*: no `first_seen` on any occurrence, so nothing
  * records when the value was seen — only when its row was last
  * written.

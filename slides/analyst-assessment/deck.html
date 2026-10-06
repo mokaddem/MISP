@@ -415,7 +415,7 @@ body.stack .slide {
   <h2>An assessment is three readings</h2>
   <figure>
     <img src="img/three-readings.png"
-         alt="Three cards: lean contested, relevance current, quality 57">
+         alt="Three cards: lean contested, relevance current, signal strength 57">
   </figure>
   <table style="margin-top:1.4cqw">
     <thead><tr><th>Axis</th><th>The question it answers</th>
@@ -429,7 +429,7 @@ body.stack .slide {
         <td>Does that assertion still matter today?</td>
         <td><code>current</code> · <code>aging</code> ·
             <code>expired</code> · <code>timeline uncertain</code></td></tr>
-      <tr><td><strong>Quality</strong></td>
+      <tr><td><strong>Signal strength</strong></td>
         <td>How much can the record be trusted?</td>
         <td>a number, with the ledger as its audit trail</td></tr>
     </tbody>
@@ -471,10 +471,10 @@ body.stack .slide {
   <p class="note"><code>to_ids</code> is noisy in practice: MISP sets
     per-type defaults, feed imports set it wholesale, and plenty of
     organisations never curate it. Splitting the axes is what absorbs
-    that. Lean reports the assertion; quality grades how well it was
+    that. Lean reports the assertion; signal strength grades how well it was
     made. One uncurated org's <code>to_ids = 1</code> is a threat lean
-    with low quality. Four organisations deliberately confirming is the
-    same lean with high quality.</p>
+    with low signal strength. Four organisations deliberately confirming is the
+    same lean with high signal strength.</p>
 </section>
 
 <!-- 6 ============================================================ -->
@@ -499,7 +499,7 @@ body.stack .slide {
         <code>first_seen</code>, a long created-to-published lag, or a
         timestamp standing in for an observation date will each degrade
         relevance to <code>timeline uncertain</code> and deduct from
-        quality.</p>
+        signal strength.</p>
     </div>
   </div>
 </section>
@@ -507,7 +507,7 @@ body.stack .slide {
 <!-- 7 ============================================================ -->
 <section class="slide shot">
   <p class="kicker">Axis three</p>
-  <h2>Quality: how well evidenced</h2>
+  <h2>Signal strength: how well evidenced</h2>
   <div class="cols narrow-left">
     <figure class="tall">
       <img src="img/how-reached.png"
@@ -535,7 +535,7 @@ body.stack .slide {
   <h2>8.8.8.8</h2>
   <figure>
     <img src="img/hero-contested.png"
-         alt="Contested. Quality medium, 57 of 100. Analyst profile
+         alt="Contested. Signal strength medium, 57 of 100. Analyst profile
               Incident Response &amp; Investigation. Conflict rule: a
               warninglist marks this as a false positive and 8 of 8
               organisations report it as a threat regardless.">
@@ -710,7 +710,7 @@ body.stack .slide {
         threat, and how hard. Which way the arrow renders is the engine's
         problem, and it anchors the lean rows to the lean's polarity at
         assembly.</p>
-      <p>Quality rows keep their declared sign whatever the lean, because
+      <p>Signal-strength rows keep their declared sign whatever the lean, because
         how much record there is stays the same question whatever the
         record concluded.</p>
     </div>
@@ -847,23 +847,23 @@ body.stack .slide {
     <tbody>
       <tr><td><code>signals</code></td>
         <td>which signals run, and what each contributes</td>
-        <td>lean + quality</td></tr>
+        <td>lean + signal strength</td></tr>
       <tr><td><code>thresholds</code></td>
         <td>where the bands sit, and the lean's supermajority</td>
-        <td>lean + quality</td></tr>
+        <td>lean + signal strength</td></tr>
       <tr><td><code>escalations</code></td>
         <td>named rules that emit <code>contested</code> instead of
           contributing points</td><td>lean</td></tr>
       <tr><td><code>exclusions</code></td>
         <td>evidence set aside <em>before</em> scoring: self-sightings,
-          mirrored feeds, the long-history window</td><td>quality</td></tr>
+          mirrored feeds, the long-history window</td><td>signal strength</td></tr>
       <tr><td><code>relevance</code></td>
         <td>the clock, the per-type TTLs, the precision tripwires</td>
         <td>relevance</td></tr>
       <tr><td><code>reference</code></td>
         <td>what you believe about your sources: org trust, and which
           warninglists mean <em>shared infrastructure</em> rather than
-          <em>false positive</em></td><td>quality</td></tr>
+          <em>false positive</em></td><td>signal strength</td></tr>
       <tr><td><code>enrichment</code></td>
         <td>which modules this profile cares about, per type, and whether
           it will contact third parties</td><td>context</td></tr>
@@ -920,7 +920,7 @@ body.stack .slide {
   <div class="cols">
     <figure>
       <img src="img/bench-score.png"
-           alt="Quality 59, 57 under the profile in force, plus 2. The band
+           alt="Signal strength 59, 57 under the profile in force, plus 2. The band
                 ruler moves from 57 to 59; 11 signals fired of 153
                 reachable.">
     </figure>

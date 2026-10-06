@@ -18,7 +18,7 @@ App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
  * sums to a number, out.
  *
  * The page displays a verdict; it does not compute one — this does.
- * What it computes is the assessment's **quality** axis: lean is
+ * What it computes is the assessment's **signal strength** axis: lean is
  * derived categorically by `ValueLeanTool` and relevance is its own
  * axis, so this file is the ledger and the number, not the whole
  * judgement.
@@ -32,12 +32,12 @@ App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
  *     silent:         no row and no note
  *     could not run:  a not_counted entry
  *
- * polarity    = +1 (threat lean) | −1 (benign lean)
- * lean row    = points × polarity      reads the value
- * quality row = points                 weighs the record
- * quality     = Σ quality rows
- * lean_weight = Σ lean rows
- * direction of a row = sign(row)
+ * polarity            = +1 (threat lean) | −1 (benign lean)
+ * lean row            = points × polarity    reads the value
+ * signal-strength row = points               weighs the record
+ * signal strength     = Σ signal-strength rows
+ * lean_weight         = Σ lean rows
+ * direction of a row  = sign(row)
  * ```
  *
  * **Two sums, because there are two questions** — *what the record
@@ -49,7 +49,7 @@ App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
  * false-positive sightings and enrichment verdicts; the `to_ids`
  * stance reads it too, but that one is not a ledger row at all.
  *
- * **The sum is the quality by construction rather than by
+ * **The sum is the signal strength by construction rather than by
  * convention.** There is no second code path
  * that could disagree with the ledger — no normalisation, no
  * calibration, no post-processing — which is what makes a profile diff
@@ -93,7 +93,7 @@ App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
  * rows of a single-source value with no galaxy, no first-seen, no
  * sighting, nothing recent and no feed can outweigh its one report —
  * and ordinary thin records would read as contradictions. A thin record is a lean
- * with a low quality band and a full ledger.
+ * with a low signal-strength band and a full ledger.
  *
  * ## What is still an input
  *
@@ -111,11 +111,14 @@ class ValueVerdictTool
         'Lifecycle',
     );
 
-    /** The quality bands, weakest first, so one can be capped to another. */
+    /**
+     * The signal-strength bands, weakest first, so one can be capped to
+     * another.
+     */
     const BANDS = array('none', 'low', 'medium', 'high');
 
     /**
-     * `ValueSignalBase::AXIS_LEAN` and `AXIS_QUALITY`, mirrored.
+     * `ValueSignalBase::AXIS_LEAN` and `AXIS_SIGNAL_STRENGTH`, mirrored.
      *
      * Mirrored rather than referenced because the signal base is
      * `include_once`d by the loader at first scan, and the path this
@@ -124,7 +127,7 @@ class ValueVerdictTool
      * rather than an empty ledger. The two pairs must stay equal.
      */
     const AXIS_LEAN = 'lean';
-    const AXIS_QUALITY = 'quality';
+    const AXIS_SIGNAL_STRENGTH = 'signal_strength';
 
     /** Lean → the ledger's polarity. */
     const POLARITY = array(
@@ -297,7 +300,7 @@ class ValueVerdictTool
                     $outcome['signal'],
                     $polarity
                 );
-                if ($anchored['axis'] === self::AXIS_QUALITY) {
+                if ($anchored['axis'] === self::AXIS_SIGNAL_STRENGTH) {
                     $added += $anchored['contribution'];
                 }
                 $rows[] = $anchored;
@@ -324,11 +327,11 @@ class ValueVerdictTool
         }
 
         /*
-         * Two sums, because there are two questions. The quality rows
-         * sum to the quality, exactly — the invariant, narrowed to the
+         * Two sums, because there are two questions. The signal-strength rows
+         * sum to the signal strength, exactly — the invariant, narrowed to the
          * axis it is about. The lean rows sum to `lean_weight`, which
          * is what the record's own evidence says the value *is*, and
-         * they stay out of the quality: a warninglist hit says nothing
+         * they stay out of the signal strength: a warninglist hit says nothing
          * about how well documented a record is.
          *
          * One sum would get a widely reported value wrong: eight
@@ -337,8 +340,8 @@ class ValueVerdictTool
          * from `+57` of record. It is a well-documented contested
          * value and should say so.
          */
-        $quality = $this->sum($this->onAxis($rows,
-            self::AXIS_QUALITY));
+        $signalStrength = $this->sum($this->onAxis($rows,
+            self::AXIS_SIGNAL_STRENGTH));
         $leanWeight = $this->sum($this->onAxis($rows,
             self::AXIS_LEAN));
 
@@ -356,7 +359,7 @@ class ValueVerdictTool
          * on an ordinary single-source value the absence rows — no
          * galaxy, no first-seen, no sighting, nothing recent, no feed
          * — can outweigh the record it has. That is not a
-         * contradiction; it should read as *a lean with low quality
+         * contradiction; it should read as *a lean with low signal strength
          * and a full ledger*.
          *
          * **And it defers to a lean that is already contested.** An
@@ -396,7 +399,7 @@ class ValueVerdictTool
             $polarity = 1;
         }
         $ledger = $this->group($this->onAxis($rows,
-            self::AXIS_QUALITY));
+            self::AXIS_SIGNAL_STRENGTH));
         $context['outside_agreement'] = self::outsideAgreement(
             $derived['stances'],
             $lean
@@ -406,12 +409,12 @@ class ValueVerdictTool
             'lean' => $lean,
             'derived' => $derived,
             'polarity' => $polarity,
-            'quality' => $quality,
+            'signal_strength' => $signalStrength,
             'lean_weight' => $leanWeight,
             'lean_ledger' => $this->onAxis($rows,
                 self::AXIS_LEAN),
-            'band' => self::qualityBand(
-                $quality,
+            'band' => self::signalStrengthBand(
+                $signalStrength,
                 $counts,
                 $profile,
                 $context
@@ -485,7 +488,7 @@ class ValueVerdictTool
             'lean' => $derived['lean'],
             'derived' => $derived,
             'polarity' => $polarity,
-            'quality' => 0,
+            'signal_strength' => 0,
             'lean_weight' => 0,
             'lean_ledger' => array(),
             'band' => 'none',
@@ -534,11 +537,11 @@ class ValueVerdictTool
      */
     private function sum(array $rows)
     {
-        $quality = 0;
+        $signalStrength = 0;
         foreach ($rows as $row) {
-            $quality += $row['contribution'];
+            $signalStrength += $row['contribution'];
         }
-        return $quality;
+        return $signalStrength;
     }
 
     /**
@@ -554,9 +557,9 @@ class ValueVerdictTool
         foreach ($rows as $index => $row) {
             $axis = isset($row['axis'])
                 ? $row['axis']
-                : self::AXIS_QUALITY;
+                : self::AXIS_SIGNAL_STRENGTH;
             /*
-             * Quality rows were never anchored, so there is nothing to
+             * Signal-strength rows were never anchored, so there is nothing to
              * put back. Running the multiply over them anyway would
              * silently invert the record's weight under a lean that
              * no longer has one.
@@ -581,7 +584,7 @@ class ValueVerdictTool
      * Both come out of the same lean rows the other leans render —
      * there is no third bucket and no separate computation, which is
      * what lets a reader add the lean ledger up by hand and arrive at
-     * the bar. It is not the quality's rows; see **The lean rows, and
+     * the bar. It is not the signal strength's rows; see **The lean rows, and
      * only those** below.
      *
      * **Two keys.** There is no third *unresolved* wedge, because
@@ -635,7 +638,7 @@ class ValueVerdictTool
     private function verdict(array $parts)
     {
         $lean = $parts['lean'];
-        $quality = $parts['quality'];
+        $signalStrength = $parts['signal_strength'];
         $ledger = $parts['ledger'];
         $context = $parts['context'];
         $profile = $parts['profile'];
@@ -655,13 +658,13 @@ class ValueVerdictTool
              */
             'decided_by' => $derived['decided_by'],
             'polarity' => $parts['polarity'],
-            'quality' => $quality,
+            'signal_strength' => $signalStrength,
             /*
-             * The lean's own arithmetic, beside the quality's rather
+             * The lean's own arithmetic, beside the signal strength's rather
              * than inside it. `lean_ledger` is the rows and
              * `lean_weight` their sum, so the band that explains the
              * reading can show its working the way the ledger shows
-             * the quality's — and so nothing has to re-derive from a
+             * the signal strength's — and so nothing has to re-derive from a
              * sign which rows those were.
              */
             'lean_weight' => isset($parts['lean_weight'])
@@ -678,24 +681,24 @@ class ValueVerdictTool
              * key a template reads as missing on the other.
              */
             'band_reason' => self::bandReason(
-                $parts['quality'],
+                $parts['signal_strength'],
                 $parts['counts'],
                 $parts['profile'],
                 $parts['context']
             ),
             /*
-             * The second axis, assembled beside the quality and not out
+             * The second axis, assembled beside the signal strength and not out
              * of it. It reads the same context and the same profile,
              * emits no ledger row, and is computed here rather than by
              * the caller so that one `assess()` returns the whole
              * assessment — the page, the simulator and a batch worker
              * cannot then disagree about a value's relevance while
-             * agreeing about its quality.
+             * agreeing about its signal strength.
              *
              * **Nothing below reads it**, which keeps the axes apart
              * mechanically: the ledger, the band, the tug and the
              * composition are all computed already, so an axis added
-             * here cannot alter any of them — the lean and the quality
+             * here cannot alter any of them — the lean and the signal strength
              * are byte-identical with relevance at `current` and at
              * `expired`.
              */
@@ -730,7 +733,7 @@ class ValueVerdictTool
 
         /*
          * Last, because a falsifiability line is derived *from* the
-         * assessment — the lean probe re-runs the rules and the quality
+         * assessment — the lean probe re-runs the rules and the signal strength
          * probe re-runs the banding, and both need the finished answer
          * to say what would move it.
          */
@@ -750,7 +753,7 @@ class ValueVerdictTool
      *
      * Every failure path lands in the same place — `not_counted`, with
      * the id named and a reason — because an unavailable signal belongs
-     * *on the page*: a quality number computed from eight of nine
+     * *on the page*: a signal-strength number computed from eight of nine
      * configured signals and presented as if nine ran is a quiet lie.
      *
      * @param string $id
@@ -900,7 +903,7 @@ class ValueVerdictTool
      * over-correlating is one a time window cannot bound, because a
      * live campaign puts everything inside 90 days. Row-hungry signals
      * bow out and say so; the aggregate-class ones still fire, and the
-     * quality is computed from what could be read.
+     * signal strength is computed from what could be read.
      *
      * @param object $signal
      * @param array $context
@@ -1069,7 +1072,7 @@ class ValueVerdictTool
      * profile, the anchoring and the direction from the lean
      * — and the anchoring only where the row has a side to take.
      *
-     * **The polarity reaches lean rows and nothing else.** A quality
+     * **The polarity reaches lean rows and nothing else.** A signal strength
      * row's declared points are already the right sign for the only
      * thing it can say: more corroboration, more publication, more
      * temporal precision is a better record, and it is a better record
@@ -1080,7 +1083,7 @@ class ValueVerdictTool
      *
      * `direction` therefore means two different things and the row says
      * which: on a lean row it is supports/disputes the stated lean, on
-     * a quality row it is adds to/deducts from the weight of the
+     * a signal-strength row it is adds to/deducts from the weight of the
      * record. The ledger draws them apart rather than leaving a reader
      * to infer it from the sign.
      *
@@ -1096,7 +1099,7 @@ class ValueVerdictTool
             ? $row['axis']
             : (isset($signal->axis)
                 ? $signal->axis
-                : self::AXIS_QUALITY);
+                : self::AXIS_SIGNAL_STRENGTH);
         $contribution = (int)$row['contribution']
             * ($axis === self::AXIS_LEAN ? $polarity : 1);
         $anchored = array(
@@ -1135,7 +1138,7 @@ class ValueVerdictTool
         foreach ($rows as $row) {
             $rowAxis = isset($row['axis'])
                 ? $row['axis']
-                : self::AXIS_QUALITY;
+                : self::AXIS_SIGNAL_STRENGTH;
             if ($rowAxis === $axis) {
                 $out[] = $row;
             }
@@ -1211,15 +1214,15 @@ class ValueVerdictTool
      * record asserts. That is the whole reason the three axes were
      * split apart.
      *
-     * `quality_high_min_signals` is what stops one heavy row buying a
-     * `high` band on its own: a value's quality is high when several
+     * `signal_strength_high_min_signals` is what stops one heavy row buying a
+     * `high` band on its own: a value's signal strength is high when several
      * independent readings agree, not when one signal is generous. It
-     * counts the quality signals that added points: an absence row or
+     * counts the signal-strength signals that added points: an absence row or
      * a lean row fires on nearly every value, so counting those would
      * leave the guard with nothing to hold.
      *
-     * @param int $quality
-     * @param array $signals `fired`, and `supporting` — the quality
+     * @param int $signalStrength
+     * @param array $signals `fired`, and `supporting` — the signal strength
      *                       signals whose rows sum above zero
      * @param array|null $profile
      * @param array $context Needed for the thin-record clamp; an empty
@@ -1228,26 +1231,26 @@ class ValueVerdictTool
      *                       clamp is what is holding a band down
      * @return string `none`, `low`, `medium` or `high`
      */
-    public static function qualityBand($quality, array $signals,
+    public static function signalStrengthBand($signalStrength, array $signals,
         $profile, array $context = array()
     ) {
         if ((int)($signals['fired'] ?? 0) === 0) {
             return 'none';
         }
         $thresholds = self::section($profile, 'thresholds');
-        $bands = isset($thresholds['quality_bands'])
-            ? $thresholds['quality_bands']
+        $bands = isset($thresholds['signal_strength_bands'])
+            ? $thresholds['signal_strength_bands']
             : array();
         $high = isset($bands['high']) ? (int)$bands['high'] : 60;
         $medium = isset($bands['medium']) ? (int)$bands['medium'] : 30;
-        $minSignals = isset($thresholds['quality_high_min_signals'])
-            ? (int)$thresholds['quality_high_min_signals']
+        $minSignals = isset($thresholds['signal_strength_high_min_signals'])
+            ? (int)$thresholds['signal_strength_high_min_signals']
             : 4;
-        if ($quality >= $high
+        if ($signalStrength >= $high
             && (int)($signals['supporting'] ?? 0) >= $minSignals
         ) {
             $band = 'high';
-        } elseif ($quality >= $medium) {
+        } elseif ($signalStrength >= $medium) {
             $band = 'medium';
         } else {
             $band = 'low';
@@ -1259,13 +1262,13 @@ class ValueVerdictTool
      * Which of the band's four ways out produced this band, and the
      * numbers it was decided against.
      *
-     * `qualityBand()` answers *what* and has three callers that only
+     * `signalStrengthBand()` answers *what* and has three callers that only
      * want that; this answers *why* without changing its signature.
      * The ledger prints the arithmetic and the hero the band, and
      * between them sits the one thing neither says: the floor. Lean
      * names its supermajority and relevance names its TTL — the profile
      * setting that decided the state belongs on the page, and this is
-     * quality's.
+     * signal strength's.
      *
      * **`clamped` is detected, not predicted.** The band is computed
      * twice, once with the context and once without, and a difference
@@ -1274,19 +1277,19 @@ class ValueVerdictTool
      * the profile and re-reading them here would be a second
      * implementation of them.
      *
-     * @param int $quality
-     * @param array $signals As `qualityBand()` takes them
+     * @param int $signalStrength
+     * @param array $signals As `signalStrengthBand()` takes them
      * @param array|null $profile
      * @param array $context
      * @return array `reason` — `no_signal`, `clamped`, `min_signals`
      *               or `points` — and `floors`, the numbers in force
      */
-    public static function bandReason($quality, array $signals,
+    public static function bandReason($signalStrength, array $signals,
         $profile, array $context = array()
     ) {
         $thresholds = self::section($profile, 'thresholds');
-        $bands = isset($thresholds['quality_bands'])
-            ? $thresholds['quality_bands']
+        $bands = isset($thresholds['signal_strength_bands'])
+            ? $thresholds['signal_strength_bands']
             : array();
         $clamp = isset($thresholds['thin_record_clamp'])
             && is_array($thresholds['thin_record_clamp'])
@@ -1295,8 +1298,10 @@ class ValueVerdictTool
         $floors = array(
             'medium' => isset($bands['medium']) ? (int)$bands['medium'] : 30,
             'high' => isset($bands['high']) ? (int)$bands['high'] : 60,
-            'min_signals' => isset($thresholds['quality_high_min_signals'])
-                ? (int)$thresholds['quality_high_min_signals']
+            'min_signals' => isset(
+                $thresholds['signal_strength_high_min_signals']
+            )
+                ? (int)$thresholds['signal_strength_high_min_signals']
                 : 4,
             'clamp_band' => isset($clamp['max_band'])
                 ? $clamp['max_band']
@@ -1314,9 +1319,10 @@ class ValueVerdictTool
         if ((int)($signals['fired'] ?? 0) === 0) {
             return array('reason' => 'no_signal', 'floors' => $floors);
         }
-        $withContext = self::qualityBand($quality, $signals, $profile,
-            $context);
-        $unclamped = self::qualityBand($quality, $signals, $profile);
+        $withContext = self::signalStrengthBand($signalStrength, $signals,
+            $profile, $context);
+        $unclamped = self::signalStrengthBand($signalStrength, $signals,
+            $profile);
         if ($withContext !== $unclamped) {
             $floors['would_be'] = $unclamped;
             $ceiling = self::clampCeiling($thresholds, $context);
@@ -1325,7 +1331,7 @@ class ValueVerdictTool
                 : $ceiling['grade'];
             return array('reason' => 'clamped', 'floors' => $floors);
         }
-        if ($quality >= $floors['high']
+        if ($signalStrength >= $floors['high']
             && (int)($signals['supporting'] ?? 0) < $floors['min_signals']
         ) {
             return array(
@@ -1558,7 +1564,7 @@ class ValueVerdictTool
      * A viewer with no profile in force is a real state, not an error:
      * `AnalystProfile::resolveFor()` returns null when a site admin has
      * disabled the default, and the page then has a lean and no
-     * quality.
+     * signal strength.
      *
      * @param array|null $profile
      * @return array

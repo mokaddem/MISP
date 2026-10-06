@@ -36,7 +36,7 @@
  * — and the lists checked is half of it: a hit against nothing is only
  * meaningful beside how much was looked at. It is worth `+1`, as the
  * other absence rows are worth `−1`: it fires on nearly every
- * value, so a larger weight is an offset on the quality rather than
+ * value, so a larger weight is an offset on the signal strength rather than
  * evidence that tells two values apart.
  */
 class LifecycleWarninglist extends ValueSignalBase
@@ -57,7 +57,7 @@ class LifecycleWarninglist extends ValueSignalBase
      * the same statement as *the value is a threat*. Anchored, it
      * would become one — on a benign lean its `+1` would invert to
      * `−1` and could, on its own, make an uncontested value read as
-     * disputed. It is a quality row: what it measures is that the
+     * disputed. It is a signal-strength row: what it measures is that the
      * record survived the check.
      */
     public $axis = self::AXIS_LEAN;
@@ -113,7 +113,7 @@ class LifecycleWarninglist extends ValueSignalBase
                 ),
                 $context,
                 null,
-                self::AXIS_QUALITY
+                self::AXIS_SIGNAL_STRENGTH
             );
         }
 

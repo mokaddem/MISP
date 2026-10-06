@@ -571,11 +571,11 @@ input.num[type="number"]::-webkit-inner-spin-button {
 .bench-axes span { color: var(--bs-secondary-color); }
 
 /*
- * The assessment is three axes — lean, relevance, quality (D11,
- * 12-assessment.md). Only quality has a ledger, so only quality has
- * arithmetic under it; drawing the other two as footnotes to that
+ * The assessment is three axes — lean, relevance, signal strength (D11,
+ * 12-assessment.md). Only signal strength has a ledger, so only signal strength
+ * has arithmetic under it; drawing the other two as footnotes to that
  * arithmetic taught the first reader of this mockup that a profile is
- * quality weights. These three sit at one rank, and the ledger is
+ * signal-strength weights. These three sit at one rank, and the ledger is
  * labelled as belonging to one of them.
  */
 .bench-ax3 {
@@ -629,7 +629,7 @@ input.num[type="number"]::-webkit-inner-spin-button {
 
 /*
  * The relevance axis has a magnitude — a shelf life — and the shipped
- * value_relevance.ctp already draws it, so quality is not the only
+ * value_relevance.ctp already draws it, so signal strength is not the only
  * axis with a bar.
  */
 .ax-runway { margin-top: .25rem; }
@@ -842,7 +842,7 @@ input.num[type="number"]::-webkit-inner-spin-button {
  * What is given up, in order: the outline stops being a column and
  * becomes a row of chips; the bench sheds evidence prose, the source
  * and band chips, and the comparison set's lean and relevance columns.
- * What is never given up: the bench itself, the value, the quality,
+ * What is never given up: the bench itself, the value, the signal strength,
  * the delta, the band, and every row that moved.
  * ================================================================== */
 @container wb (max-width: 1400px) {

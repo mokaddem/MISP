@@ -4,7 +4,7 @@
  * is built yet.
  *
  * **They used to sit in the hero**, top right, at the same visual
- * weight as the lean badge and the quality gauge — two disabled
+ * weight as the lean badge and the signal-strength gauge — two disabled
  * buttons holding the most valuable corner of the card and doing
  * nothing with it. Four objects competed there and the eye had no
  * entry point. They are the small print of the card, so they are in

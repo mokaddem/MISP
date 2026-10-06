@@ -41,13 +41,13 @@ You own the weights it runs on.
 
 ## An assessment is three readings
 
-![Three cards: lean contested, relevance current, quality 57](img/three-readings.png)
+![Three cards: lean contested, relevance current, signal strength 57](img/three-readings.png)
 
 | Axis | The question it answers | Rendered as |
 | --- | --- | --- |
 | **Lean** | What does the record assert this value is? | `threat` · `benign` · `contested` · `none` |
 | **Relevance** | Does that assertion still matter today? | `current` · `aging` · `expired` · `timeline uncertain` |
-| **Quality** | How much can the record be trusted? | a number, with the ledger as its audit trail |
+| **Signal strength** | How much can the record be trusted? | a number, with the ledger as its audit trail |
 
 ---
 
@@ -68,7 +68,7 @@ Lean is categorical, and it does not age. A malware hash leans `threat` forever.
 | `benign` | no threat assertion, or false-positive evidence dominates, or a `false_positive` warninglist hit carries it |
 | `contested` | a conflict rule fires, or the `to_ids` stance splits beyond tolerance |
 
-> `to_ids` is noisy in practice: MISP sets per-type defaults, feed imports set it wholesale, and plenty of organisations never curate it. Splitting the axes is what absorbs that. Lean reports the assertion; quality grades how well it was made. One uncurated org's `to_ids = 1` is a threat lean with low quality. Four organisations deliberately confirming is the same lean with high quality.
+> `to_ids` is noisy in practice: MISP sets per-type defaults, feed imports set it wholesale, and plenty of organisations never curate it. Splitting the axes is what absorbs that. Lean reports the assertion; signal strength grades how well it was made. One uncurated org's `to_ids = 1` is a threat lean with low signal strength. Four organisations deliberately confirming is the same lean with high signal strength.
 
 ---
 
@@ -82,13 +82,13 @@ Lean is categorical, and it does not age. A malware hash leans `threat` forever.
 
 Fresh corroboration makes the reading more current and expiry makes it less. The page lists which corroborations reset the clock, with dates and the organisation that filed each.
 
-Temporal precision feeds in here too. A missing `first_seen`, a long created-to-published lag, or a timestamp standing in for an observation date will each degrade relevance to `timeline uncertain` and deduct from quality.
+Temporal precision feeds in here too. A missing `first_seen`, a long created-to-published lag, or a timestamp standing in for an observation date will each degrade relevance to `timeline uncertain` and deduct from signal strength.
 
 ---
 
 **Axis three**
 
-## Quality: how well evidenced
+## Signal strength: how well evidenced
 
 ![How 57 was reached: Reporting +30, Sightings +24, Lifecycle +16, signals against -13, total 57 of 100](img/how-reached.png)
 
@@ -106,7 +106,7 @@ The claim it makes is a narrow one. It measures how much corroborated, attribute
 
 ## 8.8.8.8
 
-![Contested. Quality medium, 57 of 100. Analyst profile Incident Response & Investigation. Conflict rule: a warninglist marks this as a false positive and 8 of 8 organisations report it as a threat regardless.](img/hero-contested.png)
+![Contested. Signal strength medium, 57 of 100. Analyst profile Incident Response & Investigation. Conflict rule: a warninglist marks this as a false positive and 8 of 8 organisations report it as a threat regardless.](img/hero-contested.png)
 
 *The banner names the reading, the number, the band and the profile that weighted them. On this value it also names the rule that decided the reading.*
 
@@ -201,7 +201,7 @@ The implementation owns the sentence. The profile owns the points.
 
 Points are declared threat-signed: does this evidence point at a threat, and how hard. Which way the arrow renders is the engine's problem, and it anchors the lean rows to the lean's polarity at assembly.
 
-Quality rows keep their declared sign whatever the lean, because how much record there is stays the same question whatever the record concluded.
+Signal-strength rows keep their declared sign whatever the lean, because how much record there is stays the same question whatever the record concluded.
 
 ```json
 { "id": "reporting.independent_orgs",
@@ -285,12 +285,12 @@ Editing the instance default is a site-admin act. For an ordinary analyst the pa
 
 | Section | What the analyst decides | Axis |
 | --- | --- | --- |
-| `signals` | which signals run, and what each contributes | lean + quality |
-| `thresholds` | where the bands sit, and the lean's supermajority | lean + quality |
+| `signals` | which signals run, and what each contributes | lean + signal strength |
+| `thresholds` | where the bands sit, and the lean's supermajority | lean + signal strength |
 | `escalations` | named rules that emit `contested` instead of contributing points | lean |
-| `exclusions` | evidence set aside *before* scoring: self-sightings, mirrored feeds, the long-history window | quality |
+| `exclusions` | evidence set aside *before* scoring: self-sightings, mirrored feeds, the long-history window | signal strength |
 | `relevance` | the clock, the per-type TTLs, the precision tripwires | relevance |
-| `reference` | what you believe about your sources: org trust, and which warninglists mean *shared infrastructure* rather than *false positive* | quality |
+| `reference` | what you believe about your sources: org trust, and which warninglists mean *shared infrastructure* rather than *false positive* | signal strength |
 | `enrichment` | which modules this profile cares about, per type, and whether it will contact third parties | context |
 
 Empty means “as before”. Every map is an override set, so an empty org-trust map weights all organisations equally, and the feature changes no behaviour until somebody edits something.
@@ -323,7 +323,7 @@ Empty means “as before”. Every map is an override set, so an empty org-trust
 
 ## Change a weight; see every row that moved
 
-![Quality 59, 57 under the profile in force, plus 2. The band ruler moves from 57 to 59; 11 signals fired of 153 reachable.](img/bench-score.png)
+![Signal strength 59, 57 under the profile in force, plus 2. The band ruler moves from 57 to 59; 11 signals fired of 153 reachable.](img/bench-score.png)
 
 ![What moved, 2 of 11 rows: reporting.independent_orgs 28 to 24, minus 4, changed; lifecycle.longevity dash to 6, plus 6, appeared. Nine rows did not move: 57 to 59, plus 2.](img/bench-moved.png)
 

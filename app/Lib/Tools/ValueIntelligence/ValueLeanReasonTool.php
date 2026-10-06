@@ -26,7 +26,7 @@ App::uses('ValueStatementTool', 'Tools/ValueIntelligence');
  * a loaded escalation produces prose of its own. Without this, an
  * ordinary value would state *Asserted threat* and never say by whom,
  * on what count, or against which threshold — *Asserted threat,
- * quality 19* with a provenance line carrying only *Computed at render
+ * signal strength 19* with a provenance line carrying only *Computed at render
  * · Analyst profile default-v1*. The stances that decide it —
  * `threat_orgs`, `benign_orgs`, the share and the supermajority in
  * force — are computed on every value, and this is what reads them.

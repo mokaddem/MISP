@@ -13,7 +13,7 @@ App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
  * and this reads that number — the midpoint states nothing, the top
  * pays the full `scale`, the bottom takes it off.
  *
- * It is the one quality row that can tell two single-reporter values
+ * It is the one signal-strength row that can tell two single-reporter values
  * apart on what the reporter knew rather than on how much record
  * there is.
  *

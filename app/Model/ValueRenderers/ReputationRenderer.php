@@ -15,7 +15,7 @@
  *
  * ## The reading is here, and it is used twice
  *
- * A verdict is the only enrichment answer that can move a quality
+ * A verdict is the only enrichment answer that can move a signal strength
  * number, and what it means has to be decided in exactly one place:
  * this renderer draws it and the enrichment signal scores it, and two
  * readings of one word is how a widget and a ledger row start

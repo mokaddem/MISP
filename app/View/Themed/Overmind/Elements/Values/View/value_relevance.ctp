@@ -5,7 +5,7 @@
  * The decay card's replacement (`prd/analyst-profile/06-staleness.md`
  * §4). That card showed one bar per decaying model, each a score MISP
  * computes largely from the value's tags multiplied by a time factor —
- * the same tags the assessment's quality ledger scores directly, with a
+ * the same tags the assessment's signal-strength ledger scores directly, with a
  * per-row audit trail and none of the double counting. This card keeps
  * the time factor and drops the base score, so what is on screen is one
  * quantity a reader can act on: **how much shelf life is left, measured

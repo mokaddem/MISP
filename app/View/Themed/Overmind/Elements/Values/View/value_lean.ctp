@@ -1,7 +1,7 @@
 <?php
 /**
- * The lean pill: a coloured dot, the words, and the quality when there
- * is one.
+ * The lean pill: a coloured dot, the words, and the signal strength when
+ * there is one.
  *
  * The markup form of a lean. The colour itself comes from `ValueLean`,
  * which the tab bar and the Assessment tab read too — they each need it
@@ -9,7 +9,7 @@
  * chances for the page to contradict itself about what a record says.
  *
  * @var string $lean   threat | benign | contested | none
- * @var int|null $quality The quality. Null where nothing computed one;
+ * @var int|null $signalStrength Null where nothing computed one;
  *                        **capped at 100 and not floored at 0**,
  *                        because the ledger sums to it exactly and a
  *                        record with more absences than substance nets
@@ -23,7 +23,7 @@
  */
 App::uses('ValueLean', 'Tools/ValueIntelligence');
 
-$quality = $quality ?? null;
+$signalStrength = $signalStrength ?? null;
 $size = $size ?? '';
 
 $colour = ValueLean::colour($lean);
@@ -40,7 +40,7 @@ $quiet = ValueLean::isDefinite($lean) ? '' : ' vp-disposition-quiet';
       style="--vp-disposition-color: <?= h($colour) ?>;">
     <span class="vp-disposition-dot"></span>
     <span class="vp-disposition-label"><?= h(ValueLean::label($lean)) ?></span>
-    <?php if ($quality !== null): ?>
-        <span class="vp-disposition-score"><?= h($quality) ?></span>
+    <?php if ($signalStrength !== null): ?>
+        <span class="vp-disposition-score"><?= h($signalStrength) ?></span>
     <?php endif; ?>
 </span>

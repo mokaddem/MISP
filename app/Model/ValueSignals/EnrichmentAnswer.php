@@ -335,10 +335,10 @@ class EnrichmentAnswer extends ValueSignalBase
     }
 
     /**
-     * A quality row for each counted verdict agreeing with the lean:
+     * A signal-strength row for each counted verdict agreeing with the lean:
      * an outside source confirming what the reporters assert is
      * the one corroboration a single-source record can get from
-     * outside MISP. A verdict disagreeing adds no quality — it is a
+     * outside MISP. A verdict disagreeing adds no signal strength — it is a
      * voice against the lean, and that is weighed in the stance count.
      *
      * @param array $counted From `counted()`
@@ -373,7 +373,7 @@ class EnrichmentAnswer extends ValueSignalBase
                 ),
                 $context,
                 $this->stampAsOf((int)$verdict['ran_at'], $context),
-                self::AXIS_QUALITY
+                self::AXIS_SIGNAL_STRENGTH
             );
         }
         return $rows;

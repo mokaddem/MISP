@@ -431,20 +431,21 @@ $panel = function ($action, $anchor = null) use ($baseurl, $valueB64,
 /*
  * The Assessment tab's state pill. A lean is a state, not a count, so
  * it gets a badge rather than the parenthesised number the other tabs
- * use. The colour names the lean; the label carries the quality when
+ * use. The colour names the lean; the label carries the signal strength when
  * there is one to carry.
  */
 $verdict = $profile['verdict'];
 $verdictBadge = array(
-    'label' => $verdict['quality'] === null
+    'label' => $verdict['signal_strength'] === null
         ? ValueLean::label($verdict['lean'])
-        : ValueLean::label($verdict['lean']) . ' ' . $verdict['quality'],
+        : ValueLean::label($verdict['lean']) . ' '
+            . $verdict['signal_strength'],
     'color' => ValueLean::colour($verdict['lean']),
     'dot' => true,
 );
 
 /*
- * A `none` lean has nothing for the Assessment rail — no quality to
+ * A `none` lean has nothing for the Assessment rail — no signal strength to
  * compose, no shelf life to run down, no warninglist hit to explain —
  * so that tab keeps the full width rather than reserving a column for
  * cards that would each render their own nothing. `value_verdict_aside`
