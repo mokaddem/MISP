@@ -178,6 +178,7 @@ $fields = array_merge($fields, [
         'name' => __('Tags'),
         'data_path' => $path('AttributeTag'),
         'element' => 'tag_list',
+        'plan' => $labelPlan ?? null,
         'card_section' => 'tag',
         'display_in' => ['table', 'card'],
         // Cell actions are handled by the tag_list element
@@ -191,6 +192,7 @@ $fields = array_merge($fields, [
         'name' => __('Galaxy'),
         'data_path' => $path('Galaxy'),
         'element' => 'galaxy',
+        'plan' => $labelPlan ?? null,
         'card_section' => 'galaxy',
         'display_in' => ['table', 'card'],
         // Cell actions are handled by the galaxy element
