@@ -72,13 +72,11 @@ if (empty($data) && empty($tagCollection) && empty($addUrl)) {
     return;
 }
 
-$maxVisible = 4;
 // Count only real tags, not galaxy-tags
 $realTags = array_filter($data, function($t) {
     return !empty($t['Tag']) && empty($t['Tag']['is_galaxy']);
 });
 $totalTags   = count($realTags);
-$hiddenCount = max(0, $totalTags - $maxVisible);
 
 // Nothing attached, nothing to relate
 if ($totalTags === 0) {
@@ -116,25 +114,12 @@ if (!empty($field['plan'])) {
         ValueLabelPriority::TAXONOMIES
     );
 }
-echo $this->TagChip->collection(array_slice($realTags, 0, $maxVisible), [
+echo $this->TagChip->collection($realTags, [
     'searchUrl' => '',
-]);
-echo $this->TagChip->collection(array_slice($realTags, $maxVisible), [
-    'searchUrl' => '',
-    'class' => 'd-none extra-tag',
+    'fold' => 5,
+    'limit' => 4,
 ]);
 ?>
-
-<?php if ($hiddenCount > 0): ?>
-    <span
-        class="badge bg-secondary text-white me-1 mb-1 tag-expand"
-        style="cursor:pointer;"
-        data-hidden="<?= $hiddenCount ?>"
-        onclick="toggleTags(this)"
-    >
-        +<?= $hiddenCount ?>
-    </span>
-<?php endif; ?>
 
 <?php if (!empty($addUrl)): ?>
     <button

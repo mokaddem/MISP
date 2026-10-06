@@ -112,8 +112,6 @@ if (empty($clusters)) {
 $addBtnStyle = 'cursor:pointer; background:hsla(258,90%,66%,.12);'
              . ' color:hsl(258,55%,40%);';
 
-$maxVisible  = 5;
-$hiddenCount = max(0, count($clusters) - $maxVisible);
 $noLink = function () {
     return null;
 };
@@ -122,25 +120,12 @@ $noLink = function () {
 <div class="galaxy-container d-inline-flex flex-wrap align-items-center gap-1">
 
 <?php
-echo $this->TagChip->clusters(array_slice($clusters, 0, $maxVisible), [
+echo $this->TagChip->clusters($clusters, [
     'href' => $noLink,
-]);
-echo $this->TagChip->clusters(array_slice($clusters, $maxVisible), [
-    'href' => $noLink,
-    'class' => 'd-none extra-galaxies',
+    'fold' => 5,
+    'limit' => 5,
 ]);
 ?>
-
-<?php if ($hiddenCount > 0): ?>
-    <span
-        class="badge bg-secondary text-white me-1 mb-1 galaxy-expand"
-        style="cursor:pointer;"
-        data-hidden="<?= $hiddenCount ?>"
-        onclick="toggleGalaxies(this)"
-    >
-        +<?= $hiddenCount ?>
-    </span>
-<?php endif; ?>
 
 <?php if (!empty($addUrl)): ?>
     <button
@@ -169,14 +154,3 @@ echo $this->TagChip->clusters(array_slice($clusters, $maxVisible), [
 <?php endif; ?>
 
 </div>
-
-<script>
-window.toggleGalaxies = window.toggleGalaxies || function(badge) {
-    const container = badge.closest('.galaxy-container');
-    const hidden = container.querySelectorAll('.extra-galaxies');
-    if (!hidden.length) return;
-    const isHidden = hidden[0].classList.contains('d-none');
-    hidden.forEach(el => el.classList.toggle('d-none'));
-    badge.textContent = isHidden ? '−' : '+' + (badge.dataset.hidden || hidden.length);
-};
-</script>

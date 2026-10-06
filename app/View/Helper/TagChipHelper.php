@@ -34,6 +34,10 @@ class TagChipHelper extends AppHelper
      *   minGroup           members before a namespace earns a block (2)
      *   wideAt             members before a block takes its own line (8)
      *   track              column track width in px for a wide block
+     *   fold               members above which a block folds into a strip
+     *                      that lists them on hover (null: never)
+     *   limit              units shown before a "+N" toggle (null: all);
+     *                      a block or a strip is one unit
      *   class              extra class on the root
      * @return string
      */
@@ -125,16 +129,35 @@ class TagChipHelper extends AppHelper
             $groups[$key]['rows'][] = $row;
         }
 
-        $body = '';
+        $units = [];
         foreach ($groups as $group) {
-            if ($grouping && $group['namespace'] !== null && count($group['rows']) >= $options['minGroup']) {
-                $body .= $this->renderGroup($group, $options);
+            $count = count($group['rows']);
+            if ($grouping && $group['namespace'] !== null && $count >= $options['minGroup']) {
+                $units[] = !empty($options['fold']) && $count > $options['fold']
+                    ? $this->renderFold($group)
+                    : $this->renderGroup($group, $options);
             } else {
                 foreach ($group['rows'] as $row) {
-                    $body .= $this->renderChip($row, 'flow', $options);
+                    $units[] = $this->renderChip($row, 'flow', $options);
                 }
             }
         }
+
+        $limit = (int)($options['limit'] ?? 0);
+        $hidden = $limit > 0 ? count($units) - $limit : 0;
+        if ($hidden <= 0) {
+            return $this->wrap(implode('', $units), $options);
+        }
+        $body = implode('', array_slice($units, 0, $limit));
+        foreach (array_slice($units, $limit) as $unit) {
+            $body .= '<span class="hg-extra">' . $unit . '</span>';
+        }
+        $body .= sprintf(
+            '<button type="button" class="hg-overflow badge text-bg-secondary noPrint" data-hidden="%d" aria-expanded="false" title="%s">+%d</button>',
+            $hidden,
+            __('Show %s more', $hidden),
+            $hidden
+        );
         return $this->wrap($body, $options);
     }
 
@@ -425,16 +448,7 @@ class TagChipHelper extends AppHelper
             }
         }
 
-        $title = $row['title'] ?? $p['raw'];
-        if ($rel) {
-            $title = $rel . ': ' . $title;
-        }
-        if ($isLocal) {
-            $title .= ' (' . __('local') . ')';
-        }
-        if (!empty($row['note'])) {
-            $title .= "\n\n" . $row['note'];
-        }
+        $title = $this->titleOf($row);
         $attrs = sprintf(
             'class="%s" style="--hg-h:%d;--hg-s:%s%s" title="%s"',
             implode(' ', $classes),
@@ -557,6 +571,182 @@ class TagChipHelper extends AppHelper
                 : sprintf(' data-galaxy-group data-galaxy-name="%s"', h(mb_strtolower($galaxy['name']))),
             $head,
             $members
+        );
+    }
+
+    private function titleOf(array $row)
+    {
+        $tag = $row['tag'];
+        $title = $row['title'] ?? $row['parsed']['raw'];
+        if (isset($tag['relationship_type']) && $tag['relationship_type'] !== '') {
+            $title = $tag['relationship_type'] . ': ' . $title;
+        }
+        if (!empty($tag['local'])) {
+            $title .= ' (' . __('local') . ')';
+        }
+        if (!empty($row['note'])) {
+            $title .= "\n\n" . $row['note'];
+        }
+        return $title;
+    }
+
+    /**
+     * A block too big for a cell: one line holding the namespace, a tally of
+     * one mark per member and the count. The members wait in a template that
+     * tag-chips.js lifts into a popover on hover or focus.
+     */
+    private function renderFold(array $group)
+    {
+        $rows = $group['rows'];
+        $count = count($rows);
+        $galaxy = $group['galaxy'];
+        $first = $rows[0];
+        $varied = $galaxy === null
+            && in_array(mb_strtolower($group['namespace']), $this->semanticNamespaces(), true);
+        $style = sprintf('--hg-h:%d;--hg-s:62%%', $first['hue'] ?? TagChipTool::hue($group['namespace']));
+        $icon = $this->icon($first);
+        $label = $galaxy === null ? __('%s tags', $count) : __('%s clusters', $count);
+
+        $marks = '';
+        foreach (array_chunk(array_slice($rows, 0, 160), 40) as $chunk) {
+            $marks .= '<span class="hg-mrow">';
+            foreach ($chunk as $row) {
+                $declared = $varied ? $this->hueOf($row['parsed'], $row['tag']['Tag']['colour'])[2] : null;
+                $marks .= $declared === null ? '<i></i>' : sprintf('<i style="--hg-c:%s"></i>', $declared);
+            }
+            $marks .= '</span>';
+        }
+        if ($count > 160) {
+            $marks .= '<span class="hg-marks-more">+</span>';
+        }
+
+        return sprintf(
+            '<span class="hg-fold" style="%s"%s><button type="button" class="hg-strip" aria-haspopup="true" aria-expanded="false" aria-label="%s">'
+                . '%s<b class="hg-hns">%s</b><span class="hg-marks" aria-hidden="true">%s</span><span class="hg-fold-n">%d</span>'
+                . '</button><template>%s</template></span>',
+            $style,
+            $galaxy === null
+                ? ''
+                : sprintf(' data-galaxy-group data-galaxy-name="%s"', h(mb_strtolower($galaxy['name']))),
+            h(__('%s: %s, show all', $group['namespace'], $label)),
+            $icon,
+            h($group['namespace']),
+            $marks,
+            $count,
+            $this->renderCard($group, $style, $icon)
+        );
+    }
+
+    /**
+     * The folded members as a reference list, one per line. Values ending in
+     * an id ("Name - T1588.004") sort by it and nest under their parent id;
+     * the rest sort by predicate then value, members sharing a predicate
+     * listed under it once.
+     */
+    private function renderCard(array $group, $style, $icon)
+    {
+        $items = [];
+        $coded = 0;
+        foreach ($group['rows'] as $i => $row) {
+            $p = $row['parsed'];
+            $nv = $row['tag']['Tag']['numerical_value'] ?? null;
+            $item = [
+                'i' => $i,
+                'row' => $row,
+                'name' => $p['leaf'],
+                'code' => '',
+                'right' => is_numeric($nv) ? (string)($nv + 0) : '',
+                'path' => implode(' › ', $p['above']),
+            ];
+            if (preg_match('/^(.*\S)\s+-\s+(\S*\d\S*)$/u', $p['leaf'], $m)) {
+                $item['name'] = $m[1];
+                $item['code'] = $item['right'] = $m[2];
+                $coded++;
+            }
+            $items[] = $item;
+        }
+        $byId = $coded > 1;
+        usort($items, function ($a, $b) use ($byId) {
+            if ($byId && ($a['code'] === '') !== ($b['code'] === '')) {
+                return $a['code'] === '' ? 1 : -1;
+            }
+            return ($byId ? strnatcasecmp($a['code'], $b['code']) : 0)
+                ?: strnatcasecmp($a['path'], $b['path'])
+                ?: strnatcasecmp($a['name'], $b['name'])
+                ?: $a['i'] - $b['i'];
+        });
+
+        $families = [];
+        $codes = $byId ? array_flip(array_filter(array_column($items, 'code'))) : [];
+        foreach ($items as $item) {
+            $last = count($families) - 1;
+            $dot = strrpos($item['code'], '.');
+            $parent = $dot ? substr($item['code'], 0, $dot) : '';
+            if ($parent !== '' && isset($codes[$parent]) && $last >= 0) {
+                $item['parent'] = $parent;
+                $families[$last]['items'][] = $item;
+            } elseif ($item['path'] !== '' && $last >= 0 && $families[$last]['path'] === $item['path']) {
+                $families[$last]['items'][] = $item;
+            } else {
+                $families[] = ['path' => $item['path'], 'items' => [$item]];
+            }
+        }
+
+        $rels = array_unique(array_map(function ($item) {
+            return (string)($item['row']['tag']['relationship_type'] ?? '');
+        }, $items));
+        $sharedRel = count($rels) === 1 ? reset($rels) : '';
+        $nameWidth = 0;
+        $rightWidth = 0;
+        $list = '';
+        foreach ($families as $family) {
+            $headed = $family['path'] !== '' && count($family['items']) > 1;
+            $list .= '<li class="hg-fam">';
+            if ($headed) {
+                $list .= sprintf('<div class="hg-fam-head">%s</div>', h($family['path']));
+            }
+            foreach ($family['items'] as $item) {
+                $sub = $headed || isset($item['parent']);
+                $prefix = !$headed && $item['path'] !== '' ? $item['path'] : '';
+                $nameWidth = max($nameWidth, mb_strlen($prefix . $item['name']) + ($prefix === '' ? 0 : 1) + ($sub ? 2 : 0));
+                $rightWidth = max($rightWidth, mb_strlen($item['right']));
+                $tag = $item['row']['tag'];
+                $rel = $sharedRel === '' ? (string)($tag['relationship_type'] ?? '') : '';
+                $name = ($rel === '' ? '' : sprintf('<span class="hg-rel">%s</span> ', h($rel)))
+                    . ($prefix === '' ? '' : sprintf('<span class="hg-row-path">%s</span> ', h($prefix)))
+                    . h($item['name']);
+                $right = h($item['right']);
+                if (isset($item['parent'])) {
+                    $right = sprintf('<span class="hg-code-up">%s</span>%s', h($item['parent']), h(substr($item['right'], strlen($item['parent']))));
+                }
+                $tagId = (int)($tag['Tag']['id'] ?? 0);
+                $list .= sprintf(
+                    '<div class="hg-row%s" title="%s"%s><span class="hg-name">%s</span>%s%s</div>',
+                    $sub ? ' is-sub' : '',
+                    h($this->titleOf($item['row'])),
+                    $tagId ? sprintf(' data-tag-id="%d"', $tagId) : '',
+                    $name,
+                    empty($tag['local']) ? '' : sprintf('<span class="hg-flag">%s</span>', __('local')),
+                    $item['right'] === '' ? '' : sprintf('<span class="hg-lead"></span><code class="hg-code">%s</code>', $right)
+                );
+            }
+            $list .= '</li>';
+        }
+
+        $count = count($items);
+        return sprintf(
+            '<div class="hinge-tags hg-card" style="%s"><div class="hg-card-head">%s%s<b class="hg-hns">%s</b><span class="hg-fold-n">%d</span>%s</div>'
+                . '<ol class="hg-list" data-cols="%d" style="--hg-namew:%dch;--hg-codew:%dch">%s</ol></div>',
+            $style,
+            $sharedRel === '' ? '' : sprintf('<span class="hg-rel">%s</span>', h($sharedRel)),
+            $icon,
+            h($group['namespace']),
+            $count,
+            $byId ? sprintf('<span class="hg-card-note">%s</span>', __('by ID')) : '',
+            $count > 24 ? 3 : ($count > 10 ? 2 : 1),
+            min(44, max(12, $nameWidth)),
+            $rightWidth,
+            $list
         );
     }
 

@@ -388,3 +388,98 @@
         galaxyHue: galaxyHue
     };
 })(window);
+
+/*
+ * A collection's "+N" toggle, and the popover listing a folded block's
+ * members. Index rows are re-rendered by AJAX, so both are delegated and the
+ * popover is built on first hover or focus. Bootstrap's hover trigger closes
+ * as soon as the pointer leaves the strip, so the popover is driven here and
+ * held open while the pointer is over it.
+ */
+(function () {
+    'use strict';
+
+    var HIDE_DELAY = 160;
+
+    document.addEventListener('click', function (e) {
+        var toggle = e.target.closest ? e.target.closest('.hg-overflow') : null;
+        if (!toggle) return;
+        e.stopPropagation();
+        var root = toggle.closest('.hinge-tags');
+        var open = root.classList.toggle('is-open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.textContent = open ? '−' : '+' + toggle.dataset.hidden;
+    });
+
+    function tipOf(strip) {
+        var id = strip.getAttribute('aria-describedby');
+        return id ? document.getElementById(id) : null;
+    }
+
+    function setup(strip) {
+        if (strip._hgFold) return strip._hgFold;
+        var template = strip.parentNode.querySelector('template');
+        var state = {open: false, timer: null};
+        var popover = new bootstrap.Popover(strip, {
+            trigger: 'manual',
+            html: true,
+            content: template.content.cloneNode(true).firstElementChild,
+            placement: 'bottom',
+            fallbackPlacements: ['top', 'right', 'left'],
+            container: 'body',
+            customClass: 'hg-pop',
+            offset: [0, 6],
+        });
+        function cancel() {
+            clearTimeout(state.timer);
+        }
+        state.show = function () {
+            cancel();
+            if (!state.open) {
+                state.open = true;
+                popover.show();
+            }
+        };
+        state.hide = function (now) {
+            cancel();
+            var go = function () {
+                state.open = false;
+                popover.hide();
+            };
+            if (now) go(); else state.timer = setTimeout(go, HIDE_DELAY);
+        };
+        strip.addEventListener('inserted.bs.popover', function () {
+            var tip = tipOf(strip);
+            if (!tip || tip._hgFold) return;
+            tip._hgFold = true;
+            tip.addEventListener('mouseenter', cancel);
+            tip.addEventListener('mouseleave', function () { state.hide(); });
+        });
+        strip.addEventListener('shown.bs.popover', function () {
+            strip.setAttribute('aria-expanded', 'true');
+        });
+        strip.addEventListener('hidden.bs.popover', function () {
+            strip.setAttribute('aria-expanded', 'false');
+        });
+        strip.addEventListener('mouseleave', function () { state.hide(); });
+        strip.addEventListener('focusout', function (e) {
+            var tip = tipOf(strip);
+            if (!tip || !tip.contains(e.relatedTarget)) state.hide();
+        });
+        strip.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && state.open) {
+                e.stopPropagation();
+                state.hide(true);
+            }
+        });
+        strip._hgFold = state;
+        return state;
+    }
+
+    function lazy(e) {
+        var strip = e.target && e.target.closest ? e.target.closest('.hg-strip') : null;
+        if (strip && typeof bootstrap !== 'undefined') setup(strip).show();
+    }
+    document.addEventListener('mouseenter', lazy, true);
+    document.addEventListener('focusin', lazy);
+})();
