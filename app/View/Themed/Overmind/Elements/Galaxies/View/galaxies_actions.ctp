@@ -10,6 +10,7 @@ if ($this->Acl->canModifyGalaxy($galaxy)) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxies/edit/$id');",
         'icon' => 'fas fa-pen-to-square',
         'label' => __('Edit Galaxy'),
+        'short' => __('Edit'),
     ];
 }
 
@@ -19,6 +20,7 @@ if ($this->Acl->canAccess('galaxies', 'add')) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/add/$id');",
         'icon' => 'fas fa-circle-plus',
         'label' => __('Add Galaxy Cluster'),
+        'short' => __('Add cluster'),
     ];
 }
 
@@ -27,6 +29,7 @@ $actions[] = [
     'onclick' => "event.preventDefault(); openModal('$baseurl/galaxies/export/$id');",
     'icon' => 'fas fa-download',
     'label' => __('Export Galaxy Clusters'),
+    'short' => __('Export'),
 ];
 
 if ($isSiteAdmin) {
@@ -36,6 +39,7 @@ if ($isSiteAdmin) {
             'onclick' => "event.preventDefault(); openModal('$baseurl/galaxies/toggle/$id', 'md');",
             'icon' => 'fas fa-play',
             'label' => __('Enable Galaxy'),
+            'short' => __('Enable'),
             'success' => true,
         ];
     } else {
@@ -44,6 +48,7 @@ if ($isSiteAdmin) {
             'onclick' => "event.preventDefault(); openModal('$baseurl/galaxies/toggle/$id', 'md');",
             'icon' => 'fas fa-stop',
             'label' => __('Disable Galaxy'),
+            'short' => __('Disable'),
             'warning' => true,
         ];
     }
@@ -57,6 +62,6 @@ if ($isSiteAdmin) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);

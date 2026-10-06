@@ -9,14 +9,16 @@ if ($isSiteAdmin) {
         'url' => "$baseurl/templateElements/addV2/$templateId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/templateElements/addV2/$templateId');",
         'icon' => 'fas fa-file-code',
-        'label' => __('Add Element to Template')
+        'label' => __('Add Element to Template'),
+        'short' => __('Add element')
     ];
 
     $actions[] = [
         'url' => "$baseurl/templates/edit/$templateId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/templates/edit/$templateId');",
         'icon' => 'fas fa-pen',
-        'label' => __('Edit Template')
+        'label' => __('Edit Template'),
+        'short' => __('Edit')
     ];
 
     $actions[] = [
@@ -28,7 +30,7 @@ if ($isSiteAdmin) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);
 ?>

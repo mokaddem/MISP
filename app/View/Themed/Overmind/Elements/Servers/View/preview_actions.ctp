@@ -12,13 +12,14 @@ $actions = [
         'url' => '#',
         'icon' => 'fas fa-arrow-circle-down',
         'label' => __('Fetch this event'),
+        'short' => __('Fetch'),
         'success' => $isPublished,
         'warning' => !$isPublished,
         'onclick' => 'event.preventDefault(); previewFetchEvent();',
     ],
 ];
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);
 

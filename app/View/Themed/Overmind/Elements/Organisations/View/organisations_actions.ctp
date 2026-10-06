@@ -12,6 +12,7 @@ if ($isSiteAdmin && $orgId !== null) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/admin/organisations/edit/$orgId');",
         'icon'    => 'fas fa-pen-to-square',
         'label'   => __('Edit organisation'),
+        'short'   => __('Edit'),
     ];
 }
 
@@ -19,6 +20,7 @@ $actions[] = [
     'url'   => "$baseurl/organisations/view/$orgId.json",
     'icon'  => 'fas fa-download',
     'label' => __('Download organisation'),
+    'short' => __('Download'),
 ];
 
 if ($isSiteAdmin && $orgId !== null) {
@@ -31,6 +33,6 @@ if ($isSiteAdmin && $orgId !== null) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions,
 ]);

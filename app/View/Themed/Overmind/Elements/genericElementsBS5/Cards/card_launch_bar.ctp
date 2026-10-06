@@ -1,15 +1,28 @@
 <?php
 /**
- * A compact action card: a publication control, a grid of icon tiles for the
- * frequent actions, and a filterable menu holding every action.
+ * The action card of a detail view: a publication control, a grid of icon
+ * tiles for the frequent actions, and a filterable menu holding every action.
  *
- * Takes the same action and divider specs as card_actions.ctp, plus:
+ * Action params:
+ * - 'url' => string
+ * - 'icon' => string
+ * - 'label' => string
+ * - 'short' => string    tile label (falls back to 'label')
+ * - 'success' / 'warning' / 'danger' => bool (optional) tone; danger actions
+ *                        only appear in the menu
+ * - 'onclick' => string (optional)
+ * - 'tour' => string (optional) data-tour anchor for the onboarding tour
+ * - 'type' => 'post' (optional) renders a postLink, with 'confirm' and 'id'
+ * - 'attributes' => array (optional) more attributes of the link
  * - 'primary' => bool    the state-changing action, drawn in the status bar
  * - 'pinned' => bool     shown as a tile
- * - 'short' => string    tile label (falls back to 'label')
  * - 'entity' => string   tints the icon well: event, attribute, object, ...
  * - 'add' => bool        marks the tile with a "+" badge
  * - 'tileOrder' => int   position among the tiles (default: menu order)
+ *
+ * Separator params:
+ * - 'divider' => true    starts a menu group
+ * - 'label' => string    the group heading (optional)
  *
  * Card params:
  * - 'status' => ['published' => bool, 'readOnly' => bool,
@@ -19,6 +32,8 @@
  *                        destructive, every action is a tile and the menu is
  *                        dropped (default 8)
  * - 'columns' => int     tiles per row (default 4)
+ * - 'autoPin' => bool    when no action is pinned, every non-destructive
+ *                        action is a tile (default true)
  */
 
 App::uses('CakeTime', 'Utility');
@@ -26,6 +41,7 @@ App::uses('CakeTime', 'Utility');
 $actions = $actions ?? [];
 $maxTiles = $maxTiles ?? 8;
 $columns = $columns ?? 4;
+$autoPin = $autoPin ?? true;
 
 $groups = [];
 $current = null;
@@ -55,11 +71,10 @@ foreach ($groups as $groupActions) {
     }
 }
 $hasMenu = count($candidates) > $maxTiles || !empty($danger);
-$tiles = $hasMenu
-    ? array_values(array_filter($candidates, function ($a) {
-        return !empty($a['pinned']);
-    }))
-    : $candidates;
+$pinned = array_values(array_filter($candidates, function ($a) {
+    return !empty($a['pinned']);
+}));
+$tiles = $hasMenu && (!empty($pinned) || !$autoPin) ? $pinned : $candidates;
 $tilePosition = function ($index) use ($tiles) {
     return [$tiles[$index]['tileOrder'] ?? PHP_INT_MAX, $index];
 };
@@ -187,6 +202,10 @@ $statusClass = $pending ? 'is-pending' : ($published ? 'is-pub' : 'is-draft');
                 ) ?>
             <?php endforeach; ?>
         </div>
+    <?php endif; ?>
+
+    <?php if ($total === 0 && empty($status)): ?>
+        <p class="text-muted mb-0 small px-1"><?= __('No action available') ?></p>
     <?php endif; ?>
 
     <?php if ($hasMenu): ?>

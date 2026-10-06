@@ -8,6 +8,7 @@ if ($this->Acl->canAccess('workflowBlueprints', 'edit')) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/workflowBlueprints/edit/$blueprintId');",
         'icon' => 'fas fa-pen-to-square',
         'label' => __('Edit'),
+        'short' => __('Edit'),
     ];
 }
 if ($this->Acl->canAccess('workflowBlueprints', 'export')) {
@@ -16,6 +17,7 @@ if ($this->Acl->canAccess('workflowBlueprints', 'export')) {
         'url' => "$baseurl/workflowBlueprints/export/$blueprintId",
         'icon' => 'fas fa-download',
         'label' => __('Export'),
+        'short' => __('Export'),
     ];
 }
 if ($this->Acl->canAccess('workflowBlueprints', 'delete')) {
@@ -28,6 +30,6 @@ if ($this->Acl->canAccess('workflowBlueprints', 'delete')) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions,
 ]);

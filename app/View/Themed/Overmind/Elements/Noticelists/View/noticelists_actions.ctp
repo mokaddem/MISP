@@ -7,6 +7,7 @@ $actions = [
         'url' => "$baseurl/noticelists/preview_entries/$noticelistId",
         'icon' => 'fas fa-eye',
         'label' => __('Preview entries'),
+        'short' => __('Preview'),
     ],
 ];
 
@@ -17,6 +18,7 @@ if ($isSiteAdmin) {
         'id' => $noticelistId,
         'icon' => $enabled ? 'fas fa-stop' : 'fas fa-play',
         'label' => $enabled ? __('Disable Noticelist') : __('Enable Noticelist'),
+        'short' => $enabled ? __('Disable') : __('Enable'),
         'class' => $enabled ? 'text-warning' : 'text-success',
     ];
     $actions[] = [
@@ -28,6 +30,6 @@ if ($isSiteAdmin) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions,
 ]);

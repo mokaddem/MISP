@@ -13,6 +13,7 @@ if ($canEdit) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/auth_keys/edit/$id');",
         'icon'    => 'fas fa-pen-to-square',
         'label'   => __('Edit auth key'),
+        'short'   => __('Edit'),
     ];
     $actions[] = [
         'url'     => "$baseurl/auth_keys/deleteSelection/$id",
@@ -27,8 +28,9 @@ $actions[] = [
     'url'   => "$baseurl/auth_keys/index" . ($ownerId ? '/' . h($ownerId) : ''),
     'icon'  => 'fas fa-list',
     'label' => __('Back to auth keys'),
+    'short' => __('Back'),
 ];
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions,
 ]);

@@ -15,6 +15,7 @@ if ($isSiteAdmin) {
             'id' => $taxonomyId,
             'icon' => 'fas fa-play',
             'label' => __('Enable Taxonomy'),
+            'short' => __('Enable'),
             'class' => 'text-success'
         ];
     } else {
@@ -24,6 +25,7 @@ if ($isSiteAdmin) {
             'id' => $taxonomyId,
             'icon' => 'fas fa-stop',
             'label' => __('Disable Taxonomy'),
+            'short' => __('Disable'),
             'class' => 'text-warning'
         ];
     }
@@ -36,6 +38,7 @@ if ($isSiteAdmin) {
             'required' => $required,
             'icon' => 'fas fa-asterisk',
             'label' => __('Make Taxonomy required'),
+            'short' => __('Required'),
             'class' => 'text-success'
         ];
     } else {
@@ -46,6 +49,7 @@ if ($isSiteAdmin) {
             'required' => $required,
             'icon' => 'fas fa-question',
             'label' => __('Make Taxonomy optional'),
+            'short' => __('Optional'),
             'class' => 'text-warning'
         ];
     }
@@ -57,6 +61,7 @@ if ($isSiteAdmin) {
             'id' => $taxonomyId,
             'icon' => 'fas fa-highlighter',
             'label' => __('Highlight Taxonomy'),
+            'short' => __('Highlight'),
             'class' => 'text-success'
         ];
     } else {
@@ -66,6 +71,7 @@ if ($isSiteAdmin) {
             'id' => $taxonomyId,
             'icon' => 'fas fa-down-long',
             'label' => __('Remove Highlight from Taxonomy'),
+            'short' => __('Unhighlight'),
             'class' => 'text-warning'
         ];
     }
@@ -79,7 +85,7 @@ if ($isSiteAdmin) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);
 ?>

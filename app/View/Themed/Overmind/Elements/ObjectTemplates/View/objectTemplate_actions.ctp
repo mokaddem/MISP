@@ -14,6 +14,7 @@ if ($isSiteAdmin) {
             'id' => $objectTemplateId,
             'icon' => 'fas fa-play',
             'label' => __('Activate Object Template'),
+            'short' => __('Activate'),
             'class' => 'text-success'
         ];
     } else {
@@ -23,6 +24,7 @@ if ($isSiteAdmin) {
             'id' => $objectTemplateId,
             'icon' => 'fas fa-stop',
             'label' => __('Deactivate Object Template'),
+            'short' => __('Deactivate'),
             'class' => 'text-warning'
         ];
     }
@@ -30,7 +32,8 @@ if ($isSiteAdmin) {
     $actions[] = [
         'url' => "$baseurl/objectTemplates/update/$objectTemplateName/$objectTemplateId",
         'icon' => 'fas fa-sync',
-        'label' => __('Update Object Template')
+        'label' => __('Update Object Template'),
+        'short' => __('Update')
     ];
 
     $actions[] = [
@@ -43,7 +46,7 @@ if ($isSiteAdmin) {
 }
 
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);
 ?>

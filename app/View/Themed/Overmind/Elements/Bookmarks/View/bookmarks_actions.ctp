@@ -7,6 +7,7 @@ if (preg_match('#^https?://#i', (string)($data['Bookmark']['url'] ?? ''))) {
         'url' => $data['Bookmark']['url'],
         'icon' => 'fas fa-arrow-up-right-from-square',
         'label' => __('Open bookmark'),
+        'short' => __('Open'),
         'attributes' => ['target' => '_blank', 'rel' => 'noopener noreferrer'],
     ];
 }
@@ -16,6 +17,7 @@ if (!empty($mayModify)) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/bookmarks/edit/$bookmarkId');",
         'icon' => 'fas fa-pen',
         'label' => __('Edit bookmark'),
+        'short' => __('Edit'),
     ];
     $actions[] = [
         'url' => "$baseurl/bookmarks/deleteSelection/$bookmarkId",
@@ -26,6 +28,6 @@ if (!empty($mayModify)) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions,
 ]);

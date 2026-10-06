@@ -10,6 +10,7 @@ $actions[] = [
     'url' => "$baseurl/feeds/previewIndex/$feedId",
     'icon' => 'fas fa-magnifying-glass',
     'label' => __('Explore the events remotely'),
+    'short' => __('Explore'),
 ];
 
 if ($siteAdmin && $isEnabled) {
@@ -18,6 +19,7 @@ if ($siteAdmin && $isEnabled) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/feeds/fetchSelectedFeeds/$feedId', 'md');",
         'icon' => 'fas fa-circle-arrow-down',
         'label' => __('Fetch all events'),
+        'short' => __('Fetch all'),
         'success' => true,
     ];
 }
@@ -29,6 +31,7 @@ if ($siteAdmin) {
             'type' => 'post',
             'icon' => 'fas fa-stop',
             'label' => __('Disable feed'),
+            'short' => __('Disable'),
             'warning' => true,
         ]
         : [
@@ -36,6 +39,7 @@ if ($siteAdmin) {
             'type' => 'post',
             'icon' => 'fas fa-play',
             'label' => __('Enable feed'),
+            'short' => __('Enable'),
             'success' => true,
         ];
 
@@ -44,6 +48,7 @@ if ($siteAdmin) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/feeds/edit/$feedId');",
         'icon' => 'fas fa-pen-to-square',
         'label' => __('Edit feed'),
+        'short' => __('Edit'),
     ];
 }
 
@@ -51,6 +56,7 @@ $actions[] = [
     'url' => "$baseurl/feeds/view/$feedId.json",
     'icon' => 'fas fa-cloud-arrow-down',
     'label' => __('Download metadata as JSON'),
+    'short' => __('Download'),
 ];
 
 if ($siteAdmin) {
@@ -63,6 +69,6 @@ if ($siteAdmin) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);

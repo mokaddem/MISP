@@ -330,4 +330,5 @@ echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     ],
     'maxTiles' => 5,
     'columns' => 5,
+    'autoPin' => false,
 ]);

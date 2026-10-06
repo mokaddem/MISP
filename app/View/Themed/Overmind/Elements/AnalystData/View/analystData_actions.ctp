@@ -10,6 +10,7 @@ if (!empty($mayModify)) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/analystData/edit/$m/$recordId');",
         'icon' => 'fas fa-pen',
         'label' => __('Edit %s', $m),
+        'short' => __('Edit'),
     ];
     $actions[] = [
         'url' => "$baseurl/analystData/delete/$m/$recordId",
@@ -20,7 +21,7 @@ if (!empty($mayModify)) {
     ];
 }
 if (!empty($actions)) {
-    echo $this->element('genericElementsBS5/Cards/card_actions', [
+    echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
         'actions' => $actions,
     ]);
 }

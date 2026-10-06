@@ -12,6 +12,7 @@ if ($editable) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/decayingModel/edit/$id');",
         'icon' => 'fas fa-pen',
         'label' => __('Edit model'),
+        'short' => __('Edit'),
     ];
 }
 
@@ -31,6 +32,7 @@ $actions[] = [
     'url' => "$baseurl/decayingModel/export/$id.json",
     'icon' => 'fas fa-cloud-arrow-down',
     'label' => __('Download JSON'),
+    'short' => __('Download'),
 ];
 
 if ($editable) {
@@ -41,6 +43,7 @@ if ($editable) {
             'id' => $id,
             'icon' => 'fas fa-play',
             'label' => __('Enable model'),
+            'short' => __('Enable'),
             'success' => true,
         ];
     } else {
@@ -50,6 +53,7 @@ if ($editable) {
             'id' => $id,
             'icon' => 'fas fa-pause',
             'label' => __('Disable model'),
+            'short' => __('Disable'),
             'warning' => true,
         ];
     }
@@ -65,4 +69,4 @@ if ($editable) {
     }
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', ['actions' => $actions]);
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', ['actions' => $actions]);

@@ -21,6 +21,7 @@ if ($canEdit) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/edit/$id');",
         'icon' => 'fas fa-pen-to-square',
         'label' => __('Edit Cluster'),
+        'short' => __('Edit'),
     ];
 }
 
@@ -30,6 +31,7 @@ if ($isEditor) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/add/$galaxyId/forkUuid:" . h($uuid) . "');",
         'icon' => 'fas fa-code-branch',
         'label' => __('Fork Cluster'),
+        'short' => __('Fork'),
     ];
 }
 
@@ -37,6 +39,7 @@ $actions[] = [
     'url' => "$baseurl/galaxies/viewGraph/$id",
     'icon' => 'fas fa-share-nodes',
     'label' => __('View correlation graph'),
+    'short' => __('Correlations'),
 ];
 
 if ($this->Acl->canAccess('analystGraphs', 'addNodes') && !$isDeleted) {
@@ -44,6 +47,7 @@ if ($this->Acl->canAccess('analystGraphs', 'addNodes') && !$isDeleted) {
         'url' => '#',
         'icon' => 'fas fa-circle-nodes',
         'label' => __('Add to graph'),
+        'short' => __('Graph'),
         'attributes' => ['data-intel-graph-add' => json_encode([['type' => 'GalaxyCluster', 'uuid' => $uuid, 'label' => $data['value']]])],
     ];
 }
@@ -54,6 +58,7 @@ if (!$isDefault) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/export_for_misp_galaxy/$id');",
         'icon' => 'fas fa-handshake',
         'label' => __('Contribute to misp-galaxy'),
+        'short' => __('Contribute'),
     ];
 }
 
@@ -63,6 +68,7 @@ if ($canPublish) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/publish/$id', 'md');",
         'icon' => 'fas fa-upload',
         'label' => __('Publish Cluster'),
+        'short' => __('Publish'),
         'success' => true,
     ];
 }
@@ -73,6 +79,7 @@ if ($canRestore) {
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/restore/$id', 'md');",
         'icon' => 'fas fa-trash-arrow-up',
         'label' => __('Restore Cluster'),
+        'short' => __('Restore'),
         'success' => true,
     ];
 }
@@ -87,6 +94,6 @@ if ($canDelete) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);

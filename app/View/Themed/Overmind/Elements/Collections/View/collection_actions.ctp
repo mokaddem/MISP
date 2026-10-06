@@ -10,14 +10,16 @@ if ($isSiteAdmin || $mayModify) {
         'url' => "$baseurl/CollectionElements/add/$collectiontId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/CollectionElements/add/$collectiontId');",
         'icon' => 'fas fa-file',
-        'label' => __('Add Element to Collection')
+        'label' => __('Add Element to Collection'),
+        'short' => __('Add element')
     ];
 
     $actions[] = [
         'url' => "$baseurl/collections/edit/$collectiontId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/collections/edit/$collectiontId');",
         'icon' => 'fas fa-pen',
-        'label' => __('Edit Collection')
+        'label' => __('Edit Collection'),
+        'short' => __('Edit')
     ];
 
     $actions[] = [
@@ -29,7 +31,7 @@ if ($isSiteAdmin || $mayModify) {
     ];
 }
 
-echo $this->element('genericElementsBS5/Cards/card_actions', [
+echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
     'actions' => $actions
 ]);
 ?>
