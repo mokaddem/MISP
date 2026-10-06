@@ -805,6 +805,11 @@ class EventsController extends AppController
         $events = $this->__attachInfoToEvents($enabledColumns, $events);
 
         $this->__noKeyNotification();
+        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        $this->set('labelPlan', ValueLabelPriority::planFor(
+            ClassRegistry::init('AnalystProfile')
+                ->resolveFor($this->Auth->user())
+        ));
         $this->set('events', $events);
         $this->set('possibleColumns', $possibleColumns);
         $this->set('columns', $enabledColumns);

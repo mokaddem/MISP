@@ -59,6 +59,7 @@ foreach ($data as $item) {
         $clusters[] = [
             'value' => isset($m[2]) ? $m[2] : $tagName,
             'galaxy' => ucwords(str_replace('-', ' ', isset($m[1]) ? $m[1] : 'unknown')),
+            'key' => $m[1] ?? null,
             'tag_id' => $item['Tag']['id'] ?? null,
             'local' => !empty($item['local']),
             'relationship_type' => $item['relationship_type'] ?? null,
@@ -69,6 +70,7 @@ foreach ($data as $item) {
             'value' => $item['value'] ?? '',
             'galaxy' => $item['Galaxy']['name'],
             'icon' => $item['Galaxy']['icon'] ?? 'globe',
+            'key' => $item['Galaxy']['type'] ?? ($item['type'] ?? null),
             'tag_id' => $item['tag_id'] ?? null,
             'local' => !empty($item['local']),
             'relationship_type' => $item['relationship_type'] ?? null,
@@ -81,6 +83,7 @@ foreach ($data as $item) {
                 'value' => $gc['value'] ?? '',
                 'galaxy' => $item['name'] ?? 'Unknown',
                 'icon' => $item['icon'] ?? 'globe',
+                'key' => $item['type'] ?? ($gc['type'] ?? null),
                 'tag_id' => $gc['tag_id'] ?? null,
                 'local' => !empty($gc['local']),
                 'relationship_type' => $gc['relationship_type'] ?? null,
@@ -88,6 +91,16 @@ foreach ($data as $item) {
             ];
         }
     }
+}
+
+// Optional reader's label priority, keyed by galaxy type
+if (!empty($field['plan']) && !empty($clusters)) {
+    App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+    $clusters = ValueLabelPriority::labels(
+        $clusters,
+        $field['plan'],
+        ValueLabelPriority::GALAXIES
+    );
 }
 
 // Nothing attached, nothing to relate

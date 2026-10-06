@@ -87,6 +87,7 @@ $fields = [
         'name' => __('Tags'),
         'data_path' => 'EventTag',
         'element' => 'tag_list',
+        'plan' => $labelPlan ?? null,
         'card_section' => 'tag',
         'display_in' => ['table', 'card']
     ],
@@ -94,6 +95,7 @@ $fields = [
         'name' => __('Galaxy'),
         'data_path' => 'GalaxyCluster',
         'element' => 'galaxy',
+        'plan' => $labelPlan ?? null,
         'card_section' => 'galaxy',
         'display_in' => ['table', 'card']
     ],
