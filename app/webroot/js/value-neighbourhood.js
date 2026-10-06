@@ -650,7 +650,6 @@
             // What is not drawn yet is the value's rim count, shown from the start.
             opts.pivotRimBadgeVisible = 'always';
             var rules = opts.UI.simplify.rules;
-            rules.forEach(function (r) { if (r.kind === 'neighbours') r.enabled = false; });
             var at = rules.findIndex(function (r) { return r.kind === 'landings'; });
             rules.splice(at + 1, 0, byEventRule());
             opts.UI.extraPanels = [kit.sharedPanel()];
