@@ -46,5 +46,13 @@ echo $this->element('genericElementsBS5/Layout/view_layout', [
             ],
             'right' => $this->RailCard->rail($railCards, ['cluster-relations'], 'relations'),
         ],
+        [
+            'id' => 'pivot-explorer',
+            'title' => __('Pivot Explorer'),
+            'icon' => 'fas fa-circle-nodes',
+            'left' => [
+                'GalaxyClusters/View/galaxy_cluster_pivot_explorer',
+            ],
+        ],
     ],
 ]);

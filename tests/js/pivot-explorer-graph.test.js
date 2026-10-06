@@ -1341,7 +1341,8 @@ test('the correlation pivot is declared, capped at the canvas budget, and savabl
     const g = await withPivots();
     eq('after the element pivot, correlations, feed events, tags and clusters, then what a tag leads to',
        g.opts.pivots.map(p => p.id),
-       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters', 'object-surroundings',
+       ['event-elements', 'correlations', 'feed-events', 'tags', 'tagged-events', 'related-clusters', 'relating-clusters',
+        'object-surroundings',
         'card-attributes', 'card-ids', 'card-network', 'card-correlations']);
     g.opts.pivots.filter(p => p.id !== 'event-elements').forEach(p => {
         eq(p.id + ' refuses above 1,500', p.maxCandidates, 1500);
@@ -3436,9 +3437,10 @@ const RELATIONS = {
     ],
 };
 
-function withRelations(route) {
-    return buildGraph(taggedEvent(), { routes: [[/galaxy_clusters\/relatedClusters\/[^/]+\.json$/,
-        route || (() => RELATIONS)]] });
+function withRelations(route, inbound) {
+    return buildGraph(taggedEvent(), { routes: [
+        [/galaxy_clusters\/relatedClusters\/[^/]+\.json$/, route || (() => RELATIONS)],
+        [/galaxy_clusters\/relatedClusters\/[^/]+\/inbound\.json$/, inbound || (() => ({ relations: [] }))]] });
 }
 
 test('related clusters: offered on a cluster node that has a uuid', async () => {
@@ -3465,6 +3467,31 @@ test('related clusters: each target lands as a cluster node, the edge naming the
        r.edges.map(e => [e.from, e.to, e.data.kind, e.data.label]),
        [['cluster:' + TAG_APT.name, 'cluster:misp-galaxy:mitre-intrusion-set="APT28 - G0007"', 'cluster-relation', 'similar'],
         ['cluster:' + TAG_APT.name, 'cluster:misp-galaxy:tool="X-Agent"', 'cluster-relation', 'uses']]);
+});
+
+test('relating clusters: asks for the relations held towards the cluster, drawn into it', async () => {
+    const g = await withRelations(null, () => RELATIONS);
+    const p = pivot(g, 'relating-clusters');
+    eq('the count is the relations', await p.summarize([APT_NODE()], {}, {}), { total: 3 });
+    ok('asked for the inbound side',
+       g.fetchLog.some(f => /\/galaxy_clusters\/relatedClusters\/CL-APT28\/inbound\.json$/.test(f.url)));
+    const r = await p.fetch([APT_NODE()], {}, {});
+    eq('each source points at the selected cluster, under the id the outbound side gives it',
+       r.edges.map(e => [e.id, e.from, e.to, e.data.label]),
+       [['clrel:cluster:misp-galaxy:mitre-intrusion-set="APT28 - G0007">cluster:' + TAG_APT.name + ':similar',
+         'cluster:misp-galaxy:mitre-intrusion-set="APT28 - G0007"', 'cluster:' + TAG_APT.name, 'similar'],
+        ['clrel:cluster:misp-galaxy:tool="X-Agent">cluster:' + TAG_APT.name + ':uses',
+         'cluster:misp-galaxy:tool="X-Agent"', 'cluster:' + TAG_APT.name, 'uses']]);
+});
+
+test('related clusters: a cluster whose id is known is asked for by id, as one uuid can name several', async () => {
+    const g = await withRelations();
+    const p = pivot(g, 'related-clusters');
+    const r = await p.fetch([APT_NODE()], {}, {});
+    eq('a landed cluster keeps its id', byId(r.nodes, 'cluster:misp-galaxy:tool="X-Agent"').data.cluster_id, '5');
+    await p.summarize([tagNode('cluster:misp-galaxy:tool="X-Agent"',
+        { type: 'cluster', tag_name: 'misp-galaxy:tool="X-Agent"', uuid: 'CL-X', cluster_id: '5' })], {}, {});
+    ok('asked by id', g.fetchLog.some(f => /\/galaxy_clusters\/relatedClusters\/5\.json$/.test(f.url)));
 });
 
 test('related clusters: a galaxy relation is its own edge kind', async () => {

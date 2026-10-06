@@ -1084,12 +1084,25 @@ class GalaxyClustersController extends AppController
 
     /**
      * @param  mixed $id ID or UUID of the cluster
+     * @param  string $direction 'inbound' for the relations other clusters hold towards it
      */
-    public function relatedClusters($id)
+    public function relatedClusters($id, $direction = 'outbound')
     {
         $this->request->allowMethod(['get']);
-        $relations = $this->GalaxyCluster->outboundRelations($this->Auth->user(), $id);
+        $relations = $this->GalaxyCluster->clusterRelations($this->Auth->user(), $id, $direction === 'inbound');
         return $this->RestResponse->viewData(['relations' => $relations], 'json');
+    }
+
+    /**
+     * The Pivot Explorer's seed for one cluster.
+     *
+     * @param  mixed $id ID or UUID of the cluster
+     */
+    public function graph($id)
+    {
+        $this->request->allowMethod(['get']);
+        $seed = $this->GalaxyCluster->graphSeed($this->Auth->user(), $id);
+        return $this->RestResponse->viewData($seed, 'json');
     }
 
     /**

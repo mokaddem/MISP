@@ -132,6 +132,8 @@ class Relationship extends AnalystData
             $data = $this->rearrangeData($data, 'Object');
         } else if ($type == 'GalaxyCluster') {
             $this->GalaxyCluster = ClassRegistry::init('GalaxyCluster');
+            $backup = $this->GalaxyCluster->includeAnalystData;
+            $this->GalaxyCluster->includeAnalystData = false;
             $cluster = $this->GalaxyCluster->fetchGalaxyClusters($user, [
                 'conditions' => ['GalaxyCluster.uuid' => $uuid],
                 'fields' => [
@@ -143,6 +145,7 @@ class Relationship extends AnalystData
                 'contain' => ['Galaxy' => ['fields' => ['id', 'name', 'type']]],
                 'first' => true,
             ]);
+            $this->GalaxyCluster->includeAnalystData = $backup;
             if (!empty($cluster['GalaxyCluster'])) {
                 $data = ['GalaxyCluster' => $cluster['GalaxyCluster'] + [
                     'Galaxy' => $cluster['Galaxy'] ?? [],
