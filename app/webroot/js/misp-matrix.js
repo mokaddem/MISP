@@ -344,9 +344,9 @@
 
     function savedHideUnused() {
         try {
-            return window.localStorage.getItem(HIDE_UNUSED) === '1';
+            return window.localStorage.getItem(HIDE_UNUSED) !== '0';
         } catch (e) {
-            return false;
+            return true;
         }
     }
 
