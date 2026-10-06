@@ -198,8 +198,9 @@
     }
 
     // graph: { name, description?, target: { type, uuid }, distribution?,
-    // sharing_group_id? }. options.activate (default true) makes it the
-    // active graph.
+    // sharing_group_id?, content? }: content, a document, is the graph's
+    // first revision. options.activate (default true) makes it the active
+    // graph.
     function create(graph, options) {
         var target = graph.target || {};
         var body = { Graph: {
@@ -208,6 +209,7 @@
             distribution: graph.distribution,
             sharing_group_id: graph.sharing_group_id
         } };
+        if (graph.content) body.Graph.content = graph.content;
         var path = '/analyst_data/add/Graph/' + encodeURIComponent(target.uuid) + '/' + encodeURIComponent(target.type) + '.json';
         return request('POST', path, body).then(function (out) {
             var created = out && out.Graph;
