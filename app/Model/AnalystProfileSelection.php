@@ -11,7 +11,7 @@ App::uses('AppModel', 'Model');
  * `scopeOf()`, the editor, the index and the export each had to learn a
  * row that is not a profile. Two of the three scopes already had a home —
  * a user writes the uuid to `user_settings` under `analyst_profile`, and
- * the instance names one in `ValueProfile_instance_profile` — and this is
+ * the instance names one in `ValueIntelligence_instance_profile` — and this is
  * the third, three columns wide.
  *
  * **It holds a uuid and never an id.** A selection outlives the row it

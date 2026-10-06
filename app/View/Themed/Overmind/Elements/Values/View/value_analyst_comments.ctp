@@ -34,9 +34,9 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystComments.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-$comments = $valueProfile['analyst_comments'];
+$comments = $valueIntelligence['analyst_comments'];
 $rows = $comments['rows'];
 
 /**

@@ -4,9 +4,9 @@
  *
  * Served by ValuesController::viewGalaxyMatrix.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
 echo $this->element('GalaxyMatrix/full', array(
-    'matrix' => $valueProfile['matrix'],
+    'matrix' => $valueIntelligence['matrix'],
     'lightIcon' => 'misp-icon misp-icon-event misp-simple',
 ));

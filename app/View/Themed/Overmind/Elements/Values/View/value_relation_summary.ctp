@@ -23,7 +23,7 @@
  * two sections — what sits in the same object, and what sits in the
  * same events — so two cards point into the same container, and the
  * first of them is dropped when that panel renders no sibling table.
- * `initRelationSummary` in `value-profile.js` does both.
+ * `initRelationSummary` in `value-intelligence.js` does both.
  *
  * **The units differ and each card says which.** Values, siblings,
  * relations, matches, remote events, references, claims — seven

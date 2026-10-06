@@ -28,7 +28,7 @@
  * *means*, not what pressing does, and a reader checks it while
  * looking at what they pasted.
  */
-App::uses('ValueInputTool', 'Tools/ValueProfile');
+App::uses('ValueInputTool', 'Tools/ValueIntelligence');
 
 echo $this->Form->create('Value', array(
     'class' => 'vi-prompt',
@@ -136,10 +136,10 @@ echo $this->Form->create('Value', array(
              */
             ?>
             <span data-vi-verb
-                  data-vi-one="<?= h(__('Open profile')) ?>"
+                  data-vi-one="<?= h(__('Open intelligence')) ?>"
                   data-vi-many="<?= h(__('Look up %d values')) ?>"
                   data-vi-find="<?= h(__('Extract values')) ?>"
-                  ><?= h(__('Open profile')) ?></span>
+                  ><?= h(__('Open intelligence')) ?></span>
             <span class="vi-kbd"><?= h(__('Enter')) ?></span>
         </button>
     </div>

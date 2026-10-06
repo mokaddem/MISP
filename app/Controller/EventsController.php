@@ -3,7 +3,7 @@ App::uses('AppController', 'Controller');
 App::uses('Xml', 'Utility');
 App::uses('GalaxyColour', 'Tools');
 App::uses('ExtensionEventColour', 'Tools');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 App::uses('EventOverviewTool', 'Tools/EventOverview');
 App::uses('EventContextTool', 'Tools/EventOverview');
 App::uses('EventMatrixTool', 'Tools/EventOverview');
@@ -816,7 +816,7 @@ class EventsController extends AppController
         $events = $this->__attachInfoToEvents($enabledColumns, $events);
 
         $this->__noKeyNotification();
-        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
         $this->set('labelPlan', ValueLabelPriority::planFor(
             ClassRegistry::init('AnalystProfile')
                 ->resolveFor($this->Auth->user())
@@ -1804,7 +1804,7 @@ class EventsController extends AppController
          * priority draws exactly what it draws today.
          * prd/personas/04-label-surfaces.md §6, D52.
          */
-        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
         $this->set('labelPlan', ValueLabelPriority::planFor(
             ClassRegistry::init('AnalystProfile')->resolveFor($user)
         ));

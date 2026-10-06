@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
 
 $grainWords = [
     'day' => __('one bar a day'),

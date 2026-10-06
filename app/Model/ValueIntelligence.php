@@ -1,32 +1,32 @@
 <?php
 App::uses('AppModel', 'Model');
 App::uses('Value', 'Model');
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
-App::uses('ValueExclusionTool', 'Tools/ValueProfile');
-App::uses('ValueRelationTool', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
+App::uses('ValueExclusionTool', 'Tools/ValueIntelligence');
+App::uses('ValueRelationTool', 'Tools/ValueIntelligence');
 App::uses('RedisTool', 'Tools');
-App::uses('ValueWarninglistTool', 'Tools/ValueProfile');
-App::uses('ValueTrustTool', 'Tools/ValueProfile');
-App::uses('ValueStatementTool', 'Tools/ValueProfile');
-App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
-App::uses('ValueRendererTool', 'Tools/ValueProfile');
-App::uses('ValueSignalLoader', 'Tools/ValueProfile');
+App::uses('ValueWarninglistTool', 'Tools/ValueIntelligence');
+App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
+App::uses('ValueStatementTool', 'Tools/ValueIntelligence');
+App::uses('ValueEnrichmentTool', 'Tools/ValueIntelligence');
+App::uses('ValueRendererTool', 'Tools/ValueIntelligence');
+App::uses('ValueSignalLoader', 'Tools/ValueIntelligence');
 App::uses('ValueEnrichmentRun', 'Model');
-App::uses('ValueVerdictTool', 'Tools/ValueProfile');
-App::uses('ValueSummaryTool', 'Tools/ValueProfile');
-App::uses('ValueContestedTool', 'Tools/ValueProfile');
-App::uses('ValueFactsTool', 'Tools/ValueProfile');
-App::uses('ValueContextTool', 'Tools/ValueProfile');
+App::uses('ValueVerdictTool', 'Tools/ValueIntelligence');
+App::uses('ValueSummaryTool', 'Tools/ValueIntelligence');
+App::uses('ValueContestedTool', 'Tools/ValueIntelligence');
+App::uses('ValueFactsTool', 'Tools/ValueIntelligence');
+App::uses('ValueContextTool', 'Tools/ValueIntelligence');
 App::uses('ModuleLocality', 'Tools');
 App::uses('ModuleRole', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
-App::uses('DomainPermutationTool', 'Tools/ValueProfile');
-App::uses('AuditActionMeta', 'Tools/ValueProfile');
-App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
-App::uses('ValueHoverTool', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
+App::uses('DomainPermutationTool', 'Tools/ValueIntelligence');
+App::uses('AuditActionMeta', 'Tools/ValueIntelligence');
+App::uses('ValueIntelligenceBuckets', 'Tools/ValueIntelligence');
+App::uses('ValueHoverTool', 'Tools/ValueIntelligence');
 App::uses('JsonTool', 'Tools');
 App::uses('EventMatrixTool', 'Tools/EventOverview');
 /*
@@ -36,7 +36,7 @@ App::uses('EventMatrixTool', 'Tools/EventOverview');
 App::uses('MispAttribute', 'Model');
 
 /**
- * The Value Profile page's per-panel facade.
+ * The Value Intelligence page's per-panel facade.
  *
  * One public method per panel, each returning the array shape that
  * panel's template already reads. `useTable = false`: this model owns no
@@ -60,7 +60,7 @@ App::uses('MispAttribute', 'Model');
  * attribute value storage. `Value` is the only file in this feature that
  * knows how a value resolves to rows.
  */
-class ValueProfile extends AppModel
+class ValueIntelligence extends AppModel
 {
     public $useTable = false;
 
@@ -207,7 +207,7 @@ class ValueProfile extends AppModel
      * log. `UserSetting::VALID_SETTINGS` is where that is declared and
      * this is only the name.
      */
-    const RECENT_SETTING = 'value_profile_recent';
+    const RECENT_SETTING = 'value_intelligence_recent';
 
     /**
      * What a ledger row means by *recent* when it counts sightings.
@@ -262,7 +262,7 @@ class ValueProfile extends AppModel
      * `resolutions` is the one that stays empty for good. It drives
      * *Resolve it*, whose every control is disabled because this page
      * does not write — `01-profile.md` §7 — so an empty list is its
-     * finished state until `value-profile-writes.md` lands.
+     * finished state until `value-intelligence-writes.md` lands.
      */
     const VERDICT_UNPRODUCED = array(
         'summary' => null,
@@ -592,9 +592,9 @@ class ValueProfile extends AppModel
      * fit, where 437 daily bars would be 0.68px each.
      */
     const HISTORY_CHART_RULE = array(
-        array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
-        array('days' => 200, 'unit' => ValueProfileBuckets::WEEK),
-        array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+        array('days' => 45, 'unit' => ValueIntelligenceBuckets::DAY),
+        array('days' => 200, 'unit' => ValueIntelligenceBuckets::WEEK),
+        array('days' => null, 'unit' => ValueIntelligenceBuckets::MONTH),
     );
 
     /**
@@ -1354,7 +1354,7 @@ class ValueProfile extends AppModel
      * Record that this reader opened a value's profile.
      *
      * One write on a page that already costs eight reads, and the only
-     * write the Value Profile makes about the *reader* rather than
+     * write the Value Intelligence makes about the *reader* rather than
      * about a value.
      *
      * **Re-opening moves rather than duplicates**, so the list is ten
@@ -1414,7 +1414,7 @@ class ValueProfile extends AppModel
         } catch (Exception $e) {
             CakeLog::write(
                 'warning',
-                'ValueProfile::rememberViewed — ' . $e->getMessage()
+                'ValueIntelligence::rememberViewed — ' . $e->getMessage()
             );
         }
         if ($logged) {
@@ -1821,7 +1821,7 @@ class ValueProfile extends AppModel
         if (ValueEnrichmentTool::declaresAuto($plan, $types)
             && !empty($user['Role']['perm_add'])
             && ValueEnrichmentTool::gateAllows(
-                Configure::read('Plugin.ValueProfile_enrichment_auto_run'),
+                Configure::read('Plugin.ValueIntelligence_enrichment_auto_run'),
                 !empty($user['Role']['perm_site_admin'])
             )
         ) {
@@ -2773,7 +2773,7 @@ class ValueProfile extends AppModel
      * The proposals that propose *adding* this value, which no
      * occurrence read can see.
      *
-     * **`value-profile-coverage.md` §2.2's defect, and it is visible on
+     * **`value-intelligence-coverage.md` §2.2's defect, and it is visible on
      * real rows.** A proposal with `old_id = 0` proposes a new
      * attribute rather than a change to one, so nothing in `attributes`
      * holds the value yet — and a page built entirely on occurrence
@@ -3522,7 +3522,7 @@ class ValueProfile extends AppModel
      * tab a reader is looking at.
      *
      * **A galaxy tag is not a cluster until `fetchGalaxyClusters` says
-     * so**, which is the same ruling `ValueProfile::galaxyClusters`
+     * so**, which is the same ruling `ValueIntelligence::galaxyClusters`
      * makes for the card and for the same two reasons: the tag carries
      * no readable name, and seeing a row is not permission to know what
      * its cluster is. `1.162.239.42` carries four galaxy tags of which
@@ -4863,7 +4863,7 @@ class ValueProfile extends AppModel
                 . '@' . (isset($profile['revision'])
                     ? (int)$profile['revision']
                     : 0);
-        $key = 'misp:value_profile:relation_digest:v'
+        $key = 'misp:value_intelligence:relation_digest:v'
             . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . $profileKey . '|'
                 . json_encode($keyOptions));
@@ -5737,7 +5737,7 @@ class ValueProfile extends AppModel
     private function relationScan(array $user, $value, array $options,
         $fresh = false
     ) {
-        $key = 'misp:value_profile:relation_scan:v'
+        $key = 'misp:value_intelligence:relation_scan:v'
             . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($options));
         return $this->cachedFold($key, $fresh,
@@ -6525,7 +6525,7 @@ class ValueProfile extends AppModel
         $fresh = !empty($options['fresh']);
         $keyOptions = $options;
         unset($keyOptions['fresh']);
-        $key = 'misp:value_profile:relation_references:v'
+        $key = 'misp:value_intelligence:relation_references:v'
             . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($keyOptions));
         $redis = null;
@@ -10639,7 +10639,7 @@ class ValueProfile extends AppModel
                      * A standalone addition proposes a value no
                      * attribute holds yet, so the reader is sent to the
                      * event's proposal list rather than to a record
-                     * that does not exist — `value-profile-coverage.md`
+                     * that does not exist — `value-intelligence-coverage.md`
                      * §2.2's state, reaching the link as well as the
                      * row.
                      */
@@ -10649,7 +10649,7 @@ class ValueProfile extends AppModel
                     /*
                      * The attribute it proposes against, which is null
                      * for a standalone addition — the state
-                     * `value-profile-coverage.md` §2.2 found the rest
+                     * `value-intelligence-coverage.md` §2.2 found the rest
                      * of this page blind to, and the one row shape here
                      * that has no attribute to point at.
                      */
@@ -11663,7 +11663,7 @@ class ValueProfile extends AppModel
             return null;
         }
         $today = date('Y-m-d');
-        $plan = ValueProfileBuckets::plan(
+        $plan = ValueIntelligenceBuckets::plan(
             $span['from'],
             $today,
             self::HISTORY_CHART_RULE
@@ -11672,7 +11672,7 @@ class ValueProfile extends AppModel
         foreach ($counts['by_day'] as $day => $byGroup) {
             $days[$day] = array_sum($byGroup);
         }
-        $plan['counts'] = ValueProfileBuckets::tally(
+        $plan['counts'] = ValueIntelligenceBuckets::tally(
             $span['from'],
             $today,
             $days
@@ -12558,7 +12558,7 @@ class ValueProfile extends AppModel
      * The event reports written about this value's events.
      *
      * **The third panel on the tab, and the one that is a list rather
-     * than an argument.** `value-profile-coverage.md` §4.5 places
+     * than an argument.** `value-intelligence-coverage.md` §4.5 places
      * reports here — narrative analyst content about the value's
      * context, beside the notes and opinions — and it is a separate
      * panel rather than more thread items because a report is a
@@ -13674,7 +13674,7 @@ class ValueProfile extends AppModel
     /**
      * Proposals about this value, as thread items.
      *
-     * **Included, and labelled.** `value-profile-coverage.md` §5 is the
+     * **Included, and labelled.** `value-intelligence-coverage.md` §5 is the
      * argument: a proposal is how MISP let a third party disagree
      * before analyst data existed, and this thread's subject is who
      * says what about the value. Its conclusion was that the tab either
@@ -14964,7 +14964,7 @@ class ValueProfile extends AppModel
              * model and `Configure`.
              */
             'auto_gate' => Configure::read(
-                'Plugin.ValueProfile_enrichment_auto_run'
+                'Plugin.ValueIntelligence_enrichment_auto_run'
             ),
             'site_admin' => !empty($user['Role']['perm_site_admin']),
         );
@@ -15325,7 +15325,7 @@ class ValueProfile extends AppModel
              * *without* one.
              */
             if (!ValueEnrichmentTool::gateAllows(
-                Configure::read('Plugin.ValueProfile_enrichment_auto_run'),
+                Configure::read('Plugin.ValueIntelligence_enrichment_auto_run'),
                 !empty($user['Role']['perm_site_admin'])
             )) {
                 $run['state'] = 'auto_not_allowed';

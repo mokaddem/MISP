@@ -15,7 +15,7 @@
         <div>
             <h2 class="vi-tip__title"><?= h(__('Look up a value')) ?></h2>
             <p><?= h(__(
-                'Enter a single value to open its Value Profile, or paste'
+                'Enter a single value to open its Value Intelligence, or paste'
                 . ' a list to get one row per value.'
             )) ?></p>
             <p><?= sprintf(

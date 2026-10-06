@@ -37,12 +37,12 @@
  * the category and the IDS flag in columns rather than run together
  * on one line.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueRendererTool', 'Tools/ValueProfile');
+App::uses('ValueRendererTool', 'Tools/ValueIntelligence');
 
-$run = $valueProfile['run'];
+$run = $valueIntelligence['run'];
 $state = $run['state'];
 
 /*

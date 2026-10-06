@@ -1,9 +1,9 @@
 <?php
 App::uses('AppModel', 'Model');
-App::uses('ValueFieldKind', 'Tools/ValueProfile');
+App::uses('ValueFieldKind', 'Tools/ValueIntelligence');
 
 /**
- * The value-identity seam for the Value Profile page.
+ * The value-identity seam for the Value Intelligence page.
  *
  * The subject of that page is a value string — an IP address, a hash,
  * a domain — which is not a row of any table. It is a set of attribute
@@ -13,13 +13,13 @@ App::uses('ValueFieldKind', 'Tools/ValueProfile');
  * `useTable = false` is established practice here: `Community`, `Module`
  * and `EventLock` all do it.
  *
- * **This is the only file in the Value Profile feature that names
- * `value1` or `value2`** (prd/value-profile-live/00-contract.md §14.3).
+ * **This is the only file in the Value Intelligence feature that names
+ * `value1` or `value2`** (prd/value-intelligence-live/00-contract.md §14.3).
  * A feature is coming that moves `attributes.value` into a table of its
  * own — possibly several, split by type. This page does not build it,
  * does not wait for it and does not assume its shape; what it does is
  * arrange that when it lands, one file changes. Verification is a grep:
- * those two column names must not appear in ValueProfile.php, in
+ * those two column names must not appear in ValueIntelligence.php, in
  * app/Lib/Tools/Value*.php, in ValuesController.php or under
  * app/View/Themed/Overmind/Elements/Values/.
  *
@@ -273,7 +273,7 @@ class Value extends AppModel
      * `Attribute` keeps every existing caller byte-identical; none of
      * the fourteen passes the key.
      *
-     * The parameter was named by `value-profile-coverage.md` §2.4 as
+     * The parameter was named by `value-intelligence-coverage.md` §2.4 as
      * the one item in that survey with a cost per live phase deferred,
      * because a value table landing later has to answer the proposals
      * question too and `shadow_attributes.value1` is a column that
@@ -324,7 +324,7 @@ class Value extends AppModel
     /**
      * How many occurrences of this value the viewer may see.
      *
-     * Every count on the Value Profile page is the viewer's (§14.6):
+     * Every count on the Value Intelligence page is the viewer's (§14.6):
      * the URL takes any value the reader types, so a count that
      * included invisible occurrences would turn the page into a
      * membership oracle for any indicator on the instance.
@@ -362,7 +362,7 @@ class Value extends AppModel
      * returns — the same three conditions, in the same order — so the
      * Relationships tab badge and the sibling panel's own census cannot
      * state different numbers for one value. That is the property
-     * `ValueProfile::forTabCounts` exists to protect, and here it is
+     * `ValueIntelligence::forTabCounts` exists to protect, and here it is
      * held by the conditions rather than by one shared call: the census
      * gets its total free from the rows it already fetched whenever the
      * value sits under `SIBLING_OBJECT_CAP` objects, and paying for
@@ -371,7 +371,7 @@ class Value extends AppModel
      *
      * One indexed aggregate over the `value1` prefix index: 0.3 ms on
      * `8.8.8.8` (15 objects) and 84 ms on `0.0.0.0`, the instance's
-     * 32,922-object outlier. `ValueProfile::forTabCounts` has why the
+     * 32,922-object outlier. `ValueIntelligence::forTabCounts` has why the
      * badge is worth that where the co-occurrence total is not.
      *
      * @param array $user
@@ -815,7 +815,7 @@ class Value extends AppModel
      * many of them are false positives.
      *
      * **The count the fact strip and the tab badge both wanted and
-     * neither could have.** `ValueProfile::forTabCounts` dropped the
+     * neither could have.** `ValueIntelligence::forTabCounts` dropped the
      * sightings badge rather than print a number that is not the
      * reader's, and said what it would take to bring it back: *"`Sighting`
      * growing a counting method that applies the policy in SQL instead
@@ -2025,7 +2025,7 @@ class Value extends AppModel
      * ------------------------------------------------------------------
      * The Relationships tab's queries.
      *
-     * These are here rather than in `ValueProfile` for one reason and it
+     * These are here rather than in `ValueIntelligence` for one reason and it
      * is §14.4's tier 3: *any query that reaches attribute value storage
      * outside `Value`* is forbidden. Every method below either names
      * `value1`/`value2` or selects `Attribute.value`, which is the
@@ -2035,7 +2035,7 @@ class Value extends AppModel
      *
      * That is a real cost: this file was to stay small, and the tab adds
      * five methods to it. The alternative was worse. A neighbour
-     * aggregate written in `ValueProfile` would put the column names in
+     * aggregate written in `ValueIntelligence` would put the column names in
      * a second file, and the whole of §14.3 is the promise that when the
      * value table lands, **one** file changes.
      * ------------------------------------------------------------------
@@ -2710,7 +2710,7 @@ class Value extends AppModel
      * and every other panel on the page reads the integer accessor and
      * pays nothing for a column it has no use for. The Timeline's
      * analyst lane is the second caller — same shape, same reason, and
-     * its cap is `ValueProfile::TIMELINE_ANALYST_CAP`.
+     * its cap is `ValueIntelligence::TIMELINE_ANALYST_CAP`.
      *
      * @param array $user
      * @param string $value
@@ -2829,7 +2829,7 @@ class Value extends AppModel
      *
      * **The gate is MISP's own**, `ShadowAttribute::buildConditions`,
      * which is what `ShadowAttributesController::index` uses. It is not
-     * the attribute ACL with an extra clause: `value-profile-coverage.md`
+     * the attribute ACL with an extra clause: `value-intelligence-coverage.md`
      * §2.2 found that a standalone proposal (`old_id = 0`) is OR'd past
      * the whole attribute-and-object distribution test, because there is
      * no attribute to test, and is therefore gated by **event visibility
@@ -2977,7 +2977,7 @@ class Value extends AppModel
             /*
              * Null for a standalone proposal, which is the state
              * `old_id = 0` names and the one the whole page is blind to
-             * everywhere else (`value-profile-coverage.md` §2.2).
+             * everywhere else (`value-intelligence-coverage.md` §2.2).
              */
             'target' => $target === null ? null : array(
                 'id' => (int)$target['id'],

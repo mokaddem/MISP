@@ -32,7 +32,7 @@
  * candidates are noise that costs nothing: a spelling nobody
  * registered simply fails to match.
  *
- * @see ValueProfile::typosquatEngine
+ * @see ValueIntelligence::typosquatEngine
  */
 class DomainPermutationTool
 {

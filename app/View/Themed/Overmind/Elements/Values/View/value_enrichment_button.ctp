@@ -5,7 +5,7 @@
  *
  * **Enabled, unlike every other control here** — and that is the
  * distinction it exists to draw. The rest of the page's write controls
- * render visibly disabled because the Value Profile writes nothing;
+ * render visibly disabled because the Value Intelligence writes nothing;
  * this one is live because running a module writes nothing either. It
  * is disabled only for a reader without `perm_add`, which is the bar
  * MISP sets on `attributes/hoverEnrichment` and

@@ -1,6 +1,6 @@
 <?php
 App::uses('EventOverviewTool', 'Tools/EventOverview');
-App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
+App::uses('ValueIntelligenceBuckets', 'Tools/ValueIntelligence');
 
 /**
  * The data behind the Overmind event Timeline tab: loose attributes and
@@ -270,13 +270,13 @@ class EventSeenTimelineTool
         }
         $fromDate = gmdate('Y-m-d', $from * 86400);
         $toDate = gmdate('Y-m-d', $to * 86400);
-        $unit = ValueProfileBuckets::unitForSpan($to - $from + 1, [
-            ['days' => 45, 'unit' => ValueProfileBuckets::DAY],
-            ['days' => 370, 'unit' => ValueProfileBuckets::WEEK],
-            ['days' => null, 'unit' => ValueProfileBuckets::MONTH],
+        $unit = ValueIntelligenceBuckets::unitForSpan($to - $from + 1, [
+            ['days' => 45, 'unit' => ValueIntelligenceBuckets::DAY],
+            ['days' => 370, 'unit' => ValueIntelligenceBuckets::WEEK],
+            ['days' => null, 'unit' => ValueIntelligenceBuckets::MONTH],
         ]);
-        $series = ValueProfileBuckets::series($fromDate, $toDate, $unit);
-        $index = ValueProfileBuckets::locate($series);
+        $series = ValueIntelligenceBuckets::series($fromDate, $toDate, $unit);
+        $index = ValueIntelligenceBuckets::locate($series);
         $count = count($series);
         $bucketOf = function ($day) use ($from, $to, $index, $count) {
             if ($day < $from) {

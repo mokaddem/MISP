@@ -3,7 +3,7 @@
 /**
  * A value in a URL segment, both ways.
  *
- * The Value Profile page's subject is an arbitrary string — a hash, a
+ * The Value Intelligence page's subject is an arbitrary string — a hash, a
  * domain, a URL with slashes in it — so it travels base64-encoded. Two
  * controllers need the same encoding: `ValuesController` mints it and
  * `AnalystProfilesController`'s simulator takes it as `?value=`.

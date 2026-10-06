@@ -104,7 +104,7 @@ $generatePopover = function (array $cluster) use ($normalizeKey) {
  * JSON must not depend on who is reading it (D52).
  */
 if (!empty($labelPlan)) {
-    App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+    App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
     foreach ($data as $galaxyAt => $galaxyRow) {
         $data[$galaxyAt]['key'] = isset($galaxyRow['type'])
             ? $galaxyRow['type']

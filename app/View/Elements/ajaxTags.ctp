@@ -149,7 +149,7 @@
      * matters is that `tlp:red` precedes `tlp:clear` (D51).
      */
     if (!empty($labelPlan)) {
-        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
         $ordered = [];
         foreach ($tags as $tag) {
             $name = $tag['Tag']['name'] ?? ($tag['name'] ?? null);

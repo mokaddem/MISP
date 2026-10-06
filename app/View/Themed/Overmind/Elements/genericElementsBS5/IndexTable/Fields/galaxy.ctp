@@ -95,7 +95,7 @@ foreach ($data as $item) {
 
 // Optional reader's label priority, keyed by galaxy type
 if (!empty($field['plan']) && !empty($clusters)) {
-    App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+    App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
     $clusters = ValueLabelPriority::labels(
         $clusters,
         $field['plan'],

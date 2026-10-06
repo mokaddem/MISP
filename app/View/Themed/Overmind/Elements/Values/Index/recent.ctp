@@ -27,7 +27,7 @@
  *
  * @var array<array{value: string, at: int}> $recent Newest first
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 /*
  * `CakeTime` and not `$this->Time`. MISP replaces CakePHP's
  * `TimeHelper` wholesale with a two-method helper of its own — `time()`

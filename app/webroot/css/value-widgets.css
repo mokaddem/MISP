@@ -1,7 +1,7 @@
 /* ==================================================================
  * Renderer widgets, on their own
  * ------------------------------------------------------------------
- * Split out of `value-profile.css` so a widget can be drawn on a page
+ * Split out of `value-intelligence.css` so a widget can be drawn on a page
  * that is not the value page. The renderers themselves were always
  * portable - a renderer is keyed on a MISP object template name and
  * knows nothing about where its object came from - and the rules below
@@ -15,7 +15,7 @@
  * `--bs-*` tokens come from Bootstrap 5, which every Overmind page
  * already has. `--vp-e-accent` is the one exception and is
  * deliberately written `var(--vp-e-accent, #6f5fb5)` at both its uses:
- * it is the Enrichment pane's accent, it lives in `value-profile.css`,
+ * it is the Enrichment pane's accent, it lives in `value-intelligence.css`,
  * and a page that does not load that file gets the literal instead.
  *
  * **The budget below is the Overview strip's, not a general one.**
@@ -359,10 +359,10 @@
  * ------------------------------------------------------------------
  * One bar per bucket, the strip the Reporting, Sightings and
  * Occurrence cards already draw their own counts with (`.vp-spark` in
- * `value-profile.css`). Same geometry, same empty-bucket stub, same
+ * `value-intelligence.css`). Same geometry, same empty-bucket stub, same
  * flex rules; a separate class because this file is the one a page
  * that is not the value page can load on its own, and a widget
- * reaching into `value-profile.css` would be a widget that draws a
+ * reaching into `value-intelligence.css` would be a widget that draws a
  * bar strip on one page and a row of nothing on another.
  *
  * No axis and no labels: at this width a label is illegible and an

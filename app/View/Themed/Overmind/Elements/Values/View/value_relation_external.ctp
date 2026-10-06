@@ -56,10 +56,10 @@
  *
  * Lazily loaded from ValuesController::viewRelationExternal.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$external = $valueProfile['external'];
+$external = $valueIntelligence['external'];
 $sources = $external['sources'];
 $counts = $external['counts'];
 $restricted = $external['restricted'];

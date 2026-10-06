@@ -7,10 +7,10 @@
  * Lazily loaded into `.ajax-card` from ValuesController::viewMatrix;
  * misp-matrix.js mounts it on arrival.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$matrix = $valueProfile['matrix'];
+$matrix = $valueIntelligence['matrix'];
 if (empty($matrix['galaxies'])) {
     return;
 }

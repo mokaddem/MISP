@@ -20,7 +20,7 @@ class Migration_20260930_131929_analyst_profile_selections extends AbstractMigra
     /**
      * An organisation's choice of Analyst Profile (prd/personas/03-profiles.md
      * §5, D45). A user keeps theirs in `user_settings` and the instance in
-     * `ValueProfile_instance_profile`; nothing held a per-organisation
+     * `ValueIntelligence_instance_profile`; nothing held a per-organisation
      * setting. Three columns rather than an empty-parameters row in
      * `analyst_profiles`, so a selection is never mistaken for a profile.
      * `org_id` is unique because each scope has one answer. Was legacy update

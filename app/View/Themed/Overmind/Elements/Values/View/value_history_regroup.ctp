@@ -5,7 +5,7 @@
  * picks it. Hidden until then.
  *
  * @var string $grouping `org` or `field`
- * @var array $sections From `ValueProfile::historyRegroups()`
+ * @var array $sections From `ValueIntelligence::historyRegroups()`
  * @var callable $bodyId Section key => body element id
  * @var callable $renderMix
  * @var callable $fmt

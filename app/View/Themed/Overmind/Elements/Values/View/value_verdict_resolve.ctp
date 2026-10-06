@@ -10,10 +10,10 @@
  * it would assert. The write is the part somebody has to own, and a
  * card that hid it would be asking for a signature on a blank form.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $noWrites Why every control here is disabled
  */
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 $resolutions = $verdict['resolutions'] ?? array();
 ?>
 <?php if (!empty($resolutions)): ?>

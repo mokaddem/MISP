@@ -4,7 +4,7 @@
  * menu under its State badge. Accepting and discarding stay on the event,
  * which is where MISP checks who may do either.
  *
- * @var array $proposals From `ValueProfile::proposalChange()`, newest
+ * @var array $proposals From `ValueIntelligence::proposalChange()`, newest
  *     first
  */
 $ops = array(

@@ -29,11 +29,11 @@
  * the same assessment at a list's density.
  *
  * @var array $assessment `value` and `card`, from
- *                        `ValueProfile::forHoverCard`
+ *                        `ValueIntelligence::forHoverCard`
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 
 $card = $assessment['card'];
 $treatment = ValueLean::treatment($card['lean']);
@@ -345,7 +345,7 @@ if (!$caveats && !$counts['occurrences'] && $card['lean'] === 'none'
     ?>
     <a class="vi-btn" target="_blank" rel="noopener"
        href="<?= h($profileUrl) ?>" data-vi-act="open"><?= h(__('Open')) ?><span
-       class="vi-cardonly"> <?= h(__('profile')) ?></span></a>
+       class="vi-cardonly"> <?= h(__('intelligence')) ?></span></a>
     <button type="button" class="vi-btn vi-btn--quiet"
             data-vi-act="clear"><?= h(__('Dismiss')) ?></button>
     <?php

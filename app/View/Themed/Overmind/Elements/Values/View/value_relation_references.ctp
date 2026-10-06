@@ -34,10 +34,10 @@
  *
  * Lazily loaded from ValuesController::viewRelationReferences.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$references = $valueProfile['relationships']['references'];
+$references = $valueIntelligence['relationships']['references'];
 $rows = $references['rows'];
 
 $icon = 'fas fa-diagram-project';

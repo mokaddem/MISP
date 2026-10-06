@@ -16,10 +16,10 @@
  *
  * Lazily loaded from ValuesController::viewRelationAsserted.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $asserted = $profile['relationships']['asserted'];
 $claims = $asserted['claims'];
 $view = $this;

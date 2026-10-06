@@ -48,7 +48,7 @@ $chartLegendSkip = $chartLegendSkip ?? array();
      * `VP.chart` polls for the Chart global, resolves the config's
      * `var(--x)` colours against the canvas, and redraws when
      * `data-misp-mode` flips. All three are wanted by every chart on the
-     * page, so they live in value-profile.js rather than once per
+     * page, so they live in value-intelligence.js rather than once per
      * fragment that happens to draw one.
      */
     VP.chart.boot(id, function (el) {

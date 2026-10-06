@@ -17,7 +17,7 @@
  * @var string $orgsSub    The subtitle: why this table is here for
  *                         this particular value
  */
-App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
 
 $orgs = $verdict['orgs'] ?? array();
 $orgColumns = $orgColumns ?? array('to_ids', 'reliability');

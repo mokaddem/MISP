@@ -1,7 +1,7 @@
 <?php
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
-App::uses('ValueFieldKind', 'Tools/ValueProfile');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
+App::uses('ValueFieldKind', 'Tools/ValueIntelligence');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 
 /**
  * The Relationships tab's aggregates.
@@ -137,7 +137,7 @@ class ValueRelationTool
      *
      * `object` belongs between `value` and `neighbour` once objects can
      * be tagged — there is no `object_tags` table yet, and
-     * `ValueProfile::neighbourhoodThreats` carries the same note.
+     * `ValueIntelligence::neighbourhoodThreats` carries the same note.
      */
     private static $attachments = array(
         'value' => 3,
@@ -812,7 +812,7 @@ class ValueRelationTool
      * neighbour source only reaches the events the attribute budget
      * afforded, because it is made of the rows that budget bought. A
      * value whose events are all too large to scan therefore still has
-     * labels here — which `ValueProfile::relationDigest` relies on,
+     * labels here — which `ValueIntelligence::relationDigest` relies on,
      * since the threat card is a slice of this fold.
      *
      * **A galaxy tag with no resolved cluster contributes nothing.**
@@ -2664,7 +2664,7 @@ class ValueRelationTool
      * template, so ten `hosted-by` references read as one block rather
      * than as ten unrelated rows.
      *
-     * @param array $rows From ValueProfile::objectReferences
+     * @param array $rows From ValueIntelligence::objectReferences
      * @param array $context `row_cap`, `page_size`, `in_objects`
      * @return array
      */

@@ -45,10 +45,10 @@
  * it.
  *
  * @var array $relevance The `relevance` block, from either
- *                       `ValueProfile::forRelevance()` or the
+ *                       `ValueIntelligence::forRelevance()` or the
  *                       assessment's own `$verdict['relevance']`
  */
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
 
 $state = $relevance['state'];
 ?>

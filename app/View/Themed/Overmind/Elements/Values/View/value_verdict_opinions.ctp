@@ -9,9 +9,9 @@
  * 0 / 50 / 100 is a shape, not a plot — the reader needs to see two
  * clusters and a hole, and nothing here rewards a tooltip.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 $opinions = $verdict['opinions'] ?? null;
 
 if (!empty($opinions['buckets'])) {

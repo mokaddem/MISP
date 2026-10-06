@@ -25,12 +25,12 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewHistory.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('AuditActionMeta', 'Tools/ValueProfile');
+App::uses('AuditActionMeta', 'Tools/ValueIntelligence');
 
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $history = $profile['history'];
 
 $panelColour = 'var(--bs-secondary-color)';

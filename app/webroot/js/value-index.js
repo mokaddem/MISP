@@ -157,7 +157,7 @@
      * ============================================================== */
 
     /*
-     * Five, the same cap the Value Profile's enrichment strip uses
+     * Five, the same cap the Value Intelligence's enrichment strip uses
      * (`data-vp-eb-max="5"`). It is not optional: a hundred parallel
      * requests is a reader's browser deciding how hard to hit their
      * own instance.

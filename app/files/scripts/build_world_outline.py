@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-build_world_outline.py — the value profile's map thumbnail.
+build_world_outline.py — the Value Intelligence page's map thumbnail.
 
-Generates the SVG world outline the Value Profile's geolocation
+Generates the SVG world outline the Value Intelligence page's geolocation
 renderer draws its points on, from the same vendored
 `world-110m.geojson` the dashboard's map widgets use. The output is a
 CakePHP element holding one `<symbol>`:

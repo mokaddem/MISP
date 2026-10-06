@@ -28,17 +28,17 @@
  * **What can now happen on arrival is the profile's and the
  * administrator's, together.** A module a profile marked `auto` fires
  * when this panel loads, but only where
- * `Plugin.ValueProfile_enrichment_auto_run` allows it — off by
+ * `Plugin.ValueIntelligence_enrichment_auto_run` allows it — off by
  * default, so this panel behaves exactly as it did until somebody
  * turns it on. The plan rides in on `data-vp-e-auto` and is empty
  * otherwise.
  *
  * Lazily loaded from ValuesController::viewEnrichment.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $enrichment = $profile['enrichment'];
 $service = $enrichment['service'];
 $modules = $enrichment['modules'];

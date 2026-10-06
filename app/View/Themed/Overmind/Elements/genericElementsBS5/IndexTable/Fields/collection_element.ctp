@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 
 $element = Hash::extract($row, $field['data_path']);
 

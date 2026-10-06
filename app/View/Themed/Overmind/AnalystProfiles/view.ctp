@@ -16,7 +16,7 @@
  * @var bool $may_edit Whether this reader would be allowed to edit it
  * @var array $bench
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-palette', 'analyst-profile'),

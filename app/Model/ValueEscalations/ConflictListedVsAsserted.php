@@ -1,6 +1,6 @@
 <?php
 
-App::uses('ValueLeanTool', 'Tools/ValueProfile');
+App::uses('ValueLeanTool', 'Tools/ValueIntelligence');
 App::uses('WarninglistCategory', 'Tools');
 
 /**

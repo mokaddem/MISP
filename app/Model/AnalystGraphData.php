@@ -1,7 +1,7 @@
 <?php
 App::uses('AppModel', 'Model');
 App::uses('AnalystGraphDocumentTool', 'Tools');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 
 /**
  * An analyst graph as one user sees it: the nodes they may read, their

@@ -113,7 +113,7 @@ The persona work (`worktree-personas`, not merged: 493 commits ahead of `develop
   adding `priority`. They are pure functions: no user, no query. The event page already passes
   the plan to its views (`labelPlan`, `EventsController.php:1767` on that branch), which order
   the tag and galaxy columns of event and attribute rows. There is no per-event or per-object
-  equivalent of the value page's `ValueProfile::forContext`, and missing pins are only drawn on
+  equivalent of the value page's `ValueIntelligence::forContext`, and missing pins are only drawn on
   the value page (D54).
 
 **What the sidebar takes from it.** Tags are grouped by taxonomy namespace and clusters by

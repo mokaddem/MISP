@@ -2,7 +2,7 @@
 /**
  * The proposals that propose *adding* this value.
  *
- * **`value-profile-coverage.md` §2.2's defect made visible.** A
+ * **`value-intelligence-coverage.md` §2.2's defect made visible.** A
  * proposal with `old_id = 0` proposes a new attribute rather than a
  * change to an existing one, so nothing in `attributes` holds the value
  * yet and every occurrence read on this page returns nothing for it.
@@ -30,7 +30,7 @@
  * `forOccurrenceTable` read, so the block and the table cannot be
  * answering two different fetches.
  *
- * @var array $proposals From `ValueProfile::forOccurrenceTable`
+ * @var array $proposals From `ValueIntelligence::forOccurrenceTable`
  */
 $rows = $proposals['rows'];
 

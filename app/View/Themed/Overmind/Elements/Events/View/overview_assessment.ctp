@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 
 $eventUuid = $data['Event']['uuid'] ?? '';
 $confidence = [];

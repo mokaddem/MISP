@@ -9,19 +9,19 @@
  * rather than taking `view_layout`'s split: the counts and the rows they
  * count come out of one fetch and cannot be allowed to disagree.
  *
- * An `index_table` over `$valueProfile['occurrences']`, shaped like a
+ * An `index_table` over `$valueIntelligence['occurrences']`, shaped like a
  * `fetchAttributes` result, so the field renderers are the ones every
  * other MISP index uses.
  *
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewOccurrenceTable.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
 
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
 $facets = $profile['occurrence_facets'];
@@ -862,7 +862,7 @@ $headerExtra = ob_get_clean();
          *
          * Outside `[data-vp-list-rows]` by construction, so the script
          * that filters, sorts and pages the table never sees these
-         * rows: `value-profile.js` resolves a list's rows through that
+         * rows: `value-intelligence.js` resolves a list's rows through that
          * host, and a block that wanted its own sorting would declare
          * its own `data-vp-list`. This one is short and has no rail to
          * disagree with.

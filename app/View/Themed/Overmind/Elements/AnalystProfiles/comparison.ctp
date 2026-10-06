@@ -14,7 +14,7 @@
  * @var array $comparison One headline per value
  * @var array $pinned The values in the set
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 
 $arrow = array('up' => '▲', 'down' => '▼', 'sideways' => '↔', 'none' => '—');
 $tone = array('up' => 'd-up', 'down' => 'd-dn', 'sideways' => 'd-0',

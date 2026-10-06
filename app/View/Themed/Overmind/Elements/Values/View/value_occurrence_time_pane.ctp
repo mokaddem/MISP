@@ -12,7 +12,7 @@
  * @var bool $countRows Rows carry intervals, so the hover count is of
  *     rows overlapping the window rather than a sum of bars
  */
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
 
 $note = $note ?? null;
 /*

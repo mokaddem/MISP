@@ -19,20 +19,20 @@
  *
  * Lazily loaded from ValuesController::viewSightingAdd.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
 /*
  * Three `COUNT(DISTINCT …)` rather than the rows: on `443` that set is
  * 48,255 occurrences, and fetching them to count cost 617 ms.
  */
-$fanout = $valueProfile['sighting_fanout'];
+$fanout = $valueIntelligence['sighting_fanout'];
 $visible = $fanout['occurrences'];
 $eventCount = $fanout['events'];
 $orgCount = $fanout['orgs'];
 
 $noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
+    'Disabled in this pass — the Value Intelligence page does not write to'
     . ' the database yet.'
 );
 

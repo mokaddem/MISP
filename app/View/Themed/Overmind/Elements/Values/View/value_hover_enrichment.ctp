@@ -20,10 +20,11 @@
  * When, never who: naming the analyst who ran a module would tell the
  * organisation which colleague is looking at which value.
  *
- * @var array $valueProfile `panel`, from `ValueProfile::forEnrichmentPanel`
+ * @var array $valueIntelligence `panel`, from
+ *     `ValueIntelligence::forEnrichmentPanel`
  * @var string $valueB64
  */
-$panel = $valueProfile['panel'];
+$panel = $valueIntelligence['panel'];
 if (empty($panel['present']) || empty($panel['modules'])) {
     /*
      * Nothing known and nothing askable. The card renders no section at

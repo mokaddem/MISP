@@ -4,7 +4,7 @@
 
 ---
 
-**MISP · Value Profile**
+**MISP · Value Intelligence**
 
 # The Analyst Assessment
 

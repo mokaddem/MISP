@@ -47,10 +47,10 @@
  *
  * Lazily loaded from ValuesController::viewRelationThreats.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $relations = $profile['relationships'];
 $threats = $relations['threats'];
 

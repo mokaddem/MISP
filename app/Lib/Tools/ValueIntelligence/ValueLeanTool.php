@@ -1,8 +1,8 @@
 <?php
 
-App::uses('ValueSignalLoader', 'Tools/ValueProfile');
-App::uses('ValueTrustTool', 'Tools/ValueProfile');
-App::uses('ValueStatementTool', 'Tools/ValueProfile');
+App::uses('ValueSignalLoader', 'Tools/ValueIntelligence');
+App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
+App::uses('ValueStatementTool', 'Tools/ValueIntelligence');
 App::uses('ValueEscalationBase', 'Model/ValueEscalations');
 
 /**

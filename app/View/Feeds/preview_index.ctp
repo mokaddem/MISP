@@ -47,7 +47,7 @@
                 <?php
                 $tags = $event['Tag'];
                 if (!empty($labelPlan)) {
-                    App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+                    App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
                     foreach ($tags as $at => $tag) {
                         $tags[$at]['key'] = ValueLabelPriority::namespaceOf($tag['name']);
                     }

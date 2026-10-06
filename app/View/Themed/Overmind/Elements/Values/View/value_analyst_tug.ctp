@@ -34,7 +34,7 @@
  * caller that cannot rely on its header states the count in the lead.
  *
  * @var array $tugOrgs One row per opinion on the value — `standing`'s
- *                     `orgs`, from `ValueProfile::analystStanding`
+ *                     `orgs`, from `ValueIntelligence::analystStanding`
  * @var string $tugLead The subhead over the bar
  */
 $tugLead = isset($tugLead) ? $tugLead : __('The split');

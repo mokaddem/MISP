@@ -174,21 +174,22 @@ class UserSetting extends AppModel
             'placeholder' => true,
             'validation' => 'validate_json',
         ],
-        // The last few values a reader opened on the Value Profile, as
+        // The last few values a reader opened on the Value Intelligence, as
         // `/values/index` carries them over — `{value, at}`, newest
-        // first, capped at `ValueProfile::RECENT_CAP`. Internal for the
+        // first, capped at `ValueIntelligence::RECENT_CAP`. Internal for the
         // same reason as `onboarding_pending` and one more: a list of
         // which values a colleague is looking at is precisely the
         // disclosure that feature refuses elsewhere, so it is kept out
         // of the audit log as well as out of the settings list.
-        'value_profile_recent' => [
+        'value_intelligence_recent' => [
             'internal' => true,
             'placeholder' => [],
             'validation' => 'validate_json',
         ],
         // The analyst graph "Add to graph" feeds, `{graph_uuid}`. Internal
-        // for the reason `value_profile_recent` is: which graph a colleague
-        // is working on is a per-viewer convenience, not an audited choice.
+        // for the reason `value_intelligence_recent` is: which graph a
+        // colleague is working on is a per-viewer convenience, not an
+        // audited choice.
         'intelligence_graph_active' => [
             'internal' => true,
             'placeholder' => ['graph_uuid' => null],

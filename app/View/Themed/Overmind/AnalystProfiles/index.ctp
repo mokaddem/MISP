@@ -34,7 +34,7 @@
  * @var int $comparison_limit
  * @var array $capabilities
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 App::uses('CakeTime', 'Utility');
 
 echo $this->element('genericElements/assetLoader', array(

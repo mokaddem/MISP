@@ -14,7 +14,7 @@
  *
  * @var array $relevance `$verdict['relevance']`
  */
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
 
 $state = $relevance['state'] ?? null;
 if ($state === null) {

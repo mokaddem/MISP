@@ -1,8 +1,8 @@
 <?php
-App::uses('ValueFieldKind', 'Tools/ValueProfile');
-App::uses('ValueRelationTool', 'Tools/ValueProfile');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueFieldKind', 'Tools/ValueIntelligence');
+App::uses('ValueRelationTool', 'Tools/ValueIntelligence');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 /**
  * Section one of the Relationships tab: what the correlation engine
  * stored about this value.
@@ -32,14 +32,14 @@ App::uses('ValueUrlTool', 'Tools/ValueProfile');
  * CIDR/ssdeep partners, which are the section below. It never returns a
  * different value. What is counted here is an event join, and the
  * engine's own state is reported on the rail instead.
- * prd/value-profile-live/24-relationships.md §3.
+ * prd/value-intelligence-live/24-relationships.md §3.
  *
  * Lazily loaded from ValuesController::viewRelationCooccurrence.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $relations = $profile['relationships'];
 $co = $relations['cooccurrence'];
 $siblings = $co['siblings'];
@@ -1264,7 +1264,7 @@ $headerSub = ob_get_clean();
              * The section's own narrowing bar, inside its own
              * `[data-vp-list]`. Phase 18 left this out and said what it
              * would cost: the facet lookups had to be scoped the way
-             * paging already was, which `ownNodes` in `value-profile.js`
+             * paging already was, which `ownNodes` in `value-intelligence.js`
              * now does for every control a list reads.
              *
              * It is a separate bar and not a seventh dropdown on the one

@@ -19,7 +19,7 @@ App::uses('ModuleLocality', 'Tools');
  *
  * Auto-run is the one thing here that **widens** rather than narrows,
  * which is why it is the one thing an instance has to agree to:
- * `Plugin.ValueProfile_enrichment_auto_run`, off by default. A
+ * `Plugin.ValueIntelligence_enrichment_auto_run`, off by default. A
  * profile resolves user → org → instance default, so an analyst can
  * be running under a document they did not write, and without that
  * gate somebody else's declaration would spend their quota.
@@ -134,7 +134,7 @@ class ValueEnrichmentTool
     const C_STATE_AUTO_SITE_ADMIN = 'state.auto_site_admin';
 
     /**
-     * `Plugin.ValueProfile_enrichment_auto_run`.
+     * `Plugin.ValueIntelligence_enrichment_auto_run`.
      *
      * The profile says *which* modules; this says *whether any of them
      * may run here*. It has to sit above the profile because
@@ -455,7 +455,7 @@ class ValueEnrichmentTool
 
     /**
      * Whether this declaration refuses a run of this module for this
-     * type — the check `ValueProfile::enrichmentRun()` has to make,
+     * type — the check `ValueIntelligence::enrichmentRun()` has to make,
      * because the run endpoint takes a module name from the request
      * and a disabled checkbox is not a guard.
      *

@@ -23,13 +23,13 @@
  * `38-hover-card.md` is the brief; §7 is why this proposal and not the
  * other two.
  *
- * @var array $valueProfile `value` and `card`, from
- *                          `ValueProfile::forHoverCard`
+ * @var array $valueIntelligence `value` and `card`, from
+ *                          `ValueIntelligence::forHoverCard`
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
-$card = $valueProfile['card'];
+$card = $valueIntelligence['card'];
 $lean = $card['lean'];
 $treatment = ValueLean::treatment($lean);
 
@@ -448,7 +448,7 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
                 <span class="vp-hc-gx"></span>
             <?php endif; ?>
             <a class="vp-hc-open" href="<?= h($profileUrl) ?>">
-                <?= h(__('Open profile')) ?>
+                <?= h(__('Open intelligence')) ?>
                 <i class="fas fa-angle-right" aria-hidden="true"></i>
             </a>
         </div>

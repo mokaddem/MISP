@@ -13,10 +13,10 @@
  *
  * Lazily loaded from ValuesController::viewSightingReporters.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$sightings = $valueProfile['sightings'];
+$sightings = $valueIntelligence['sightings'];
 $reporters = $sightings['reporters'];
 $top = empty($reporters) ? 0 : $reporters[0]['count'];
 ?>

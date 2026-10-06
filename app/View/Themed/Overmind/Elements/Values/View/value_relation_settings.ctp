@@ -56,14 +56,14 @@
  * what the engine did
  * or refused to do for this value is reported in this card's warn lines
  * or nowhere — which is why they survived the rows.
- * prd/value-profile-live/24-relationships.md §3.
+ * prd/value-intelligence-live/24-relationships.md §3.
  *
  * Lazily loaded from ValuesController::viewRelationSettings.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $relations = $profile['relationships'];
 $settings = $relations['settings'];
 
@@ -102,7 +102,7 @@ $restricted = !empty($external['restricted']['feeds'])
  * CIDR and ssdeep from the engine's own inputs, and the rest read
  * `object_references`, a feed cache or an analyst's claim.
  * `OverCorrelatingValue` and `Correlation::isValueExcluded` are each
- * read in exactly one place in `ValueProfile` — `relationSettings`,
+ * read in exactly one place in `ValueIntelligence` — `relationSettings`,
  * for this card — and nothing consults them again. The Occurrences tab
  * is not bounded by them either; it queries `attributes` directly, so
  * a value past the limit still lists every occurrence it has.
@@ -391,7 +391,7 @@ $split = array(
      * are no longer here to test for — `forRelationSettings` reads no
      * fold — so the block cannot decide up front whether it has
      * anything to draw. It starts hidden and `layoutRelationSplit` in
-     * `value-profile.js` reveals it once a panel has stamped a figure
+     * `value-intelligence.js` reveals it once a panel has stamped a figure
      * on it, which is the same discipline the contents strip keeps:
      * *not yet read* and *nothing there* are different answers, and a
      * row of zeroes would claim the second while the first is true.

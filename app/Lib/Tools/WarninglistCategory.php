@@ -16,7 +16,7 @@
  * lists, through the add/edit controller path, which is why it is not
  * dead code (`07-reference.md` §3.1).
  *
- * Three things on the Value Profile page depend on the distinction, and
+ * Three things on the Value Intelligence page depend on the distinction, and
  * one of them cannot work without it at all: the escalation
  * `conflict:known-infrastructure-vs-reporting` requires
  * `warninglist_category: known` in its `when`, so **without a category

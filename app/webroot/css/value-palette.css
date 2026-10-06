@@ -1,7 +1,7 @@
 /*
  * The verdict palette, shared.
  *
- * Two pages speak the three roles a verdict has: the Value Profile and
+ * Two pages speak the three roles a verdict has: the Value Intelligence and
  * the Analyst Profile editor. One declaration, loaded by both, because
  * the alternative is two files drifting a shade apart on the one pair
  * of colours whose meaning is load-bearing.
@@ -124,10 +124,10 @@
 /* ==================================================================
  * The dates behind the relevance axis
  * ------------------------------------------------------------------
- * Here rather than in `value-profile.css` for this file's own stated
- * reason: two pages speak it. The Value Profile's Lifetime card and the
+ * Here rather than in `value-intelligence.css` for this file's own stated
+ * reason: two pages speak it. The Value Intelligence's Lifetime card and the
  * Analyst Profile editor's bench render the same element, and the
- * editor does not load `value-profile.css`.
+ * editor does not load `value-intelligence.css`.
  *
  * `--vp-shelf-colour` is the card's own state colour and is only set
  * inside a `.vp-shelf`; on the bench there is none, so every use

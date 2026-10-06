@@ -1,17 +1,17 @@
 <?php
 
-App::uses('ValueSignalLoader', 'Tools/ValueProfile');
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueSignalLoader', 'Tools/ValueIntelligence');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
 /*
  * Loaded here rather than by the three signals that use it: a signal
  * file is discovered from the filesystem and required by the loader,
  * which is not a place `App::uses` has run — and the engine is the one
  * thing guaranteed to be in memory before any signal evaluates.
  */
-App::uses('ValueTrustTool', 'Tools/ValueProfile');
-App::uses('ValueLeanTool', 'Tools/ValueProfile');
-App::uses('ValueChangersTool', 'Tools/ValueProfile');
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
+App::uses('ValueLeanTool', 'Tools/ValueIntelligence');
+App::uses('ValueChangersTool', 'Tools/ValueIntelligence');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
 
 /**
  * The accumulator: a profile plus a value's facts, in; a ledger that
@@ -147,7 +147,7 @@ class ValueVerdictTool
     /**
      * @param Model|null $model Something answering
      *                          `verdictContextFor()` and carrying an
-     *                          `AnalystProfile` — `ValueProfile`, in
+     *                          `AnalystProfile` — `ValueIntelligence`, in
      *                          practice
      */
     public function __construct($model = null)

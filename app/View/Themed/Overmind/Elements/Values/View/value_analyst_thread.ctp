@@ -10,7 +10,7 @@
  * **Proposals are here too, since phase 26.** A proposal is how MISP
  * let a third party disagree before analyst data existed, and this
  * panel's subject is who says what about the value
- * (`value-profile-coverage.md` §5) — so the choice was to include them
+ * (`value-intelligence-coverage.md` §5) — so the choice was to include them
  * or to exclude them *in words*, and silently omitting them was the one
  * option that left the panel claiming a completeness it did not have.
  * They are drawn, filtered by their own pill, and they reach neither
@@ -41,15 +41,15 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystThread.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-$analyst = $valueProfile['analyst'];
+$analyst = $valueIntelligence['analyst'];
 $thread = $analyst['thread'];
 $counts = $analyst['counts'];
-$stats = $valueProfile['occurrence_stats'];
+$stats = $valueIntelligence['occurrence_stats'];
 
 $noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
+    'Disabled in this pass — the Value Intelligence page does not write to'
     . ' the database yet.'
 );
 

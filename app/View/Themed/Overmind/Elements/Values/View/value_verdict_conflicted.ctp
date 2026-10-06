@@ -18,15 +18,15 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewVerdict.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 
 $noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
+    'Disabled in this pass — the Value Intelligence page does not write to'
     . ' the database yet.'
 );
 

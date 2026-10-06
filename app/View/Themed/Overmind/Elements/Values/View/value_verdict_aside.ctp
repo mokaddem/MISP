@@ -16,12 +16,12 @@
  * Lazily loaded into `.ajax-card` from
  * ValuesController::viewVerdictAside.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 /*
  * The same predicate `ValuesController::viewVerdict` picks the main
  * column's template with. Read its docblock before changing either:
@@ -31,7 +31,7 @@ $verdict = $valueProfile['verdict'];
  */
 $conflicted = ValueLean::hasConflictedLayout($verdict);
 
-$uid = 'vp' . substr(md5($valueProfile['value'] . '-aside'), 0, 8);
+$uid = 'vp' . substr(md5($valueIntelligence['value'] . '-aside'), 0, 8);
 
 /*
  * A `none` lean has none of these, so the rail renders nothing
@@ -65,7 +65,7 @@ $cards = $conflicted
          * and stores nothing, so there is no yesterday's score to plot
          * — and what the card draws now is the relevance runway, which
          * is reconstructed from dates and therefore has a real history.
-         * `ValueProfile::verdictCurves` carries the whole argument.
+         * `ValueIntelligence::verdictCurves` carries the whole argument.
          */
         array(
             'element' => 'value_verdict_curves',
@@ -77,13 +77,13 @@ $cards = $conflicted
     );
 
 $noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
+    'Disabled in this pass — the Value Intelligence page does not write to'
     . ' the database yet.'
 );
 
 foreach ($cards as $card) {
     $params = array(
-        'valueProfile' => $valueProfile,
+        'valueIntelligence' => $valueIntelligence,
         'noWrites' => $noWrites,
     );
     if (!empty($card['chart'])) {

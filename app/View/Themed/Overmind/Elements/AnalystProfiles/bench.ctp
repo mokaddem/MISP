@@ -15,8 +15,8 @@
  * @var array $bands
  * @var string $profileId
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
 $full = isset($full) ? $full : false;
 $detail = $bench['detail'];

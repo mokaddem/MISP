@@ -1,16 +1,16 @@
 <?php
 
-App::uses('ValueLean', 'Tools/ValueProfile');
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
 App::uses('GalaxyCategory', 'Tools');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 
 /**
  * The hover card's payload, folded from an assessment already made.
  *
  * The card is shown when a reader hovers a value anywhere in MISP, and
  * it answers one question: *does this change what I do next*. It is not
- * a small Value Profile — the page says what is true about a value, and
+ * a small Value Intelligence — the page says what is true about a value, and
  * this says whether the reader needs the page.
  *
  * **It issues no query and adds none.** Everything below is folded from
@@ -24,7 +24,7 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
  * It is not a cheaper assessment drawn from cheaper facts; it is the
  * same array, read down to what fits in 400px.
  *
- * @see ValueProfile::forHoverCard
+ * @see ValueIntelligence::forHoverCard
  */
 class ValueHoverTool
 {

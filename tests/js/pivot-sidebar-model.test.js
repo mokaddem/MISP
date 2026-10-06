@@ -109,7 +109,7 @@ suite('parity with ValueLabelPriority.php', () => {
         ['planFor', { context: { taxonomies: { pinned: [' TLP ', 'tlp', 7], demoted: ['tlp', 'x'] } } }],
     ];
     const php = `
-require '${app}/Lib/Tools/ValueProfile/ValueLabelPriority.php';
+require '${app}/Lib/Tools/ValueIntelligence/ValueLabelPriority.php';
 $out = [];
 foreach (json_decode(stream_get_contents(STDIN), true) as $c) {
     $fn = array_shift($c);

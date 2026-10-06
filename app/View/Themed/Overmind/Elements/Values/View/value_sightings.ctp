@@ -9,10 +9,10 @@
  *
  * Lazily loaded into `.ajax-card` from ValuesController::viewSightings.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$sightings = $valueProfile['sightings'];
+$sightings = $valueIntelligence['sightings'];
 $positive = $sightings['total'] - $sightings['fp'] - $sightings['expiration'];
 $spark = $sightings['spark'];
 $reporters = $sightings['reporters'];
@@ -46,7 +46,7 @@ $scale = $peakUp + $peakDown;
 $upShare = $scale > 0 ? 100 * $peakUp / $scale : 100;
 
 $noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
+    'Disabled in this pass — the Value Intelligence page does not write to'
     . ' the database yet.'
 );
 

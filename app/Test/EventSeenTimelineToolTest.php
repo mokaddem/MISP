@@ -7,7 +7,8 @@ if (!class_exists('App')) {
         }
     }
 }
-require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueProfileBuckets.php';
+require_once __DIR__
+    . '/../Lib/Tools/ValueIntelligence/ValueIntelligenceBuckets.php';
 require_once __DIR__ . '/../Lib/Tools/EventOverview/EventSeenTimelineTool.php';
 
 use PHPUnit\Framework\TestCase;

@@ -33,9 +33,9 @@
  * sentences that say under what rules the session is worked keep the
  * first line and the note takes a line of its own when it is opened.
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
-App::uses('ValueVerdictTool', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
+App::uses('ValueVerdictTool', 'Tools/ValueIntelligence');
 
 /*
  * The leans, drawn exactly as `assessment.ctp` draws the one on a

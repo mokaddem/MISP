@@ -141,7 +141,7 @@ class AttributionGalaxy extends ValueSignalBase
              * the work is *occurrence*, and it was doing it silently.
              * So the count is said out loud and the evidence line says
              * why it is not an attribution, which is the distinction
-             * `ValueProfile::verdictEventGalaxies` exists to keep
+             * `ValueIntelligence::verdictEventGalaxies` exists to keep
              * rather than to soften.
              *
              * `eligible()` runs over the event set too, so the two

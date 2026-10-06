@@ -25,14 +25,14 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewVerdict.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 
-$uid = 'vp' . substr(md5($valueProfile['value'] . '-verdict'), 0, 8);
+$uid = 'vp' . substr(md5($valueIntelligence['value'] . '-verdict'), 0, 8);
 
 $lean = $verdict['lean'];
 $treatment = ValueLean::treatment($lean);

@@ -10,11 +10,11 @@
  * axis would cost more room than it returns, and the reader is looking
  * for a crossing rather than a value. Tooltips still carry the numbers.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $chartId   Namespaced by the caller
  * @var string $cardTitle What the two lines are, for this value
  */
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 $curves = $verdict['curves'] ?? array();
 
 if (!empty($curves)) {

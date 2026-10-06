@@ -32,7 +32,7 @@ foreach ($data['data'] as $k => $data_row) {
     /*
      * `row_data_callable` returns name => value pairs to hang on the <tr>
      * as `data-` attributes. A row that has to be matched on several
-     * independent keys at once — the Value Profile's facet rail filters on
+     * independent keys at once — the Value Intelligence's facet rail filters on
      * type and organisation and tag together — cannot express that as a
      * class string without the reader parsing class names back into
      * fields. Names are restricted to what may follow `data-`; absent for

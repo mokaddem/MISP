@@ -10,9 +10,9 @@
  * legend are read against the same ruler, and the deduction is hatched
  * in the colour of the group it came out of rather than recoloured.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 $composition = $verdict['composition'] ?? array();
 
 $positive = 0;

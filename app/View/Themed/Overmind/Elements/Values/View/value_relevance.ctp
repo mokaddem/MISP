@@ -48,13 +48,13 @@
  *
  * Lazily loaded from ValuesController::viewRelevance.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
-$relevance = $valueProfile['relevance'];
-$sightings = $valueProfile['sightings'];
-$notes = $valueProfile['sighting_notes'];
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
+$relevance = $valueIntelligence['relevance'];
+$sightings = $valueIntelligence['sightings'];
+$notes = $valueIntelligence['sighting_notes'];
 
 /*
  * The labels this card invented — `new organisation`, `independent
@@ -123,9 +123,9 @@ $ttl = $relevance['ttl'];
              * columns differently.
              */
             ?>
-            <?php if (!empty($valueProfile['timeline_facts'])): ?>
+            <?php if (!empty($valueIntelligence['timeline_facts'])): ?>
                 <?= $this->element('Values/View/value_date_sources', array(
-                    'facts' => $valueProfile['timeline_facts'],
+                    'facts' => $valueIntelligence['timeline_facts'],
                     'clockKind' => $clock['kind'],
                     'clockLabel' => ValueRelevanceTool::clockLabel(
                         $clock['setting']

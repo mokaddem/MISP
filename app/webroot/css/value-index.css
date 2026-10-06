@@ -1,5 +1,5 @@
 /*
- * `/values/index` — the way in to the Value Profile.
+ * `/values/index` — the way in to the Value Intelligence.
  *
  * The picked direction is `prd/value-index/02b-proposal-c.html` — the
  * worklist, with direction A's prompt — and this is that artefact
@@ -8,7 +8,7 @@
  * worklist, the small blocks and the method note bring their own
  * sections as they land.
  *
- * Colours are Bootstrap 5's variables, as `value-profile.css` uses
+ * Colours are Bootstrap 5's variables, as `value-intelligence.css` uses
  * them, so both themes come for free and neither is hard-coded. The
  * verdict palette arrives through `value-palette.css`, which every
  * block that draws a lean loads beside this one.
@@ -666,7 +666,7 @@
  * ------------------------------------------------------------------
  * The three axes the rows draw, mapped onto the palette every other
  * block on this feature reads. Two of them the palette already names;
- * relevance it does not, because the Value Profile draws that axis as
+ * relevance it does not, because the Value Intelligence draws that axis as
  * a number opposite a date rather than as a coloured word, and a list
  * of forty rows has no room for the date. The fallbacks are the ones
  * `02b-proposal-c.html` measured both themes against, so a palette

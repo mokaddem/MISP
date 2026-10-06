@@ -1188,7 +1188,7 @@ class FeedsController extends AppController
             return $this->RestResponse->viewData($events, $this->response->type());
         }
         $this->set('events', $events);
-        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
         $this->set('labelPlan', ValueLabelPriority::planFor(
             ClassRegistry::init('AnalystProfile')
                 ->resolveFor($this->Auth->user())

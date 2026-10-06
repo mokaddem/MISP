@@ -1613,7 +1613,7 @@ class AdminShell extends AppShell
     }
 
     /**
-     * Empty the Value Profile's enrichment run store, or age it out.
+     * Empty the Value Intelligence's enrichment run store, or age it out.
      *
      * `value_enrichment_runs` keeps what a module last said about a
      * value so the tab can show it rather than ask again

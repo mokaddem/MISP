@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 /**
  * The labels on an occurrence — the ones on the attribute and the ones
  * on the event carrying it, as one list.

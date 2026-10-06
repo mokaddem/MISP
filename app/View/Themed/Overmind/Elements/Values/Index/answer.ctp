@@ -27,8 +27,8 @@
  *
  * @var array $resolution `kind`, and what that kind carries
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
-App::uses('ValueInputTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
+App::uses('ValueInputTool', 'Tools/ValueIntelligence');
 
 $kind = $resolution['kind'];
 $profileUrl = function ($value) {
@@ -62,7 +62,7 @@ $profileUrl = function ($value) {
 <?php   if ($resolution['suggestion'] === null): ?>
     <div class="vi-offer">
         <a class="vi-btn" href="<?= h($profileUrl($resolution['value'])) ?>">
-            <?= h(__('Open the Value Profile anyway')) ?>
+            <?= h(__('Open the Value Intelligence anyway')) ?>
         </a>
         <span class="vi-mark"><?= h(__(
             'It will show the same result, tab by tab.'

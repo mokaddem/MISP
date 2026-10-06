@@ -1,6 +1,6 @@
 <?php
 
-App::uses('ValueStatementTool', 'Tools/ValueProfile');
+App::uses('ValueStatementTool', 'Tools/ValueIntelligence');
 
 /**
  * Why the lean is the lean, in one sentence.

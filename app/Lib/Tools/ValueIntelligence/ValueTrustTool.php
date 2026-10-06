@@ -50,7 +50,7 @@
  * grade the wrong organisation after an export/import or against a
  * peer. Everything downstream — the org rows, the sighting rows
  * — carries the local id, so the uuid→id resolution happens once,
- * where the `organisations` table is in reach (`ValueProfile::
+ * where the `organisations` table is in reach (`ValueIntelligence::
  * verdictTrust`), and the context carries the joined result. A graded
  * uuid that matches no row on this instance is **kept, ignored and
  * reported** rather than dropped: the organisation may return, or the

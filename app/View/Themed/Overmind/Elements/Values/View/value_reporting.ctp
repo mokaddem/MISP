@@ -20,10 +20,10 @@
  *
  * Lazily loaded into `.ajax-card` from ValuesController::viewReporting.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$reporting = $valueProfile['reporting'];
+$reporting = $valueIntelligence['reporting'];
 $months = $reporting['months'];
 $orgs = $reporting['orgs'];
 $peak = empty($months) ? 0 : max($months);

@@ -1,12 +1,12 @@
 <?php
 /**
- * Value Profile — the page whose subject is one value rather than one
+ * Value Intelligence — the page whose subject is one value rather than one
  * event. The frame renders here; every panel is lazily loaded.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
 /*
  * Chart.js is loaded once here rather than per fragment: several panels
@@ -17,12 +17,14 @@ App::uses('ValueLean', 'Tools/ValueProfile');
 echo $this->element('genericElements/assetLoader', array(
     'css' => array(
         'value-palette', 'value-widgets', 'misp-brush', 'misp-matrix',
-        'value-profile',
+        'value-intelligence',
     ),
-    'js' => array('Chart.min', 'misp-brush', 'misp-matrix', 'value-profile'),
+    'js' => array(
+        'Chart.min', 'misp-brush', 'misp-matrix', 'value-intelligence',
+    ),
 ));
 
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 
 /*
  * ------------------------------------------------------------------
@@ -84,7 +86,7 @@ if (!empty($profile['value2_note'])) {
  * what the page deliberately shows as unavailable.
  */
 $noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
+    'Disabled in this pass — the Value Intelligence page does not write to'
     . ' the database yet.'
 );
 
@@ -139,7 +141,7 @@ $this->set('headerTitleHtml', $titleHtml);
 $this->set('headerBreadcrumb', array(
     array('label' => __('Values'),
         'url' => array('controller' => 'values', 'action' => 'index')),
-    __('Value Profile'),
+    __('Value Intelligence'),
 ));
 $this->set('headerDescription', $description);
 $this->set('headerActions', $headerActions);
@@ -463,7 +465,7 @@ $hasVerdictAside = $verdict['lean'] !== 'none';
  * near-match or a remote hit, so *0 objects* would answer *is this
  * worth opening* wrongly. No pill means what it means on Sightings and
  * Timeline — no number can be told truly — and never *nothing here*.
- * `ValueProfile::forTabCounts` has the cost and the rest of the case.
+ * `ValueIntelligence::forTabCounts` has the cost and the rest of the case.
  */
 $relationshipObjects = (int)($counts['relationship_objects'] ?? 0);
 $relationshipBadge = $relationshipObjects === 0 ? null : array(
@@ -629,7 +631,7 @@ $tabRegistry = array(
         /*
          * The viewer's own count, off the same aggregate the tab's
          * header uses, so the badge and the panel cannot disagree —
-         * `ValueProfile::forTabCounts`.
+         * `ValueIntelligence::forTabCounts`.
          */
         'badge' => $occurrenceBadge,
         /*
@@ -658,7 +660,7 @@ $tabRegistry = array(
          * the price is a single count on the frame's own read, off the
          * same rule `listSightings` applies.
          *
-         * `ValueProfile::forTabCounts` holds the rest of the reasoning.
+         * `ValueIntelligence::forTabCounts` holds the rest of the reasoning.
          *
          * The page's usual 9/3 split. The overlay is the tab, and it
          * needs the width: bars stacked by organisation under the shelf
@@ -691,7 +693,7 @@ $tabRegistry = array(
          * What the pill carries instead is the notion §26 re-founded
          * the tab on, off one indexed aggregate, and it is the same
          * number the sibling panel and the graph's object layer print.
-         * `$relationshipBadge` above and `ValueProfile::forTabCounts`
+         * `$relationshipBadge` above and `ValueIntelligence::forTabCounts`
          * hold the case, the cost and why zero shows nothing.
          */
         'badge' => $relationshipBadge,
@@ -880,7 +882,7 @@ $tabRegistry = array(
                 $panel('viewAnalystComments') + array('col' => 'col-xl-6'),
                 /*
                  * The narrative list, added by phase 26 —
-                 * `value-profile-coverage.md` §4.5 places event reports
+                 * `value-intelligence-coverage.md` §4.5 places event reports
                  * on this tab, and a report is a document rather than a
                  * turn in the thread above it. Its own endpoint,
                  * because it is one `fetchReports` over the value's

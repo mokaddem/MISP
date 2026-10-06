@@ -34,8 +34,8 @@
  * @var array $verdict The assessment, carrying `stances`, `decided_by`
  *                     and `rule_errors`
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
-App::uses('ValueLeanReasonTool', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
+App::uses('ValueLeanReasonTool', 'Tools/ValueIntelligence');
 
 $reason = ValueLeanReasonTool::reasonFor($verdict);
 $stances = isset($verdict['stances']) && is_array($verdict['stances'])

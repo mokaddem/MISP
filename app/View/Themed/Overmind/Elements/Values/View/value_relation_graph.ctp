@@ -10,11 +10,11 @@
  *
  * Lazily loaded from ValuesController::viewRelationGraph.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  * @var array $pivotLabels `plan`, `permitted`
  */
-$value = $valueProfile['value'];
+$value = $valueIntelligence['value'];
 $cardId = 'vn-' . substr(md5($value), 0, 8);
 
 echo $this->element('genericElements/assetLoader', array(

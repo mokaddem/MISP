@@ -6,7 +6,7 @@
  * corroborated forty times does not need forty rows to make the point,
  * and the newest one is the clock. The cap is a cap and not a
  * permission, so it says how many it left out
- * (`value-profile-live/00-contract.md` §14.6).
+ * (`value-intelligence-live/00-contract.md` §14.6).
  *
  * Shared with the Assessment tab's clock band, where it is the nearest
  * thing the relevance axis has to the quality ledger: the dates that
@@ -19,7 +19,7 @@
  *                   stamp currently in force
  * @var int $cap     How many rows to draw before counting the rest
  */
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
 
 $events = array_reverse($clock['events']);
 $cap = isset($cap) ? (int)$cap : 6;

@@ -21,7 +21,7 @@
  * @var string|null $benchValue
  */
 App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
 $ledger = isset($ledger) ? $ledger : array();
 $benchValue = isset($benchValue) ? $benchValue : null;

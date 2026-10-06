@@ -20,10 +20,10 @@
  *
  * Lazily loaded from ValuesController::viewSightingList.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$rows = array_reverse($valueProfile['sighting_rows']);
+$rows = array_reverse($valueIntelligence['sighting_rows']);
 $total = count($rows);
 $pageSize = 10;
 
@@ -341,7 +341,9 @@ $subtitle = $total === 0
 
         <div class="vp-acl-note vp-acl-note-band">
             <i class="fas fa-user-shield"></i>
-            <span><?= h($valueProfile['sighting_notes']['policy']) ?></span>
+            <span><?=
+                h($valueIntelligence['sighting_notes']['policy'])
+            ?></span>
         </div>
 
     <?php endif; ?>

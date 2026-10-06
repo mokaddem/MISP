@@ -1,6 +1,6 @@
 <?php
 /**
- * `/values/index` — the way in to the Value Profile.
+ * `/values/index` — the way in to the Value Intelligence.
  *
  * **Not an index of values, and it cannot be one.** The subject of
  * this feature is a value string rather than a row, so *all values* is

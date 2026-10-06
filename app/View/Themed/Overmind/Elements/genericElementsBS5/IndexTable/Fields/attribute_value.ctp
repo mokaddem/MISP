@@ -1,6 +1,6 @@
 <?php
 App::uses('MispAttribute', 'Model');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 
 $attribute = Hash::extract($row, $field['data_path']);
 

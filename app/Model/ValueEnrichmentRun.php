@@ -2,7 +2,7 @@
 
 App::uses('AppModel', 'Model');
 App::uses('RedisTool', 'Tools');
-App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
+App::uses('ValueEnrichmentTool', 'Tools/ValueIntelligence');
 
 /**
  * What a module last answered about a value, per organisation.
@@ -48,7 +48,7 @@ App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
  * ## What is stored, and what is not
  *
  * The shaped run, post-cap and pre-chips. Post-cap because
- * `ValueProfile::ENRICHMENT_ELEMENT_CAP` already bounds a result at
+ * `ValueIntelligence::ENRICHMENT_ELEMENT_CAP` already bounds a result at
  * 200 elements while preserving `total`, and that cap is the
  * difference between a bounded row and the 1,374 objects
  * `circl_passivedns` returns for `8.8.8.8`. Pre-chips because
@@ -67,7 +67,7 @@ class ValueEnrichmentRun extends AppModel
     /**
      * How long a row is kept once nothing has re-run it.
      *
-     * A constant rather than a setting: the Value Profile page ships
+     * A constant rather than a setting: the Value Intelligence page ships
      * one instance setting as of this phase — the auto-run gate — and
      * a retention knob is the kind nobody tunes. `purgeOlderThan()`
      * raises this floor to fit any profile declaring a longer reuse
@@ -90,14 +90,14 @@ class ValueEnrichmentRun extends AppModel
     /**
      * The identity of a value for this table.
      *
-     * `Value::uuidFor()` is specified in `value-profile-writes.md` §7
+     * `Value::uuidFor()` is specified in `value-intelligence-writes.md` §7
      * — STIX 2.1's deterministic UUIDv5, with a `value_dictionary`
      * making the one-way identity renderable — and neither it nor the
      * table exists. Adopting that contract here would make an
      * enrichment cache depend on the whole writes phase.
      *
      * So this is the identity the page already uses everywhere else:
-     * `ValueProfile`'s Redis keys hash the value, and this hashes it
+     * `ValueIntelligence`'s Redis keys hash the value, and this hashes it
      * the same way. **No normalisation of its own** — a store that
      * normalised differently from the page would disagree with the
      * page about which value is on screen, and §14.3 of the main PRD
@@ -306,7 +306,7 @@ class ValueEnrichmentRun extends AppModel
     /**
      * Record what the module said.
      *
-     * `$run` is `ValueProfile::enrichmentRun()`'s array **before**
+     * `$run` is `ValueIntelligence::enrichmentRun()`'s array **before**
      * `enrichmentKnown()` has marked it up, which is the boundary
      * §8.1 argues for. The payload is serialised and compressed
      * through `RedisTool`'s helpers because they are the codebase's

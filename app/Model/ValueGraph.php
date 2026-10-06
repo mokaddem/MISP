@@ -1,7 +1,7 @@
 <?php
 App::uses('AppModel', 'Model');
 App::uses('Value', 'Model');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 
 /**
  * A value's neighbourhood as the Pivot Explorer draws it: records shaped
@@ -709,7 +709,7 @@ class ValueGraph extends AppModel
      */
     private function near(array $user, $value)
     {
-        $profile = $this->model('ValueProfile')->forRelationNearMatch(
+        $profile = $this->model('ValueIntelligence')->forRelationNearMatch(
             $user,
             $value
         );

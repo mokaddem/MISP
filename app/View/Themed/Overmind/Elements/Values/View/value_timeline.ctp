@@ -29,17 +29,17 @@
  *
  * Lazily loaded from ValuesController::viewTimeline.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
+App::uses('ValueIntelligenceBuckets', 'Tools/ValueIntelligence');
 
 /*
  * The spine's grain, chosen from the value's own range.
  *
  * A value first seen last week needs finer bins and one held since 2020
  * needs coarser, so the rule is the range's — and it is this tab's own
- * rule rather than `ValueProfileBuckets`' default, because a bar here
+ * rule rather than `ValueIntelligenceBuckets`' default, because a bar here
  * means something different from a bar on the Sightings navigator. A
  * sighting has a timestamp to the second; a bar here is a density over
  * sources MISP dates unevenly, so the finest grain it offers is a day
@@ -52,13 +52,13 @@ App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
  * rather than a row, and the counts it stacks are already server-side.
  */
 $spineRule = array(
-    array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
-    array('days' => 400, 'unit' => ValueProfileBuckets::WEEK),
-    array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+    array('days' => 45, 'unit' => ValueIntelligenceBuckets::DAY),
+    array('days' => 400, 'unit' => ValueIntelligenceBuckets::WEEK),
+    array('days' => null, 'unit' => ValueIntelligenceBuckets::MONTH),
 );
 
-$timeline = isset($valueProfile['timeline'])
-    ? $valueProfile['timeline']
+$timeline = isset($valueIntelligence['timeline'])
+    ? $valueIntelligence['timeline']
     : null;
 
 /*
@@ -310,7 +310,7 @@ $window = $timeline === null ? null : $timeline['window'];
 $auditRecorded = $timeline !== null && $timeline['audit_recorded'];
 /*
  * When the instance first held this value, or the bound the records
- * support — `ValueProfile::timelineFirstHere` decides which and this
+ * support — `ValueIntelligence::timelineFirstHere` decides which and this
  * only picks the sentence. Null on a value with no trace at all, which
  * is the panel that has no axis either.
  */
@@ -498,7 +498,7 @@ $listCapped = $listShown < $listOf;
 $windowed = array();
 foreach ($entries as $entry) {
     /*
-     * Overlap and not start — `ValueProfile::timelineTouches`' rule,
+     * Overlap and not start — `ValueIntelligence::timelineTouches`' rule,
      * and this is the copy of it the lane marks read. A span whose two
      * ends both sit outside the window still crosses it and the lane
      * still draws a bar right across; tested on its start alone it was
@@ -580,7 +580,7 @@ foreach ($windowed as $entry) {
 $bins = array();
 $before = 0;
 $earliest = null;
-$spineUnit = ValueProfileBuckets::MONTH;
+$spineUnit = ValueIntelligenceBuckets::MONTH;
 $today = (new DateTimeImmutable('now', $utc))->format('Y-m-d');
 $rangeFrom = $counts['first'] === null
     ? null
@@ -592,8 +592,8 @@ if ($window !== null && $rangeFrom !== null) {
     $rangeDays = 1 + (int)(new DateTimeImmutable($rangeFrom, $utc))
         ->diff(new DateTimeImmutable($rangeTo, $utc))
         ->days;
-    $spineUnit = ValueProfileBuckets::unitForSpan($rangeDays, $spineRule);
-    $bins = ValueProfileBuckets::series(
+    $spineUnit = ValueIntelligenceBuckets::unitForSpan($rangeDays, $spineRule);
+    $bins = ValueIntelligenceBuckets::series(
         $rangeFrom,
         max($rangeTo, $today),
         $spineUnit
@@ -602,7 +602,7 @@ if ($window !== null && $rangeFrom !== null) {
         $bins[$i]['counts'] = array();
         $bins[$i]['total'] = 0;
     }
-    $index = ValueProfileBuckets::locate($bins);
+    $index = ValueIntelligenceBuckets::locate($bins);
     foreach ($countsByDay as $day => $bySource) {
         if (!isset($index[$day])) {
             continue;
@@ -687,9 +687,9 @@ if ($bins !== array() && $rangeTo !== null && isset($index[$rangeTo])) {
          * its own rhythm and never say anything about the second.
          */
         $grainDays = array(
-            ValueProfileBuckets::DAY => 1,
-            ValueProfileBuckets::WEEK => 7,
-            ValueProfileBuckets::MONTH => 30,
+            ValueIntelligenceBuckets::DAY => 1,
+            ValueIntelligenceBuckets::WEEK => 7,
+            ValueIntelligenceBuckets::MONTH => 30,
         );
         $tailDays = (int)(new DateTimeImmutable($rangeTo, $utc))
             ->diff(new DateTimeImmutable($today, $utc))
@@ -882,15 +882,15 @@ $xFor = function ($at) use ($fractionFor, $LANE_W, $MARK_W) {
  * and the chronology under the panel is where an exact moment was
  * always read.
  *
- * The bins are `ValueProfileBuckets`, the same helper the spine uses,
+ * The bins are `ValueIntelligenceBuckets`, the same helper the spine uses,
  * at a grain chosen for this axis rather than for the spine's: 740
  * viewBox units wide, so past about 120 columns a column is thinner
  * than the gap beside it.
  */
 $laneRule = array(
-    array('days' => 120, 'unit' => ValueProfileBuckets::DAY),
-    array('days' => 730, 'unit' => ValueProfileBuckets::WEEK),
-    array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+    array('days' => 120, 'unit' => ValueIntelligenceBuckets::DAY),
+    array('days' => 730, 'unit' => ValueIntelligenceBuckets::WEEK),
+    array('days' => null, 'unit' => ValueIntelligenceBuckets::MONTH),
 );
 $laneBins = array();
 $laneAt = array();
@@ -898,12 +898,12 @@ if ($window !== null) {
     $laneDays = 1 + (int)(new DateTimeImmutable($window['from'], $utc))
         ->diff(new DateTimeImmutable($window['to'], $utc))
         ->days;
-    $laneBins = ValueProfileBuckets::series(
+    $laneBins = ValueIntelligenceBuckets::series(
         $window['from'],
         $window['to'],
-        ValueProfileBuckets::unitForSpan($laneDays, $laneRule)
+        ValueIntelligenceBuckets::unitForSpan($laneDays, $laneRule)
     );
-    $laneAt = ValueProfileBuckets::locate($laneBins);
+    $laneAt = ValueIntelligenceBuckets::locate($laneBins);
 }
 
 /*
@@ -928,7 +928,7 @@ $BIN_GAP = 1;
  * *point* drawn at the window's end still fits inside the box, and a
  * bin is a span that already ends there.
  *
- * @param array $bin From `ValueProfileBuckets::series()`
+ * @param array $bin From `ValueIntelligenceBuckets::series()`
  * @return array x and width, in viewBox units
  */
 $binBox = function (array $bin) use ($fractionFor, $LANE_W, $BIN_GAP) {
@@ -1080,7 +1080,7 @@ for ($m = 1; $m <= 12; $m++) {
  * What a lane column's bin is called, out of the same twelve names.
  *
  * One rule for all three grains rather than a name per unit —
- * `ValueProfileBuckets::describe()` writes *November 2025* for a month
+ * `ValueIntelligenceBuckets::describe()` writes *November 2025* for a month
  * and the script has only the abbreviations, so reusing its title
  * would put the two renderers a word apart on every month bin.
  *
@@ -1694,9 +1694,10 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                              * not told will read one as the other.
                              */
                             $grainWord = array(
-                                ValueProfileBuckets::DAY => __('by day'),
-                                ValueProfileBuckets::WEEK => __('by week'),
-                                ValueProfileBuckets::MONTH => __('by month'),
+                                ValueIntelligenceBuckets::DAY => __('by day'),
+                                ValueIntelligenceBuckets::WEEK => __('by week'),
+                                ValueIntelligenceBuckets::MONTH =>
+                                    __('by month'),
                             );
                             ?>
                             <?= h(sprintf(

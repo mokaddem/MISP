@@ -7,9 +7,10 @@ if (!class_exists('App')) {
         }
     }
 }
-require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueLabelPriority.php';
-require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueProfileBuckets.php';
-require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueStatsTool.php';
+require_once __DIR__ . '/../Lib/Tools/ValueIntelligence/ValueLabelPriority.php';
+require_once __DIR__
+    . '/../Lib/Tools/ValueIntelligence/ValueIntelligenceBuckets.php';
+require_once __DIR__ . '/../Lib/Tools/ValueIntelligence/ValueStatsTool.php';
 require_once __DIR__ . '/../Lib/Tools/EventOverview/EventContextTool.php';
 require_once __DIR__ . '/../Lib/Tools/EventOverview/EventOverviewTool.php';
 

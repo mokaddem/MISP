@@ -171,7 +171,7 @@ class NavbarHelper extends AppHelper {
                 // the profile's subject is a value the reader supplies,
                 // so there is nothing to link but the resolver.
                 'type' => 'group',
-                'label' => __('Value Profile'),
+                'label' => __('Value Intelligence'),
                 'url' => $baseurl . '/values/index',
                 'controller' => 'values',
                 'action' => 'index',

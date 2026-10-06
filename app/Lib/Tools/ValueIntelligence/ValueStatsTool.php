@@ -1,14 +1,14 @@
 <?php
-App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueIntelligenceBuckets', 'Tools/ValueIntelligence');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 
 /**
- * The cross-cutting aggregates the Value Profile page's panels share:
+ * The cross-cutting aggregates the Value Intelligence page's panels share:
  * facet counts, organisation and type rollups, and the seen-density
  * histogram behind the occurrence rail's sparkline.
  *
- * Pure and static, the shape `ValueProfileBuckets` also takes. **No
+ * Pure and static, the shape `ValueIntelligenceBuckets` also takes. **No
  * method here accepts a
  * `$user`**, and none of them queries anything: the owning model
  * pre-scopes and hands over a set that is already filtered, so this
@@ -389,7 +389,7 @@ class ValueStatsTool
             'tag' => array(),
             /*
              * The clusters the row is attributed to, from
-             * `ValueProfile::attachClusters` — already ruled on,
+             * `ValueIntelligence::attachClusters` — already ruled on,
              * already deduplicated across the two scopes, already
              * named. A galaxy tag that did not come back as a cluster
              * is not here, so the rail cannot offer a filter on
@@ -773,7 +773,7 @@ class ValueStatsTool
     {
         $unit = self::railUnit($span);
         $series = self::railSeries($span);
-        $index = ValueProfileBuckets::locate($series);
+        $index = ValueIntelligenceBuckets::locate($series);
         $counts = array_fill(0, count($series), 0);
         foreach ($days as $day => $count) {
             if (isset($index[$day])) {
@@ -805,20 +805,20 @@ class ValueStatsTool
         $spanDays = 1 + (int)round(
             (strtotime($span['to']) - strtotime($span['from'])) / 86400
         );
-        return ValueProfileBuckets::unitForSpan($spanDays, array(
-            array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
-            array('days' => 370, 'unit' => ValueProfileBuckets::WEEK),
-            array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+        return ValueIntelligenceBuckets::unitForSpan($spanDays, array(
+            array('days' => 45, 'unit' => ValueIntelligenceBuckets::DAY),
+            array('days' => 370, 'unit' => ValueIntelligenceBuckets::WEEK),
+            array('days' => null, 'unit' => ValueIntelligenceBuckets::MONTH),
         ));
     }
 
     /**
      * @param array $span `from` and `to`, `Y-m-d`
-     * @return array From `ValueProfileBuckets::series()`
+     * @return array From `ValueIntelligenceBuckets::series()`
      */
     private static function railSeries(array $span)
     {
-        return ValueProfileBuckets::series(
+        return ValueIntelligenceBuckets::series(
             $span['from'],
             $span['to'],
             self::railUnit($span)
@@ -840,7 +840,7 @@ class ValueStatsTool
     public static function timeScale(array $histogram)
     {
         $bars = $histogram['bars'];
-        $annual = $histogram['unit'] === ValueProfileBuckets::MONTH;
+        $annual = $histogram['unit'] === ValueIntelligenceBuckets::MONTH;
         $marks = array();
         $seen = null;
         foreach ($bars as $index => $bar) {
@@ -977,7 +977,7 @@ class ValueStatsTool
      *
      * The columns are folded from a dense per-day tally rather than
      * bucketed straight off the rows, so the day arithmetic is
-     * `ValueProfileBuckets`' and not a third copy of it.
+     * `ValueIntelligenceBuckets`' and not a third copy of it.
      *
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @param string $today `Y-m-d`
@@ -1014,7 +1014,7 @@ class ValueStatsTool
          * days is not a cost worth reshaping a shared helper for.
          */
         foreach ($perDay as $kind => $days_) {
-            foreach (ValueProfileBuckets::tally($from, $today, $days_)
+            foreach (ValueIntelligenceBuckets::tally($from, $today, $days_)
                      as $offset => $count
             ) {
                 $column = min(
@@ -1397,11 +1397,11 @@ class ValueStatsTool
                 ($perDay[$kind][$i][$day] ?? 0) + 1;
         }
 
-        $plan = ValueProfileBuckets::plan(
+        $plan = ValueIntelligenceBuckets::plan(
             $span['from'],
             $span['to'],
-            ValueProfileBuckets::$spanRule,
-            ValueProfileBuckets::END
+            ValueIntelligenceBuckets::$spanRule,
+            ValueIntelligenceBuckets::END
         );
         /*
          * The last bucket of every grain is today, whichever grain is
@@ -1410,7 +1410,7 @@ class ValueStatsTool
          *
          * One word rather than a write into every grain's label array,
          * because the day grain has none — its labels are derived in
-         * the browser (`ValueProfileBuckets::plan`), and a translated
+         * the browser (`ValueIntelligenceBuckets::plan`), and a translated
          * string is the one thing that cannot be. So the substitution
          * moves to the side that holds the labels.
          */
@@ -1420,7 +1420,7 @@ class ValueStatsTool
          * Sparse rather than dense: these are three series per
          * organisation over a span that can be three years, and each is
          * nearly all zero — two of the three usually entirely so.
-         * `ValueProfileBuckets::sparse` documents the measurement
+         * `ValueIntelligenceBuckets::sparse` documents the measurement
          * behind the choice, and it is what keeps three series per
          * organisation from costing three times two.
          */
@@ -1431,7 +1431,7 @@ class ValueStatsTool
         );
         foreach ($perDay as $kind => $series) {
             foreach ($series as $i => $byDay) {
-                $daily[$kind][$i] = ValueProfileBuckets::sparse(
+                $daily[$kind][$i] = ValueIntelligenceBuckets::sparse(
                     $span['from'],
                     $span['to'],
                     $byDay

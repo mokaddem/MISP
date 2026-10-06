@@ -1804,7 +1804,7 @@ class Sighting extends AppModel
      * uses it in both of its branches. The two differ on any synced
      * event, which is most of them on a connected instance. This
      * follows `listSightings` because that is the method whose answer
-     * the Value Profile's Sightings tab renders, and a count on the
+     * the Value Intelligence's Sightings tab renders, and a count on the
      * page frame that disagreed with the panel it links to would be the
      * cross-panel contradiction this feature keeps being bitten by.
      * The discrepancy is MISP's own and is left where it is rather than

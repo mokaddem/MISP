@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 
 /**
  * Sorts an event's labels into the rows the overview draws — markings,

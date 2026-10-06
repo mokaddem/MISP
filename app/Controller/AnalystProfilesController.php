@@ -1,13 +1,13 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
 App::uses('ModuleCredentials', 'Tools/AnalystProfile');
-App::uses('ValueSignalLoader', 'Tools/ValueProfile');
-App::uses('ValueVerdictTool', 'Tools/ValueProfile');
-App::uses('ValueVerdictDiffTool', 'Tools/ValueProfile');
-App::uses('ValueExclusionTool', 'Tools/ValueProfile');
+App::uses('ValueSignalLoader', 'Tools/ValueIntelligence');
+App::uses('ValueVerdictTool', 'Tools/ValueIntelligence');
+App::uses('ValueVerdictDiffTool', 'Tools/ValueIntelligence');
+App::uses('ValueExclusionTool', 'Tools/ValueIntelligence');
 
 /**
  * The UI for owning an Analyst Profile: an index that names the profile
@@ -68,7 +68,7 @@ class AnalystProfilesController extends AppController
     const COMPARISON_SETTING = 'analyst_profile_comparison_set';
 
     /**
-     * The sections `ValueProfile::verdictContextFor()` reads off the
+     * The sections `ValueIntelligence::verdictContextFor()` reads off the
      * profile, and so the ones a simulation may not share a context
      * across: `exclusions` (the exclusion plan and the evidence
      * window), `reference` (source grades, module grades, warninglist
@@ -110,7 +110,7 @@ class AnalystProfilesController extends AppController
          * recomputes the bench, and a pin posts beside it. A single-use
          * CSRF key makes the *first* of those spend the token the rest
          * need, so the second press is a blackhole — which is exactly
-         * what the Value Profile page hit
+         * what the Value Intelligence page hit
          * (`ValuesController::beforeFilter()`), and this is the same
          * fix. A stable per-session key is the synchroniser-token
          * pattern; CSRF turns on an attacker being unable to read the
@@ -240,13 +240,13 @@ class AnalystProfilesController extends AppController
                     'Plugin.Enrichment_services_enable'),
             ),
             'enrichment_auto_run' => array(
-                'setting' => 'Plugin.ValueProfile_enrichment_auto_run',
+                'setting' => 'Plugin.ValueIntelligence_enrichment_auto_run',
                 'tab' => 'Plugin',
                 'state' => (string)Configure::read(
-                    'Plugin.ValueProfile_enrichment_auto_run'),
+                    'Plugin.ValueIntelligence_enrichment_auto_run'),
             ),
             'instance_profile' => array(
-                'setting' => 'Plugin.ValueProfile_instance_profile',
+                'setting' => 'Plugin.ValueIntelligence_instance_profile',
                 'tab' => 'Plugin',
                 'uuid' => $uuid,
                 'name' => $named === null ? null : $named['name'],
@@ -749,7 +749,7 @@ class AnalystProfilesController extends AppController
             return $this->__refuse(array($verdict));
         }
         if (!$Server->serverSettingsSaveValue(
-            'Plugin.ValueProfile_instance_profile',
+            'Plugin.ValueIntelligence_instance_profile',
             $row['uuid']
         )) {
             return $this->__refuse(array(__(
@@ -757,7 +757,10 @@ class AnalystProfilesController extends AppController
                 . ' configuration file is writable by the web server.'
             )));
         }
-        Configure::write('Plugin.ValueProfile_instance_profile', $row['uuid']);
+        Configure::write(
+            'Plugin.ValueIntelligence_instance_profile',
+            $row['uuid']
+        );
         $this->AnalystProfile->resetResolution();
         $inForce = $this->AnalystProfile->resolveFor($this->Auth->user());
         return $this->__wrote(array(
@@ -1214,8 +1217,8 @@ class AnalystProfilesController extends AppController
         }
         $values = array_slice($values, 0, self::COMPARISON_LIMIT + 1);
 
-        $this->loadModel('ValueProfile');
-        $engine = new ValueVerdictTool($this->ValueProfile);
+        $this->loadModel('ValueIntelligence');
+        $engine = new ValueVerdictTool($this->ValueIntelligence);
         $builds = 0;
         $rows = array();
         $detail = null;
@@ -1365,7 +1368,7 @@ class AnalystProfilesController extends AppController
      * so grading an organisation moved nothing on the bench until the
      * edit was saved — the one state the simulator exists to show.
      * `CONTEXT_SECTIONS` is the list, and it belongs beside
-     * `ValueProfile::verdictContextFor()`'s reads of `$profile`.
+     * `ValueIntelligence::verdictContextFor()`'s reads of `$profile`.
      *
      * @param ValueVerdictTool $engine
      * @param array $user
@@ -1381,14 +1384,14 @@ class AnalystProfilesController extends AppController
     ) {
         $shared = $this->__contextSignature($inForce)
             === $this->__contextSignature($candidate);
-        $context = $this->ValueProfile->verdictContextFor($user, $value,
+        $context = $this->ValueIntelligence->verdictContextFor($user, $value,
             $inForce);
         $builds++;
         $before = $engine->assess($context, $inForce);
         if ($shared) {
             $after = $engine->assess($context, $candidate);
         } else {
-            $candidateContext = $this->ValueProfile->verdictContextFor(
+            $candidateContext = $this->ValueIntelligence->verdictContextFor(
                 $user, $value, $candidate);
             $builds++;
             $after = $engine->assess($candidateContext, $candidate);
@@ -1499,7 +1502,7 @@ class AnalystProfilesController extends AppController
     /**
      * The value a request names, or a 404.
      *
-     * `ValueUrlTool` owns the encoding — the Value Profile page mints
+     * `ValueUrlTool` owns the encoding — the Value Intelligence page mints
      * the same `?value=` and there is one implementation of the
      * alphabet question — and the refusal stays here, so this
      * endpoint's wording is its own.
@@ -1669,8 +1672,8 @@ class AnalystProfilesController extends AppController
      */
     private function __contributionsFor(array $user, $value, array $row)
     {
-        $this->loadModel('ValueProfile');
-        $engine = new ValueVerdictTool($this->ValueProfile);
+        $this->loadModel('ValueIntelligence');
+        $engine = new ValueVerdictTool($this->ValueIntelligence);
         $verdict = $engine->verdictFor($user, $value,
             array('profile' => $row));
         $ledger = array();

@@ -17,7 +17,7 @@
  *   $elementType, $elementUuid    what is being attached
  *   $elementValue                 the literal, for a Value element
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 $elementValue = $elementValue ?? null;
 
 $collections = $dropdownData['collections'] ?? [];

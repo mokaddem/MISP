@@ -1,7 +1,7 @@
 <?php
 App::uses('RedisTool', 'Tools');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
 
 /**
  * The figures behind the Overmind event overview: what the indicators are,
@@ -526,7 +526,7 @@ class EventOverviewTool
 
     /**
      * The modification map: `activity()` bucketed from the first change to
-     * today, at the value profile's rail grain.
+     * today, at the Value Intelligence's rail grain.
      *
      * @param array $activity From `activity()`
      * @param string $today `Y-m-d`

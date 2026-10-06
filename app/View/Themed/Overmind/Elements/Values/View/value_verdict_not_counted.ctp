@@ -7,10 +7,10 @@
  * unresolved band in the argument card: those are splits that could
  * still fall either way, these were never going to count.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 $notCounted = $verdict['not_counted'] ?? array();
 
 /*

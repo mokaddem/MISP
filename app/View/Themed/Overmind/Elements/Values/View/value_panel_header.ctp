@@ -1,6 +1,6 @@
 <?php
 /**
- * The header strip every Value Profile panel wears: a tinted glyph tile,
+ * The header strip every Value Intelligence panel wears: a tinted glyph tile,
  * a title, a subtitle carrying the panel's headline number, and room on
  * the right for the panel's own controls.
  *

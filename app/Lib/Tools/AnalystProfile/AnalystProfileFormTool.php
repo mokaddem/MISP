@@ -1,14 +1,14 @@
 <?php
 
-App::uses('ValueSignalLoader', 'Tools/ValueProfile');
-App::uses('ValueExclusionTool', 'Tools/ValueProfile');
-App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
-App::uses('ValueRendererTool', 'Tools/ValueProfile');
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
-App::uses('ValueTrustTool', 'Tools/ValueProfile');
-App::uses('ValueVerdictTool', 'Tools/ValueProfile');
-App::uses('ValueLeanTool', 'Tools/ValueProfile');
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueSignalLoader', 'Tools/ValueIntelligence');
+App::uses('ValueExclusionTool', 'Tools/ValueIntelligence');
+App::uses('ValueEnrichmentTool', 'Tools/ValueIntelligence');
+App::uses('ValueRendererTool', 'Tools/ValueIntelligence');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
+App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
+App::uses('ValueVerdictTool', 'Tools/ValueIntelligence');
+App::uses('ValueLeanTool', 'Tools/ValueIntelligence');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 

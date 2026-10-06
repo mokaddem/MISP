@@ -19,7 +19,7 @@
  * span-to-unit rule, and one whose data does not names its unit and
  * keeps it however wide the span gets.
  */
-class ValueProfileBuckets
+class ValueIntelligenceBuckets
 {
     const DAY = 'day';
     const WEEK = 'week';
@@ -162,7 +162,7 @@ class ValueProfileBuckets
      * dominate the payload, several times the week grain over the same
      * span. `label` and `title` are `null` there,
      * on the same convention `starts` already uses, and `zoomDayLabel`
-     * in `value-profile.js` is the other half of it.
+     * in `value-intelligence.js` is the other half of it.
      *
      * `starts` is a day offset from `$from`, and the month grain's
      * first one is normally negative: a month bucket is a whole

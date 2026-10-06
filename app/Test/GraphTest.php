@@ -119,7 +119,7 @@ require_once __DIR__ . '/../Model/AnalystData.php';
 require_once __DIR__ . '/../Model/Graph.php';
 require_once __DIR__ . '/../Model/Behavior/AnalystDataParentBehavior.php';
 require_once __DIR__ . '/../Model/Behavior/AuditLogBehavior.php';
-require_once __DIR__ . '/../Lib/Tools/ValueProfile/ValueUrlTool.php';
+require_once __DIR__ . '/../Lib/Tools/ValueIntelligence/ValueUrlTool.php';
 require_once __DIR__ . '/../Model/AnalystGraphData.php';
 
 class GraphTestGraph extends Graph

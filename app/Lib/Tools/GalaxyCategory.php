@@ -79,14 +79,14 @@
  * folding it in would bury the names it sits beside.
  *
  * **It takes no `$user`, and it stopped being pure when the column
- * landed**: prd/value-profile-live/00-contract.md §14.5 allows both
+ * landed**: prd/value-intelligence-live/00-contract.md §14.5 allows both
  * shapes and this is now the second, a tool that issues its own read
  * and holds the result. No `$user` is needed and none would help — a
  * galaxy's category is a property of the definition, the same for
  * every viewer, and a caller only ever asks about a type it is already
  * holding from a label it is already allowed to see. What is read here
  * could not be used to widen what a reader sees.
- * prd/value-profile-live/24b-relationships.md §10.
+ * prd/value-intelligence-live/24b-relationships.md §10.
  */
 class GalaxyCategory
 {

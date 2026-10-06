@@ -23,9 +23,9 @@
  * Derived from the cases rather than carried separately, so this card
  * and the two columns beside it cannot disagree.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 $cases = $verdict['cases'] ?? array();
 
 /*

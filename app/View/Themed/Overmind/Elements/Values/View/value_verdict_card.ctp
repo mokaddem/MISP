@@ -11,12 +11,12 @@
  * Lazily loaded into `.ajax-card` from
  * ValuesController::viewVerdictCard.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 
 /*
  * The ledger is grouped by kind for the Assessment tab's benefit; the

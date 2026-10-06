@@ -11691,7 +11691,7 @@ class Event extends AppModel
      * Write enrichment results into an event, synchronously, and say what
      * became of each one.
      *
-     * An enrichment answer as the Value Profile stores it keeps no object
+     * An enrichment answer as the Value Intelligence stores it keeps no object
      * template, so each object's is resolved here by name.
      *
      * @param array $user

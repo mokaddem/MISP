@@ -1,5 +1,5 @@
 /**
- * Value Profile page interactions (/values/view).
+ * Value Intelligence page interactions (/values/view).
  *
  * Everything here works against markup already in the DOM. This pass has
  * no endpoint to filter against and nothing to write, so a type chip
@@ -2271,7 +2271,7 @@
      * every grain at about a kilobyte of counts and a dozen of labels,
      * so the server ships all of it once and this is arithmetic. Which
      * is also why the labels are not derived here — they arrive from
-     * `ValueProfileBuckets::plan()` already written, so there is one
+     * `ValueIntelligenceBuckets::plan()` already written, so there is one
      * formatter rather than two that have to agree.
      * ================================================================== */
 
@@ -2309,7 +2309,7 @@
     /*
      * PHP's `date()` is not locale-aware — `M` is always `Jan`..`Dec`,
      * whatever the instance's language — so this table reproduces
-     * `ValueProfileBuckets::describe()` exactly rather than
+     * `ValueIntelligenceBuckets::describe()` exactly rather than
      * approximating it. `toLocaleString` would not: it would render the
      * day grain's bars in the browser's language and the week grain's,
      * which the server still writes, in English.
@@ -2323,7 +2323,7 @@
      * The day grain ships no labels — bucket `i` is the day `from + i`
      * and can be nothing else, so 1,095 of these were 26.7 KB of
      * payload restating the arithmetic this file already does.
-     * `ValueProfileBuckets::plan` documents the other half.
+     * `ValueIntelligenceBuckets::plan` documents the other half.
      *
      * @param {number} day Days since the epoch, UTC
      * @return {string}
@@ -2349,7 +2349,7 @@
     /**
      * The unit a span of this many days is drawn at.
      *
-     * A mirror of `ValueProfileBuckets::unitForSpan()`, and the only
+     * A mirror of `ValueIntelligenceBuckets::unitForSpan()`, and the only
      * one this file keeps: the rule itself is shipped rather than
      * restated, so what is duplicated is the walk over it and not the
      * thresholds.
@@ -5183,7 +5183,7 @@
      * without a press**, and it takes two separate acts to reach: an
      * analyst marking a module `auto` in their Analyst Profile, and an
      * administrator setting
-     * `Plugin.ValueProfile_enrichment_auto_run` to something other
+     * `Plugin.ValueIntelligence_enrichment_auto_run` to something other
      * than off. The server does both checks — this list arrives empty
      * unless they passed, and the endpoint decides again when each
      * request lands.
@@ -5979,7 +5979,7 @@
     /**
      * The lane's calendar bins for a window, with a day-to-bin map.
      *
-     * Mirrors `ValueProfileBuckets::series()` and `::locate()` — whole
+     * Mirrors `ValueIntelligenceBuckets::series()` and `::locate()` — whole
      * days, fixed weeks laid forwards from the window's start, or
      * calendar months clipped at both ends — and takes its grain from
      * the rule the server shipped rather than from a second copy of

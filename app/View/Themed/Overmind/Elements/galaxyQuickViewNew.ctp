@@ -89,7 +89,7 @@ $generatePopover = function (array $cluster) use ($normalizeKey) {
 // The reader's galaxy priority, where a caller resolved one; galaxies are
 // keyed by `type`, the key a profile's lists hold.
 if (!empty($labelPlan)) {
-    App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+    App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
     foreach ($data as $galaxyAt => $galaxyRow) {
         $data[$galaxyAt]['key'] = isset($galaxyRow['type'])
             ? $galaxyRow['type']

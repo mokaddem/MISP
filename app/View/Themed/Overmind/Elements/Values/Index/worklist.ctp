@@ -27,11 +27,11 @@
  * is counted in the provenance line rather than marked per row.
  *
  * @var array $triage `rows`, `recased`, `collapsed` from
- *                    `ValueProfile::forTriage`, and the parser's
+ *                    `ValueIntelligence::forTriage`, and the parser's
  *                    `report`
  */
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
-App::uses('ValueInputTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
+App::uses('ValueInputTool', 'Tools/ValueIntelligence');
 
 $report = $triage['report'];
 $rows = $triage['rows'];
@@ -443,7 +443,7 @@ $offerExtract = !$extracted && $wordy >= 2;
                                'action' => 'view',
                                ValueUrlTool::encode($asked),
                            ))) ?>"><?= h(__('Open')) ?><span
-                           class="vi-cardonly"> <?= h(__('profile')) ?></span></a>
+                           class="vi-cardonly"> <?= h(__('intelligence')) ?></span></a>
                     </div>
                 </span>
             </li>

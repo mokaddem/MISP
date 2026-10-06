@@ -21,10 +21,10 @@
  *
  * Lazily loaded into `.ajax-card` from ValuesController::viewExternal.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$external = $valueProfile['external'];
+$external = $valueIntelligence['external'];
 $counts = $external['counts'];
 $restricted = $external['restricted'];
 $cached = $external['cached'];

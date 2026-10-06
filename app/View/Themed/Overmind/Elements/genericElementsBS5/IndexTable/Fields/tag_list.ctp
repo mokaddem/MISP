@@ -103,7 +103,7 @@ if ($totalTags === 0) {
 $realTags = array_values($realTags);
 // Optional reader's label priority; absent or undeclared keeps arrival order
 if (!empty($field['plan'])) {
-    App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+    App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
     foreach ($realTags as $at => $tag) {
         $realTags[$at]['name'] = $tag['Tag']['name'] ?? null;
         $realTags[$at]['key'] = ValueLabelPriority::namespaceOf(

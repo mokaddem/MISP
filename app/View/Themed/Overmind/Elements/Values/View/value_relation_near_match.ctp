@@ -33,10 +33,10 @@
  *
  * Lazily loaded from ValuesController::viewRelationNearMatch.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $near = $profile['relationships']['near'];
 $view = $this;
 
@@ -86,7 +86,7 @@ $permutationLabel = function ($class) {
 
 /*
  * **Whether `Similarity >=` is offered at all**, and it is not a
- * cosmetic question. `rowMatchesMinimums` in `value-profile.js` drops
+ * cosmetic question. `rowMatchesMinimums` in `value-intelligence.js` drops
  * a row that carries no number under a key the reader has cut on —
  * deliberately, because *"I do not know"* is not evidence — so a
  * typosquat row, whose closeness is a permutation class and not a

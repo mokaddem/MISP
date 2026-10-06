@@ -1,12 +1,12 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
-App::uses('ValueLean', 'Tools/ValueProfile');
-App::uses('ValueInputTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
+App::uses('ValueInputTool', 'Tools/ValueIntelligence');
 
 /**
- * Value Profile controller, mounted at /values/* via CakePHP's default
+ * Value Intelligence controller, mounted at /values/* via CakePHP's default
  * routing.
  *
  * The subject of these pages is a value string — an IP address, a hash,
@@ -14,7 +14,7 @@ App::uses('ValueInputTool', 'Tools/ValueProfile');
  * attribute rows across many events, and this controller aggregates them.
  *
  * Read-only: nothing here writes. Each panel is its own lazily loaded
- * endpoint, answered by one `ValueProfile` method.
+ * endpoint, answered by one `ValueIntelligence` method.
  *
  * **One action leaves the building**, and it is the only one:
  * `viewEnrichmentRun` queries a third-party module. It still writes
@@ -146,7 +146,7 @@ class ValuesController extends AppController
             return;
         }
         throw new NotFoundException(__(
-            'The Value Profile panels are HTML fragments and have no'
+            'The Value Intelligence panels are HTML fragments and have no'
             . ' %s representation.',
             strtoupper($extension)
         ));
@@ -220,16 +220,16 @@ class ValuesController extends AppController
      */
     private function __indexPage($resolution, $triage)
     {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $user = $this->Auth->user();
         $this->set('resolution', $resolution);
         $this->set('triage', $triage);
-        $this->set('recent', $this->ValueProfile->forRecent($user));
+        $this->set('recent', $this->ValueIntelligence->forRecent($user));
         $this->set(
             'inForce',
-            $this->ValueProfile->forProfileInForce($user)
+            $this->ValueIntelligence->forProfileInForce($user)
         );
-        $this->set('tiles', $this->ValueProfile->forTiles($user));
+        $this->set('tiles', $this->ValueIntelligence->forTiles($user));
         return $this->render('index');
     }
 
@@ -333,8 +333,8 @@ class ValuesController extends AppController
         if ($one['value'] === null) {
             return $this->__indexPage($this->__nothing(), null);
         }
-        $this->loadModel('ValueProfile');
-        $answer = $this->ValueProfile->forResolve(
+        $this->loadModel('ValueIntelligence');
+        $answer = $this->ValueIntelligence->forResolve(
             $this->Auth->user(),
             $one['value']
         );
@@ -469,8 +469,8 @@ class ValuesController extends AppController
         if ($value === '') {
             throw new BadRequestException(__('No value supplied.'));
         }
-        $this->loadModel('ValueProfile');
-        $this->set('assessment', $this->ValueProfile->forHoverCard(
+        $this->loadModel('ValueIntelligence');
+        $this->set('assessment', $this->ValueIntelligence->forHoverCard(
             $this->Auth->user(),
             $value
         ));
@@ -585,8 +585,8 @@ class ValuesController extends AppController
      */
     private function __triage(array $many)
     {
-        $this->loadModel('ValueProfile');
-        $triage = $this->ValueProfile->forTriage(
+        $this->loadModel('ValueIntelligence');
+        $triage = $this->ValueIntelligence->forTriage(
             $this->Auth->user(),
             $many['values']
         );
@@ -674,10 +674,10 @@ class ValuesController extends AppController
          * The frame, live since phase 29 — the banner's type and
          * warninglist chips, the `value2` note, the fact strip and the
          * tab badges, in one read. It is the only synchronous read on
-         * this page and `ValueProfile::forFrame` carries its budget.
+         * this page and `ValueIntelligence::forFrame` carries its budget.
          */
-        $this->loadModel('ValueProfile');
-        $profile = $this->ValueProfile->forFrame(
+        $this->loadModel('ValueIntelligence');
+        $profile = $this->ValueIntelligence->forFrame(
             $this->Auth->user(),
             $this->__decodeValue($b64value)
         );
@@ -695,7 +695,7 @@ class ValuesController extends AppController
          * it is measured on the conversion board rather than assumed.
          */
         $profile['verdict'] = $this->__verdictFor($b64value)['verdict'];
-        $this->set('valueProfile', $profile);
+        $this->set('valueIntelligence', $profile);
         // Re-encoded rather than passed through, so the panel URLs the page
         // builds are well-formed whichever alphabet the caller arrived with.
         $this->set('valueB64', ValueUrlTool::encode($profile['value']));
@@ -710,7 +710,7 @@ class ValuesController extends AppController
          * instance's own spelling for every reader who arrived through
          * the resolver, because that is the value it redirects to.
          */
-        $this->ValueProfile->rememberViewed(
+        $this->ValueIntelligence->rememberViewed(
             $this->Auth->user(),
             $profile['value']
         );
@@ -743,7 +743,7 @@ class ValuesController extends AppController
      * that already carried them: the organisation split is the
      * occurrence half of the Assessment tab's *Who says what*, the
      * month strip is the Timeline tab's *Activity on this value*, and
-     * `ValueProfile::forReporting` reads both through the same methods
+     * `ValueIntelligence::forReporting` reads both through the same methods
      * those tabs read so the three cannot disagree.
      *
      * @param string $b64value
@@ -767,7 +767,7 @@ class ValuesController extends AppController
      * The Overview's preview of the Collaboration tab.
      *
      * It reads the tab's own union rather than a cheaper one of its
-     * own — `ValueProfile::forAnalystPreview` has the argument.
+     * own — `ValueIntelligence::forAnalystPreview` has the argument.
      *
      * @param string $b64value
      * @return void
@@ -787,7 +787,7 @@ class ValuesController extends AppController
      * Live since phase 9, and it computes the assessment itself rather
      * than reading one the tab left behind: the two are separate lazy
      * requests and they agree because `assess()` is deterministic, not
-     * because either can see the other. `ValueProfile::forVerdict` says
+     * because either can see the other. `ValueIntelligence::forVerdict` says
      * why that is the only guarantee available here.
      *
      * @param string $b64value
@@ -805,7 +805,7 @@ class ValuesController extends AppController
      * The hover card, for a reader who has not opened this page.
      *
      * The only endpoint here that is fetched from somewhere else:
-     * every other action answers the Value Profile's own lazy panels,
+     * every other action answers the Value Intelligence's own lazy panels,
      * and this one answers an attribute row on an event page, an index
      * table, or an object card. It is a fragment like the rest and
      * arrives through the same `X-Requested-With` path.
@@ -813,7 +813,7 @@ class ValuesController extends AppController
      * **It is served from this controller and not from wherever the
      * reader is**, which is what lets `beforeRender()` put it under
      * Overmind whatever theme the host page is drawn in, and what
-     * keeps one assessment in one place. `ValueProfile::forHoverCard`
+     * keeps one assessment in one place. `ValueIntelligence::forHoverCard`
      * carries the cost argument.
      *
      * @param string $b64value
@@ -821,9 +821,9 @@ class ValuesController extends AppController
      */
     public function viewHoverCard($b64value = null)
     {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $this->__renderPanel(
-            $this->ValueProfile->forHoverCard(
+            $this->ValueIntelligence->forHoverCard(
                 $this->Auth->user(),
                 $this->__decodeValue($b64value)
             ),
@@ -833,7 +833,7 @@ class ValuesController extends AppController
 
     /**
      * The Overview's sightings card, and the one panel of that tab that
-     * reads the database — see `ValueProfile::forSightings` for why it
+     * reads the database — see `ValueIntelligence::forSightings` for why it
      * was converted here rather than with the rest of the Overview.
      *
      * @param string $b64value
@@ -841,9 +841,9 @@ class ValuesController extends AppController
      */
     public function viewSightings($b64value = null)
     {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $this->__renderPanel(
-            $this->ValueProfile->forSightings(
+            $this->ValueIntelligence->forSightings(
                 $this->Auth->user(),
                 $this->__decodeValue($b64value)
             ),
@@ -858,7 +858,7 @@ class ValuesController extends AppController
      * The warninglist line resolves its categories through the
      * Assessment tab's own resolver so the two cannot disagree, and
      * the correlation line is a flag rather than a count —
-     * `ValueProfile::forLifecycle` has both arguments.
+     * `ValueIntelligence::forLifecycle` has both arguments.
      *
      * @param string $b64value
      * @return void
@@ -889,9 +889,9 @@ class ValuesController extends AppController
      */
     public function viewGalaxyMatrix($b64value = null, $galaxyId = null)
     {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $tab = $this->request->query('tab');
-        $profile = $this->ValueProfile->forGalaxyMatrix(
+        $profile = $this->ValueIntelligence->forGalaxyMatrix(
             $this->Auth->user(),
             $this->__decodeValue($b64value),
             $galaxyId,
@@ -936,9 +936,9 @@ class ValuesController extends AppController
      */
     public function viewOccurrenceTable($b64value = null)
     {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $this->__renderPanel(
-            $this->ValueProfile->forOccurrenceTable(
+            $this->ValueIntelligence->forOccurrenceTable(
                 $this->Auth->user(),
                 $this->__decodeValue($b64value)
             ),
@@ -961,7 +961,7 @@ class ValuesController extends AppController
      * envelope without collapsing the split: five readings that resolve
      * at their own speed is still the right shape for a tab whose table
      * is the part a reader acts on.
-     * prd/value-profile-live/23-sightings.md,
+     * prd/value-intelligence-live/23-sightings.md,
      * prd/analyst-profile/06-staleness.md §4.
      *
      * @param string $b64value
@@ -994,7 +994,7 @@ class ValuesController extends AppController
      * ledger already scores those tags directly with a per-row audit
      * trail. So the page takes the time factor and leaves the base
      * score. `decaying_models` itself is untouched — the decaying tool,
-     * `excludeDecayed`, `includeDecayScore` and every non-Value-Profile
+     * `excludeDecayed`, `includeDecayScore` and every non-Value-Intelligence
      * caller keep working exactly as they do.
      *
      * @param string $b64value
@@ -1032,15 +1032,15 @@ class ValuesController extends AppController
      * same four, which is what §14.2 promised the swap would cost.
      *
      * @param string $b64value
-     * @param string $method A public ValueProfile facade method
+     * @param string $method A public ValueIntelligence facade method
      * @param string $element Name under Elements/Values/View
      * @return void
      */
     private function __renderSightingPanel($b64value, $method, $element)
     {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $this->__renderPanel(
-            $this->ValueProfile->$method(
+            $this->ValueIntelligence->$method(
                 $this->Auth->user(),
                 $this->__decodeValue($b64value)
             ),
@@ -1104,7 +1104,7 @@ class ValuesController extends AppController
 
     /**
      * Section five. Folded with the co-occurrence scan, so this is
-     * usually a Redis read — see `ValueProfile::forRelationDated`.
+     * usually a Redis read — see `ValueIntelligence::forRelationDated`.
      *
      * @param string $b64value
      * @return void
@@ -1225,9 +1225,9 @@ class ValuesController extends AppController
     public function enrichmentTypes()
     {
         $this->request->allowMethod(['get']);
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         return $this->RestResponse->viewData(
-            $this->ValueProfile->forEnrichmentTypes($this->Auth->user()),
+            $this->ValueIntelligence->forEnrichmentTypes($this->Auth->user()),
             'json'
         );
     }
@@ -1254,9 +1254,9 @@ class ValuesController extends AppController
         if (empty($items)) {
             throw new BadRequestException(__('No value supplied.'));
         }
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         return $this->RestResponse->viewData(
-            $this->ValueProfile->forEnrichmentStored(
+            $this->ValueIntelligence->forEnrichmentStored(
                 $this->Auth->user(),
                 array_slice($items, 0, 200)
             ),
@@ -1283,9 +1283,9 @@ class ValuesController extends AppController
             }
         }
         @session_write_close();
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         return $this->RestResponse->viewData(
-            $this->ValueProfile->forEnrichmentRun(
+            $this->ValueIntelligence->forEnrichmentRun(
                 $this->Auth->user(),
                 (string)$data['value'],
                 array(
@@ -1337,16 +1337,16 @@ class ValuesController extends AppController
      * the third tab to reach for it.
      *
      * @param string $b64value
-     * @param string $method A public ValueProfile facade method
+     * @param string $method A public ValueIntelligence facade method
      * @param string $element Name under Elements/Values/View
      * @return void
      */
     private function __renderLivePanel($b64value, $method, $element,
         array $options = array()
     ) {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $this->__renderPanel(
-            $this->ValueProfile->$method(
+            $this->ValueIntelligence->$method(
                 $this->Auth->user(),
                 $this->__decodeValue($b64value),
                 $options
@@ -1396,7 +1396,7 @@ class ValuesController extends AppController
      *
      * **This endpoint still runs nothing**, and neither does opening
      * the tab on an instance that has not turned auto-run on. Where
-     * `Plugin.ValueProfile_enrichment_auto_run` allows it, the panel
+     * `Plugin.ValueIntelligence_enrichment_auto_run` allows it, the panel
      * arrives carrying a plan and the browser fires the declared
      * modules at `viewEnrichmentRun` — one request each, so a slow
      * module never holds up a fast one, and every one of them is the
@@ -1430,7 +1430,7 @@ class ValuesController extends AppController
      * tampering is what `validatePost` defends and there is no form:
      * two scalars arrive, and neither is trusted anyway — the module
      * name and type are checked against the catalogue this reader
-     * would have been shown, in `ValueProfile::forEnrichmentRun`.
+     * would have been shown, in `ValueIntelligence::forEnrichmentRun`.
      * MISP's usual ajax treatment is `unlockedActions`, which would
      * drop both; this endpoint keeps the half that matters.
      *
@@ -1508,7 +1508,7 @@ class ValuesController extends AppController
      * panel has painted, never during it.
      *
      * The action is never reached on an instance with nothing to show:
-     * `ValueProfile::forFrame` decides whether the page emits the
+     * `ValueIntelligence::forFrame` decides whether the page emits the
      * container at all.
      *
      * @param string $b64value
@@ -1587,9 +1587,9 @@ class ValuesController extends AppController
      */
     public function viewHoverEnrichment($b64value = null)
     {
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $this->__renderPanel(
-            $this->ValueProfile->forEnrichmentPanel(
+            $this->ValueIntelligence->forEnrichmentPanel(
                 $this->Auth->user(),
                 $this->__decodeValue($b64value)
             ),
@@ -1739,9 +1739,9 @@ class ValuesController extends AppController
     public function viewTimeline($b64value = null, $from = null, $to = null)
     {
         $window = self::__period($from, $to);
-        $this->loadModel('ValueProfile');
+        $this->loadModel('ValueIntelligence');
         $this->__renderPanel(
-            $this->ValueProfile->forTimeline(
+            $this->ValueIntelligence->forTimeline(
                 $this->Auth->user(),
                 $this->__decodeValue($b64value),
                 // `period` also answers `all`, which this panel has no
@@ -1887,8 +1887,8 @@ class ValuesController extends AppController
      */
     private function __verdictFor($b64value, array $options = array())
     {
-        $this->loadModel('ValueProfile');
-        return $this->ValueProfile->forVerdict(
+        $this->loadModel('ValueIntelligence');
+        return $this->ValueIntelligence->forVerdict(
             $this->Auth->user(),
             $this->__decodeValue($b64value),
             $options
@@ -1905,7 +1905,7 @@ class ValuesController extends AppController
      */
     private function __renderPanel(array $profile, $element)
     {
-        $this->set('valueProfile', $profile);
+        $this->set('valueIntelligence', $profile);
         $this->set('valueB64', ValueUrlTool::encode($profile['value']));
         $this->layout = false;
         $this->render('/Elements/Values/View/' . $element);

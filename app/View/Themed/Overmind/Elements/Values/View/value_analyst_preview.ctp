@@ -7,7 +7,7 @@
  * `AnalystData/thread` is not reused here because it carries the add /
  * edit / delete controls, and nothing on this page writes.
  *
- * Off `ValueProfile::forAnalystPreview` and therefore off the same
+ * Off `ValueIntelligence::forAnalystPreview` and therefore off the same
  * union the tab reads, so the counts here and one tab across agree.
  *
  * **Newest first across both kinds**, so a card headed *the most
@@ -22,9 +22,9 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystPreview.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-$analyst = $valueProfile['analyst'];
+$analyst = $valueIntelligence['analyst'];
 $counts = $analyst['counts'];
 $items = $analyst['preview'];
 $written = (int)$counts['notes'] + (int)$counts['opinions'];

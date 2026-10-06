@@ -318,7 +318,8 @@
 .eo-details-toggle:not(.collapsed) .eo-chevron { transform: rotate(90deg); }
 .eo-details-body { padding: .5rem 1rem 1rem; border-top: 1px solid var(--bs-border-color); }
 
-/* modification map: the value profile's occurrence strip, without the brush */
+/* modification map: the Value Intelligence's occurrence strip, without the
+   brush */
 .eo-spark { display: flex; align-items: flex-end; gap: 1px; height: 40px; }
 .eo-spark-bar {
     flex: 1 1 0; min-width: 1px; max-width: 48px; min-height: 2px; height: var(--eo-spark-h, 0%);

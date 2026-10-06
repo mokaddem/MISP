@@ -3,7 +3,7 @@
  * The event reports written about the events this value sits in.
  *
  * The third panel on the Analyst tab, and the one that is a list rather
- * than an argument. `value-profile-coverage.md` §4.5 places reports
+ * than an argument. `value-intelligence-coverage.md` §4.5 places reports
  * here — narrative analyst content about the value's context, beside
  * the notes and opinions — and they are a panel of their own rather
  * than more thread items because a report is a document, not a turn in
@@ -32,11 +32,11 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystReports.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueIntelligence');
 
-$reports = $valueProfile['analyst_reports'];
+$reports = $valueIntelligence['analyst_reports'];
 $rows = $reports['rows'];
 
 /**

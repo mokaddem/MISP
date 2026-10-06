@@ -1,5 +1,5 @@
 /*
- * Value Profile page primitives.
+ * Value Intelligence page primitives.
  *
  * Only the pieces MISP has no class for live here. Anything MISP already
  * renders — badges, tag lists, index tables, distribution levels — is
@@ -3855,7 +3855,7 @@ tr.vp-occ-deleted td {
  * Bootstrap takes the pointer away from a disabled control, which also
  * takes away its title — and on this page the title is the whole
  * explanation of why nothing writes. Give the pointer back, say
- * plainly that the control will not act, and let value-profile.js stop
+ * plainly that the control will not act, and let value-intelligence.js stop
  * the activation that comes back with it.
  */
 body[data-controller="values"] .btn.disabled,
@@ -5290,7 +5290,7 @@ th[aria-sort="descending"] .sort-icon::before,
  *
  * Scoped to the scrolling views on purpose. A fixed element resolves
  * `right: calc(100% + 9px)` against the *viewport* rather than its
- * wrapper, so it needs `placeThreatTip` in `value-profile.js` to give
+ * wrapper, so it needs `placeThreatTip` in `value-intelligence.js` to give
  * it coordinates — and the opening view, which is what most readers
  * ever see, then keeps working on CSS alone.
  */

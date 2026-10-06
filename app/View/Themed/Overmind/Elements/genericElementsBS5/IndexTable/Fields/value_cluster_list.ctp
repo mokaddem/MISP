@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 /**
  * The galaxy clusters an occurrence is attributed to.
  *
@@ -12,7 +12,7 @@ App::uses('ValueLabelPriority', 'Tools/ValueProfile');
  * carry a cluster and 26 distinct ones sit on the page, none of them
  * reachable from the tab the reader is on.
  *
- * **Already ruled on, already named.** `ValueProfile::attachClusters`
+ * **Already ruled on, already named.** `ValueIntelligence::attachClusters`
  * resolves each row's galaxy tags through `fetchGalaxyClusters`, so a
  * tag whose cluster this viewer may not know is absent from the row
  * before it reaches here — this element draws what it is given and

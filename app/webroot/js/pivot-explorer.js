@@ -2983,7 +2983,7 @@
         /* ── pivot: enrichment modules (enrichment PRD) ─────────── */
         // What an expansion module says about a value, landed beside the node it
         // was asked about. Nothing is written into MISP; the answer is kept by
-        // the organisation's store, which the Value Profile reads too.
+        // the organisation's store, which the Value Intelligence reads too.
         var ENRICH_PIVOT = 'enrich';
         // Asked pairs (node × module) per run; stored answers do not count (E10).
         var ENRICH_ASK_CAP = 25;

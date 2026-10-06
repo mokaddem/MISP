@@ -6641,7 +6641,7 @@ class Server extends AppModel
                 ),
                 'value_hover_card' => array(
                     'level' => 1,
-                    'description' => __('Hovering an attribute value shows a card summarising what this instance records about that value — its assessment, how widely it is reported, when it was last seen and how long it stays relevant. Each hover is a database read, so this is off by default; the card costs the same as the Value Profile\'s own assessment and nothing more. Where Plugin.Enrichment_hover_enable is also on, this card takes over the hover and the enrichment popover is not shown; enrichment\'s click-to-open form, if configured, is unaffected.'),
+                    'description' => __('Hovering an attribute value shows a card summarising what this instance records about that value — its assessment, how widely it is reported, when it was last seen and how long it stays relevant. Each hover is a database read, so this is off by default; the card costs the same as the assessment on the Value Intelligence page and nothing more. Where Plugin.Enrichment_hover_enable is also on, this card takes over the hover and the enrichment popover is not shown; enrichment\'s click-to-open form, if configured, is unaffected.'),
                     'value' => false,
                     'test' => 'testBool',
                     'type' => 'boolean'
@@ -8759,7 +8759,7 @@ class Server extends AppModel
                     'type' => 'numeric'
                 ),
                 /*
-                 * The Value Profile page's auto-run gate
+                 * The Value Intelligence page's auto-run gate
                  * (prd/analyst-profile/13-auto-run.md §6, D24).
                  *
                  * An Analyst Profile declares which enrichment modules
@@ -8774,9 +8774,9 @@ class Server extends AppModel
                  * Off by default, so no instance changes behaviour by
                  * taking the upgrade.
                  */
-                'ValueProfile_enrichment_auto_run' => array(
+                'ValueIntelligence_enrichment_auto_run' => array(
                     'level' => 1,
-                    'description' => __('Whether an Analyst Profile may run enrichment modules on the Value Profile page without a press. The profile decides which modules; this decides whether any of them may run here. Off by default: a module run spends the instance\'s quota and tells whoever operates the module that somebody is looking at this value.'),
+                    'description' => __('Whether an Analyst Profile may run enrichment modules on the Value Intelligence page without a press. The profile decides which modules; this decides whether any of them may run here. Off by default: a module run spends the instance\'s quota and tells whoever operates the module that somebody is looking at this value.'),
                     'value' => 'off',
                     'test' => 'testForEmpty',
                     'type' => 'string',
@@ -8814,7 +8814,7 @@ class Server extends AppModel
                  * scoring off for everyone who owns none, which is how
                  * that is done today and stays unchanged.
                  */
-                'ValueProfile_instance_profile' => array(
+                'ValueIntelligence_instance_profile' => array(
                     'level' => 1,
                     'description' => __('The uuid of the Analyst Profile this instance scores values with, for every reader whose organisation and account have selected none. Defaults to the shipped default-v1. It must name a profile MISP ships or one imported as an instance profile; a profile owned by a user or an organisation cannot be put in force here.'),
                     'value' => '6e2679bc-ebb0-417f-90d8-16cb1d0144ba',

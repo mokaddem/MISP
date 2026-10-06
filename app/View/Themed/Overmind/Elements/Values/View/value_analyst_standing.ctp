@@ -51,9 +51,9 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystStanding.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  */
-$analyst = $valueProfile['analyst'];
+$analyst = $valueIntelligence['analyst'];
 $standing = $analyst['standing'];
 $orgs = $standing['orgs'];
 $aggregate = $standing['aggregate'];

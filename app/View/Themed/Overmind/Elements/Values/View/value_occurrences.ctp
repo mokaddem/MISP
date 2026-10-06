@@ -3,7 +3,7 @@
  * The newest few attribute rows carrying this value — a sample of the
  * Occurrences tab, sitting on the tab a reader lands on.
  *
- * An `index_table` over `$valueProfile['occurrences']`, which is shaped
+ * An `index_table` over `$valueIntelligence['occurrences']`, which is shaped
  * like a `fetchAttributes` result, so the field renderers below are the
  * same ones every other MISP index uses — the event reference excepted,
  * and that one says why in its own file. No `sort` keys and no
@@ -22,10 +22,10 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewOccurrences.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
 /*

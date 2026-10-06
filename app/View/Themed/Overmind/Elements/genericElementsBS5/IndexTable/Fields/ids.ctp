@@ -12,7 +12,7 @@ $attribute = isset($row['Attribute']) ? $row['Attribute'] : $row;
 
 /*
  * `readonly` reports the flag without offering the toggle, for a page that
- * shows an attribute it does not own — the Value Profile aggregates rows
+ * shows an attribute it does not own — the Value Intelligence aggregates rows
  * across events and writes to none of them. It also skips the ACL lookup,
  * which would otherwise answer about an event this page never fetched.
  * Absent for every existing caller.

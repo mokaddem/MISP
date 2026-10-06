@@ -33,10 +33,10 @@
  *
  * Lazily loaded from ValuesController::viewEnrichmentPanel.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$panel = $valueProfile['panel'];
+$panel = $valueIntelligence['panel'];
 if (empty($panel['present'])) {
     /*
      * The endpoint's own last word on whether there is a panel. The

@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueRelationTool', 'Tools/ValueProfile');
+App::uses('ValueRelationTool', 'Tools/ValueIntelligence');
 /**
  * Section five: the object joins that carry a pair of dates.
  *
@@ -41,10 +41,10 @@ App::uses('ValueRelationTool', 'Tools/ValueProfile');
  *
  * Lazily loaded from ValuesController::viewRelationDated.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$relations = $valueProfile['relationships'];
+$relations = $valueIntelligence['relationships'];
 $dated = $relations['dated'];
 $siblings = $relations['siblings'];
 $rows = $dated['rows'];
@@ -54,7 +54,7 @@ $icon = 'fas fa-clock-rotate-left';
 /**
  * Where a related value is stored.
  *
- * **Not the neighbour's own Value Profile.** §25.2's reading still
+ * **Not the neighbour's own Value Intelligence.** §25.2's reading still
  * wants the list of names on the address, but a value's page is about
  * to be one gesture away from any string on any page, and the record
  * that wrote the resolution is not. So the click goes to the object

@@ -11,8 +11,9 @@
     'use strict';
 
     /* ── context priority: a port of ValueLabelPriority ─────── */
-    // app/Lib/Tools/ValueProfile/ValueLabelPriority.php, method for method, so
-    // the explorer ranks tags and clusters exactly as the event page does.
+    // app/Lib/Tools/ValueIntelligence/ValueLabelPriority.php, method for
+    // method, so the explorer ranks tags and clusters exactly as the event
+    // page does.
     // tests/js/pivot-sidebar-model.test.js checks the two agree.
     var PINNED = 'pinned', PREFERRED = 'preferred', DEMOTED = 'demoted';
     var TIERS = [PINNED, PREFERRED, DEMOTED];

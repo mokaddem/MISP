@@ -1,6 +1,6 @@
 <?php
 
-App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
 
 /**
  * The assessment's second axis: does what the record asserts still

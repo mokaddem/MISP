@@ -27,14 +27,14 @@
  *
  * Lazily loaded into `.ajax-card` from ValuesController::viewLifecycle.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
-$relevance = $valueProfile['relevance'];
-$warninglists = $valueProfile['warninglists'];
-$checked = $valueProfile['warninglists_checked'];
-$correlations = $valueProfile['correlations'];
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
+$relevance = $valueIntelligence['relevance'];
+$warninglists = $valueIntelligence['warninglists'];
+$checked = $valueIntelligence['warninglists_checked'];
+$correlations = $valueIntelligence['correlations'];
 
 $state = $relevance['state'];
 

@@ -1,7 +1,7 @@
 <?php
 
-App::uses('ValueStatementTool', 'Tools/ValueProfile');
-App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueStatementTool', 'Tools/ValueIntelligence');
+App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
 
 /**
  * A reporter's own warning that the value may be harmless.

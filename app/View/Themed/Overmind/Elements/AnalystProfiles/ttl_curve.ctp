@@ -34,7 +34,7 @@
  * @var array $section
  * @var array|null $runway The bench value's relevance, when there is one
  */
-App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueIntelligence');
 $numbers = array();
 foreach ($block['entries'] as $entry) {
     if (empty($entry['key_field'])) {

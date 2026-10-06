@@ -25,7 +25,7 @@
  * it costs a second pass over the value's `attribute_tags`. So each
  * chip's title states whichever counts it has, under their own names,
  * and the page keeps its rule that every `×N` on it counts one thing.
- * `ValueProfile::mergeTagScopes` carries both.
+ * `ValueIntelligence::mergeTagScopes` carries both.
  *
  * **Clusters are grouped under their galaxy**, which is the thing they
  * are members of. Flat, the card put a tool, a threat actor and four
@@ -36,10 +36,10 @@
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewContext.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-$profile = $valueProfile;
+$profile = $valueIntelligence;
 $taxonomies = $profile['tags'];
 $galaxies = $profile['galaxies'];
 $tagCap = isset($profile['tag_cap']) ? $profile['tag_cap'] : null;

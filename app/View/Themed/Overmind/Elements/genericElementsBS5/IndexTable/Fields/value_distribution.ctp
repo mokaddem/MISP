@@ -6,7 +6,7 @@
  * a real instance holds: an attribute's audience is the conjunction of
  * its own level, its object's and its event's, and that is what the
  * reader is asking. `ValueStatsTool::effectiveDistribution()` resolves
- * it and `ValueProfile::attachEffectiveDistribution()` stamps it on the
+ * it and `ValueIntelligence::attachEffectiveDistribution()` stamps it on the
  * row, so every surface that draws the level draws the same one.
  *
  * An element rather than a per-table closure because the Overview card

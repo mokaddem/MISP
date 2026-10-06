@@ -14,7 +14,7 @@
  * - **document transforms** — they turn an attachment into text;
  * - **query builders and validators** — they compile or check a rule.
  *
- * Offered beside passive DNS on the Value Profile or the graph, they
+ * Offered beside passive DNS on the Value Intelligence or the graph, they
  * would read as lookups. So they are left out of every enrichment
  * surface, and — as with `ModuleLocality` — the profile's
  * `enrichment.roles` map may say otherwise, per module, in either

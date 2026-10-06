@@ -53,7 +53,7 @@ class ValueContextTool
      * label an analyst is most likely to care about is not below the
      * fold of a card that does not scroll.
      *
-     * @param array $tags `ValueProfile::mergeTagScopes`' output —
+     * @param array $tags `ValueIntelligence::mergeTagScopes`' output —
      *     `tag`, a `count` to sort by, and the per-scope
      *     `occurrences`/`events` behind it; galaxies included
      * @param array $taxonomies `namespace` => the fold below
@@ -328,7 +328,7 @@ class ValueContextTool
      * cluster actually belongs to, only not spelled the way the
      * instance spells it.
      *
-     * @param array $tags `ValueProfile::mergeTagScopes`' output
+     * @param array $tags `ValueIntelligence::mergeTagScopes`' output
      * @param array $clusters Tag name => a `fetchGalaxyClusters` row
      * @return array One entry per galaxy: `galaxy`, `kind`, `clusters`
      */

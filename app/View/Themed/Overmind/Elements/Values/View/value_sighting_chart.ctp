@@ -64,15 +64,15 @@
  *
  * Lazily loaded from ValuesController::viewSightingChart.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $valueB64
  */
-App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
+App::uses('ValueIntelligenceBuckets', 'Tools/ValueIntelligence');
 
-$series = $valueProfile['sighting_series'];
-$sightings = $valueProfile['sightings'];
-$relevance = $valueProfile['relevance'];
-$notes = $valueProfile['sighting_notes'];
+$series = $valueIntelligence['sighting_series'];
+$sightings = $valueIntelligence['sightings'];
+$relevance = $valueIntelligence['relevance'];
+$notes = $valueIntelligence['sighting_notes'];
 $positive = $sightings['total'] - $sightings['fp'] - $sightings['expiration'];
 
 /*
@@ -251,7 +251,7 @@ if ($series !== null) {
                     . ' · sightings up, contradictions down'
                 ),
             ),
-            'perColumn' => ValueProfileBuckets::columnLabels(),
+            'perColumn' => ValueIntelligenceBuckets::columnLabels(),
         ),
     );
 }
@@ -355,7 +355,7 @@ if ($series !== null) {
                     'zoomLabel' => __('Zoom the navigator'),
                     'zoomAway' => __('the range is not in view'),
                     'zoomSelection' => __('Look inside the range'),
-                    'grain' => ValueProfileBuckets::columnLabels(),
+                    'grain' => ValueIntelligenceBuckets::columnLabels(),
                 )) ?>
             </div>
 

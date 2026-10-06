@@ -10,12 +10,12 @@
  * The actions under them are the three ways a reader can supply exactly
  * that evidence.
  *
- * @var array $valueProfile
+ * @var array $valueIntelligence
  * @var string $noWrites Why every action here is disabled
  */
-App::uses('ValueLean', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueIntelligence');
 
-$verdict = $valueProfile['verdict'];
+$verdict = $valueIntelligence['verdict'];
 $changers = $verdict['changers'] ?? array();
 $actions = $verdict['changer_actions'] ?? array();
 ?>

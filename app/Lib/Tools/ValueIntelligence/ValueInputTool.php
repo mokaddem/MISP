@@ -335,7 +335,7 @@ class ValueInputTool
      * forbid.
      *
      * **Still pure, and still takes no `$user`**
-     * (`value-profile-live/00-contract.md` §14.5). `ComplexTypeTool`
+     * (`value-intelligence-live/00-contract.md` §14.5). `ComplexTypeTool`
      * accepts a TLD list and a security-vendor domain list, and
      * `EventsController::freeTextImport()` reads both off
      * `Warninglist`. Neither is passed here, because neither changes

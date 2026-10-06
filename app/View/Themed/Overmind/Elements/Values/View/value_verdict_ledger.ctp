@@ -31,7 +31,7 @@
  *
  * @var array $verdict
  */
-App::uses('ValueBandReasonTool', 'Tools/ValueProfile');
+App::uses('ValueBandReasonTool', 'Tools/ValueIntelligence');
 
 $ledger = $verdict['ledger'] ?? array();
 $conflicts = $verdict['conflicts'] ?? array();

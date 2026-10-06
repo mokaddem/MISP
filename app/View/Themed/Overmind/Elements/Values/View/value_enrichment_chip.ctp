@@ -17,13 +17,13 @@
  * the caller asks for `shape=chip`, and included by
  * `value_hover_enrichment` for the answers the store already held.
  *
- * @var array $valueProfile Set when rendered as an endpoint
+ * @var array $valueIntelligence Set when rendered as an endpoint
  * @var array $badge        Set when included by the strip
  */
 $badge = isset($badge) ? $badge : array(
-    'module' => $valueProfile['run']['module'],
-    'state' => $valueProfile['run']['state'],
-    'chips' => $valueProfile['chips'],
+    'module' => $valueIntelligence['run']['module'],
+    'state' => $valueIntelligence['run']['state'],
+    'chips' => $valueIntelligence['chips'],
 );
 $chips = $badge['chips'];
 $state = (string)$badge['state'];

@@ -23,14 +23,14 @@
  * When, never who: naming the analyst who ran a module would tell
  * the organisation which colleague is looking at which value.
  *
- * @var array $valueProfile Set when rendered as an endpoint
+ * @var array $valueIntelligence Set when rendered as an endpoint
  * @var array $badge        Set when included by the panel
  */
 $badge = isset($badge) ? $badge : array(
-    'module' => $valueProfile['run']['module'],
-    'state' => $valueProfile['run']['state'],
-    'age' => $valueProfile['run']['age'],
-    'chips' => $valueProfile['chips'],
+    'module' => $valueIntelligence['run']['module'],
+    'state' => $valueIntelligence['run']['state'],
+    'age' => $valueIntelligence['run']['age'],
+    'chips' => $valueIntelligence['chips'],
 );
 $chips = $badge['chips'];
 $state = (string)$badge['state'];

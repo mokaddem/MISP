@@ -5830,7 +5830,7 @@ function loadAjaxContainer(container) {
              * Page-level scripts need to know when a lazily-loaded panel
              * has arrived, so state the page holds — an active filter,
              * attributes stamped on controls — can be re-applied to
-             * markup that was not there at load. The Value Profile's
+             * markup that was not there at load. The Value Intelligence's
              * panels are what listen; other callers are unaffected.
              */
             container.dispatchEvent(new CustomEvent('misp:container-loaded', {

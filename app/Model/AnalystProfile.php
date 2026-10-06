@@ -28,7 +28,7 @@ class AnalystProfile extends AppModel
     /**
      * `default-v1`'s uuid — what the instance runs when it names nothing.
      *
-     * The site setting `ValueProfile_instance_profile` is what actually
+     * The site setting `ValueIntelligence_instance_profile` is what actually
      * decides (D44), and this is only its fall-back: an instance that
      * takes the upgrade and sets nothing resolves the same profile it
      * resolved before six of them shipped. Any other value there wins,
@@ -410,7 +410,7 @@ class AnalystProfile extends AppModel
      */
     public function pivotLabels(array $user, $plan = null)
     {
-        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
         if ($plan === null) {
             $plan = ValueLabelPriority::planFor($this->resolveFor($user));
         }
@@ -624,7 +624,9 @@ class AnalystProfile extends AppModel
                 $selections['org'] = $stored;
             }
         }
-        $instance = Configure::read('Plugin.ValueProfile_instance_profile');
+        $instance = Configure::read(
+            'Plugin.ValueIntelligence_instance_profile'
+        );
         if (!is_string($instance) || !Validation::uuid(trim($instance))) {
             $instance = self::SHIPPED_DEFAULT_UUID;
         }
@@ -901,7 +903,7 @@ class AnalystProfile extends AppModel
      * Which of D3's three scopes owns a profile.
      *
      * The columns say it and no lookup is needed, which is what lets a
-     * caller holding only the row — `ValueProfile::verdictPanels()`,
+     * caller holding only the row — `ValueIntelligence::verdictPanels()`,
      * which takes no `$user` on purpose — state how far the profile in
      * force reaches. It is safe there because `resolveFor()` returns
      * only rows that already match the viewer: a `user` answer is

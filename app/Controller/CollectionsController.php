@@ -1,6 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
-App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 App::uses('Value', 'Model');
 App::uses('CollectionRailCards', 'Tools/RailCards');
 
