@@ -4,7 +4,6 @@
 
 /* page header metadata */
 .eo-meta { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .35rem 1rem; }
-.eo-id { font-weight: 700; color: var(--bs-emphasis-color); margin-right: .4rem; }
 .eo-uuid {
     display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem;
     padding: .05rem .4rem; border: 1px solid var(--bs-border-color); border-radius: .35rem;

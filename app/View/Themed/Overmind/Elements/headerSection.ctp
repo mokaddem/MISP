@@ -408,6 +408,11 @@ if (!empty($headerActions)) {
                 <span class="text-muted text-uppercase fw-semibold mb-1"
                         style="font-size:0.68rem; letter-spacing:0.07em;">
                     <?= $breadcrumb ?>
+                    <?php if (!empty($headerBreadcrumbSuffix)): ?>
+                        <span class="ms-1 border rounded px-1 font-monospace text-body">
+                            <?= h($headerBreadcrumbSuffix) ?>
+                        </span>
+                    <?php endif; ?>
                 </span>
             <?php endif; ?>
             <div class="d-flex align-items-center gap-2 ">

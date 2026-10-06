@@ -8,11 +8,9 @@ $markings = $overviewMarkings ?? ['declared' => [], 'present' => [], 'absent' =>
 
 $meta = [];
 $meta[] = sprintf(
-    '<span class="eo-id">#%s</span>'
-    . '<span class="eo-uuid font-monospace" title="%s">%s'
+    '<span class="eo-uuid font-monospace" title="%s">%s'
     . '<button type="button" class="eo-copy" onclick="copyToClipboard(this, \'%s\')" title="%s" aria-label="%s">'
     . '<i class="fas fa-copy"></i></button></span>',
-    h($event['id'] ?? ''),
     h($event['uuid'] ?? ''),
     h(substr($event['uuid'] ?? '', 0, 8)),
     h($event['uuid'] ?? ''),
