@@ -2999,7 +2999,6 @@
             document.querySelectorAll('[data-ig-graphs-card]').forEach(function (card) {
                 if (card.igReload) card.igReload();
             });
-            refreshSaveControls();
             _graph.notifier.success(title, '“' + saved.name + '”', {
                 action: {
                     label:   'Open graph',
@@ -3008,8 +3007,14 @@
             });
         }
 
+        // The top bar re-reads its pill once a pill or caret action settles;
+        // a save from anywhere else has to say so itself.
         function refreshSaveControls() {
-            if (_graph && typeof _graph.UIManager.refreshTopBar === 'function') _graph.UIManager.refreshTopBar();
+            if (_graph) _graph.UIManager.refreshTopBar();
+        }
+
+        function refreshingAfter(action) {
+            return function () { return action().then(refreshSaveControls); };
         }
 
         function formRow(label, control) {
@@ -3034,14 +3039,15 @@
             return select;
         }
 
+        // Resolves once the dialog is closed, saved or not.
         function saveGraphDialog() {
             var target = graphTarget();
-            if (!target || !_graph) return;
+            if (!target || !_graph) return Promise.resolve();
             var doc = canvasDocument();
             var kept = doc.document.nodes.length;
             if (!kept) {
                 _graph.notifier.warning('Nothing to save', 'No element on the canvas is a MISP record a graph can hold.');
-                return;
+                return Promise.resolve();
             }
 
             var form = el('form', 'pvt-form pe-save-graph');
@@ -3080,6 +3086,8 @@
             dist.addEventListener('change', function () { sgRow.hidden = dist.value !== '4'; });
 
             var busy = false;
+            var closed;
+            var whenClosed = new Promise(function (resolve) { closed = resolve; });
             var modal = _graph.UIManager.createModal({
                 header:  'Save as graph on this ' + (target.type === 'GalaxyCluster' ? 'galaxy cluster' : 'event'),
                 body:    form,
@@ -3087,9 +3095,10 @@
                 buttons: [
                     { variant: 'secondary', text: 'Cancel', onClick: function () { modal.hide(); } },
                     { variant: 'primary', text: 'Save', onClick: submit }
-                ]
+                ],
+                onHide: function () { closed(); }
             });
-            if (!modal) return;
+            if (!modal) return Promise.resolve();
             form.addEventListener('keydown', function (e) {
                 e.stopPropagation();
                 if (e.key === 'Escape') { e.preventDefault(); modal.hide(); }
@@ -3128,18 +3137,19 @@
                     error.textContent = 'Not saved: ' + failureText(err);
                 });
             }
+            return whenClosed;
         }
 
         function updateGraph() {
-            if (!_savedGraph || !_graph) return;
+            if (!_savedGraph || !_graph) return Promise.resolve();
             var saved = _savedGraph;
-            window.IntelGraph.save(saved.uuid, canvasDocument().document, saved.revision).then(function (out) {
+            return window.IntelGraph.save(saved.uuid, canvasDocument().document, saved.revision).then(function (out) {
                 saved.revision = parseInt(out && out.revision, 10) || saved.revision;
                 graphSaved('Graph updated', saved);
             }, function (err) {
                 if (err && err.status === 409) {
                     _graph.notifier.warning('Not updated', '“' + saved.name + '” was saved elsewhere since.', {
-                        action: { label: 'Save as new', onClick: saveGraphDialog }
+                        action: { label: 'Save as new', onClick: refreshingAfter(saveGraphDialog) }
                     });
                     return;
                 }
@@ -3154,19 +3164,19 @@
                 iconClass:     'fas fa-circle-nodes',
                 dividerBefore: true,
                 visible:       function () { return !_savedGraph && !!graphTarget(); },
-                onclick:       saveGraphDialog
+                onclick:       refreshingAfter(saveGraphDialog)
             }, {
                 text:          'Update saved graph',
                 title:         'Writes the canvas into the graph saved from it',
                 iconClass:     'fas fa-circle-nodes',
                 dividerBefore: true,
                 visible:       function () { return !!_savedGraph; },
-                onclick:       updateGraph
+                onclick:       refreshingAfter(updateGraph)
             }, {
                 text:          'Save as new graph…',
                 iconClass:     'fas fa-plus',
                 visible:       function () { return !!_savedGraph; },
-                onclick:       saveGraphDialog
+                onclick:       refreshingAfter(saveGraphDialog)
             }];
         }
 
@@ -3181,7 +3191,7 @@
                 },
                 iconClass: 'fas fa-circle-nodes',
                 visible:   function () { return !!graphTarget(); },
-                onclick:   function () { if (_savedGraph) updateGraph(); else saveGraphDialog(); },
+                onclick:   function () { return _savedGraph ? updateGraph() : saveGraphDialog(); },
                 menu:      function () {
                     return _savedGraph
                         ? [{ text: 'Save as new graph…', iconClass: 'fas fa-plus', onclick: saveGraphDialog }]
