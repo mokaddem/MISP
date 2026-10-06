@@ -14,14 +14,14 @@ if ($isSiteAdmin) {
     $actions[] = [
         'url' => "$baseurl/cerebrates/pull_orgs/$cerebrateId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/cerebrates/pull_orgs/$cerebrateId', 'md');",
-        'icon' => 'fas fa-arrow-circle-down',
+        'icon' => 'fas fa-circle-arrow-down',
         'label' => __('Sync organisation information'),
         'short' => __('Sync orgs')
     ];
     $actions[] = [
         'url' => "$baseurl/cerebrates/pull_sgs/$cerebrateId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/cerebrates/pull_sgs/$cerebrateId', 'md');",
-        'icon' => 'fas fa-arrow-circle-down',
+        'icon' => 'fas fa-circle-arrow-down',
         'label' => __('Sync sharing group information'),
         'short' => __('Sync SGs')
     ];

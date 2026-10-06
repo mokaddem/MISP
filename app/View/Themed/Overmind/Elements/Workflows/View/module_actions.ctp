@@ -14,19 +14,17 @@ if ($canManage) {
         $actions[] = [
             'type' => 'post',
             'url' => "$baseurl/workflows/toggleModule/$moduleId/0$suffix",
-            'icon' => 'fas fa-stop',
+            'icon' => 'fas fa-toggle-off',
             'label' => $isAdhoc ? __('Disable workflow') : ($isTrigger ? __('Disable trigger') : __('Disable module')),
             'short' => __('Disable'),
-            'warning' => true,
         ];
     } else {
         $actions[] = [
             'type' => 'post',
             'url' => "$baseurl/workflows/toggleModule/$moduleId/1$suffix",
-            'icon' => 'fas fa-play',
+            'icon' => 'fas fa-toggle-on',
             'label' => $isAdhoc ? __('Enable workflow') : ($isTrigger ? __('Enable trigger') : __('Enable module')),
             'short' => __('Enable'),
-            'success' => true,
         ];
     }
 }
@@ -43,7 +41,8 @@ if ($isTrigger) {
         // The editor creates the workflow of a trigger that has none yet.
         $actions[] = [
             'url' => "$baseurl/workflows/editor/$moduleId",
-            'icon' => 'fas fa-plus',
+            'icon' => 'fas fa-diagram-project',
+            'add' => true,
             'label' => __('Create its workflow'),
             'short' => __('Create'),
         ];
@@ -55,7 +54,7 @@ if ($isAdhoc && $workflowId && $canManage) {
         $actions[] = [
             'url' => "$baseurl/workflows/executeWorkflow/$workflowId",
             'onclick' => "event.preventDefault(); openModal('$baseurl/workflows/executeWorkflow/$workflowId');",
-            'icon' => 'fas fa-play-circle',
+            'icon' => 'fas fa-diagram-project',
             'label' => __('Run workflow'),
             'short' => __('Run'),
         ];
@@ -63,7 +62,7 @@ if ($isAdhoc && $workflowId && $canManage) {
     $actions[] = [
         'url' => "$baseurl/workflows/edit/$workflowId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/workflows/edit/$workflowId');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen',
         'label' => __('Edit'),
         'short' => __('Edit'),
     ];

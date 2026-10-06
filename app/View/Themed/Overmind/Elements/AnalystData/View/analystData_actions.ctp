@@ -9,6 +9,7 @@ if (!empty($mayModify)) {
         'url' => "$baseurl/analystData/edit/$m/$recordId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/analystData/edit/$m/$recordId');",
         'icon' => 'fas fa-pen',
+        'entity' => 'analystData',
         'label' => __('Edit %s', $m),
         'short' => __('Edit'),
     ];

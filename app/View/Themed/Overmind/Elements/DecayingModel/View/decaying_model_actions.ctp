@@ -30,7 +30,7 @@ if ($editable) {
 
 $actions[] = [
     'url' => "$baseurl/decayingModel/export/$id.json",
-    'icon' => 'fas fa-cloud-arrow-down',
+    'icon' => 'fas fa-download',
     'label' => __('Download JSON'),
     'short' => __('Download'),
 ];
@@ -41,20 +41,18 @@ if ($editable) {
             'type' => 'post',
             'url' => "$baseurl/decayingModel/enable/$id",
             'id' => $id,
-            'icon' => 'fas fa-play',
+            'icon' => 'fas fa-toggle-on',
             'label' => __('Enable model'),
             'short' => __('Enable'),
-            'success' => true,
         ];
     } else {
         $actions[] = [
             'type' => 'post',
             'url' => "$baseurl/decayingModel/disable/$id",
             'id' => $id,
-            'icon' => 'fas fa-pause',
+            'icon' => 'fas fa-toggle-off',
             'label' => __('Disable model'),
             'short' => __('Disable'),
-            'warning' => true,
         ];
     }
 

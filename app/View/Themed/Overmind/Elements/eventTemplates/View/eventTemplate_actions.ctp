@@ -10,7 +10,7 @@ if ($this->Acl->canAccess('eventTemplates', 'add')) {
         'url' => "$baseurl/event_templates/edit/$templateId",
         'onclick' => "event.preventDefault(); openModal('"
             . "$baseurl/event_templates/edit/$templateId', 'xl');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen',
         'label' => __('Edit this template'),
         'short' => __('Edit'),
     ];
@@ -22,10 +22,11 @@ if ($this->Acl->canAccess('eventTemplates', 'instantiate') && $isActive) {
         'url' => "$baseurl/event_templates/instantiate/$templateId",
         'onclick' => "event.preventDefault(); openModal('"
             . "$baseurl/event_templates/instantiate/$templateId', 'xl');",
-        'icon' => 'fas fa-play',
+        'icon' => 'misp-icon misp-icon-event misp-simple',
+        'entity' => 'event',
+        'add' => true,
         'label' => __('Create event from template'),
         'short' => __('Create event'),
-        'success' => true,
     ];
 }
 
@@ -46,7 +47,7 @@ if ($this->Acl->canAccess('eventTemplates', 'edit')) {
         'url' => "$baseurl/event_templates/edit/$templateId",
         'onclick' => "event.preventDefault(); openModal('"
             . "$baseurl/event_templates/edit/$templateId', 'xl');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen-ruler',
         'label' => __('Open in builder'),
         'short' => __('Builder'),
     ];

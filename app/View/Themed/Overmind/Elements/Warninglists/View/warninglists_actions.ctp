@@ -23,7 +23,7 @@ if ($isSiteAdmin) {
             'type' => 'post',
             'url' => "$baseurl/warninglists/toggleEnable/$warninglistId",
             'id' => $warninglistId,
-            'icon' => 'fas fa-play',
+            'icon' => 'fas fa-toggle-on',
             'label' => __('Enable Warninglist'),
             'short' => __('Enable'),
             'class' => 'text-success'
@@ -33,7 +33,7 @@ if ($isSiteAdmin) {
             'type' => 'post',
             'url' => "$baseurl/warninglists/toggleEnable/$warninglistId",
             'id' => $warninglistId,
-            'icon' => 'fas fa-stop',
+            'icon' => 'fas fa-toggle-off',
             'label' => __('Disable Warninglist'),
             'short' => __('Disable'),
             'class' => 'text-warning'

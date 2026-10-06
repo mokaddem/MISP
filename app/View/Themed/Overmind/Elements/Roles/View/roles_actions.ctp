@@ -9,7 +9,7 @@ if ($isSiteAdmin && $roleId !== '') {
     $actions[] = [
         'url' => "$baseurl/admin/roles/edit/$roleId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/admin/roles/edit/$roleId');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen',
         'label' => __('Edit role'),
         'short' => __('Edit'),
     ];

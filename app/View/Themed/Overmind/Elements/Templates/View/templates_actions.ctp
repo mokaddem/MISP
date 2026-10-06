@@ -9,6 +9,7 @@ if ($isSiteAdmin) {
         'url' => "$baseurl/templateElements/addV2/$templateId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/templateElements/addV2/$templateId');",
         'icon' => 'fas fa-file-code',
+        'add' => true,
         'label' => __('Add Element to Template'),
         'short' => __('Add element')
     ];

@@ -9,7 +9,7 @@ if ($adminView) {
     $actions[] = [
         'url'     => "$baseurl/admin/users/edit/$uid",
         'onclick' => "event.preventDefault(); openModal('$baseurl/admin/users/edit/$uid');",
-        'icon'    => 'fas fa-pen-to-square',
+        'icon'    => 'fas fa-pen',
         'label'   => __('Edit user'),
         'short'   => __('Edit'),
     ];
@@ -17,7 +17,7 @@ if ($adminView) {
     $actions[] = [
         'url'     => "$baseurl/users/edit",
         'onclick' => "event.preventDefault(); openModal('$baseurl/users/edit');",
-        'icon'    => 'fas fa-pen-to-square',
+        'icon'    => 'fas fa-pen',
         'label'   => __('Edit profile'),
         'short'   => __('Edit'),
     ];

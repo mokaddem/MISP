@@ -10,11 +10,10 @@ $confirmBody = __('This will fetch the event from the remote instance and save i
 $actions = [
     [
         'url' => '#',
-        'icon' => 'fas fa-arrow-circle-down',
+        'icon' => 'fas fa-circle-arrow-down',
+        'entity' => 'event',
         'label' => __('Fetch this event'),
         'short' => __('Fetch'),
-        'success' => $isPublished,
-        'warning' => !$isPublished,
         'onclick' => 'event.preventDefault(); previewFetchEvent();',
     ],
 ];

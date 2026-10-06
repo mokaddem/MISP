@@ -12,7 +12,8 @@ if ($isSiteAdmin) {
             'type' => 'post',
             'url' => "$baseurl/objectTemplates/toggleActive/$objectTemplateId",
             'id' => $objectTemplateId,
-            'icon' => 'fas fa-play',
+            'icon' => 'fas fa-toggle-on',
+            'entity' => 'object',
             'label' => __('Activate Object Template'),
             'short' => __('Activate'),
             'class' => 'text-success'
@@ -22,7 +23,8 @@ if ($isSiteAdmin) {
             'type' => 'post',
             'url' => "$baseurl/objectTemplates/toggleActive/$objectTemplateId",
             'id' => $objectTemplateId,
-            'icon' => 'fas fa-stop',
+            'icon' => 'fas fa-toggle-off',
+            'entity' => 'object',
             'label' => __('Deactivate Object Template'),
             'short' => __('Deactivate'),
             'class' => 'text-warning'
@@ -31,7 +33,8 @@ if ($isSiteAdmin) {
 
     $actions[] = [
         'url' => "$baseurl/objectTemplates/update/$objectTemplateName/$objectTemplateId",
-        'icon' => 'fas fa-sync',
+        'icon' => 'fas fa-arrows-rotate',
+        'entity' => 'object',
         'label' => __('Update Object Template'),
         'short' => __('Update')
     ];

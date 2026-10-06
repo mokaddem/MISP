@@ -10,7 +10,7 @@ if ($isSiteAdmin && $orgId !== null) {
     $actions[] = [
         'url'     => "$baseurl/admin/organisations/edit/$orgId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/admin/organisations/edit/$orgId');",
-        'icon'    => 'fas fa-pen-to-square',
+        'icon'    => 'fas fa-pen',
         'label'   => __('Edit organisation'),
         'short'   => __('Edit'),
     ];

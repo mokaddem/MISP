@@ -18,9 +18,9 @@ if ($siteAdmin && $isEnabled) {
         'url' => "$baseurl/feeds/fetchSelectedFeeds/$feedId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/feeds/fetchSelectedFeeds/$feedId', 'md');",
         'icon' => 'fas fa-circle-arrow-down',
+        'entity' => 'event',
         'label' => __('Fetch all events'),
         'short' => __('Fetch all'),
-        'success' => true,
     ];
 }
 
@@ -29,24 +29,22 @@ if ($siteAdmin) {
         ? [
             'url' => "$baseurl/feeds/disable/$feedId",
             'type' => 'post',
-            'icon' => 'fas fa-stop',
+            'icon' => 'fas fa-toggle-off',
             'label' => __('Disable feed'),
             'short' => __('Disable'),
-            'warning' => true,
         ]
         : [
             'url' => "$baseurl/feeds/enable/$feedId",
             'type' => 'post',
-            'icon' => 'fas fa-play',
+            'icon' => 'fas fa-toggle-on',
             'label' => __('Enable feed'),
             'short' => __('Enable'),
-            'success' => true,
         ];
 
     $actions[] = [
         'url' => "$baseurl/feeds/edit/$feedId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/feeds/edit/$feedId');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen',
         'label' => __('Edit feed'),
         'short' => __('Edit'),
     ];
@@ -54,7 +52,7 @@ if ($siteAdmin) {
 
 $actions[] = [
     'url' => "$baseurl/feeds/view/$feedId.json",
-    'icon' => 'fas fa-cloud-arrow-down',
+    'icon' => 'fas fa-download',
     'label' => __('Download metadata as JSON'),
     'short' => __('Download'),
 ];

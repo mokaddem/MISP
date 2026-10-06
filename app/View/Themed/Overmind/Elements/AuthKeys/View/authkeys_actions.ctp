@@ -11,7 +11,7 @@ if ($canEdit) {
     $actions[] = [
         'url'     => "$baseurl/auth_keys/edit/$id",
         'onclick' => "event.preventDefault(); openModal('$baseurl/auth_keys/edit/$id');",
-        'icon'    => 'fas fa-pen-to-square',
+        'icon'    => 'fas fa-pen',
         'label'   => __('Edit auth key'),
         'short'   => __('Edit'),
     ];

@@ -8,7 +8,8 @@ if ($this->Acl->canModifyGalaxy($galaxy)) {
     $actions[] = [
         'url' => "$baseurl/galaxies/edit/$id",
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxies/edit/$id');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen',
+        'entity' => 'galaxy',
         'label' => __('Edit Galaxy'),
         'short' => __('Edit'),
     ];
@@ -18,7 +19,9 @@ if ($this->Acl->canAccess('galaxies', 'add')) {
     $actions[] = [
         'url' => "$baseurl/galaxy_clusters/add/$id",
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/add/$id');",
-        'icon' => 'fas fa-circle-plus',
+        'icon' => 'misp-icon misp-icon-galaxy misp-simple',
+        'entity' => 'galaxy',
+        'add' => true,
         'label' => __('Add Galaxy Cluster'),
         'short' => __('Add cluster'),
     ];
@@ -37,19 +40,19 @@ if ($isSiteAdmin) {
         $actions[] = [
             'url' => "$baseurl/galaxies/enable/$id",
             'onclick' => "event.preventDefault(); openModal('$baseurl/galaxies/toggle/$id', 'md');",
-            'icon' => 'fas fa-play',
+            'icon' => 'fas fa-toggle-on',
+            'entity' => 'galaxy',
             'label' => __('Enable Galaxy'),
             'short' => __('Enable'),
-            'success' => true,
         ];
     } else {
         $actions[] = [
             'url' => "$baseurl/galaxies/disable/$id",
             'onclick' => "event.preventDefault(); openModal('$baseurl/galaxies/toggle/$id', 'md');",
-            'icon' => 'fas fa-stop',
+            'icon' => 'fas fa-toggle-off',
+            'entity' => 'galaxy',
             'label' => __('Disable Galaxy'),
             'short' => __('Disable'),
-            'warning' => true,
         ];
     }
 

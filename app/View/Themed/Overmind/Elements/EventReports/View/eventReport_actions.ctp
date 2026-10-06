@@ -10,6 +10,7 @@ if (!empty($canEdit)) {
         'url' => "$baseurl/event_reports/edit/$reportId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/event_reports/edit/$reportId');",
         'icon' => 'fas fa-pen',
+        'entity' => 'report',
         'label' => __('Edit Report'),
         'short' => __('Edit'),
     ];

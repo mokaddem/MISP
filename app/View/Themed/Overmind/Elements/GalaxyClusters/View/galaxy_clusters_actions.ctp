@@ -19,7 +19,8 @@ if ($canEdit) {
     $actions[] = [
         'url' => "$baseurl/galaxy_clusters/edit/$id",
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/edit/$id');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen',
+        'entity' => 'galaxy',
         'label' => __('Edit Cluster'),
         'short' => __('Edit'),
     ];
@@ -30,6 +31,7 @@ if ($isEditor) {
         'url' => "$baseurl/galaxy_clusters/add/$galaxyId/forkUuid:$uuid",
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/add/$galaxyId/forkUuid:" . h($uuid) . "');",
         'icon' => 'fas fa-code-branch',
+        'entity' => 'galaxy',
         'label' => __('Fork Cluster'),
         'short' => __('Fork'),
     ];
@@ -38,6 +40,7 @@ if ($isEditor) {
 $actions[] = [
     'url' => "$baseurl/galaxies/viewGraph/$id",
     'icon' => 'fas fa-share-nodes',
+    'entity' => 'correlation',
     'label' => __('View correlation graph'),
     'short' => __('Correlations'),
 ];
@@ -46,6 +49,7 @@ if ($this->Acl->canAccess('analystGraphs', 'addNodes') && !$isDeleted) {
     $actions[] = [
         'url' => '#',
         'icon' => 'fas fa-circle-nodes',
+        'entity' => 'galaxy',
         'label' => __('Add to graph'),
         'short' => __('Graph'),
         'attributes' => ['data-intel-graph-add' => json_encode([['type' => 'GalaxyCluster', 'uuid' => $uuid, 'label' => $data['value']]])],
@@ -67,6 +71,7 @@ if ($canPublish) {
         'url' => "$baseurl/galaxy_clusters/publish/$id",
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/publish/$id', 'md');",
         'icon' => 'fas fa-upload',
+        'primary' => true,
         'label' => __('Publish Cluster'),
         'short' => __('Publish'),
         'success' => true,
@@ -78,9 +83,9 @@ if ($canRestore) {
         'url' => "$baseurl/galaxy_clusters/restore/$id",
         'onclick' => "event.preventDefault(); openModal('$baseurl/galaxy_clusters/restore/$id', 'md');",
         'icon' => 'fas fa-trash-arrow-up',
+        'entity' => 'galaxy',
         'label' => __('Restore Cluster'),
         'short' => __('Restore'),
-        'success' => true,
     ];
 }
 
@@ -95,5 +100,9 @@ if ($canDelete) {
 }
 
 echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
-    'actions' => $actions
+    'actions' => $actions,
+    'status' => $isDefault ? [] : [
+        'published' => $isPublished,
+        'readOnly' => !$canEdit,
+    ],
 ]);

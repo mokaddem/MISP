@@ -16,7 +16,7 @@ if ($isSiteAdmin) {
         'type' => 'post',
         'url' => "$baseurl/noticelists/enableNoticelist/$noticelistId" . ($enabled ? '' : '/1'),
         'id' => $noticelistId,
-        'icon' => $enabled ? 'fas fa-stop' : 'fas fa-play',
+        'icon' => $enabled ? 'fas fa-toggle-off' : 'fas fa-toggle-on',
         'label' => $enabled ? __('Disable Noticelist') : __('Enable Noticelist'),
         'short' => $enabled ? __('Disable') : __('Enable'),
         'class' => $enabled ? 'text-warning' : 'text-success',

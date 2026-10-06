@@ -16,7 +16,7 @@ if ($isSiteAdmin) {
         $actions[] = [
             'url' => "$baseurl/taxiiServers/push/$taxiiServerId",
             'onclick' => "event.preventDefault(); openModal('$baseurl/taxiiServers/push/$taxiiServerId', 'md');",
-            'icon' => 'fas fa-arrow-circle-up',
+            'icon' => 'fas fa-circle-arrow-up',
             'label' => __('Push data to TAXII server'),
             'short' => __('Push')
         ];

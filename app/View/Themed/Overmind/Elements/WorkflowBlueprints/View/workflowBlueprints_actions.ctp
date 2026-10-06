@@ -6,7 +6,7 @@ if ($this->Acl->canAccess('workflowBlueprints', 'edit')) {
     $actions[] = [
         'url' => "$baseurl/workflowBlueprints/edit/$blueprintId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/workflowBlueprints/edit/$blueprintId');",
-        'icon' => 'fas fa-pen-to-square',
+        'icon' => 'fas fa-pen',
         'label' => __('Edit'),
         'short' => __('Edit'),
     ];

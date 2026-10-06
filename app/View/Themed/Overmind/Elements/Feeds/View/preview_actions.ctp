@@ -11,9 +11,9 @@ echo $this->element('genericElementsBS5/Cards/card_launch_bar', [
         [
             'url' => $fetchUrl,
             'icon' => 'fas fa-circle-arrow-down',
+            'entity' => 'event',
             'label' => __('Fetch this event'),
             'short' => __('Fetch'),
-            'success' => true,
             'onclick' => sprintf(
                 "event.preventDefault(); openModal('%s', 'md');",
                 h($fetchUrl)

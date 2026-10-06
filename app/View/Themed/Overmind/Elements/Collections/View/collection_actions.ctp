@@ -10,6 +10,7 @@ if ($isSiteAdmin || $mayModify) {
         'url' => "$baseurl/CollectionElements/add/$collectiontId",
         'onclick' => "event.preventDefault(); openModal('$baseurl/CollectionElements/add/$collectiontId');",
         'icon' => 'fas fa-file',
+        'add' => true,
         'label' => __('Add Element to Collection'),
         'short' => __('Add element')
     ];
