@@ -14,6 +14,7 @@
  * @var array $profile
  * @var bool $editable Whether this page is an editor. Always false here.
  * @var bool $may_edit Whether this reader would be allowed to edit it
+ * @var bool $may_share A site admin's own profile, which they may share
  * @var array $bench
  */
 App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
@@ -96,6 +97,23 @@ if (!empty($me['Role']['perm_admin'])
         'url' => array('action' => 'fork', $profile['id'],
             '?' => array('for_org' => 1)),
     );
+}
+if (!empty($may_share)) {
+    $actions[] = empty($profile['shared'])
+        ? array(
+            'type' => 'action',
+            'label' => __('Share with everyone'),
+            'icon' => 'share-nodes',
+            'url' => array('action' => 'share', $profile['id']),
+            'confirm' => __('Every user can read, fork and select it, and your edits reach everyone who selected it. It stops being your own profile.'),
+        )
+        : array(
+            'type' => 'action',
+            'label' => __('Stop sharing'),
+            'icon' => 'share-nodes',
+            'url' => array('action' => 'unshare', $profile['id']),
+            'confirm' => __('Readers who selected it fall back to their next profile, and it comes back to you disabled.'),
+        );
 }
 
 $this->set('headerTitle', $profile['name']);

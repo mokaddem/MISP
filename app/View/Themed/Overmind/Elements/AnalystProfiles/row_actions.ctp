@@ -84,7 +84,7 @@ $useConfirm = ($in_force !== null && $in_force['name'] !== $profile['name'])
             __('Enable'),
             array('action' => 'enable', $profile['id']),
             array('class' => $btn . ' btn-outline-primary'),
-            $in_force === null ? false : sprintf(
+            $in_force === null || !empty($profile['shared']) ? false : sprintf(
                 __('You may hold one enabled profile, so enabling this'
                     . ' one switches %s off. Nothing is deleted.'),
                 $in_force['name']
@@ -133,7 +133,8 @@ $useConfirm = ($in_force !== null && $in_force['name'] !== $profile['name'])
              */
             $wider = ($chosenByOrg && $may_select_for_org)
                 || !empty($profile['selectable_for_org'])
-                || ($may_select_for_instance && !empty($profile['default'])
+                || ($may_select_for_instance
+                    && (!empty($profile['default']) || !empty($profile['shared']))
                     && !$chosenByInstance && !empty($profile['enabled']));
             ?>
             <?php if ($wider): ?>
@@ -160,7 +161,7 @@ $useConfirm = ($in_force !== null && $in_force['name'] !== $profile['name'])
                     ) ?></li>
                 <?php endif; ?>
                 <?php if ($may_select_for_instance
-                    && !empty($profile['default'])
+                    && (!empty($profile['default']) || !empty($profile['shared']))
                     && !$chosenByInstance
                     && !empty($profile['enabled'])): ?>
                     <li><?= $post(
@@ -191,6 +192,36 @@ $useConfirm = ($in_force !== null && $in_force['name'] !== $profile['name'])
                         __('Fork to my organisation'),
                         array('action' => 'fork', $profile['id'],
                             '?' => array('for_org' => 1))
+                    ) ?></li>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <?php if (!empty($profile['can_share'])): ?>
+                <li><hr class="dropdown-divider"></li>
+                <?php if (empty($profile['shared'])): ?>
+                    <li><?= $post(
+                        'share-nodes',
+                        __('Share with everyone'),
+                        array('action' => 'share', $profile['id']),
+                        sprintf(
+                            __('Share %s? Every user can read, fork and'
+                                . ' select it, and your edits reach everyone'
+                                . ' who selected it. It stops being your own'
+                                . ' profile.'),
+                            $profile['name']
+                        )
+                    ) ?></li>
+                <?php else: ?>
+                    <li><?= $post(
+                        'share-nodes',
+                        __('Stop sharing'),
+                        array('action' => 'unshare', $profile['id']),
+                        sprintf(
+                            __('Stop sharing %s? Readers who selected it fall'
+                                . ' back to their next profile, and it comes'
+                                . ' back to you disabled.'),
+                            $profile['name']
+                        )
                     ) ?></li>
                 <?php endif; ?>
             <?php endif; ?>

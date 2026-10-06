@@ -16285,6 +16285,11 @@ class ValueIntelligence extends AppModel
                     ),
                     $name
                 );
+            case 'shared':
+                return sprintf(
+                    __('Weights come from %s, a shared profile.'),
+                    $name
+                );
             default:
                 return sprintf(
                     __(

@@ -260,6 +260,8 @@ class ACLComponent extends Component
             'disable' => array('*'),
             'select' => array('*'),
             'deselect' => array('*'),
+            'share' => array(),
+            'unshare' => array(),
             'export' => array('*'),
             'import' => array('*'),
             'simulate' => array('*'),
