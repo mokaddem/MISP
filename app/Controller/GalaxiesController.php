@@ -1,5 +1,7 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('GalaxyRailCards', 'Tools/RailCards');
+App::uses('GalaxyCategory', 'Tools');
 
 /**
  * @property Galaxy $Galaxy
@@ -108,7 +110,28 @@ class GalaxiesController extends AppController
                 ],
             ]);
             $this->set('clusterCount', $clusterCount);
+            if ($this->theme === 'Overmind') {
+                $railCards = new GalaxyRailCards();
+                $this->set('railCards', RailCard::byId(array_filter([
+                    $railCards->composition($this->Auth->user(), $galaxy),
+                    $railCards->slot('galaxy-usage', $id),
+                    empty($galaxy['Galaxy']['kill_chain_order']) ? null : $railCards->slot('galaxy-matrix', $id),
+                ])));
+            }
         }
+    }
+
+    /**
+     * One of the galaxy page's lazy rail cards.
+     *
+     * @param int $id
+     * @param string $cardId
+     */
+    public function railCard($id, $cardId)
+    {
+        $user = $this->Auth->user();
+        $galaxy = $this->Galaxy->fetchIfAuthorized($user, $id, 'view', true, false, true);
+        $this->_renderRailCard((new GalaxyRailCards())->lazy($cardId, $user, $galaxy));
     }
 
     public function add()
@@ -138,6 +161,7 @@ class GalaxiesController extends AppController
         }
 
         $this->__setDistribution();
+        $this->__setCategories();
         $this->set('action', 'add');
 
         if ($this->theme === 'Overmind' && $this->request->is('ajax')) {
@@ -184,6 +208,7 @@ class GalaxiesController extends AppController
         $this->set('galaxy', $galaxy);
         $this->set('action', 'edit');
         $this->__setDistribution();
+        $this->__setCategories();
         if ($this->theme === 'Overmind' && $this->request->is('ajax')) {
             $this->layout = false;
         }
@@ -197,6 +222,38 @@ class GalaxiesController extends AppController
         unset($distributionLevels[4], $distributionLevels[5]);
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', 0);
+    }
+
+    /**
+     * What a galaxy's clusters represent, for the two selects the add
+     * and edit form carries.
+     *
+     * Both forms reach locally created galaxies only — `add()` forces
+     * `default = false` and `edit()` refuses a default galaxy — which
+     * is the half no shipped classification can cover, because a local
+     * galaxy's `type` is the UUID it was given.
+     *
+     * The kinds go out as one map rather than one flat list so the form
+     * can narrow the second select to the category chosen in the first.
+     *
+     * @return void
+     */
+    private function __setCategories()
+    {
+        $categories = [];
+        $kinds = [];
+        $descriptions = [];
+        foreach (GalaxyCategory::categories() as $category) {
+            $categories[$category] = $category;
+            $kinds[$category] = [];
+            foreach (GalaxyCategory::kindsIn($category) as $kind) {
+                $kinds[$category][$kind] = $kind;
+            }
+            $descriptions[$category] = GalaxyCategory::describe($category);
+        }
+        $this->set('galaxyCategories', $categories);
+        $this->set('galaxyKinds', $kinds);
+        $this->set('galaxyCategoryDescriptions', $descriptions);
     }
 
     public function delete($id)

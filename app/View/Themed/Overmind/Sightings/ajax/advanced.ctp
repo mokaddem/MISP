@@ -15,9 +15,9 @@ $urlAdd    = $baseurl . '/sightings/add/' . $safeId;
     <!-- ── Header ── -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h5 class="d-flex align-items-center gap-2 fw-semibold mb-0">
-            <span class="d-inline-flex align-items-center justify-content-center rounded-2"
-                  style="width:32px;height:32px;background:#fbceff;">
-                <span class="misp-icon misp-icon-sighting misp-simple" style="color:#890096;font-size:.85rem;"></span>
+            <span class="misp-icon-tile d-inline-flex align-items-center justify-content-center rounded-2"
+                  style="width:32px;height:32px;--tile:#890096;--tile-bg:#fbceff;">
+                <span class="misp-icon misp-icon-sighting misp-simple" style="font-size:.85rem;"></span>
             </span>
             <?= __('Sightings') ?>
         </h5>
@@ -66,9 +66,7 @@ $urlAdd    = $baseurl . '/sightings/add/' . $safeId;
     <div id="sightingAdvContent"
          style="max-height:80vh;overflow-y:auto;overflow-x:auto;">
         <div class="d-flex justify-content-center align-items-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden"><?= __('Loading…') ?></span>
-            </div>
+            <?= $this->element('genericElementsBS5/loader') ?>
         </div>
     </div>
 
@@ -126,7 +124,7 @@ $urlAdd    = $baseurl . '/sightings/add/' . $safeId;
     function loadRemote(url) {
         contentEl.innerHTML =
             '<div class="d-flex justify-content-center align-items-center py-5">'
-            + '<div class="spinner-border text-primary" role="status">'
+            + '<div class="misp-loader" role="status">'
             + '<span class="visually-hidden"><?= __('Loading…') ?></span>'
             + '</div></div>';
 

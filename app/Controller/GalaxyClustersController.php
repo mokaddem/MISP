@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('GalaxyClusterRailCards', 'Tools/RailCards');
 
 /**
  * @property GalaxyCluster $GalaxyCluster
@@ -208,6 +209,16 @@ class GalaxyClustersController extends AppController
         $this->GalaxyCluster->attachExtendByInfo($this->Auth->user(), $clusters);
         $cluster = $clusters[0];
         $cluster = $this->GalaxyCluster->attachExtendFromInfo($this->Auth->user(), $cluster);
+        if ($this->theme === 'Overmind') {
+            $railCards = new GalaxyClusterRailCards();
+            $clusterId = $cluster['GalaxyCluster']['id'];
+            $this->set('railCards', RailCard::byId([
+                $railCards->facts($cluster),
+                $railCards->relations($this->Auth->user(), $cluster),
+                $railCards->slot('cluster-activity', $clusterId),
+                $railCards->slot('cluster-latest', $clusterId),
+            ]));
+        }
         $this->set('id', $cluster['GalaxyCluster']['id']);
         $this->set('galaxy', ['Galaxy' => $cluster['GalaxyCluster']['Galaxy']]);
         $this->set('galaxy_id', $cluster['GalaxyCluster']['galaxy_id']);
@@ -227,6 +238,25 @@ class GalaxyClustersController extends AppController
             $this->Flash->warning(__('This cluster is not published. Users will not be able to use it'));
         }
         $this->set('title_for_layout', __('Galaxy cluster %s', $cluster['GalaxyCluster']['value']));
+    }
+
+    /**
+     * One of the cluster page's lazy rail cards.
+     *
+     * @param mixed $id ID or UUID of the cluster
+     * @param string $cardId
+     */
+    public function railCard($id, $cardId)
+    {
+        $user = $this->Auth->user();
+        $cluster = $this->GalaxyCluster->fetchIfAuthorized($user, $id, 'view', true, false);
+        $tag = $this->GalaxyCluster->Tag->find('first', [
+            'conditions' => $this->GalaxyCluster->Tag->nameCondition($cluster['GalaxyCluster']['tag_name']),
+            'fields' => ['id'],
+            'recursive' => -1,
+        ]);
+        $cluster['GalaxyCluster']['tag_id'] = $tag['Tag']['id'] ?? null;
+        $this->_renderRailCard((new GalaxyClusterRailCards())->lazy($cardId, $user, $cluster));
     }
 
     /**
@@ -1055,6 +1085,16 @@ class GalaxyClustersController extends AppController
     /**
      * @param  mixed $id ID or UUID of the cluster
      */
+    public function relatedClusters($id)
+    {
+        $this->request->allowMethod(['get']);
+        $relations = $this->GalaxyCluster->outboundRelations($this->Auth->user(), $id);
+        return $this->RestResponse->viewData(['relations' => $relations], 'json');
+    }
+
+    /**
+     * @param  mixed $id ID or UUID of the cluster
+     */
     public function viewRelationTree($id, $includeInbound=1)
     {
         $cluster = $this->GalaxyCluster->fetchIfAuthorized($this->Auth->user(), $id, 'view', $throwErrors=true, $full=true);
@@ -1100,7 +1140,7 @@ class GalaxyClustersController extends AppController
         $galaxy = $this->GalaxyCluster->Galaxy->find('first', array(
             'recursive' => -1,
             'conditions' => array('Galaxy.type' => $galaxyType),
-            'fields' => array('Galaxy.id', 'Galaxy.type', 'Galaxy.name'),
+            'fields' => array('Galaxy.id', 'Galaxy.type', 'Galaxy.name', 'Galaxy.icon'),
         ));
         if (empty($galaxy)) {
             // Unknown galaxy type — empty result rather than 404 so the
@@ -1141,6 +1181,11 @@ class GalaxyClustersController extends AppController
             'limit' => 50,
         ));
 
+        App::uses('FontAwesomeHelper', 'View/Helper');
+        $icon = $galaxy['Galaxy']['icon'];
+        $iconClass = empty($icon)
+            ? null
+            : FontAwesomeHelper::findNamespace($icon) . ' fa-' . $icon;
         $payload = array();
         foreach ($rows as $row) {
             $cluster = $row['GalaxyCluster'];
@@ -1151,6 +1196,9 @@ class GalaxyClustersController extends AppController
                     ? (string)$cluster['description']
                     : '',
                 'uuid' => $cluster['uuid'],
+                'galaxy' => $galaxy['Galaxy']['name'],
+                'galaxy_id' => (int)$galaxy['Galaxy']['id'],
+                'icon_class' => $iconClass,
             );
         }
         return $this->RestResponse->viewData($payload, 'json');

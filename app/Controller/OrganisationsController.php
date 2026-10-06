@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('OrganisationRailCards', 'Tools/RailCards');
 
 /**
  * @property Organisation $Organisation
@@ -381,6 +382,34 @@ class OrganisationsController extends AppController
         $this->set('org', $org);
         $this->set('id', $org['Organisation']['id']);
         $this->set('title_for_layout', __('Organisation %s', $org['Organisation']['name']));
+        if ($this->theme === 'Overmind') {
+            $railCards = new OrganisationRailCards();
+            $this->set('railCards', RailCard::byId([
+                $railCards->slot('org-glance', $org['Organisation']['id']),
+                $railCards->slot('org-activity', $org['Organisation']['id']),
+            ]));
+        }
+    }
+
+    /**
+     * One of the organisation page's lazy rail cards.
+     *
+     * @param int $id
+     * @param string $cardId
+     */
+    public function railCard($id, $cardId)
+    {
+        $user = $this->Auth->user();
+        if (!is_numeric($id) || !$this->Organisation->hasAny(['Organisation.id' => $id])
+            || !$this->Organisation->canSee($user, $id)) {
+            throw new NotFoundException(__('Invalid organisation'));
+        }
+        $may = [
+            'users' => $this->_isSiteAdmin() || ($this->_isAdmin() && $user['org_id'] == $id),
+            'sharingGroups' => $user['Role']['perm_sharing_group']
+                || !Configure::read('Security.hide_organisations_in_sharing_groups'),
+        ];
+        $this->_renderRailCard((new OrganisationRailCards())->lazy($cardId, $user, $id, $may));
     }
 
     public function fetchOrgsForSG($idList = '{}', $type)

@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('SharingGroupBlueprintRailCards', 'Tools/RailCards');
 
 class SharingGroupBlueprintsController extends AppController
 {
@@ -156,8 +157,37 @@ class SharingGroupBlueprintsController extends AppController
         if ($this->IndexFilter->isRest()) {
             return $this->restResponsePayload;
         }
+        if ($this->theme === 'Overmind') {
+            $railCards = new SharingGroupBlueprintRailCards();
+            $this->set('railCards', RailCard::byId([
+                $railCards->slot('blueprint-pending', $this->viewVars['data']['SharingGroupBlueprint']['id']),
+                $railCards->result($this->Auth->user(), $this->viewVars['data']),
+            ]));
+        }
         $this->set('id', $id);
         $this->set('menuData', array('menuList' => 'globalActions', 'menuItem' => 'viewMG'));
+    }
+
+    /**
+     * One of the blueprint page's lazy rail cards.
+     *
+     * @param int $id
+     * @param string $cardId
+     */
+    public function railCard($id, $cardId)
+    {
+        $conditions = ['SharingGroupBlueprint.id' => $id];
+        if (!$this->_isSiteAdmin()) {
+            $conditions['SharingGroupBlueprint.org_id'] = $this->Auth->user('org_id');
+        }
+        $blueprint = $this->SharingGroupBlueprint->find('first', [
+            'recursive' => -1,
+            'conditions' => $conditions,
+        ]);
+        if (empty($blueprint)) {
+            throw new NotFoundException(__('Invalid Sharing Group Blueprint'));
+        }
+        $this->_renderRailCard((new SharingGroupBlueprintRailCards())->lazy($cardId, $blueprint));
     }
 
     public function viewOrgs($id)

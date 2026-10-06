@@ -11,6 +11,7 @@ $this->set('headerDescription', empty($feed['provider'])
 // Coverage is only meaningful once the feed has been cached into Redis.
 $cachedElements = (int)($feed['cached_elements'] ?? 0);
 $coverage = $feed['coverage_by_other_feeds'] ?? '0%';
+$railCards = $railCards ?? [];
 
 $this->set('headerStats', [
     [
@@ -54,9 +55,11 @@ $tabs = [
             'Feeds/View/feeds_general',
             'Feeds/View/feeds_settings',
         ],
-        'right' => [
+        'right' => array_merge([
             'Feeds/View/feeds_actions',
-        ],
+        ], $this->RailCard->rail($railCards, [
+            'feed-freshness', 'feed-overlap', 'feed-fetches',
+        ], 'general')),
     ],
 ];
 
@@ -70,6 +73,7 @@ if (!empty($feed['caching_enabled'])) {
         'left' => [
             'Feeds/View/feeds_coverage',
         ],
+        'right' => $this->RailCard->rail($railCards, ['feed-overlap'], 'coverage'),
     ];
 }
 

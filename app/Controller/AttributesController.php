@@ -62,6 +62,9 @@ class AttributesController extends AppController
         $this->Security->unlockedActions[] = 'search';
         $this->Security->unlockedActions[] = 'index';
         $this->Security->unlockedActions[] = 'validateValue';
+        // The event pivot explorer's sidebar reads another event's attribute
+        // with hand-built JSON, sending the CSRF token as a header.
+        $this->_csrfTokenHeaderOnly(['restSearch']);
 
         if ($this->request->action === 'add_attachment') {
             $this->Security->unlockedFields = array('values');
@@ -324,6 +327,10 @@ class AttributesController extends AppController
         $this->set('export_filters', $export_filters);
         $this->set('sightingsData', $sightingsData);
         $this->set('orgTable', array_column($orgTable, 'name', 'id'));
+        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        $this->set('labelPlan', ValueLabelPriority::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        ));
         $this->set('shortDist', $this->MispAttribute->shortDist);
         $this->set('attributes', $attributes);
         $this->set('attrDescriptions', $this->MispAttribute->fieldDescriptions);
@@ -1334,6 +1341,9 @@ class AttributesController extends AppController
             unset($attribute['Attribute']['value2']);
             $this->set('Attribute', $attribute['Attribute']);
             $this->set('_serialize', array('Attribute'));
+        } else if (($this->theme ?? null) === 'Overmind') {
+            $tab = empty($attribute['Attribute']['object_id']) ? 'attributes' : 'objects';
+            $this->redirect('/events/view2/' . $attribute['Attribute']['event_id'] . '#tab-' . $tab);
         } else {
             if ($this->theme === 'Overmind') {
                 $inObject = !empty($attribute['Attribute']['object_id']);

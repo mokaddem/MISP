@@ -1,4 +1,5 @@
 <?php
+    $railCards = $railCards ?? [];
     echo $this->element('genericElementsBS5/Layout/view_layout',
     [
         'data' => $data,
@@ -12,9 +13,13 @@
                 'left' => [
                     'Collections/View/collection_general',
                 ],
-                'right' => [
+                'right' => array_merge([
                     'Collections/View/collection_actions',
-                ]
+                    'Collections/View/collection_analyst_data',
+                    'Collections/View/collection_graphs',
+                ], $this->RailCard->rail($railCards, [
+                    'collection-inventory', 'collection-sources',
+                ], 'general')),
             ],
             [
                 'id' => 'elements',
@@ -25,6 +30,7 @@
                 'left' => [
                     'Collections/View/collection_elements',
                 ],
+                'right' => $this->RailCard->rail($railCards, ['collection-inventory'], 'elements'),
             ]
         ]
     ]);

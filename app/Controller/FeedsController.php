@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('FeedRailCards', 'Tools/RailCards');
 
 /**
  * @property Feed $Feed
@@ -40,6 +41,9 @@ class FeedsController extends AppController
         parent::beforeFilter();
         $this->Security->unlockedActions[] = 'previewIndex';
         $this->Security->unlockedActions[] = 'feedCoverage';
+        // The event pivot explorer posts hand-built JSON here with the CSRF
+        // token as the X-CSRF-Token header.
+        $this->_csrfTokenHeaderOnly(['manifestEvents']);
     }
 
     public function loadDefaultFeeds()
@@ -220,6 +224,16 @@ class FeedsController extends AppController
         $this->set('other_feeds', $otherFeeds);
         $this->set('feedId', $feedId);
 
+        if ($this->theme === 'Overmind') {
+            $railCards = new FeedRailCards();
+            $id = $this->viewVars['data']['Feed']['id'];
+            $this->set('railCards', RailCard::byId(array_filter([
+                $railCards->freshness($this->viewVars['data']),
+                $railCards->overlap($this->viewVars['data'], $otherFeeds),
+                $this->_isSiteAdmin() ? $railCards->slot('feed-fetches', $id) : null,
+            ])));
+        }
+
         $this->loadModel('Event');
         $distributionLevels = $this->Event->distributionLevels;
         $distributionLevels[5] = __('Inherit from feed');
@@ -234,6 +248,28 @@ class FeedsController extends AppController
             ]);
             $this->set('tagCollection', empty($tagCollection) ? null : $tagCollection[0]);
         }
+    }
+
+    /**
+     * One of the feed page's lazy rail cards.
+     *
+     * @param int $feedId
+     * @param string $cardId
+     */
+    public function railCard($feedId, $cardId)
+    {
+        if ($cardId === 'feed-fetches' && !$this->_isSiteAdmin()) {
+            throw new ForbiddenException(__('Only site admins can see fetch jobs.'));
+        }
+        $feed = $this->Feed->find('first', [
+            'recursive' => -1,
+            'conditions' => ['Feed.id' => (int)$feedId],
+            'fields' => ['Feed.id'],
+        ]);
+        if (empty($feed)) {
+            throw new NotFoundException(__('Invalid feed.'));
+        }
+        $this->_renderRailCard((new FeedRailCards())->lazy($cardId, $feed));
     }
 
     public function feedCoverage($feedId)
@@ -1152,6 +1188,11 @@ class FeedsController extends AppController
             return $this->RestResponse->viewData($events, $this->response->type());
         }
         $this->set('events', $events);
+        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        $this->set('labelPlan', ValueLabelPriority::planFor(
+            ClassRegistry::init('AnalystProfile')
+                ->resolveFor($this->Auth->user())
+        ));
         $this->loadModel('Event');
         $this->set('threatLevels', $this->Event->ThreatLevel->listThreatLevels());
         $this->set('eventDescriptions', $this->Event->fieldDescriptions);
@@ -1246,6 +1287,38 @@ class FeedsController extends AppController
         }
         $this->set('attributes', $resultArray);
         $this->render('freetext_index');
+    }
+
+    /**
+     * Card metadata for events of MISP feeds, from their cached manifests.
+     * Body: {"feeds": {"<feed id>": ["<event uuid>", ...]}}.
+     */
+    public function manifestEvents()
+    {
+        $this->request->allowMethod(['post']);
+        $requested = $this->request->data['feeds'] ?? [];
+        if (!is_array($requested)) {
+            throw new BadRequestException(__('Invalid feeds.'));
+        }
+        $budget = 1500;
+        $result = [];
+        foreach ($requested as $feedId => $uuids) {
+            if (!is_numeric($feedId) || !is_array($uuids) || $budget <= 0) {
+                continue;
+            }
+            $uuids = array_slice(array_filter($uuids, fn($uuid) => is_string($uuid) && Validation::uuid($uuid)), 0, $budget);
+            $budget -= count($uuids);
+            $feed = $this->Feed->find('first', [
+                'conditions' => ['id' => $feedId],
+                'recursive' => -1,
+            ]);
+            if (empty($feed) || !$this->__canViewFeed($feed)) {
+                continue;
+            }
+            $cards = $this->Feed->manifestEventCards($this->Auth->user(), $feed, $uuids);
+            $result[(string)$feedId] = $cards ?: new stdClass();
+        }
+        return $this->RestResponse->viewData(['events' => $result ?: new stdClass()], 'json');
     }
 
     private function __canViewFeed($feed)

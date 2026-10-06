@@ -1,6 +1,7 @@
 <?php
 $orgData = $org['Organisation'] ?? [];
 $orgId   = $orgData['id'] ?? $id;
+$railCards = $railCards ?? [];
 
 // ── PAGE HEADER ──────────────────────────────────────────────────
 
@@ -20,9 +21,9 @@ $tabs = [
         'left' => [
             'Organisations/View/organisations_general',
         ],
-        'right' => [
+        'right' => array_merge([
             'Organisations/View/organisations_actions',
-        ],
+        ], $this->RailCard->rail($railCards, ['org-glance', 'org-activity'], 'general')),
     ],
 ];
 
@@ -51,6 +52,7 @@ $tabs[] = [
             urlencode(h($orgId))
         )],
     ],
+    'right' => $this->RailCard->rail($railCards, ['org-activity'], 'events'),
 ];
 
 // Sharing groups this organisation is a member of.

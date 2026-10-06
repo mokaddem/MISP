@@ -5934,7 +5934,7 @@ $(document.body).on('click', '.hex-value-convert', function() {
 
     var popoverDebounce = null;
     $(document.body).on({
-        mouseover: function() {
+        mouseenter: function() {
             var $tag = $(this);
             popoverDebounce = setTimeout(function() {
                 popoverDebounce = null;
@@ -5945,7 +5945,7 @@ $(document.body).on('click', '.hex-value-convert', function() {
                         return;
                     }
                     // Check if user cursor is still on tag
-                    if ($(':hover').last()[0] !== $tag[0]) {
+                    if (!$tag.is(':hover')) {
                         return;
                     }
                     $tag.popover({
@@ -5960,14 +5960,14 @@ $(document.body).on('click', '.hex-value-convert', function() {
                 });
             }, 200);
         },
-        mouseout: function() {
+        mouseleave: function() {
             if (popoverDebounce) {
                 clearTimeout(popoverDebounce);
                 popoverDebounce = null;
             }
             $(this).popover('destroy');
         }
-    }, 'a.tag[data-tag-id]');
+    }, 'a.tag[data-tag-id], .hg-chip[data-tag-id]');
 })();
 
 // Highlight column for roles table

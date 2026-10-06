@@ -1,4 +1,5 @@
 <?php
+    $railCards = $railCards ?? [];
     echo $this->element('genericElementsBS5/Layout/view_layout',
     [
         'data' => $data,
@@ -12,9 +13,9 @@
                 'left' => [
                     'SharingGroupBlueprints/View/sharingGroupBlueprints_general',
                 ],
-                'right' => [
+                'right' => array_merge([
                     'SharingGroupBlueprints/View/sharingGroupBlueprints_actions',
-                ]
+                ], $this->RailCard->rail($railCards, ['blueprint-pending', 'blueprint-result'], 'general')),
             ],
             [
                 'id' => 'organisations',
@@ -28,6 +29,7 @@
                         'ajax' => sprintf('%s/SharingGroupBlueprints/viewOrgs/%s', $baseurl, h($data['SharingGroupBlueprint']['id']))
                     ]
                 ],
+                'right' => $this->RailCard->rail($railCards, ['blueprint-pending'], 'organisations'),
             ]
         ]
     ]);

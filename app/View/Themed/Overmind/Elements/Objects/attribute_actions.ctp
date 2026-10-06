@@ -40,6 +40,32 @@ $attrDeleted = !empty($attr['deleted']);
                 <?= __('Copy UUID') ?>
             </a>
         </li>
+        <?php
+            $mayGraph = !$attrDeleted && $this->Acl->canAccess('analystGraphs', 'addNodes');
+            $mayCollect = !$attrDeleted && $this->Acl->canAccess('collectionElements', 'addElementToCollection');
+        ?>
+        <?php if ($mayGraph || $mayCollect): ?>
+        <li><hr class="dropdown-divider"></li>
+        <?php endif; ?>
+        <?php if ($mayGraph): ?>
+        <li>
+            <a class="dropdown-item justify-content-start" href="#"
+               data-intel-graph-add="<?= h(json_encode([['type' => 'Attribute', 'uuid' => $attr['uuid'] ?? '', 'label' => $attr['value'] ?? '']])) ?>">
+                <i class="text-info fas fa-circle-nodes me-2"></i>
+                <?= __('Add to graph') ?>
+            </a>
+        </li>
+        <?php endif; ?>
+        <?php if ($mayCollect): ?>
+        <?php $collectUrl = $baseurl . '/collectionElements/addElementToCollection/Attribute/' . h($attr['uuid'] ?? ''); ?>
+        <li>
+            <a class="dropdown-item justify-content-start" href="<?= $collectUrl ?>"
+               onclick="event.preventDefault(); openModal('<?= $collectUrl ?>', 'xl');">
+                <i class="fas fa-folder-plus me-2"></i>
+                <?= __('Add to collection') ?>
+            </a>
+        </li>
+        <?php endif; ?>
         <?php if (!empty($me['Role']['perm_add']) && !$attrDeleted): ?>
         <li>
             <a class="dropdown-item justify-content-start"

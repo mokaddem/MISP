@@ -35,7 +35,9 @@
     $this->set('headerActions', $headerActions);
 
     echo $this->element('genericElements/assetLoader', [
-        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min']
+        'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min', 'event-overview', 'misp-matrix',
+            'misp-brush', 'misp-timeline', 'event-seen-timeline'],
+        'css' => ['event-overview', 'misp-matrix', 'misp-brush', 'misp-timeline'],
     ]);
 
     // Extended / extending view: say so, and carry the mode into every lazy
@@ -59,19 +61,20 @@
 
                 // Content
                 'left' => [
-                    'Events/View/event_general',
-                    //'EventReports/View/eventReport_preview',
-                    'Events/View/event_tags',
-                    'Events/View/event_galaxies',
-                    'Events/View/event_attachments',
-                    'Events/View/event_analyst_data',
+                    'Events/View/overview_band',
+                    'Events/View/overview_story',
+                    'Events/View/overview_facts',
+                    'Events/View/overview_annex',
+                    'Events/View/overview_details',
                 ],
                 'right' => [
                     'Events/View/event_actions',
+                    'Events/View/event_matrix',
+                    'Events/View/event_warninglists',
                     'Events/View/event_sightings',
                     'Events/View/event_related',
-                    'Events/View/event_warninglists',
                     'Events/View/event_collections',
+                    'Events/View/event_graphs',
                 ]
             ],
             [
@@ -117,6 +120,7 @@
                 'id' => 'correlation',
                 'title' => __('Correlation'),
                 'icon' => 'fas fa-link',
+                'iconColor' => 'var(--bs-correlation)',
                 'count' => $correlation_count ?? 0,
 
                 // Content
@@ -134,16 +138,16 @@
                     'Events/View/event_pivot_explorer',
                 ],
             ],
-            // [
-            //     'id' => 'timeline',
-            //     'title' => __('Timeline'),
-            //     'icon' => 'fas fa-clock',
+            [
+                'id' => 'timeline',
+                'title' => __('Timeline'),
+                'icon' => 'fas fa-clock',
 
-            //     // Content
-            //     'left' => [
-            //         'Events/View/event_timeline',
-            //     ],
-            // ],
+                // Content
+                'left' => [
+                    'Events/View/event_timeline',
+                ],
+            ],
             [
                 'id' => 'history',
                 'title' => __('History'),

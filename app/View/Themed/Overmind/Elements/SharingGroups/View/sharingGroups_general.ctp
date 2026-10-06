@@ -110,19 +110,6 @@
                     </div>
                 </div>
             <?php endif; ?>
-
-            <!-- LINKED EVENTS -->
-            <div class="col-md-4">
-                <div class="text-muted small text-uppercase fw-bold mb-1">
-                    <?= __('Linked Events') ?>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <a href="<?= $baseurl ?>/events/index/searchsharinggroup:<?= h($sharingGroup['id']) ?>" class="btn btn-sm btn-outline-event rounded-pill px-3 fw-bold">
-                        <i class="misp-icon misp-icon-event misp-simple me-1"></i>
-                        <?= __n('%s event', '%s events', $sharingGroup['event_count'], $sharingGroup['event_count']) ?>
-                    </a>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -145,7 +132,7 @@
     <div class="col-lg-6 mb-4">
         <div class="card h-100 shadow-sm border-0 rounded-4">
             <div class="card-header bg-white py-3 border-bottom-0">
-                <h6 class="fw-bold mb-0"><span class="misp-icon misp-icon-organisation misp-simple me-2 text-primary"></span><?= __('Member Organisations') ?></h6>
+                <h6 class="fw-bold mb-0"><span class="misp-icon misp-icon-organisation misp-simple me-2 text-accent"></span><?= __('Member Organisations') ?></h6>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -167,7 +154,7 @@
                                         <i class="<?= $sgo['Organisation']['local'] ? 'fas fa-check-circle text-success' : 'fas fa-times-circle text-muted' ?>"></i>
                                     </td>
                                     <td class="text-center pe-4">
-                                        <i class="<?= $sgo['extend'] ? 'fas fa-check-circle text-primary' : 'fas fa-times-circle text-muted' ?>"></i>
+                                        <i class="<?= $sgo['extend'] ? 'fas fa-check-circle text-accent' : 'fas fa-times-circle text-muted' ?>"></i>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -181,7 +168,7 @@
     <div class="col-lg-6 mb-4">
         <div class="card h-100 shadow-sm border-0 rounded-4">
             <div class="card-header bg-white py-3 border-bottom-0">
-                <h6 class="fw-bold mb-0"><i class="fas fa-server me-2 text-primary"></i><?= __('Target Instances') ?></h6>
+                <h6 class="fw-bold mb-0"><i class="fas fa-server me-2 text-accent"></i><?= __('Target Instances') ?></h6>
             </div>
             <div class="card-body p-0">
                 <?php if (!empty($sg['SharingGroup']['roaming'])): ?>
