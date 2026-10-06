@@ -1362,12 +1362,12 @@ test('groups: every landing arrives grouped', async () => {
     eq('the option', g.opts.pivotIngestGrouped, true);
 });
 
-test('groups: MISP declares its rules, a smallest group of 5, only pivot landings on', async () => {
+test('groups: MISP declares its rules, a smallest group of 5, pivot landings and same neighbours on', async () => {
     const g = await withPivots();
     const s = g.opts.UI.simplify;
     eq('in order', s.rules.map(r => r.kind),
        ['landings', 'neighbours', 'chains', 'degree', 'kcore', 'communities']);
-    eq('only landings starts on', s.rules.filter(r => r.enabled).map(r => r.kind), ['landings']);
+    eq('landings and neighbours start on', s.rules.filter(r => r.enabled).map(r => r.kind), ['landings', 'neighbours']);
     eq('5 wherever a rule has a smallest group',
        s.rules.filter(r => 'minSize' in r).map(r => r.minSize), [5, 5, 5]);
     ok('every rule types by MISP\'s kinds, none on its own',
@@ -2530,10 +2530,10 @@ test('17: an edge reads by the kind of link and what it asserts', async () => {
 const menuItem = (g, text) => g.opts.UI.contextMenu.menuNode.menu.find(i => i.text === text);
 const shows = (g, text, data) => menuItem(g, text).visible(data === null ? null : pnode(data));
 
-test('18: MISP adds five entries to the node menu, after the library\'s own', async () => {
+test('18: MISP adds six entries to the node menu, after the library\'s own', async () => {
     const g = await buildGraph(ev({ Object: [obj({ uuid: 'A' })] }));
     eq('in this order', g.opts.UI.contextMenu.menuNode.menu.map(i => [i.text, i.iconClass]), [
-        ['Save this element', 'fas fa-save'],
+        ['Save this element', 'fas fa-save'], ['Add to active graph', 'fas fa-circle-nodes'],
         ['Open its event', 'fas fa-external-link-alt'], ['Browse feed', 'fas fa-rss'],
         ['Preview in feed', 'fas fa-rss'], ['Copy value', 'fas fa-copy']]);
     ok('no topbar of ours, and the edge and note menus left alone',
@@ -4046,8 +4046,8 @@ test('enrich save: offered from the node menu and the selection menu', async () 
     eq('never from the pivot panel or a triage pane', g.opts.pivotSaveControls, false);
     const one = menuItem(g, 'Save this element');
     const many = g.opts.UI.contextMenu.menuSelection.menu.find(i => i.text === 'Save selection');
-    eq('the selection menu holds only that', g.opts.UI.contextMenu.menuSelection.menu.map(i => [i.text, i.iconClass]),
-       [['Save selection', 'fas fa-save']]);
+    eq('the selection menu holds that and the graph add', g.opts.UI.contextMenu.menuSelection.menu.map(i => [i.text, i.iconClass]),
+       [['Save selection', 'fas fa-save'], ['Add selection to active graph', 'fas fa-circle-nodes']]);
     const n = id => ({ id, getData: () => ({ type: 'object', scope: 'module' }) });
     const ledger = g.graph.pivots;
     ['r1', 'r2', 'r3'].forEach(id => ledger.savable.add(id));
