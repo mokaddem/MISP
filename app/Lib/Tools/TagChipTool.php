@@ -44,7 +44,7 @@ class TagChipTool
             'raw' => $raw,
             'namespace' => $namespace,
             'path' => $path,
-            // Everything above the leaf: what a group header carries instead
+            // The predicates above the leaf: what a group member prints
             'above' => $value !== null ? $path : array_slice($path, 0, -1),
             'value' => $value,
             'leaf' => $leaf,
@@ -141,29 +141,5 @@ class TagChipTool
             $best = max($best, $w);
         }
         return $best / $total < 0.6;
-    }
-
-    /**
-     * Rough one-line width of a chip in px: the rail is 10px mono, the leaf
-     * 13px semibold, a relationship badge 9px uppercase. Only decides which
-     * side of the hinge a chip falls on.
-     *
-     * @param array $parsed from parse()
-     * @param string|null $relationship
-     * @return int
-     */
-    public static function inlineWidth(array $parsed, $relationship = null)
-    {
-        $prefix = 0;
-        if ($relationship !== null && $relationship !== '') {
-            $prefix += mb_strlen($relationship) * 7 / 6 + 2;
-        }
-        if ($parsed['namespace'] !== null) {
-            $prefix = mb_strlen($parsed['namespace']);
-            foreach ($parsed['above'] as $seg) {
-                $prefix += mb_strlen($seg) + 1;
-            }
-        }
-        return $prefix * 6 + mb_strlen($parsed['leaf']) * 7 + 30;
     }
 }

@@ -5,10 +5,10 @@ App::uses('GalaxyColour', 'Tools');
 App::uses('FontAwesomeHelper', 'View/Helper');
 
 /**
- * Renders tags as chips: one line while the name fits, the leaf dropping to a
- * second row only when it doesn't. Three or more tags of a collection sharing
- * a namespace and predicate chain fuse into a block that prints the prefix
- * once. Colour means taxonomy: a taxonomy whose declared palette tells its
+ * Renders tags as chips: the path on a first row and the leaf always on a
+ * second. Two or more tags of a collection sharing a namespace fuse into a
+ * block that prints the namespace once, each member keeping its predicate.
+ * Colour means taxonomy: a taxonomy whose declared palette tells its
  * values apart (TLP, PAP) keeps its colours, every other one gets a hue
  * derived from its namespace. Galaxy clusters wear the same chip with their
  * galaxy in the namespace's place. Styles live in css/tag-chips.css.
@@ -30,11 +30,10 @@ class TagChipHelper extends AppHelper
      *   canModifyAll       may remove any tag
      *   canModifyLocal     may remove local tags
      *   display            'full' (default), 'leaf' or 'swatch'
-     *   group              fuse shared prefixes into blocks (default true)
-     *   minGroup           members before a chain earns a block (2)
+     *   group              fuse shared namespaces into blocks (default true)
+     *   minGroup           members before a namespace earns a block (2)
      *   wideAt             members before a block takes its own line (8)
      *   track              column track width in px for a wide block
-     *   budget             one-line width budget in px (300)
      *   class              extra class on the root
      * @return string
      */
@@ -114,12 +113,11 @@ class TagChipHelper extends AppHelper
             } elseif (isset($row['groupKey'])) {
                 $key = "\2" . $row['groupKey'];
             } else {
-                $key = mb_strtolower($p['namespace']) . "\1" . implode("\1", $p['above']);
+                $key = "\1" . mb_strtolower($p['namespace']);
             }
             if (!isset($groups[$key])) {
                 $groups[$key] = [
                     'namespace' => $p['namespace'],
-                    'above' => $p['above'],
                     'galaxy' => $row['galaxy'] ?? null,
                     'rows' => [],
                 ];
@@ -328,8 +326,8 @@ class TagChipHelper extends AppHelper
 
     /**
      * @param array $row
-     * @param string $mode 'flow' hinges on content; 'member' sits in a group
-     *                     block whose header already carries the ancestry
+     * @param string $mode 'flow' stands alone; 'member' sits in a group
+     *                     block whose header already carries the namespace
      * @param array $options
      * @return string
      */
@@ -342,7 +340,12 @@ class TagChipHelper extends AppHelper
         $rel = isset($tag['relationship_type']) && $tag['relationship_type'] !== ''
             ? $tag['relationship_type']
             : null;
-        $hidePath = $mode === 'member' || $display !== 'full';
+        $member = $mode === 'member';
+        // A free-text tag has no ancestry, and a member's namespace is
+        // already in the block's header
+        $showPath = $display === 'full'
+            && ($member ? !empty($p['above']) : $p['namespace'] !== null);
+        $stacked = $display !== 'swatch' && ($showPath || $rel);
 
         $nv = $tag['Tag']['numerical_value'] ?? null;
         $hasNv = $nv !== null && $nv !== '' && is_numeric($nv) && $display !== 'swatch';
@@ -352,8 +355,6 @@ class TagChipHelper extends AppHelper
         list($hue, $sat, $declared) = isset($row['hue'])
             ? [$row['hue'], '62%', null]
             : $this->hueOf($p, $tag['Tag']['colour']);
-        $inline = $mode === 'flow' && $display === 'full'
-            && TagChipTool::inlineWidth($p, $rel) <= ($options['budget'] ?? 300);
 
         $classes = ['hg-chip'];
         if ($isLocal) {
@@ -361,10 +362,8 @@ class TagChipHelper extends AppHelper
         }
         if ($display === 'swatch') {
             $classes[] = 'is-swatch';
-        } elseif ($hidePath && !$rel) {
-            $classes[] = 'is-tight';
-        } elseif ($inline) {
-            $classes[] = 'is-inline';
+        } elseif (!$stacked) {
+            $classes[] = $member || $display !== 'full' ? 'is-tight' : 'is-single';
         }
         if ($hasNv) {
             $classes[] = 'has-meter';
@@ -375,13 +374,9 @@ class TagChipHelper extends AppHelper
                 $classes[] = 'is-neutral';
             }
         }
-        $tight = in_array('is-tight', $classes, true);
-
         $inner = '';
         if ($display !== 'swatch') {
-            // A free-text tag has no ancestry, so it gets no rail at all
-            $showPath = !$hidePath && $p['namespace'] !== null;
-            if (!$tight && ($showPath || $rel || (!$inline && $hasNv))) {
+            if ($stacked) {
                 $rail = '';
                 if ($rel) {
                     $rail .= sprintf(
@@ -391,21 +386,26 @@ class TagChipHelper extends AppHelper
                     );
                 }
                 if ($showPath) {
-                    $path = $this->icon($row)
-                        . sprintf('<b class="hg-ns">%s</b>', h($p['namespace']));
-                    foreach ($p['above'] as $seg) {
+                    $segs = $p['above'];
+                    if ($member) {
+                        $path = h(array_shift($segs));
+                    } else {
+                        $path = $this->icon($row)
+                            . sprintf('<b class="hg-ns">%s</b>', h($p['namespace']));
+                    }
+                    foreach ($segs as $seg) {
                         $path .= '<i class="hg-sep">&rsaquo;</i>' . h($seg);
                     }
                     $rail .= sprintf('<span class="hg-path">%s</span>', $path);
                 }
-                if ($hasNv && !$inline) {
+                if ($hasNv) {
                     $rail .= $this->numeral($nv, $over);
                 }
                 $inner .= sprintf('<span class="hg-rail">%s</span>', $rail);
             }
 
             $tail = sprintf('<span class="hg-leaf">%s</span>', h($p['leaf']));
-            if ($hasNv && ($inline || $tight)) {
+            if ($hasNv && !$stacked) {
                 $tail .= $this->numeral($nv, $over);
             }
             if ($isLocal) {
@@ -532,16 +532,10 @@ class TagChipHelper extends AppHelper
         } else {
             $head .= sprintf('<b class="hg-hns">%s</b>', h($group['namespace']));
         }
-        if (!empty($group['above'])) {
-            $head .= sprintf(
-                '<span class="hg-hpath">&rsaquo; %s</span>',
-                h(implode(' › ', $group['above']))
-            );
-        }
         $head .= sprintf(
             '<span class="hg-count" title="%s">%d</span>',
             $galaxy === null
-                ? __('%s tags share this prefix', $count)
+                ? __('%s tags share this namespace', $count)
                 : __('%s clusters of this galaxy', $count),
             $count
         );
@@ -557,7 +551,7 @@ class TagChipHelper extends AppHelper
             implode(' ', $classes),
             $first['hue'] ?? TagChipTool::hue($group['namespace']),
             empty($options['track']) ? '' : sprintf(';--hg-colw:%dpx', $options['track']),
-            h(implode(':', array_merge([$group['namespace']], $group['above']))),
+            h($group['namespace']),
             $galaxy === null
                 ? ''
                 : sprintf(' data-galaxy-group data-galaxy-name="%s"', h(mb_strtolower($galaxy['name']))),

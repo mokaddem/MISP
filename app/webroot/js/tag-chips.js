@@ -12,7 +12,7 @@
  * tag_id?, local?, relationship_type?, description?}; hue is
  * GalaxyColour::hue() and is derived here when missing.
  * opts: searchUrl (prefix, '' for no link), display ('full'|'leaf'|'swatch'),
- * group, minGroup, wideAt, budget, cls.
+ * group, minGroup, wideAt, cls.
  */
 (function (root) {
     'use strict';
@@ -137,15 +137,6 @@
         return [hue(p.namespace), '62%', null];
     }
 
-    function inlineWidth(p, rel) {
-        var prefix = rel ? rel.length * 7 / 6 + 2 : 0;
-        if (p.namespace !== null) {
-            prefix = p.namespace.length;
-            p.above.forEach(function (seg) { prefix += seg.length + 1; });
-        }
-        return prefix * 6 + p.leaf.length * 7 + 30;
-    }
-
     function normalise(tag) {
         if (tag && tag.Tag) {
             var t = Object.assign({}, tag.Tag);
@@ -171,51 +162,54 @@
         var display = opts.display || 'full';
         var isLocal = !!(tag.local && tag.local !== '0');
         var rel = tag.relationship_type ? String(tag.relationship_type) : null;
-        var hidePath = mode === 'member' || display !== 'full';
+        var member = mode === 'member';
+        // A free-text tag has no ancestry, and a member's namespace is
+        // already in the block's header
+        var showPath = display === 'full' &&
+            (member ? p.above.length > 0 : p.namespace !== null);
+        var stacked = display !== 'swatch' && !!(showPath || rel);
         var nvRaw = tag.numerical_value;
         var hasNv = nvRaw !== null && nvRaw !== undefined && nvRaw !== '' && !isNaN(Number(nvRaw)) &&
             display !== 'swatch';
         var nv = hasNv ? Number(nvRaw) : null;
         var over = hasNv && (nv > 100 || nv < 0);
         var hs = x.hue !== undefined ? [x.hue, '62%', null] : hueOf(p, tag.colour || '#0088cc');
-        var inline = mode === 'flow' && display === 'full' && inlineWidth(p, rel) <= (opts.budget || 300);
 
         var classes = ['hg-chip'];
         if (isLocal) classes.push('is-local');
         if (display === 'swatch') {
             classes.push('is-swatch');
-        } else if (hidePath && !rel) {
-            classes.push('is-tight');
-        } else if (inline) {
-            classes.push('is-inline');
+        } else if (!stacked) {
+            classes.push(member || display !== 'full' ? 'is-tight' : 'is-single');
         }
         if (hasNv) classes.push('has-meter');
         if (hs[2]) {
             classes.push('has-colour');
             if (hs[1] === '0%') classes.push('is-neutral');
         }
-        var tight = classes.indexOf('is-tight') !== -1;
 
         var inner = '';
         if (display !== 'swatch') {
-            var showPath = !hidePath && p.namespace !== null;
-            if (!tight && (showPath || rel || (!inline && hasNv))) {
+            if (stacked) {
                 var rail = '';
                 if (rel) {
                     rail += '<span class="hg-rel" title="Relationship: ' + esc(rel) + '">' + esc(rel) + '</span>';
                 }
                 if (showPath) {
-                    var path = iconHtml(x) + '<b class="hg-ns">' + esc(p.namespace) + '</b>';
-                    p.above.forEach(function (seg) {
+                    var segs = p.above.slice();
+                    var path = member
+                        ? esc(segs.shift())
+                        : iconHtml(x) + '<b class="hg-ns">' + esc(p.namespace) + '</b>';
+                    segs.forEach(function (seg) {
                         path += '<i class="hg-sep">&rsaquo;</i>' + esc(seg);
                     });
                     rail += '<span class="hg-path">' + path + '</span>';
                 }
-                if (hasNv && !inline) rail += numeral(nv, over);
+                if (hasNv) rail += numeral(nv, over);
                 inner += '<span class="hg-rail">' + rail + '</span>';
             }
             var tail = '<span class="hg-leaf">' + esc(p.leaf) + '</span>';
-            if (hasNv && (inline || tight)) tail += numeral(nv, over);
+            if (hasNv && !stacked) tail += numeral(nv, over);
             if (isLocal) {
                 tail += '<span class="hg-flag" title="' + (x.galaxy ? 'Local cluster' : 'Local tag') + '">local</span>';
             }
@@ -278,10 +272,10 @@
             } else if (x.groupKey !== undefined) {
                 key = '\u0002' + x.groupKey;
             } else {
-                key = p.namespace.toLowerCase() + '\u0001' + p.above.join('\u0001');
+                key = '\u0001' + p.namespace.toLowerCase();
             }
             if (!byKey[key]) {
-                byKey[key] = {namespace: p.namespace, above: p.above, galaxy: x.galaxy || null, rows: []};
+                byKey[key] = {namespace: p.namespace, galaxy: x.galaxy || null, rows: []};
                 groups.push(byKey[key]);
             }
             byKey[key].rows.push(row);
@@ -302,9 +296,6 @@
                 } else {
                     head += '<b class="hg-hns">' + esc(g.namespace) + '</b>';
                 }
-                if (g.above.length) {
-                    head += '<span class="hg-hpath">&rsaquo; ' + esc(g.above.join(' › ')) + '</span>';
-                }
                 head += '<span class="hg-count">' + g.rows.length + '</span>';
                 var members = '';
                 g.rows.forEach(function (row) {
@@ -312,7 +303,7 @@
                 });
                 body += '<span class="' + classes.join(' ') + '" style="--hg-h:' +
                     (first.hue !== undefined ? first.hue : hue(g.namespace)) +
-                    ';--hg-s:62%" title="' + esc([g.namespace].concat(g.above).join(':')) + '"' +
+                    ';--hg-s:62%" title="' + esc(g.namespace) + '"' +
                     (g.galaxy ? ' data-galaxy-group data-galaxy-name="' + esc(g.galaxy.name.toLowerCase()) + '"' : '') +
                     '><span class="hg-head">' + head + '</span><span class="hg-members">' + members +
                     '</span></span>';

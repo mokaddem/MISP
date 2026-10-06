@@ -103,13 +103,10 @@
     outline: 2px solid hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark));
     outline-offset: 1px;
 }
-/* The one-line call is an estimate; if it is wrong the leaf wraps under the
-   rail rather than being cut. */
-.hinge-tags .hg-chip.is-inline {
+/* Nothing above the leaf: a free-text tag. */
+.hinge-tags .hg-chip.is-single {
     display: inline-flex;
-    flex-wrap: wrap;
     align-items: baseline;
-    gap: 0 7px;
 }
 .hinge-tags .hg-chip.is-tight {
     display: inline-flex;
@@ -188,9 +185,7 @@
     gap: 6px;
     min-width: 0;
 }
-.hinge-tags .hg-chip.is-inline .hg-rail,
-.hinge-tags .hg-chip.is-inline .hg-leaf,
-.hinge-tags .hg-chip.is-inline .hg-tail {
+.hinge-tags .hg-chip.is-single .hg-tail {
     flex: 0 1 auto;
 }
 /* Outlined, not inverted: an inverted pill would need the page background. */
@@ -225,7 +220,7 @@
 .hinge-tags .hg-n.is-over {
     color: var(--hg-muted);
 }
-.hinge-tags .hg-chip.is-inline .hg-n,
+.hinge-tags .hg-chip.is-single .hg-n,
 .hinge-tags .hg-chip.is-tight .hg-n {
     margin-left: 0;
     padding-left: 0;
@@ -298,13 +293,6 @@
 .hinge-tags a.hg-hns:focus-visible {
     color: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-ink));
     text-decoration: underline;
-}
-.hinge-tags .hg-hpath {
-    color: var(--hg-muted);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 .hinge-tags .hg-count {
     flex: none;
