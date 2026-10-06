@@ -183,6 +183,11 @@ class ServersController extends AppController
             $customPagination->truncateByPagination($events, $params);
         }
         $this->set('events', $events);
+        App::uses('ValueLabelPriority', 'Tools/ValueProfile');
+        $this->set('labelPlan', ValueLabelPriority::planFor(
+            ClassRegistry::init('AnalystProfile')
+                ->resolveFor($this->Auth->user())
+        ));
         $this->set('eventDescriptions', $this->Event->fieldDescriptions);
         $this->set('analysisLevels', $this->Event->analysisLevels);
         $this->set('distributionLevels', $this->Event->distributionLevels);
