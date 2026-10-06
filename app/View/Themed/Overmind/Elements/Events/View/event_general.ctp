@@ -111,7 +111,7 @@ $this->set('headerDescription', $headerDescription);
         <!-- ── PRIMARY: Identifiers + Creator + Distribution + Publication ── -->
         <div class="row g-3 mb-3">
 
-            <!-- ID + UUID -->
+            <!-- UUID -->
             <div class="col-12 col-sm-6 col-xl-3">
                 <div class="rounded-3 border p-3 h-100 ov-mini-card">
                     <div class="text-muted small text-uppercase fw-bold mb-2">
@@ -119,12 +119,6 @@ $this->set('headerDescription', $headerDescription);
                         <?= __('Identifiers') ?>
                     </div>
                     <div class="d-flex flex-column gap-2">
-                        <div class="d-flex align-items-center justify-content-between gap-2">
-                            <span class="text-muted small fw-bold">ID</span>
-                            <span class="bg-light border rounded px-2 py-1 fw-semibold small font-monospace">
-                                #<?= h($event['id'] ?? '') ?>
-                            </span>
-                        </div>
                         <div class="d-flex align-items-center justify-content-between gap-2">
                             <span class="text-muted small fw-bold flex-shrink-0">UUID</span>
                             <div class="d-inline-flex align-items-center gap-1 bg-light border rounded px-2 py-1 min-w-0">
