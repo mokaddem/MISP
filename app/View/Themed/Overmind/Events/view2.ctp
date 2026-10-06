@@ -70,9 +70,9 @@
                 'right' => [
                     'Events/View/event_actions',
                     'Events/View/event_matrix',
+                    'Events/View/event_warninglists',
                     'Events/View/event_sightings',
                     'Events/View/event_related',
-                    'Events/View/event_warninglists',
                     'Events/View/event_collections',
                     'Events/View/event_graphs',
                 ]
