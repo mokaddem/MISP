@@ -334,6 +334,22 @@
         window.bootstrap.Modal.getOrCreateInstance(m).show();
     }
 
+    var HIDE_UNUSED = 'misp-matrix-hide-unused';
+
+    function hideUnused(m, on) {
+        m.classList.toggle('mx-hide-unused', on);
+        var box = m.querySelector('[data-mx-hide-unused]');
+        if (box) box.checked = on;
+    }
+
+    function savedHideUnused() {
+        try {
+            return window.localStorage.getItem(HIDE_UNUSED) === '1';
+        } catch (e) {
+            return false;
+        }
+    }
+
     /* ── events ─────────────────────────────────────────────── */
     function onClick(e) {
         var t = e.target;
@@ -385,6 +401,18 @@
             loadFull(full.getAttribute('data-mx-full-galaxy'), hit.getAttribute('data-mx-tab-pick'));
         } else if ((hit = t.closest('[data-mx-full-pick]'))) {
             loadFull(hit.getAttribute('data-mx-full-pick'), null);
+        }
+    }
+
+    function onChange(e) {
+        var box = e.target.closest && e.target.closest('[data-mx-hide-unused]');
+        if (!box) return;
+        closePop();
+        hideUnused(modal(), box.checked);
+        try {
+            window.localStorage.setItem(HIDE_UNUSED, box.checked ? '1' : '0');
+        } catch (err) {
+            // Not remembered, still applied
         }
     }
 
@@ -441,6 +469,7 @@
             if (old && old !== m) old.remove();
             document.body.appendChild(m);
             m.addEventListener('hidden.bs.modal', closePop);
+            hideUnused(m, savedHideUnused());
         }
         wire();
         if (slot.hasAttribute('data-url')) reload();
@@ -451,6 +480,7 @@
         if (wired) return;
         wired = true;
         document.addEventListener('click', onClick);
+        document.addEventListener('change', onChange);
         document.addEventListener('mouseover', onOver);
         document.addEventListener('mouseout', onOut);
         document.addEventListener('keydown', onKey, true);
