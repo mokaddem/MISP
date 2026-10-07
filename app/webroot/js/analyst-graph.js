@@ -162,17 +162,8 @@
         // "show it again" lands.
         var hiddenEdges = [];
         (payload.edges || []).forEach(function (e) {
-            if (e.kind === 'contains') return;
-            var from = endId(e.from), to = endId(e.to);
-            if (!from || !to) return;
-            var data = { kind: e.kind, label: e.label || '' };
-            if (e.kind === 'object-reference') {
-                Object.assign(data, { uuid: e.uuid, relationship_type: e.label });
-            } else if (e.kind === 'relationship') {
-                Object.assign(data, { kind: 'analyst-relationship', uuid: e.uuid, relationship_type: e.label,
-                                      authors: e.authors, orgc: e.orgc_uuid });
-            }
-            var edge = { id: e.id, from: from, to: to, data: data };
+            var edge = kit.storedEdge(e, endId);
+            if (!edge) return;
             if (hidden[e.id]) hiddenEdges.push(edge);
             else land.edge(edge);
         });

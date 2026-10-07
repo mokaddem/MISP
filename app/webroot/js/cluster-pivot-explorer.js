@@ -183,6 +183,7 @@
             containerEl: config.containerEl,
             loaderEl:    config.loaderEl,
             provenance:  false,
+            links:       true,
             config: {
                 baseurl:        config.baseurl,
                 canAnalyst:     config.canAnalyst,

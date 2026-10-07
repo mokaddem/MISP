@@ -36,7 +36,7 @@ class AnalystGraphsController extends AppController
         parent::beforeFilter();
         // Posted as hand-built JSON by the graph host, with the CSRF token
         // in the X-CSRF-Token header.
-        $this->_csrfTokenHeaderOnly(['save', 'addNodes', 'removeNodes', 'fork', 'active']);
+        $this->_csrfTokenHeaderOnly(['save', 'addNodes', 'removeNodes', 'fork', 'active', 'edges']);
     }
 
     public function beforeRender()
@@ -172,6 +172,26 @@ class AnalystGraphsController extends AppController
         unset($graph['Graph']['content_size']);
         $payload['editable_events'] = $this->__editableEvents(array_keys((array)$payload['events']));
         return $this->RestResponse->viewData(['Graph' => $this->Graph->typed($graph['Graph'])] + $payload, 'json');
+    }
+
+    /**
+     * The edges MISP holds between the nodes a Pivot Explorer canvas shows,
+     * as a graph of them would draw them once saved.
+     */
+    public function edges()
+    {
+        $this->request->allowMethod(['post']);
+        // Read-only, and asked after every landing
+        $user = $this->_closeSession();
+        $nodes = $this->__input()['nodes'] ?? null;
+        if (!is_array($nodes)) {
+            throw new BadRequestException(__('Name the nodes to join as a list.'));
+        }
+        list($out, $errors) = $this->AnalystGraphData->edgesBetween($user, $nodes);
+        if ($out === null) {
+            throw new BadRequestException(implode(' ', array_slice($errors, 0, 10)));
+        }
+        return $this->RestResponse->viewData($out, 'json');
     }
 
     /**

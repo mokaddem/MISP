@@ -79,6 +79,30 @@ class AnalystGraphData extends AppModel
     }
 
     /**
+     * The edges MISP holds between these nodes, as resolve() derives them for
+     * a stored graph: what a canvas of them would show once saved.
+     *
+     * @param array $user
+     * @param array $nodes Graph document nodes
+     * @return array [edges or null, errors]; Value nodes as {uuid, value}
+     */
+    public function edgesBetween(array $user, array $nodes)
+    {
+        list($document, $errors) = AnalystGraphDocumentTool::normalise([
+            'version' => AnalystGraphDocumentTool::VERSION,
+            'nodes' => $nodes,
+        ]);
+        if (!empty($errors)) {
+            return [null, $errors];
+        }
+        $payload = $this->resolve($user, $document);
+        $values = array_map(function ($value) {
+            return ['uuid' => $value['uuid'], 'value' => $value['value']];
+        }, $payload['Value']);
+        return [['edges' => $payload['edges'], 'Value' => $values], []];
+    }
+
+    /**
      * What a thumbnail of the graph draws for this user: the first
      * THUMBNAIL_BUDGET nodes they may read, each at its saved position when it
      * has one, and the edges `data` derives between them. An attribute inside
@@ -641,6 +665,10 @@ class AnalystGraphData extends AppModel
             $relation = $row['GalaxyClusterRelation'];
             $from = strtolower($relation['galaxy_cluster_uuid']);
             $to = strtolower($relation['referenced_galaxy_cluster_uuid']);
+            // Joins two clusters sharing a uuid across galaxies, drawn as one node.
+            if ($from === $to) {
+                continue;
+            }
             $type = $relation['referenced_galaxy_cluster_type'];
             $edges[] = [
                 'id' => 'cluster-relation:' . $from . '>' . $to . ':' . $type,

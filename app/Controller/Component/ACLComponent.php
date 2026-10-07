@@ -46,6 +46,7 @@ class ACLComponent extends Component
             'active' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'addNodes' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'data' => ['*'],
+            'edges' => ['*'],
             'editable' => ['AND' => ['perm_add', 'perm_analyst_data']],
             'export' => ['*'],
             'fork' => ['AND' => ['perm_add', 'perm_analyst_data']],

@@ -174,12 +174,18 @@ function buildGraph(payload, options) {
                 this.getMutableNode = id => live[id];
                 this.getMutableNodes = () => Object.keys(live).map(id => live[id]);
                 // Edges carry provenance like nodes: what the library's removeBySource reads.
-                const liveEdges = this.liveEdges = data.edges.map(e => ({
-                    id: e.from + '>' + e.to, getData: () => e.data, vouched: new Set(['seed']),
+                const liveEdge = (e, sources) => ({
+                    id: e.id || e.from + '>' + e.to, from: { id: e.from }, to: { id: e.to },
+                    getData: () => e.data, vouched: new Set(sources),
                     hasSource(s) { return this.vouched.has(s); },
                     dropSource(s) { this.vouched.delete(s); return this.vouched.size === 0; },
-                }));
+                });
+                const liveEdges = this.liveEdges = data.edges.map(e => liveEdge(e, ['seed']));
                 this.getMutableEdges = () => liveEdges.slice();
+                this.getMutableEdge = id => liveEdges.find(e => e.id === id);
+                this.addedEdges = [];
+                this.addEdge = e => { this.addedEdges.push(e); liveEdges.push(liveEdge(e, [])); };
+                this.batchChanges = fn => fn();
                 this.removedBy = [];
                 // The library's rule: drop the claim, delete only what nothing else vouches for.
                 this.removeBySource = source => {
@@ -4079,6 +4085,30 @@ test('enrich save: a duplicate aliases to what the event holds, a failure stays 
     eq('the failed one\'s edge stays unsaved', out.savedEdgeIds, ['e1']);
     ok('and the toast says so', /could not be saved/.test(out.message || ''), out.message);
     eq('the failed one is still a result', payload.nodes[1].data.scope, 'module');
+});
+
+test('links: the canvas draws the links MISP holds between its records, once each', async () => {
+    const asked = [];
+    const g = await buildGraph(ev({ Object: [
+        fedObj({ uuid: 'A', ObjectReference: [ref({ uuid: 'R1', referenced_uuid: 'B' })] }),
+        fedObj({ uuid: 'B' }),
+    ] }), { routes: [[/\/analyst_graphs\/edges\.json$/, init => {
+        asked.push(JSON.parse(init.body));
+        return { Value: [], edges: [
+            { id: 'object-reference:R1', kind: 'object-reference', from: 'Object:a', to: 'Object:b', label: 'related-to', uuid: 'R1' },
+            { id: 'relationship:REL1', kind: 'relationship', from: 'Object:b', to: 'Object:a', label: 'seen-with',
+              uuid: 'REL1', authors: 'a@b', orgc_uuid: 'org-c' },
+            { id: 'contains:a-hit', kind: 'contains', from: 'Object:a', to: 'Attribute:a-hit' },
+            { id: 'in-event:x', kind: 'in-event', from: 'Object:a', to: 'Event:not-drawn' },
+        ] };
+    }]] });
+    await new Promise(r => setTimeout(r, 400));
+    eq('asked once, after the seed', asked.length, 1);
+    ok('naming every record on the canvas',
+       ['Object:A', 'Object:B'].every(k => asked[0].nodes.some(n => n.type + ':' + n.uuid === k)), JSON.stringify(asked[0]));
+    eq('only the relationship was missing', g.graph.addedEdges.map(e => [e.id, e.from, e.to, e.data.kind, e.data.uuid]),
+       [['relationship:REL1', 'obj:B', 'obj:A', 'analyst-relationship', 'REL1']]);
+    eq('nothing failed', g.errors, []);
 });
 
 /* ───────────────────────────── runner ─────────────────────────── */

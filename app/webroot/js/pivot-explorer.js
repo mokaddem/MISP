@@ -71,6 +71,9 @@
         // "This event" against "elsewhere": only a graph of one event has a self.
         var hasProvenance = host.provenance !== false;
         var hasChips = host.chips !== false;
+        // Every link MISP holds between what is on the canvas is drawn, as a
+        // saved graph of it draws them: the event page's own default.
+        var joinsLinks = host.links != null ? !!host.links : !host.load;
 
         /* ── state ─────────────────────────────────────────────── */
         var _initialized = false;
@@ -2894,6 +2897,101 @@
             return (Array.isArray(element) ? element : [element]).map(graphItemOf).filter(Boolean);
         }
 
+        /* ── the links MISP holds between what is on the canvas ── */
+        // An edge of /analyst_graphs/data or /edges as the explorer draws it,
+        // its ends ("Type:uuid") resolved to node ids by endId; null when an
+        // end is not drawn. Contains is the object drawing its attributes.
+        function storedEdge(e, endId) {
+            if (e.kind === 'contains') return null;
+            var from = endId(e.from), to = endId(e.to);
+            if (!from || !to || from === to) return null;
+            var data = { kind: e.kind, label: e.label || '' };
+            if (e.kind === 'object-reference') {
+                Object.assign(data, { uuid: e.uuid, relationship_type: e.label });
+            } else if (e.kind === 'relationship') {
+                Object.assign(data, { kind: 'analyst-relationship', uuid: e.uuid, relationship_type: e.label,
+                                      authors: e.authors, orgc: e.orgc_uuid });
+            }
+            return { id: e.id, from: from, to: to, data: data };
+        }
+
+        function recordKey(item) {
+            return item.type === 'Value' ? 'Value=' + item.value : item.type + ':' + String(item.uuid).toLowerCase();
+        }
+
+        // What an edge says, whoever drew it: a tag or an in-event link reads
+        // the same either way round.
+        function linkSignature(kind, from, to, label) {
+            var ends = kind === 'tag' || kind === 'in-event' ? [from, to].sort() : [from, to];
+            return kind + '|' + ends.join('|') + '|' + (label || '');
+        }
+
+        var _linksAsked = {};
+        var _linksTimer = null;
+
+        function joinLinks() {
+            var g = _graph;
+            if (!g) return;
+            var idsOf = {}, items = [], fresh = false;
+            g.getMutableNodes().forEach(function (node) {
+                var item = graphItemOf(node);
+                if (!item) return;
+                var key = recordKey(item);
+                if (!idsOf[key]) {
+                    idsOf[key] = [];
+                    items.push(item.type === 'Value' ? { type: 'Value', value: item.value } : { type: item.type, uuid: item.uuid });
+                    if (!_linksAsked[key]) fresh = true;
+                }
+                idsOf[key].push(node.id);
+            });
+            // Only what landed can bring a link; a removal takes its own along.
+            if (!fresh || items.length < 2) return;
+            _linksAsked = {};
+            Object.keys(idsOf).forEach(function (k) { _linksAsked[k] = true; });
+            postJson('/analyst_graphs/edges.json', { nodes: items }).then(function (out) {
+                if (g !== _graph) return;
+                var valueOf = {};
+                (out.Value || []).forEach(function (v) { valueOf[v.uuid] = v.value; });
+                // A uuid two drawn nodes share (one cluster in two galaxies)
+                // cannot say which of them a link joins.
+                function endId(end) {
+                    var at = end.indexOf(':');
+                    var type = end.slice(0, at), uuid = end.slice(at + 1);
+                    var key = type === 'Value' ? (valueOf[uuid] != null ? 'Value=' + valueOf[uuid] : null) : type + ':' + uuid;
+                    var ids = key && idsOf[key];
+                    return ids && ids.length === 1 && g.getMutableNode(ids[0]) ? ids[0] : null;
+                }
+                var drawn = {}, uuids = {};
+                g.getMutableEdges().forEach(function (edge) {
+                    var d = edge.getData() || {};
+                    drawn[linkSignature(d.kind, edge.from.id, edge.to.id, d.label)] = true;
+                    if (d.uuid) uuids[d.uuid] = true;
+                });
+                var missing = (out.edges || []).map(function (e) { return storedEdge(e, endId); }).filter(function (edge) {
+                    if (!edge || g.getMutableEdge(edge.id)) return false;
+                    if (edge.data.uuid && uuids[edge.data.uuid]) return false;
+                    var sig = linkSignature(edge.data.kind, edge.from, edge.to, edge.data.label);
+                    if (drawn[sig]) return false;
+                    return (drawn[sig] = true);
+                });
+                if (!missing.length) return;
+                g.batchChanges(function () { missing.forEach(function (edge) { g.addEdge(edge); }); });
+            }).catch(function (err) {
+                console.error('[pivot-explorer] links between the canvas records failed:', err);
+            });
+        }
+
+        function watchLinks(g) {
+            // A landing announces itself node by node: one ask for all of it.
+            function soon() {
+                if (_linksTimer) return;
+                _linksTimer = setTimeout(function () { _linksTimer = null; joinLinks(); }, 300);
+            }
+            g.on('nodeAdd', soon);
+            g.on('dataBatchChanged', soon);
+            soon();
+        }
+
         // Offered where the page has IntelGraph: to a writer of graphs. The
         // explorer is a graph itself, so it says which graph the add feeds.
         function graphEntry(text) {
@@ -4055,6 +4153,7 @@
                     followMispTheme(_graph, _graph.UIManager.getRootContainer());
                     _graph.UIManager.getRootContainer().addEventListener('pivot-sidebar-retry', retrySidebar);
                     watchElementPivot(_graph);
+                    if (joinsLinks) watchLinks(_graph);
                     if (host.afterMount) {
                         host.afterMount(_graph, kit, seed);
                     } else {
@@ -4448,6 +4547,7 @@
             inEventEdge:      inEventEdge,
             sourceMap:        sourceMap,
             sourceNodeData:   sourceNodeData,
+            storedEdge:       storedEdge,
             sources:          SOURCES,
             eachAnalystRelationship: eachAnalystRelationship,
             eachRelationshipOn: eachRelationshipOn,
