@@ -27,8 +27,8 @@ if (!empty($actions)) {
     ]);
 }
 
-echo $this->element('AnalystData/add_controls', [
+echo $this->element('AnalystData/rail_card', [
     'objectType' => $m,
     'objectUuid' => $record['uuid'] ?? '',
-    'showView' => false,
+    'showThread' => false,
 ]);

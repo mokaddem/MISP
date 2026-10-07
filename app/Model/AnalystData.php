@@ -728,7 +728,39 @@ class AnalystData extends AppModel
     }
 
     /**
-     * Total analyst data attached to an object, counted RECURSIVELY: the object's 
+     * The analyst data thread attached to an object, as the user may see it:
+     * notes and opinions with their own child notes/opinions nested, outbound
+     * relationships with their target resolved, and inbound relationships with
+     * their source resolved in related_object.
+     *
+     * @param array $user
+     * @param string $objectType
+     * @param string $objectUuid
+     * @return array ['Note' => [], 'Opinion' => [], 'Relationship' => [], 'RelationshipInbound' => []]
+     */
+    public function fetchThreadForObject(array $user, $objectType, $objectUuid): array
+    {
+        $thread = ['Note' => [], 'Opinion' => [], 'Relationship' => [], 'RelationshipInbound' => []];
+        foreach (['Note', 'Opinion', 'Relationship'] as $type) {
+            $model = ClassRegistry::init($type);
+            $model->current_user = $user;
+            $model->fetchRecursive = true;
+            // The cycle guard outlives a walk; a thread already touched
+            // earlier in the request would otherwise come back childless.
+            $model->fetchedUUIDFromRecursion = [];
+            $fetched = $model->fetchForUuids([$objectUuid], $user);
+            $thread[$type] = $fetched[$objectUuid][$type] ?? [];
+        }
+        $Relationship = ClassRegistry::init('Relationship');
+        $thread['RelationshipInbound'] = Hash::extract(
+            $Relationship->getInboundRelationships($user, $objectType, $objectUuid),
+            '{n}.Relationship'
+        );
+        return $thread;
+    }
+
+    /**
+     * Total analyst data attached to an object, counted RECURSIVELY: the object's
      * (direct notes/opinions/relationships, plus analyst data at any depth
      */
     public function countForObjectRecursive(array $user, string $objectUuid): int

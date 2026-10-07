@@ -537,23 +537,8 @@ class AnalystDataController extends AppController
         if (!in_array($object_type, AnalystData::valid_targets, true)) {
             throw new NotFoundException(__('Invalid object type.'));
         }
-        $user = $this->Auth->user();
-        $analystData = ['Note' => [], 'Opinion' => [], 'Relationship' => [], 'RelationshipInbound' => []];
-        foreach (['Note', 'Opinion', 'Relationship'] as $type) {
-            $this->loadModel($type);
-            $this->{$type}->current_user = $user;
-            // fetchRecursive → afterFind nests each item's own child notes/opinions
-            // (analyst data attached to analyst data), so the card can show the thread.
-            $this->{$type}->fetchRecursive = true;
-            $fetched = $this->{$type}->fetchForUuids([$object_uuid], $user);
-            $analystData[$type] = $fetched[$object_uuid][$type] ?? [];
-        }
-        $this->loadModel('Relationship');
-        $this->Relationship->current_user = $user;
-        $analystData['RelationshipInbound'] = Hash::extract(
-            $this->Relationship->getInboundRelationships($user, $object_type, $object_uuid),
-            '{n}.Relationship'
-        );
+        $this->loadModel('Note');
+        $analystData = $this->Note->fetchThreadForObject($this->Auth->user(), $object_type, $object_uuid);
         if ($this->_isRest()) {
             return $this->RestResponse->viewData($analystData, 'json');
         }
