@@ -769,12 +769,6 @@ class ACLComponent extends Component
         'pages' => array(
             'display' => array('*'),
         ),
-        'posts' => array(
-            'add' => ['AND' => ['not_read_only_authkey', 'discussion_enabled', 'perm_add']],
-            'delete' => ['AND' => ['not_read_only_authkey', 'discussion_enabled', 'perm_add']],
-            'edit' => ['AND' => ['not_read_only_authkey', 'discussion_enabled', 'perm_add']],
-            'pushMessageToZMQ' => array()
-        ),
         'regexp' => array(
             'admin_add' => array('perm_regexp_access'),
             'admin_clean' => array(),
@@ -846,6 +840,7 @@ class ACLComponent extends Component
             'removeOrphanedCorrelations' => array(),
             'restartDeadWorkers' => array(),
             'restartWorkers' => array(),
+            'serverDiagnostic' => ['AND' => ['perm_site_admin', 'theming_enabled']],
             'serverSettings' => array(),
             'serverSettingsEdit' => array(),
             'serverSettingsReloadSetting' => array(),
@@ -1032,11 +1027,6 @@ class ACLComponent extends Component
             'getRoot' => ['perm_site_admin'],
             'getCollections' => ['perm_site_admin']
         ],
-        'threads' => array(
-            'index' => array('discussion_enabled'),
-            'view' => array('discussion_enabled'),
-            'viewEvent' => array('discussion_enabled'),
-        ),
         'users' => array(
             'acceptRegistrations' => array(),
             'admin_add' => ['AND' => ['perm_admin', 'add_user_enabled']],
@@ -1308,9 +1298,6 @@ class ACLComponent extends Component
         };
         $this->dynamicChecks['delegation_enabled'] = function (array $user) {
             return (bool)Configure::read('MISP.delegation');
-        };
-        $this->dynamicChecks['discussion_enabled'] = function (array $user) {
-            return !Configure::read('MISP.discussion_disable');
         };
         // Returns true if current user is not using advanced auth key or if authkey is not read only
         $this->dynamicChecks['not_read_only_authkey'] = function (array $user) {
