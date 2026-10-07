@@ -31,6 +31,7 @@ class RailCard
     const COLOURS = [
         null, 'event', 'object', 'attribute', 'tag', 'galaxy', 'report',
         'sighting', 'correlation', 'category', 'type', 'analystData', 'enrichment',
+        'valueIntelligence', 'analystGraph',
     ];
 
     /**
