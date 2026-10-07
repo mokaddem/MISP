@@ -24,7 +24,7 @@
             <div class="dropdown ig-so-switch">
                 <button type="button" class="ig-so-title" data-ig-switch data-bs-toggle="dropdown"
                         data-bs-auto-close="outside" aria-expanded="false" title="<?= __('Switch graph') ?>">
-                    <i class="fas fa-circle-nodes ig-so-title-icon" aria-hidden="true"></i>
+                    <i class="misp-icon misp-icon-analyst-graph misp-simple ig-so-title-icon" aria-hidden="true"></i>
                     <span id="ig-so-name" class="ig-so-name" data-ig-name><?= __('Analyst graph') ?></span>
                     <i class="fas fa-chevron-down ig-so-caret" aria-hidden="true"></i>
                 </button>

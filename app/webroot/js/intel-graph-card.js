@@ -89,7 +89,7 @@
         function row(g, active) {
             var r = el('div', 'd-flex align-items-start gap-2 px-3 py-2 border-bottom');
             r.setAttribute('data-ig-graph', g.uuid);
-            r.appendChild(icon('fas fa-circle-nodes text-info mt-1 flex-shrink-0'));
+            r.appendChild(icon('misp-icon misp-icon-analyst-graph misp-simple text-analystGraph mt-1 flex-shrink-0'));
             var main = el('div', 'flex-grow-1');
             main.style.minWidth = '0';
             var top = el('div', 'd-flex align-items-center gap-2');
@@ -174,7 +174,7 @@
                     body.textContent = '';
                     if (!graphs.length) {
                         var empty = el('div', 'd-flex flex-column align-items-center justify-content-center text-muted py-4 px-3 text-center');
-                        empty.appendChild(icon('fas fa-circle-nodes fa-2x mb-2 opacity-50'));
+                        empty.appendChild(icon('misp-icon misp-icon-analyst-graph misp-simple fa-2x mb-2 opacity-50'));
                         empty.appendChild(el('p', 'mb-0 small fw-semibold', config.canCreate
                             ? 'Start one with +, then send records to it with “Add to graph”.'
                             : 'No graph hangs off this ' + config.targetName + ' yet.'));

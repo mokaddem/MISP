@@ -13,6 +13,8 @@ $misp-category:     #EF476F !default;
 $misp-type:         #06D6A0 !default;
 $misp-analystData:  #8F2D56 !default;
 $misp-enrichment:   #48435C !default;
+$misp-valueIntelligence: #997902 !default;
+$misp-analystGraph: #9055A9 !default;
 
 $misp-colors: (
   "event":       $misp-event,
@@ -26,7 +28,9 @@ $misp-colors: (
   "category":    $misp-category,
   "type":        $misp-type,
   "analystData": $misp-analystData,
-  "enrichment":  $misp-enrichment
+  "enrichment":  $misp-enrichment,
+  "valueIntelligence": $misp-valueIntelligence,
+  "analystGraph": $misp-analystGraph
 ) !default;
 
 // The page background in dark mode: a dark-only theme's is $body-bg.

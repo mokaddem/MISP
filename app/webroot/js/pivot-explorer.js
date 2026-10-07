@@ -3005,7 +3005,7 @@
             return {
                 text:      text,
                 title:     'Adds it to your active graph, the one the navbar names',
-                iconClass: 'fas fa-circle-nodes',
+                iconClass: 'misp-icon misp-icon-analyst-graph misp-simple',
                 visible:   function (el) { return !!window.IntelGraphActions && graphItems(el).length > 0; },
                 onclick:   function (e, el) { window.IntelGraphActions.add(graphItems(el)); }
             };
@@ -3753,14 +3753,14 @@
             return [{
                 text:          'Save canvas as graph…',
                 title:         'Keeps what is on the canvas as an analyst graph',
-                iconClass:     'fas fa-circle-nodes',
+                iconClass:     'misp-icon misp-icon-analyst-graph misp-simple',
                 dividerBefore: true,
                 visible:       function () { return !_savedGraph && !!graphTarget(); },
                 onclick:       refreshingAfter(saveGraphDialog)
             }, {
                 text:          'Update saved graph',
                 title:         'Writes the canvas into the graph saved from it',
-                iconClass:     'fas fa-circle-nodes',
+                iconClass:     'misp-icon misp-icon-analyst-graph misp-simple',
                 dividerBefore: true,
                 visible:       function () { return !!_savedGraph; },
                 onclick:       refreshingAfter(updateGraph)
@@ -3803,7 +3803,7 @@
                         ? 'Writes the canvas into “' + _savedGraph.name + '”'
                         : 'Keeps what is on the canvas as an analyst graph';
                 },
-                iconClass: 'fas fa-circle-nodes',
+                iconClass: 'misp-icon misp-icon-analyst-graph misp-simple',
                 visible:   function () { return !!graphTarget(); },
                 onclick:   function () { return _savedGraph ? updateGraph() : saveGraphDialog(); },
                 menu:      function () {

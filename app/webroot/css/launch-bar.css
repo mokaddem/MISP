@@ -223,11 +223,13 @@
 .lb-e-sighting { --lb-rgb: var(--bs-sighting-rgb); }
 .lb-e-tag { --lb-rgb: var(--bs-tag-rgb); }
 .lb-e-analystData { --lb-rgb: var(--bs-analystData-rgb); }
+.lb-e-analystGraph { --lb-rgb: var(--bs-analystGraph-rgb); }
+.lb-e-valueIntelligence { --lb-rgb: var(--bs-valueIntelligence-rgb); }
 .lb-e-success { --lb-rgb: var(--bs-success-rgb); }
 .lb-e-warning { --lb-rgb: var(--bs-warning-rgb); --lb-fg: var(--bs-warning-text-emphasis); }
 .lb-e-danger { --lb-fg: var(--bs-secondary-color); background: transparent; }
 
-[data-bs-theme=dark] :is(.lb-e-object, .lb-e-enrichment, .lb-e-sighting, .lb-e-analystData) {
+[data-bs-theme=dark] :is(.lb-e-object, .lb-e-enrichment, .lb-e-sighting, .lb-e-analystData, .lb-e-analystGraph) {
     --lb-fg: color-mix(in srgb, rgb(var(--lb-rgb)) 45%, var(--bs-emphasis-color));
     background: color-mix(in srgb, rgb(var(--lb-rgb)) 30%, transparent);
 }

@@ -163,7 +163,7 @@ class CollectionRailCards
             case 'GalaxyCluster':
                 return [__('Galaxy clusters'), 'misp-icon misp-icon-galaxy misp-simple', 'galaxy'];
             case 'Value':
-                return [__('Values'), 'fas fa-quote-right', 'correlation'];
+                return [__('Values'), 'misp-icon misp-icon-value-intelligence misp-simple', 'valueIntelligence'];
         }
         return [$type, null, null];
     }

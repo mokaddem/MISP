@@ -324,7 +324,7 @@ $fields = array_merge($fields, [
             [
                 'type' => 'intelGraph',
                 'label' => __('Add to graph'),
-                'icon' => 'text-info fas fa-circle-nodes',
+                'icon' => 'text-analystGraph misp-icon misp-icon-analyst-graph misp-simple',
                 'items' => function ($row) use ($path) {
                     return [['type' => 'Attribute', 'uuid' => Hash::get($row, $path('uuid')), 'label' => Hash::get($row, $path('value'))]];
                 },

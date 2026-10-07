@@ -656,7 +656,7 @@
             if (kit.eventHasAnalystData(payloadOf(seed.raw).Event)) opts.UI.extraPanels.push(kit.analystPanel());
             opts.UI.contextMenu.menuNode.menu.unshift({
                 text:      'Open value page',
-                iconClass: 'fas fa-external-link-alt',
+                iconClass: 'misp-icon misp-icon-value-intelligence misp-simple',
                 visible:   function (el) {
                     var n = Array.isArray(el) ? (el.length === 1 ? el[0] : null) : el;
                     var d = n && n.getData ? n.getData() : null;

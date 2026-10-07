@@ -48,8 +48,8 @@ $actions[] = [
 if ($this->Acl->canAccess('analystGraphs', 'addNodes') && !$isDeleted) {
     $actions[] = [
         'url' => '#',
-        'icon' => 'fas fa-circle-nodes',
-        'entity' => 'galaxy',
+        'icon' => 'misp-icon misp-icon-analyst-graph misp-simple',
+        'entity' => 'analystGraph',
         'label' => __('Add to graph'),
         'short' => __('Graph'),
         'attributes' => ['data-intel-graph-add' => json_encode([['type' => 'GalaxyCluster', 'uuid' => $uuid, 'label' => $data['value']]])],
