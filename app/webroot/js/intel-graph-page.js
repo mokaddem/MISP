@@ -48,7 +48,9 @@
         function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
         function ago(datetime) {
-            var t = Date.parse(String(datetime).replace(' ', 'T'));
+            // Analyst data stores its times in UTC, with no zone
+            var iso = String(datetime).replace(' ', 'T');
+            var t = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
             if (isNaN(t)) return '';
             var s = Math.round((Date.now() - t) / 1000);
             if (s < 45) return 'just now';
