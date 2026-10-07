@@ -813,15 +813,24 @@ class EventsController extends AppController
         }
 
         list($possibleColumns, $enabledColumns) = $this->__indexColumns();
-        $events = $this->__attachInfoToEvents($enabledColumns, $events);
+        $withCards = $this->theme === 'Overmind';
+        $attachColumns = $enabledColumns;
+        if ($withCards) {
+            // The cards ignore the table's hidden columns; the optional counts
+            // still follow their MISP.show*OnIndex settings via $possibleColumns.
+            $attachColumns = array_unique(array_merge(
+                $enabledColumns,
+                array_intersect($possibleColumns, ['correlations', 'report_count', 'sightings', 'proposals', 'discussion']),
+                ['tags', 'clusters', 'attribute_count']
+            ));
+        }
+        $events = $this->__attachInfoToEvents($attachColumns, $events);
 
         $this->__noKeyNotification();
         App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
-        $this->set('labelPlan', ValueLabelPriority::planFor(
-            ClassRegistry::init('AnalystProfile')
-                ->resolveFor($this->Auth->user())
-        ));
-        $this->set('events', $events);
+        $profile = ClassRegistry::init('AnalystProfile')->resolveFor($this->Auth->user());
+        $labelPlan = ValueLabelPriority::planFor($profile);
+        $this->set('labelPlan', $labelPlan);
         $this->set('possibleColumns', $possibleColumns);
         $this->set('columns', $enabledColumns);
         $this->set('eventDescriptions', $this->Event->fieldDescriptions);
@@ -835,15 +844,23 @@ class EventsController extends AppController
 
         $extendedUuids = array_filter(array_map(fn($event) => $event['Event']['extends_uuid'] ?? null, $events));
 
+        $extendedEvents = [];
         if ($extendedUuids) {
-            $extendedEvents = $this->Event->fetchSimpleEvents(
+            $extendedEvents = array_column($this->Event->fetchSimpleEvents(
                 $this->Auth->user(),
                 ['conditions' => ['Event.uuid' => $extendedUuids]]
-            );
-            $this->set('extendedEvents', array_column($extendedEvents, 'Event', 'uuid'));
-        } else {
-            $this->set('extendedEvents', []);
+            ), 'Event', 'uuid');
         }
+        $this->set('extendedEvents', $extendedEvents);
+        if ($withCards) {
+            $events = $this->__attachCardsToEvents(
+                $events,
+                $profile,
+                $labelPlan,
+                array_column($extendedEvents, null, 'uuid')
+            );
+        }
+        $this->set('events', $events);
 
         $orgs = $this->Event->Orgc->find('list', [
             'fields' => ['Orgc.name', 'Orgc.name'],
@@ -1185,6 +1202,117 @@ class EventsController extends AppController
             $events = $this->Event->EventReport->attachReportCountsToEvents($user, $events);
         }
 
+        return $events;
+    }
+
+    /**
+     * What the Overmind index card draws, as EventCard on each event. A fixed
+     * number of queries for the page, whatever its size.
+     *
+     * @param array $events with tags, clusters and counts attached
+     * @param array|null $profile the viewer's analyst profile
+     * @param array $plan ValueLabelPriority::planFor($profile)
+     * @param array $extendedEvents uuid => Event the viewer may see
+     * @return array
+     */
+    private function __attachCardsToEvents(array $events, $profile, array $plan, array $extendedEvents)
+    {
+        if (empty($events)) {
+            return $events;
+        }
+        App::uses('EventContextTool', 'Tools/EventOverview');
+        App::uses('EventCardTool', 'Tools/EventOverview');
+        $user = $this->Auth->user();
+        $permitted = ClassRegistry::init('AnalystProfile')->pivotLabels($user, $plan)['permitted'];
+        $markingNamespaces = ValueLabelPriority::markings($profile);
+        $uuids = array_column(array_column($events, 'Event'), 'uuid');
+
+        // Callbacks off: AnalystData::afterFind resolves orgs and child notes per row.
+        $Graph = ClassRegistry::init('Graph');
+        $graphRows = $Graph->find('all', [
+            'conditions' => ['AND' => [
+                ['Graph.object_type' => 'Event', 'Graph.object_uuid' => $uuids],
+                $Graph->buildConditions($user),
+            ]],
+            'fields' => ['Graph.uuid', 'Graph.name', 'Graph.object_uuid'],
+            'order' => ['Graph.modified' => 'DESC'],
+            'recursive' => -1,
+            'callbacks' => false,
+        ]);
+        $graphs = [];
+        foreach ($graphRows as $row) {
+            $graphs[$row['Graph']['object_uuid']][] = [
+                'uuid' => $row['Graph']['uuid'],
+                'name' => $row['Graph']['name'],
+            ];
+        }
+
+        $sharingGroupIds = [];
+        foreach ($events as $event) {
+            if ((int)$event['Event']['distribution'] === 4 && !empty($event['Event']['sharing_group_id'])) {
+                $sharingGroupIds[(int)$event['Event']['sharing_group_id']] = true;
+            }
+        }
+        $sharingGroupOrgs = [];
+        if ($sharingGroupIds) {
+            $rows = $this->Event->SharingGroup->SharingGroupOrg->find('all', [
+                'conditions' => ['SharingGroupOrg.sharing_group_id' => array_keys($sharingGroupIds)],
+                'fields' => ['SharingGroupOrg.sharing_group_id', 'COUNT(*) AS orgs'],
+                'group' => ['SharingGroupOrg.sharing_group_id'],
+                'recursive' => -1,
+            ]);
+            foreach ($rows as $row) {
+                $sharingGroupOrgs[(int)$row['SharingGroupOrg']['sharing_group_id']] = (int)$row[0]['orgs'];
+            }
+        }
+
+        $extendedBy = [];
+        $rows = $this->Event->find('all', [
+            'conditions' => ['AND' => [
+                ['Event.extends_uuid' => $uuids],
+                $this->Event->createEventConditions($user),
+            ]],
+            'fields' => ['Event.extends_uuid', 'COUNT(*) AS children'],
+            'group' => ['Event.extends_uuid'],
+            'recursive' => -1,
+        ]);
+        foreach ($rows as $row) {
+            $extendedBy[$row['Event']['extends_uuid']] = (int)$row[0]['children'];
+        }
+
+        foreach ($events as $k => $event) {
+            $e = $event['Event'];
+            $context = EventContextTool::rows(
+                $event['EventTag'] ?? [],
+                $event['GalaxyCluster'] ?? [],
+                null,
+                [],
+                [],
+                $profile,
+                $permitted
+            );
+            $extends = null;
+            if (!empty($e['extends_uuid'])) {
+                $parent = $extendedEvents[$e['extends_uuid']] ?? null;
+                $extends = $parent
+                    ? ['id' => (int)$parent['id'], 'info' => $parent['info'], 'uuid' => $e['extends_uuid']]
+                    : ['id' => null, 'info' => null, 'uuid' => $e['extends_uuid']];
+            }
+            $sharingGroupId = (int)($e['sharing_group_id'] ?? 0);
+            $events[$k]['EventCard'] = [
+                'rows' => EventCardTool::rows($context),
+                'markings' => EventCardTool::markings($context, $markingNamespaces),
+                'state' => EventCardTool::state($e),
+                'distribution' => EventCardTool::distribution(
+                    $e['distribution'],
+                    $event['SharingGroup'] ?? null,
+                    $sharingGroupOrgs[$sharingGroupId] ?? null
+                ),
+                'graphs' => $graphs[$e['uuid']] ?? [],
+                'extends' => $extends,
+                'extended_by' => $extendedBy[$e['uuid']] ?? 0,
+            ];
+        }
         return $events;
     }
 
