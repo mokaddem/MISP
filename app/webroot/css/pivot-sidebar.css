@@ -131,11 +131,9 @@
     width: 18px; height: 18px; border-radius: 5px; color: #fff;
     font-size: 8.5px; font-weight: 650; letter-spacing: .02em;
 }
-.pes-ids {
-    font-size: 10px; font-weight: 700; letter-spacing: .05em; padding: 1px 5px; border-radius: 3px;
-    background: var(--h); color: #0B0B0C;
-}
-.pes-ids.is-off { background: transparent; color: var(--pes-ink-3); box-shadow: inset 0 0 0 1px var(--pes-line-strong); }
+.fa-solid.pes-ids { color: var(--pes-caution); }
+.pes-strip .fa-solid.pes-ids { font-size: 12px; }
+.fa-solid.pes-ids.is-off { color: var(--pes-ink-3); opacity: .55; }
 .pes-meter { display: inline-flex; gap: 2px; align-items: flex-end; }
 .pes-meter i { width: 4px; height: 10px; border-radius: 1px; background: var(--pes-meter-track); }
 .pes-meter i.on { background: var(--pes-meter-fill); }

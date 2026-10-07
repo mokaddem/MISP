@@ -64,6 +64,9 @@
     function fa(name) {
         return icon('fa-solid fa-' + name);
     }
+    function idsMark(on) {
+        return icon('fa-solid fa-shield-halved pes-ids' + (on ? '' : ' is-off'));
+    }
     function mi(family, name) {
         return icon('misp-icon misp-' + family + ' misp-icon-' + name);
     }
@@ -741,7 +744,7 @@
             stripItem(s, [fa(c.published ? 'paper-plane' : 'pen-to-square'),
                           c.published ? 'Published' + (c.published_at ? ' ' + day(c.published_at) : '') : 'Unpublished']);
         } else if (vm.entity === 'attribute') {
-            stripItem(s, [h('span', 'pes-ids' + (c.to_ids ? '' : ' is-off'), 'IDS')], c.to_ids ? 'IDS flag on' : 'IDS flag off');
+            stripItem(s, [idsMark(c.to_ids)], c.to_ids ? 'IDS flag on' : 'IDS flag off');
             if (c.type) stripItem(s, [h('b', 'pes-code', c.type)]);
             if (c.category) stripItem(s, [c.category]);
             if (c.relation) stripItem(s, [fa('diagram-next'), c.relation], 'Object relation');
@@ -1206,7 +1209,7 @@
             add(li, h('div', 'pes-attr-rel', (k.relation || k.type) + (k.relation && k.type ? ' · ' + k.type : '')));
             add(li, attrValue(vm, k));
             var marks = add(li, h('div', 'pes-attr-marks'));
-            if (k.to_ids) add(marks, h('span', 'pes-ids', 'IDS')).style.fontSize = '9px';
+            if (k.to_ids) add(marks, idsMark(true)).title = 'IDS flag on';
             if (k.warninglisted) add(marks, warnMark(k));
             if (k.tags + k.clusters) { add(marks, fa('tag')); marks.appendChild(document.createTextNode(String(k.tags + k.clusters))); }
             if (k.correlations && k.correlations.count) { add(marks, fa('arrows-left-right')); marks.appendChild(document.createTextNode(String(k.correlations.count))); }
