@@ -7,10 +7,6 @@ App::uses('AppHelper', 'View/Helper');
  */
 class ElementTypeHelper extends AppHelper
 {
-    /**
-     * A value is no entity, so it gets the inverse ink chip rather than an
-     * entity colour.
-     */
     const STYLES = [
         'Event' => [
             'icon' => 'misp-icon misp-icon-event misp-simple',
@@ -29,9 +25,8 @@ class ElementTypeHelper extends AppHelper
             'color' => 'var(--bs-object)',
         ],
         'Value' => [
-            'icon' => 'fas fa-quote-right',
-            'color' => 'var(--bs-emphasis-color)',
-            'ink' => 'var(--bs-body-bg)',
+            'icon' => 'misp-icon misp-icon-value-intelligence misp-simple',
+            'color' => 'var(--bs-valueIntelligence)',
         ],
     ];
 

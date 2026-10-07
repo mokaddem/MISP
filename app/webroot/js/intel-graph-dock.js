@@ -507,7 +507,7 @@
         Attribute:     { label: 'Attribute', icon: 'misp-icon misp-icon-attribute misp-simple', color: 'var(--bs-attribute)' },
         Object:        { label: 'Object', icon: 'misp-icon misp-icon-object misp-simple', color: 'var(--bs-object)' },
         GalaxyCluster: { label: 'Galaxy cluster', icon: 'misp-icon misp-icon-galaxy misp-simple', color: 'var(--bs-galaxy)' },
-        Value:         { label: 'Value', icon: 'fas fa-quote-left', color: 'var(--bs-secondary)' }
+        Value:         { label: 'Value', icon: 'misp-icon misp-icon-value-intelligence misp-simple', color: 'var(--bs-valueIntelligence)' }
     };
     function typeOf(t) { return TYPE[t] || { label: t || 'Record', icon: 'fas fa-circle' }; }
     var TARGET_PAGE = { Event: '/events/view2/', Collection: '/collections/view/', GalaxyCluster: '/galaxy_clusters/view/' };

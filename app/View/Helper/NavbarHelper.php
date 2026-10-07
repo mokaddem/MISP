@@ -175,7 +175,7 @@ class NavbarHelper extends AppHelper {
                 'url' => $baseurl . '/values/index',
                 'controller' => 'values',
                 'action' => 'index',
-                'icon' => 'fas fa-fingerprint',
+                'icon' => 'misp-icon misp-icon-value-intelligence misp-simple',
             ],
             ['divider' => true],
             [
@@ -974,7 +974,7 @@ class NavbarHelper extends AppHelper {
             'label' => $graph ? $graph['name'] : __('No graph'),
             'count' => $graph ? (int)$graph['node_count'] : null,
             'title' => __('Analyst graph'),
-            'icon' => 'fas fa-circle-nodes',
+            'icon' => 'misp-icon misp-icon-analyst-graph misp-simple',
         ];
     }
 

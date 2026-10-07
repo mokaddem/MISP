@@ -109,9 +109,9 @@ $expanded = !empty($ctx['expand']);
                     <?php endif; ?>
                 <?php endif; ?>
                 <?php if (!$isDeleted && $this->Acl->canAccess('analystGraphs', 'addNodes')): ?>
-                    <a href="#" class="btn btn-sm btn-outline-info py-0 px-2" title="<?= h(__('Add to graph')) ?>"
+                    <a href="#" class="btn btn-sm btn-outline-analystGraph py-0 px-2" title="<?= h(__('Add to graph')) ?>"
                        data-intel-graph-add="<?= h(json_encode([['type' => 'Object', 'uuid' => $object['uuid'], 'label' => $object['name']]])) ?>">
-                        <i class="fas fa-circle-nodes"></i>
+                        <i class="misp-icon misp-icon-analyst-graph misp-simple"></i>
                     </a>
                 <?php endif; ?>
                 <?php if (!$isDeleted && $this->Acl->canAccess('collectionElements', 'addElementToCollection')): ?>

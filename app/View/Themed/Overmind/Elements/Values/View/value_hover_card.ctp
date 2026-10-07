@@ -448,6 +448,7 @@ if (!empty($spark) && !empty($spark[0]['from'])) {
                 <span class="vp-hc-gx"></span>
             <?php endif; ?>
             <a class="vp-hc-open" href="<?= h($profileUrl) ?>">
+                <i class="vp-hc-open-ico misp-icon misp-icon-value-intelligence misp-simple" aria-hidden="true"></i>
                 <?= h(__('Open intelligence')) ?>
                 <i class="fas fa-angle-right" aria-hidden="true"></i>
             </a>

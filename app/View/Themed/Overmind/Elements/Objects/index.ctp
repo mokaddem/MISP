@@ -371,9 +371,9 @@ $foldChildren = empty($objects) ? [] : [
                             <?php endif; ?>
                         <?php endif; ?>
                         <?php if ($_canGraph): ?>
-                            <a href="#" class="btn btn-sm btn-outline-info<?= $objCanEdit ? '' : ' ms-auto' ?>"
+                            <a href="#" class="btn btn-sm btn-outline-analystGraph<?= $objCanEdit ? '' : ' ms-auto' ?>"
                                data-intel-graph-add="<?= h(json_encode([['type' => 'Object', 'uuid' => $object['uuid'], 'label' => $object['name']]])) ?>">
-                                <i class="fas fa-circle-nodes me-1"></i>
+                                <i class="misp-icon misp-icon-analyst-graph misp-simple me-1"></i>
                                 <?= __('Add to graph') ?>
                             </a>
                         <?php endif; ?>

@@ -27,8 +27,8 @@ $types = [
         'description' => __('Typed links connecting two MISP data points together.'),
     ],
     'Graph' => [
-        'icon'        => 'fas fa-circle-nodes',
-        'color'       => 'info',
+        'icon'        => 'misp-icon misp-icon-analyst-graph misp-simple',
+        'color'       => 'analystGraph',
         'title'       => __('Graphs'),
         'description' => __('Drawings of how records relate, kept on a collection, an event or a galaxy cluster.'),
     ],

@@ -58,8 +58,8 @@ echo $this->element('genericElements/assetLoader', [
     <div class="p-3 border-bottom">
         <div class="d-flex align-items-center gap-2">
             <div class="rounded-2 d-flex align-items-center justify-content-center"
-                 style="width:36px;height:36px;background:rgba(var(--bs-info-rgb),.25);">
-                <i class="fas fa-circle-nodes text-info" style="font-size:1rem;"></i>
+                 style="width:36px;height:36px;background:rgba(var(--bs-analystGraph-rgb),.25);">
+                <i class="misp-icon misp-icon-analyst-graph misp-simple text-analystGraph" style="font-size:1rem;"></i>
             </div>
             <div class="me-auto">
                 <div class="fw-bold lh-1"><?= __('Graphs') ?></div>
@@ -84,7 +84,7 @@ echo $this->element('genericElements/assetLoader', [
             <div class="modal-dialog">
                 <form class="modal-content" novalidate data-ig-card-form>
                     <div class="modal-header">
-                        <h2 class="modal-title fs-5"><i class="fas fa-circle-nodes me-2"></i><?= __('New graph') ?></h2>
+                        <h2 class="modal-title fs-5"><i class="misp-icon misp-icon-analyst-graph misp-simple me-2"></i><?= __('New graph') ?></h2>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= __('Close') ?>"></button>
                     </div>
                     <div class="modal-body">

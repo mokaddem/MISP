@@ -181,10 +181,10 @@ $actions[] = ['divider' => true, 'label' => __('Share')];
 if ($this->Acl->canAccess('analystGraphs', 'addNodes')) {
     $actions[] = [
         'url' => '#',
-        'icon' => 'fas fa-circle-nodes',
+        'icon' => 'misp-icon misp-icon-analyst-graph misp-simple',
         'label' => __('Add to graph'),
         'short' => __('Graph'),
-        'entity' => 'event',
+        'entity' => 'analystGraph',
         'attributes' => ['data-intel-graph-add' => json_encode([[
             'type' => 'Event', 'uuid' => $data['Event']['uuid'], 'label' => $data['Event']['info'],
         ]])],
