@@ -108,6 +108,29 @@ class EventCardToolTest extends TestCase
         }
     }
 
+    public function testChipsCarryTheRowsTheirPopoverLists(): void
+    {
+        $held = $this->cluster(10, 'Valid Accounts - T1078', 'mitre-attack-pattern', ['external_id' => 'T1078']);
+        $held['Galaxy'] = ['id' => 7, 'name' => 'MITRE ATT&CK Techniques', 'icon' => 'map'] + $held['Galaxy'];
+        $rows = $this->rows(
+            [
+                $this->galaxyTag(1, 'mitre-attack-pattern', 'Connection Proxy - T1090'),
+                $this->galaxyTag(2, 'sector', 'Shipping'),
+                $this->eventTag(3, 'type:OSINT'),
+            ],
+            [$held]
+        );
+        $this->assertSame('Valid Accounts - T1078', $rows['behaviour'][0]['source']['cluster']['value']);
+        $this->assertSame([
+            'value' => 'Connection Proxy - T1090',
+            'galaxy' => 'MITRE ATT&CK Techniques',
+            'galaxy_id' => 7,
+            'icon' => 'map',
+        ], $rows['behaviour'][1]['source']['unheld'], 'listed in the held galaxy');
+        $this->assertSame('sector', $rows['classification'][0]['source']['unheld']['galaxy'], 'no held galaxy of that type');
+        $this->assertSame('type:OSINT', $rows['classification'][1]['source']['tag']['Tag']['name']);
+    }
+
     public function testUnheldTechniqueIsDashed(): void
     {
         $rows = $this->rows([$this->galaxyTag(1, 'mitre-attack-pattern', 'Connection Proxy - T1090')], []);

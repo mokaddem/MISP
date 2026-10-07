@@ -29,6 +29,7 @@ class EventCardTool
             return true;
         };
         $techniques = 0;
+        $galaxies = self::galaxiesByType($context);
 
         foreach ($context['attribution'] ?? [] as $item) {
             if ($once('a|' . $item['name'])) {
@@ -47,6 +48,7 @@ class EventCardTool
                 'label' => $id,
                 'name' => EventContextTool::techniqueName($item['cluster'] ?? []),
                 'unheld' => false,
+                'source' => ['cluster' => $item['cluster'] ?? []],
             ];
         }
 
@@ -67,6 +69,7 @@ class EventCardTool
                         'label' => $technique['id'],
                         'name' => $technique['name'],
                         'unheld' => true,
+                        'source' => ['unheld' => self::unheldCluster($galaxyTag, $galaxies)],
                     ];
                 }
             }
@@ -79,6 +82,7 @@ class EventCardTool
                     'kind' => 'mitigation',
                     'label' => $id,
                     'name' => EventContextTool::techniqueName($item['cluster'] ?? []),
+                    'source' => ['cluster' => $item['cluster'] ?? []],
                 ];
             }
         }
@@ -107,6 +111,7 @@ class EventCardTool
                         'kind' => 'unheld',
                         'label' => $galaxyTag['value'],
                         'galaxy' => $galaxyTag['type'],
+                        'source' => ['unheld' => self::unheldCluster($galaxyTag, $galaxies)],
                     ];
                 }
                 continue;
@@ -119,6 +124,7 @@ class EventCardTool
                 'namespace' => $parts['namespace'],
                 'name' => $item['name'],
                 'colour' => $tag['colour'] ?? null,
+                'source' => ['tag' => $item['tag']],
             ];
         }
         if ($folded) {
@@ -318,6 +324,40 @@ class EventCardTool
             'icon' => $cluster['Galaxy']['icon'] ?? null,
             'relationship' => $cluster['relationship_type'] ?? null,
             'attribution' => $attribution,
+            'source' => ['cluster' => $cluster],
+        ];
+    }
+
+    /**
+     * The galaxies the event's resolved clusters belong to, by type, so an
+     * unresolved tag of the same type lists alongside them.
+     */
+    private static function galaxiesByType(array $context)
+    {
+        $galaxies = [];
+        foreach (['attribution', 'behaviour', 'clusters', 'mitigation'] as $row) {
+            foreach ($context[$row] ?? [] as $item) {
+                $galaxy = $item['cluster']['Galaxy'] ?? null;
+                if (!empty($galaxy['type']) && !isset($galaxies[$galaxy['type']])) {
+                    $galaxies[$galaxy['type']] = $galaxy;
+                }
+            }
+        }
+        return $galaxies;
+    }
+
+    /**
+     * A flat cluster row, as TagChipHelper::clusters() reads it, for a galaxy
+     * tag whose cluster the instance does not hold.
+     */
+    private static function unheldCluster(array $galaxyTag, array $galaxies)
+    {
+        $galaxy = $galaxies[$galaxyTag['type']] ?? null;
+        return [
+            'value' => $galaxyTag['value'],
+            'galaxy' => $galaxy['name'] ?? $galaxyTag['type'],
+            'galaxy_id' => $galaxy['id'] ?? null,
+            'icon' => $galaxy['icon'] ?? null,
         ];
     }
 

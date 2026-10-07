@@ -15,9 +15,10 @@
         if (!more) {
             return;
         }
+        var fold = more.closest('.dk-fold') || more;
         var chips = Array.prototype.slice.call(row.querySelectorAll('.dk-chip'));
         chips.forEach(function (c) { c.hidden = false; });
-        more.hidden = true;
+        fold.hidden = true;
         var width = row.clientWidth;
         if (!width) {
             return;
@@ -33,9 +34,8 @@
         if (i < chips.length) {
             var rest = chips.slice(i);
             rest.forEach(function (c) { c.hidden = true; });
-            more.hidden = false;
+            fold.hidden = false;
             more.textContent = '+' + rest.length;
-            more.title = rest.map(function (c) { return c.textContent.trim(); }).join('\n');
         }
     }
 

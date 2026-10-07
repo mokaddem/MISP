@@ -187,8 +187,25 @@
 .dk-chip.is-mit { font-family: var(--bs-font-monospace); font-size: .69rem; padding: 0 6px; }
 .dk-chip.is-mit i { color: var(--dk-ink2); }
 .dk-chip.is-fold { border-style: dashed; background: transparent; color: var(--dk-ink2); }
-.dk-more { flex: none; font-size: .74rem; font-weight: 600; color: var(--dk-ink2); padding: 0 3px; position: relative; z-index: 2; cursor: default; }
-.dk-more[hidden] { display: none; }
+.dk-fold { flex: none; display: inline-flex; position: relative; z-index: 2; }
+.dk-fold[hidden] { display: none; }
+.dk-more {
+    border: 0; border-radius: 4px; padding: 0 4px; background: none; cursor: pointer;
+    font-size: .74rem; font-weight: 600; line-height: 20px; color: var(--dk-ink2);
+}
+.dk-more:hover, .dk-more[aria-expanded="true"] { color: var(--dk-ink); background: var(--bs-secondary-bg); }
+.dk-more:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 1px; }
+
+/* the +N popover, attached to body: the row as the table's folded-tag lists */
+.dk-pop-head {
+    padding: 7px 12px 6px 10px; font-size: .74rem; font-weight: 650; color: var(--bs-secondary-color);
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.dk-pop .hg-card + .hg-card { border-top: 1px solid var(--hg-border); }
+.dk-pop-note {
+    padding: 6px 12px 8px; font-size: .74rem; color: var(--bs-secondary-color);
+    border-top: 1px solid var(--bs-border-color-translucent);
+}
 .dk-none { font-size: .72rem; color: var(--dk-ink3); }
 
 /* footer: counts in the theme's entity colours, extras, distribution */

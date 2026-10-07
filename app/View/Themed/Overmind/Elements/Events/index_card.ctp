@@ -164,12 +164,45 @@ $chip = function (array $c) {
     return '';
 };
 
-$line = function ($label, $icon, $count, array $chips, $empty) use ($chip) {
+// The whole row as the lists the table's folded tag blocks open onto (tag-chips.js).
+$popover = function ($label, array $chips) {
+    $clusters = $tags = [];
+    $unresolved = 0;
+    foreach ($chips as $c) {
+        $source = $c['source'] ?? [];
+        if (isset($source['cluster'])) {
+            $clusters[] = $source['cluster'];
+        } elseif (isset($source['unheld'])) {
+            $clusters[] = $source['unheld'] + ['description' => __('Cluster not available here')];
+        } elseif (isset($source['tag'])) {
+            $tags[] = $source['tag'];
+        } elseif ($c['kind'] === 'fold') {
+            $unresolved = $c['count'];
+        }
+    }
+    return '<div class="dk-pop"><div class="dk-pop-head">' . h($label) . '</div>'
+        . $this->TagChip->lists([], $clusters)
+        . $this->TagChip->lists($tags)
+        . ($unresolved ? '<div class="dk-pop-note">' . h(__n(
+            '%s galaxy tag whose cluster is not available here',
+            '%s galaxy tags whose cluster is not available here',
+            $unresolved,
+            $unresolved
+        )) . '</div>' : '')
+        . '</div>';
+};
+
+$line = function ($label, $icon, $count, array $chips, $empty) use ($chip, $popover) {
     $html = '<div class="dk-rl">' . $icon . h($label) . ($count ? ' <small>' . (int)$count . '</small>' : '') . '</div>';
     if (empty($chips)) {
         return $html . '<div class="dk-ctx"><span class="dk-none">' . h($empty) . '</span></div>';
     }
-    return $html . '<div class="dk-ctx">' . implode('', array_map($chip, $chips)) . '<span class="dk-more" tabindex="0" hidden></span></div>';
+    $more = count($chips) < 2 ? '' : sprintf(
+        '<span class="hg-fold dk-fold" hidden><button type="button" class="hg-strip dk-more" aria-haspopup="true" aria-expanded="false" aria-label="%s"></button><template>%s</template></span>',
+        h(__('%s: show all', $label)),
+        $popover($label, $chips)
+    );
+    return $html . '<div class="dk-ctx">' . implode('', array_map($chip, $chips)) . $more . '</div>';
 };
 $rows = $card['rows'];
 
