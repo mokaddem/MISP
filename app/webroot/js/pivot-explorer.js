@@ -3093,12 +3093,16 @@
         // The records on the canvas, where they sit now. An attribute drawn
         // inside its object, or a node folded into a group, has no position
         // of its own; anything that is not a MISP record (a feed, a server, a
-        // tag, a module's answer) cannot be kept.
+        // tag, a module's answer) cannot be kept, and is named in `dropped`;
+        // a child left out with its parent goes unnamed.
         function canvasDocument() {
-            var nodes = [], dropped = 0;
+            var nodes = [], dropped = [];
             _graph.getMutableNodes().forEach(function (node) {
                 var item = graphItemOf(node);
-                if (!item) { dropped++; return; }
+                if (!item) {
+                    if (!(node.isChild && node.parentNode && !graphItemOf(node.parentNode))) dropped.push(leftOut(node));
+                    return;
+                }
                 var out = item.type === 'Value'
                     ? { type: 'Value', value: item.value }
                     : { type: item.type, uuid: item.uuid };
@@ -3110,6 +3114,59 @@
                 nodes.push(out);
             });
             return { document: { version: 1, nodes: nodes }, dropped: dropped };
+        }
+
+        var LEFT_OUT_KINDS = [
+            ['tag', 'Tags'], ['feed', 'Feeds'], ['server', 'Servers'],
+            ['module', 'Module answers'], ['other', 'Other']
+        ];
+
+        function leftOut(node) {
+            var d = node.getData() || {};
+            var kind = isEnrichmentResult(d) ? 'module'
+                : d.type === 'feed' || d._provenance === 'feed' ? 'feed'
+                : d.type === 'server' ? 'server'
+                : node.id.indexOf('tag:') === 0 ? 'tag'
+                : 'other';
+            var detail = kind === 'module' ? (d.modules || []).join(', ')
+                : d._provenance === 'feed' ? d.feed_name
+                : d['attr-type'] || '';
+            return { kind: kind, label: String(d.label || d.value || d.name || node.id), detail: detail || '' };
+        }
+
+        // The save's summary; with elements left out, a notice that opens
+        // on what they are.
+        function savedSummary(kept, dropped) {
+            var text = plural(kept, 'element', 'elements') + ' kept.'
+                + (dropped.length === 1 ? ' 1 more is not a MISP record (a feed, a server, a tag or a module answer) and is left out.'
+                    : dropped.length ? ' ' + dropped.length + ' more are not MISP records (feeds, servers, tags or module answers) and are left out.'
+                    : '');
+            if (!dropped.length) return el('p', 'pe-save-graph-summary', text);
+            var notice = el('details', 'pe-save-graph-left-out');
+            var head = el('summary');
+            var icon = el('i', 'fas fa-circle-info');
+            icon.setAttribute('aria-hidden', 'true');
+            head.appendChild(icon);
+            var cut = text.lastIndexOf('left out');
+            head.appendChild(document.createTextNode(' ' + text.slice(0, cut)));
+            head.appendChild(el('strong', null, 'left out'));
+            head.appendChild(document.createTextNode(text.slice(cut + 'left out'.length)));
+            notice.appendChild(head);
+            var body = el('div', 'pe-save-graph-left-out-body');
+            LEFT_OUT_KINDS.forEach(function (k) {
+                var items = dropped.filter(function (i) { return i.kind === k[0]; });
+                if (!items.length) return;
+                body.appendChild(el('div', 'pe-save-graph-left-out-kind', k[1] + ' (' + items.length + ')'));
+                var list = el('ul');
+                items.forEach(function (i) {
+                    var li = el('li', null, i.label);
+                    if (i.detail) li.appendChild(el('span', 'pe-save-graph-left-out-detail', ' · ' + i.detail));
+                    list.appendChild(li);
+                });
+                body.appendChild(list);
+            });
+            notice.appendChild(body);
+            return notice;
         }
 
         function failureText(err) {
@@ -3190,10 +3247,7 @@
             var activateRow = el('label', 'pe-save-graph-check');
             activateRow.appendChild(activate);
             activateRow.appendChild(document.createTextNode(' Make it my active graph: “Add to graph” feeds it'));
-            var summary = el('p', 'pe-save-graph-summary', plural(kept, 'element', 'elements') + ' kept.'
-                + (doc.dropped === 1 ? ' 1 more is not a MISP record (a feed, a server, a tag or a module answer) and is left out.'
-                    : doc.dropped ? ' ' + doc.dropped + ' more are not MISP records (feeds, servers, tags or module answers) and are left out.'
-                    : ''));
+            var summary = savedSummary(kept, doc.dropped);
             var error = el('div', 'pvt-form-error');
 
             form.appendChild(formRow('Name', name));

@@ -50,6 +50,37 @@
     font-size: 12px;
     color: var(--pvt-text-color-5);
 }
+.pe-save-graph-left-out {
+    font-size: 12px;
+    color: var(--pvt-text-color-6);
+    background: color-mix(in srgb, var(--pvt-bg-color-info) 10%, var(--pvt-bg-color-0));
+    border: 1px solid color-mix(in srgb, var(--pvt-bg-color-info) 40%, var(--pvt-bg-color-0));
+    border-radius: 8px;
+}
+.pe-save-graph-left-out > summary {
+    padding: 7px 10px;
+    cursor: pointer;
+}
+.pe-save-graph-left-out > summary > i {
+    color: var(--pvt-text-color-info);
+}
+.pe-save-graph-left-out-body {
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 0 10px 8px;
+}
+.pe-save-graph-left-out-kind {
+    margin-top: 4px;
+    font-weight: 600;
+}
+.pe-save-graph-left-out-body ul {
+    margin: 2px 0 0;
+    padding-left: 18px;
+    overflow-wrap: anywhere;
+}
+.pe-save-graph-left-out-detail {
+    color: var(--pvt-text-color-5);
+}
 
 /* Pivotick's dialogs sit above the page's fixed navbar (1030) and sticky tab
    bar (1020), on Bootstrap's modal layer. */
