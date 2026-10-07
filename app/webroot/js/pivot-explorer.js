@@ -898,6 +898,7 @@
                     size:        80,
                     strokeColor: 'rgba(255,255,255,0.55)',
                     strokeWidth: 2,
+                    textFontSize: 12,
                     imagePath:   function (node) {
                         var d = node.getData();
                         return d ? d.imageUrl : undefined;
