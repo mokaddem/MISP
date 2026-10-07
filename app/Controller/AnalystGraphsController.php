@@ -75,6 +75,7 @@ class AnalystGraphsController extends AppController
             'permitted' => $labels['permitted'],
         ]);
         $this->set('forkTargets', $canAnalyst ? $this->__forkTargets($user, $summary) : []);
+        $this->set('intelGraphShown', $summary['uuid']);
         if (!empty($summary['target']['label'])) {
             $this->set('intelGraphPage', [
                 'type' => $summary['target']['type'],

@@ -8,6 +8,7 @@
 //   baseurl    MISP $baseurl
 //   active     the active graph's summary, or null
 //   page       the record on screen a graph can hang off, { type, uuid, label }, or null
+//   shown      the uuid of the graph the page draws in full, or null
 //   distributionLevels  DistributionLevel::all(), for badges drawn here
 //   assets     { js: [{ global, url }], css: [{ path, url }] }, in load order
 //   explorer   options handed to every mounted graph (labelPlan, orgUuid, …)

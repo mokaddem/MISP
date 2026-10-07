@@ -56,6 +56,11 @@
     function IG() { return window.IntelGraph; }
     function baseurl() { return (window.IntelGraphConfig && window.IntelGraphConfig.baseurl) || ''; }
     function pageRecord() { return IG().page(); }
+    function pageShowsActive() {
+        var shown = window.IntelGraphConfig && window.IntelGraphConfig.shown;
+        var a = IG().active();
+        return !!shown && !!a && lower(a.uuid) === lower(shown);
+    }
     function lower(s) { return String(s || '').toLowerCase(); }
 
     function el(tag, cls, text) {
@@ -1590,7 +1595,9 @@
     IG().registerDock({ toggle: toggle, shortcut: SHORTCUT });
     decorateSlot();
     render();
-    if (prefs.open) {
+    // The active graph's own page draws it in full: the dock stays shut
+    // there, and is still remembered open for the next page.
+    if (prefs.open && !pageShowsActive()) {
         // The dock is drawn at once where it was left; the graph once the
         // page itself has loaded.
         openDock({ instant: true, deferMount: true });

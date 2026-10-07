@@ -8,6 +8,7 @@
  * @var array $intelGraph `active`: the active graph's summary, or null
  * @var array|null $intelGraphPage The record on screen a graph can hang off,
  *                                 {type, uuid, label}, set by the view
+ * @var string|null $intelGraphShown The graph the page draws in full
  * @var bool $withDock False on a page that draws a graph for a user who has
  *                     no slot to open the dock with
  */
@@ -42,6 +43,7 @@ $config = [
     'baseurl' => $baseurl,
     'active' => $intelGraph['active'] ?? null,
     'page' => $intelGraphPage ?? null,
+    'shown' => $intelGraphShown ?? null,
     'distributionLevels' => $this->DistributionLevel->all(),
     'assets' => ['js' => $js, 'css' => $css],
     'explorer' => [
