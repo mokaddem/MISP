@@ -336,7 +336,12 @@ suite('an enrichment result: said by a module, linked only where MISP holds it',
     const vm = M.build(res, env());
     eq('its provenance', vm.provenance, { scope: 'module', event_id: null, label: 'From enrichment' });
     eq('what the modules said', vm.enrichment,
-       { modules: ['ipasn', 'mmdb_lookup'], from_store: true, age: 7200, untyped: false, candidate_types: [] });
+       { modules: ['ipasn', 'mmdb_lookup'], from_store: true, age: 7200, kept_by: null, untyped: false, candidate_types: [] });
+    const kept = M.build(node({ type: 'attribute', uuid: undefined, value: '203.0.113.7', 'attr-type': 'ip-dst',
+                                scope: 'module', module: 'dns', kept_by: 'CIRCL',
+                                ran_at: Math.floor(Date.now() / 1000) - 3600 }), env()).enrichment;
+    eq('a kept answer says who kept it and when it was asked', [kept.kept_by, kept.age >= 3600 && kept.age < 3700],
+       ['CIRCL', true]);
     eq('only the known value is keyed', vm.children.filter(c => c.b64).map(c => c.value), ['8.8.8.0/24']);
     const loose = node({ type: 'attribute', uuid: undefined, value: 'dns.google', 'attr-type': 'domain',
                          scope: 'module', module: 'whois', untyped: true, candidate_types: ['hostname'] });

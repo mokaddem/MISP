@@ -69,6 +69,11 @@
         var hiddenWrap = find('[data-ig-page-hidden-wrap]');
         var hiddenMenu = find('[data-ig-page-hidden-menu]');
         var conflictEl = find('[data-ig-page-conflict]');
+        var sizeWrap = find('[data-ig-page-size-wrap]');
+        var sizeToggle = find('[data-ig-page-size-toggle]');
+        var sizeMenu = find('[data-ig-page-size-menu]');
+        var size = null;
+        var sizeTimer = null;
 
         var REASONS = {
             moved: 'moved', kept: 'kept from a pivot', removed: 'removed',
@@ -92,8 +97,87 @@
                 statusEl.appendChild(icon('fas fa-check text-success me-1'));
                 statusEl.appendChild(document.createTextNode('Saved ' + ago(savedAt) + ' · revision ' + handle.revision()));
             }
-            if (saveBtn) saveBtn.disabled = saving || !dirty() || !!conflict;
+            if (dirty() && canEdit && tooLarge()) {
+                statusEl.appendChild(el('div', 'text-danger', handle.kit().size.text(size) + '.'));
+            }
+            if (saveBtn) {
+                saveBtn.disabled = saving || !dirty() || !!conflict || tooLarge();
+                saveBtn.title = tooLarge() ? handle.kit().size.text(size) : '';
+            }
             if (discardBtn) discardBtn.hidden = saving || !dirty();
+        }
+
+        /* ── the size of what a save would write ───────────────── */
+        function tooLarge() { return !!size && size.state === 'over'; }
+
+        function measureSoon() {
+            if (sizeTimer) clearTimeout(sizeTimer);
+            sizeTimer = setTimeout(function () {
+                sizeTimer = null;
+                measure();
+            }, 500);
+        }
+
+        function limitBar(label, value, max, text) {
+            var row = el('div', 'mb-2');
+            var head = el('div', 'd-flex justify-content-between gap-2 small');
+            head.appendChild(el('span', 'fw-semibold', label));
+            head.appendChild(el('span', 'text-body-secondary', text));
+            row.appendChild(head);
+            var share = max ? value / max : 0;
+            var track = el('div', 'progress');
+            track.setAttribute('role', 'progressbar');
+            track.setAttribute('aria-label', label);
+            track.setAttribute('aria-valuemin', '0');
+            track.setAttribute('aria-valuemax', String(max));
+            track.setAttribute('aria-valuenow', String(value));
+            var fill = el('div', 'progress-bar' + (share > 1 ? ' bg-danger' : share >= 0.75 ? ' bg-warning' : ''));
+            fill.style.width = Math.min(100, share * 100) + '%';
+            track.appendChild(fill);
+            row.appendChild(track);
+            return row;
+        }
+
+        // The viewer's own document only: what they would save, never the
+        // stored size, which counts what they cannot see.
+        function measure() {
+            if (!handle || !sizeWrap) return;
+            var kit = handle.kit().size;
+            var limits = (window.IntelGraphConfig && window.IntelGraphConfig.limits) || null;
+            var measured = handle.measure();
+            size = kit.of(measured.document, limits);
+            var groups = kit.largeGroups(handle.graph(), measured.sizes, size.bytes);
+            sizeWrap.hidden = false;
+            find('[data-ig-page-size-label]').textContent = kit.text(size);
+            sizeToggle.className = 'btn btn-sm dropdown-toggle '
+                + ({ near: 'btn-outline-warning', over: 'btn-outline-danger' }[size.state] || 'btn-outline-secondary');
+            sizeMenu.textContent = '';
+            var body = el('div', 'px-3 py-2');
+            body.appendChild(limitBar('Nodes', size.nodes, size.limits.nodes,
+                size.nodes.toLocaleString() + ' of ' + size.limits.nodes.toLocaleString()));
+            body.appendChild(limitBar('Size', size.bytes, size.limits.bytes,
+                '≈ ' + kit.formatBytes(size.bytes) + ' of ' + kit.formatBytes(size.limits.bytes)));
+            if (size.limits.document_bytes && size.limits.bytes < size.limits.document_bytes) {
+                body.appendChild(el('div', 'small text-body-secondary mb-2', 'This server takes a save of up to '
+                    + kit.formatBytes(size.limits.bytes) + '; a graph can hold up to '
+                    + kit.formatBytes(size.limits.document_bytes) + '.'));
+            }
+            body.appendChild(el('h6', 'dropdown-header px-0', groups.length ? 'Large groups' : 'No large group'));
+            groups.forEach(function (gr) {
+                var row = el('div', 'd-flex align-items-center gap-2 py-1');
+                var text = el('div', 'small flex-grow-1 ig-page-size-group');
+                text.appendChild(el('div', 'text-truncate', gr.label));
+                text.appendChild(el('div', 'text-body-secondary text-truncate', (gr.via ? gr.via + ' · ' : '') + kit.groupLine(gr)));
+                text.title = gr.label + (gr.via ? ' · ' + gr.via : '');
+                row.appendChild(text);
+                var show = el('button', 'btn btn-sm btn-outline-secondary py-0', 'Show');
+                show.type = 'button';
+                show.addEventListener('click', function () { kit.showGroup(handle.graph(), gr.info); });
+                row.appendChild(show);
+                body.appendChild(row);
+            });
+            sizeMenu.appendChild(body);
+            renderStatus();
         }
 
         function renderPivoted() {
@@ -141,6 +225,7 @@
         function onChange(h, reason) {
             if (reason && canEdit) changes[reason] = true;
             render();
+            measureSoon();
         }
 
         /* ── saving ────────────────────────────────────────────── */
@@ -175,7 +260,7 @@
         }
 
         function save() {
-            if (!handle || saving) return;
+            if (!handle || saving || tooLarge()) return;
             saving = true;
             render();
             handle.save().then(function (report) {
@@ -183,6 +268,7 @@
                 changes = {};
                 savedAt = report.modified || savedAt;
                 render();
+                measureSoon();
             }, function (err) {
                 saving = false;
                 if (err && err.status === 409) {
@@ -353,8 +439,15 @@
                 window.IntelGraphPage = { handle: function () { return handle; }, save: save };
                 return h.ready;
             }).then(function (h) {
-                try { h.graph().onVisibleChange(function () { renderPivoted(); renderHidden(); }); } catch (e) { /* counted on edits only */ }
+                try {
+                    h.graph().onVisibleChange(function () {
+                        renderPivoted();
+                        renderHidden();
+                        measureSoon();
+                    });
+                } catch (e) { /* counted on edits only */ }
                 render();
+                measure();
             }).catch(function (err) {
                 statusEl.textContent = 'The graph could not be drawn: ' + message(err);
             });

@@ -39,8 +39,10 @@ foreach (['pivotick', 'pivot-explorer', 'pivot-sidebar'] as $path) {
     $css[] = $asset($path, 'css');
 }
 
+App::uses('AnalystGraphDocumentTool', 'Tools');
 $config = [
     'baseurl' => $baseurl,
+    'limits' => AnalystGraphDocumentTool::limits(),
     'active' => $intelGraph['active'] ?? null,
     'page' => $intelGraphPage ?? null,
     'shown' => $intelGraphShown ?? null,

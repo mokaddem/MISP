@@ -9,6 +9,7 @@
     --igt-object: color-mix(in srgb, var(--bs-object) 72%, var(--bs-emphasis-color));
     --igt-galaxy: color-mix(in srgb, var(--bs-galaxy) 80%, var(--bs-emphasis-color));
     --igt-value: var(--bs-emphasis-color);
+    --igt-answer: color-mix(in srgb, var(--bs-enrichment, #6a6396) 75%, var(--bs-emphasis-color));
     --igt-edge: var(--bs-secondary-color);
 }
 
@@ -100,6 +101,7 @@ button.igt:focus-visible {
 .igt-Object { fill: var(--igt-object); }
 .igt-GalaxyCluster { fill: var(--igt-galaxy); }
 .igt-Value { fill: var(--igt-value); }
+.igt-ModuleAnswer { fill: var(--igt-answer); }
 
 .igt-pin {
     fill: none;

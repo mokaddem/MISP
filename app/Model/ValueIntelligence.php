@@ -15378,10 +15378,10 @@ class ValueIntelligence extends AppModel
 
         /*
          * D3: the run is backed by one of the reader's own
-         * occurrences, and both formats need it. `misp_standard` sends
-         * the attribute itself; every format sends it as trigger data,
-         * so that an instance's `enrichment-before-query` workflow can
-         * still refuse the query. Passing `$skipTrigger` instead would
+         * occurrences. No module receives it (enrichmentPayload()
+         * sends the value alone), but every format passes it as
+         * trigger data, so that an instance's `enrichment-before-query`
+         * workflow can still refuse the query. Passing `$skipTrigger` instead would
          * be quietly disabling a control somebody configured on
          * purpose — and passing nothing is worse, because
          * `Module::__prepareAndExecuteTrigger()` returns false on empty
@@ -15424,7 +15424,7 @@ class ValueIntelligence extends AppModel
          */
         try {
             $result = $moduleModel->queryModuleServer(
-                $this->enrichmentPayload($row, $type, $value, $occurrence),
+                $this->enrichmentPayload($row, $type, $value),
                 false,
                 'Enrichment',
                 true,
@@ -15556,8 +15556,8 @@ class ValueIntelligence extends AppModel
      * What goes on the wire.
      *
      * The two formats differ in what they are asked about: a
-     * `misp_standard` module wants the attribute row, a `simplified`
-     * one wants `{type: value}`. Config is read per declared key and
+     * `misp_standard` module wants an attribute, a `simplified` one
+     * wants `{type: value}`. Config is read per declared key and
      * sent as given — **never judged**, because nothing distinguishes
      * a required key from an optional override and guessing gets it
      * wrong in both directions (§2.3 of the phase document).
@@ -15565,12 +15565,10 @@ class ValueIntelligence extends AppModel
      * @param array $row A catalogue row
      * @param string $type
      * @param string $value
-     * @param array $occurrence
      * @return array
      */
-    private function enrichmentPayload(array $row, $type, $value,
-        array $occurrence
-    ) {
+    private function enrichmentPayload(array $row, $type, $value)
+    {
         $postData = array('module' => $row['name']);
         if (!empty($row['config'])) {
             $config = array();
@@ -15583,15 +15581,24 @@ class ValueIntelligence extends AppModel
         }
         if ($row['format'] === 'misp_standard') {
             /*
-             * The value, not the row it was found in: a module handed
-             * `8.8.8.8|443` for the value `443` answers about 8.8.8.8.
+             * The value alone, never the row it was found in: the store
+             * keeps one answer per value and reuses it for every
+             * attribute carrying it, so an answer echoing one row's
+             * comment would reach another row's readers. It also keeps
+             * comments and event ids from leaving the instance. The
+             * occurrence still backs the run as the workflow's trigger
+             * data, which is evaluated here and never sent.
              */
-            $attribute = $occurrence['Attribute'];
-            $attribute['type'] = $type;
-            $attribute['value'] = $value;
-            $attribute['value1'] = $value;
-            $attribute['value2'] = '';
-            $postData['attribute'] = $attribute;
+            $types = $this->model('MispAttribute')->typeDefinitions;
+            $postData['attribute'] = array(
+                'uuid' => Value::uuidFor($value),
+                'type' => $type,
+                'category' => $types[$type]['default_category'] ?? 'Other',
+                'value' => $value,
+                'value1' => $value,
+                'value2' => '',
+                'to_ids' => false,
+            );
         } else {
             $postData[$type] = $value;
         }
@@ -15763,6 +15770,50 @@ class ValueIntelligence extends AppModel
      * @param string $subject The value the page is about
      * @return array
      */
+    /**
+     * The values of kept module answers that MISP holds where this reader
+     * can see them: what a fresh run marks "already in MISP", asked again
+     * for whoever reads the graph keeping them. The same filter applies,
+     * so only values MISP would correlate on are asked about.
+     *
+     * @param array $user
+     * @param array $contents Answer contents, as a graph document stores them
+     * @return string[]
+     */
+    public function knownAnswerValues(array $user, array $contents)
+    {
+        $wanted = array();
+        foreach ($contents as $content) {
+            switch ($content['kind'] ?? null) {
+                case 'attribute':
+                    if ($this->enrichmentCorrelates(array('type' => $content['type']))) {
+                        $wanted[] = (string)$content['value'];
+                    }
+                    break;
+                case 'element':
+                    if ($this->enrichmentElementCorrelates(array('types' => $content['types']))) {
+                        $wanted[] = (string)$content['value'];
+                    }
+                    break;
+                case 'object':
+                    foreach ($content['attributes'] as $attribute) {
+                        if ($this->enrichmentCorrelates(array('type' => $attribute['type']))) {
+                            $wanted[] = (string)$attribute['value'];
+                        }
+                    }
+                    break;
+            }
+        }
+        $wanted = array_values(array_unique(array_filter($wanted, 'strlen')));
+        if (empty($wanted)) {
+            return array();
+        }
+        $prevalence = $this->model('Value')->prevalenceFor($user, $wanted);
+        return array_values(array_filter($wanted, function ($value) use ($prevalence) {
+            return isset($prevalence['counts'][$value]) || isset($prevalence['capped'][$value]);
+        }));
+    }
+
     private function enrichmentKnown(array $run, array $user, $subject)
     {
         $wanted = array();

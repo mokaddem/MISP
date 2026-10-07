@@ -2882,8 +2882,11 @@
         function graphItemOf(node) {
             if (!node || typeof node.getData !== 'function') return null;
             var d = node.getData() || {};
-            var at = node.id.indexOf(':');
-            var prefix = node.id.slice(0, at + 1), rest = node.id.slice(at + 1);
+            // A module answer saved into the event is the record it became
+            var pivots = _graph && _graph.pivots;
+            var id = (pivots && typeof pivots.canonicalId === 'function' && pivots.canonicalId(node)) || node.id;
+            var at = id.indexOf(':');
+            var prefix = id.slice(0, at + 1), rest = id.slice(at + 1);
             var uuid = d.uuid || (UUID_RE.test(rest) ? rest : null);
             if (prefix === 'event:' && uuid) return { type: 'Event', uuid: uuid, label: d.label || d.info };
             if (prefix === 'obj:' && uuid) return { type: 'Object', uuid: uuid, label: d.label || d.name };
@@ -3090,30 +3093,248 @@
             return Math.round(v * 10) / 10;
         }
 
+        // What a graph keeps of a module answer: MISP's own limits, since an
+        // answer MISP could not store as an attribute cannot be kept either.
+        var ANSWER_LIMITS = { bytes: 65535, origins: 50, attributes: 500 };
+
+        function isAnswerNode(node) {
+            return !!node && !node.isChild && isEnrichmentResult(node) && !graphItemOf(node);
+        }
+
+        // The enrichment edges on the canvas, by the node they lead to.
+        function enrichmentEdgesByTarget(g) {
+            var into = {};
+            g.getMutableEdges().forEach(function (e) {
+                if (!e.to || (e.getData() || {}).kind !== 'enrichment') return;
+                (into[e.to.id] = into[e.to.id] || []).push(e);
+            });
+            return into;
+        }
+
+        function answerContent(node) {
+            var d = node.getData() || {};
+            if (d.type === 'object') {
+                return {
+                    kind: 'object', name: String(d.name || ''), meta_category: d['meta-category'] || '',
+                    description: d.description || '', comment: d.comment || '',
+                    attributes: (node.children || []).map(function (c) {
+                        var cd = (c.getData ? c.getData() : c.data) || {};
+                        return { relation: cd.object_relation || '', type: cd['attr-type'], value: String(cd.value),
+                                 category: cd.category || '', comment: cd.comment || '', to_ids: !!cd.to_ids };
+                    })
+                };
+            }
+            if (d.untyped) {
+                return { kind: 'element', types: [d['attr-type']].concat(d.candidate_types || []), value: String(d.value) };
+            }
+            return { kind: 'attribute', type: d['attr-type'], value: String(d.value), category: d.category || '',
+                     comment: d.comment || '', to_ids: !!d.to_ids };
+        }
+
+        var _utf8 = typeof TextEncoder === 'function' ? new TextEncoder() : null;
+        function byteLength(s) {
+            s = String(s == null ? '' : s);
+            return _utf8 ? _utf8.encode(s).length : unescape(encodeURIComponent(s)).length;
+        }
+
+        function overLimit(content) {
+            var strings = content.kind === 'object'
+                ? [content.name, content.meta_category, content.description, content.comment]
+                : [content.value].concat(content.types || [content.type, content.category, content.comment]);
+            (content.attributes || []).forEach(function (a) {
+                strings.push(a.relation, a.type, a.value, a.category, a.comment);
+            });
+            return (content.attributes || []).length > ANSWER_LIMITS.attributes
+                || strings.some(function (s) { return byteLength(s) > ANSWER_LIMITS.bytes; });
+        }
+
+        // A module answer on the canvas as a graph keeps it, its origins read
+        // off the enrichment edges that landed it; { reason } when it cannot
+        // be kept.
+        function answerItemOf(node, into) {
+            var d = node.getData() || {};
+            var content = answerContent(node);
+            if (overLimit(content)) return { reason: 'too large to keep' };
+            var origins = [], seen = {};
+            (into[node.id] || []).forEach(function (e) {
+                var ed = e.getData() || {};
+                var o = ed.origin;
+                if (!o || !ed.module) return;
+                var key = o.node + '|' + ed.module + '|' + o.value;
+                if (seen[key]) return;
+                seen[key] = true;
+                origins.push({ node: o.node, module: ed.module, type: o.type, value: o.value, ran_at: o.ran_at });
+            });
+            if (!origins.length) return { reason: 'nothing it was asked about can be kept' };
+            var modules = (d.modules && d.modules.length ? d.modules : [d.module]).filter(Boolean);
+            return { item: {
+                type: 'ModuleAnswer', module: modules[0], modules: modules,
+                origins: origins.slice(0, ANSWER_LIMITS.origins), content: content
+            } };
+        }
+
+        function placed(out, node) {
+            if (!node.foldedInto && typeof node.x === 'number' && typeof node.y === 'number') {
+                out.x = roundPosition(node.x);
+                out.y = roundPosition(node.y);
+                if (node.frozen) out.pinned = true;
+            }
+            return out;
+        }
+
         // The records on the canvas, where they sit now. An attribute drawn
         // inside its object, or a node folded into a group, has no position
-        // of its own; anything that is not a MISP record (a feed, a server, a
-        // tag, a module's answer) cannot be kept, and is named in `dropped`;
-        // a child left out with its parent goes unnamed.
-        function canvasDocument() {
-            var nodes = [], dropped = [];
+        // of its own. Module answers are kept whole unless `answers` is
+        // 'leave'; anything else that is not a MISP record (a feed, a server,
+        // a tag) cannot be kept, and is named in `dropped`, as is an answer
+        // over a limit; a child left out with its parent goes unnamed.
+        function canvasDocument(answers) {
+            var nodes = [], dropped = [], answerCount = 0, sizes = {};
+            var into = enrichmentEdgesByTarget(_graph);
+            function keep(out, node) {
+                nodes.push(out);
+                measured(sizes, node, out);
+            }
             _graph.getMutableNodes().forEach(function (node) {
                 var item = graphItemOf(node);
+                if (!item && isAnswerNode(node)) {
+                    answerCount++;
+                    var kept = answers === 'leave' ? null : answerItemOf(node, into);
+                    if (!kept || kept.reason) {
+                        dropped.push(leftOut(node, kept && kept.reason));
+                        return;
+                    }
+                    keep(placed(kept.item, node), node);
+                    return;
+                }
                 if (!item) {
                     if (!(node.isChild && node.parentNode && !graphItemOf(node.parentNode))) dropped.push(leftOut(node));
                     return;
                 }
-                var out = item.type === 'Value'
+                keep(placed(item.type === 'Value'
                     ? { type: 'Value', value: item.value }
-                    : { type: item.type, uuid: item.uuid };
-                if (!node.foldedInto && typeof node.x === 'number' && typeof node.y === 'number') {
-                    out.x = roundPosition(node.x);
-                    out.y = roundPosition(node.y);
-                    if (node.frozen) out.pinned = true;
-                }
-                nodes.push(out);
+                    : { type: item.type, uuid: item.uuid }, node), node);
             });
-            return { document: { version: 1, nodes: nodes }, dropped: dropped };
+            return { document: { version: 1, nodes: nodes }, dropped: dropped, answers: answerCount, sizes: sizes };
+        }
+
+        /* ── the size of what a save would write ─────────────────── */
+        // Measured on the document this user would send: never the stored
+        // size, which counts what they cannot see.
+        var SIZE_NEAR = 0.75;
+        var LARGE_GROUP_NODES = 50, LARGE_GROUP_SHARE = 0.1, LARGE_GROUP_FROM = 262144, LARGE_GROUPS = 5;
+        var DEFAULT_LIMITS = { nodes: 2000, bytes: 16777216 };
+
+        // A document node's bytes, counted on its canvas node and, for an
+        // attribute drawn inside its object, on the object too.
+        function measured(sizes, node, out) {
+            var bytes = byteLength(JSON.stringify(out)) + 1;
+            sizes[node.id] = (sizes[node.id] || 0) + bytes;
+            if (node.isChild && node.parentNode) sizes[node.parentNode.id] = (sizes[node.parentNode.id] || 0) + bytes;
+        }
+
+        function formatBytes(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1048576) return Math.max(1, Math.round(b / 1024)) + ' KB';
+            return (b / 1048576).toFixed(1).replace(/\.0$/, '') + ' MB';
+        }
+
+        // { bytes, nodes, limits, state }: ok, near (75% of either limit) or over.
+        function documentSize(doc, limits) {
+            limits = limits || DEFAULT_LIMITS;
+            var bytes = byteLength(JSON.stringify(doc));
+            var nodes = (doc.nodes || []).length;
+            var state = nodes > limits.nodes || bytes > limits.bytes ? 'over'
+                : nodes >= limits.nodes * SIZE_NEAR || bytes >= limits.bytes * SIZE_NEAR ? 'near'
+                : 'ok';
+            return { bytes: bytes, nodes: nodes, limits: limits, state: state };
+        }
+
+        function sizeText(size) {
+            if (size.state === 'over') {
+                return size.bytes > size.limits.bytes
+                    ? 'Too large to save: ' + formatBytes(size.bytes) + ' of ' + formatBytes(size.limits.bytes)
+                    : 'Too large to save: ' + size.nodes.toLocaleString() + ' nodes of ' + size.limits.nodes.toLocaleString();
+            }
+            return '≈ ' + formatBytes(size.bytes) + ' · ' + plural(size.nodes, 'node', 'nodes')
+                + (size.state === 'near' ? ' — close to the limit' : '');
+        }
+
+        // The pivot that brought a group, and its module when one answered it all.
+        function groupVia(info) {
+            if (!info.landing) return '';
+            var modules = {};
+            info.members.forEach(function (m) {
+                var d = m.getData ? m.getData() || {} : {};
+                if (d.scope === 'module') (d.modules || [d.module]).forEach(function (x) { if (x) modules[x] = true; });
+            });
+            var names = Object.keys(modules);
+            return 'via ' + info.landing.pivotLabel + (names.length === 1 ? ' · ' + names[0] : '');
+        }
+
+        // Pivotick's groups weighed by their members' document nodes: those of
+        // 50 nodes or more, or of a tenth of a document past 256 KB; heaviest first.
+        function largeGroups(g, sizes, total) {
+            var simplify = g && g.simplify;
+            if (!simplify || typeof simplify.getGroups !== 'function') return [];
+            return simplify.getGroups().map(function (info) {
+                var nodes = 0, bytes = 0;
+                info.members.forEach(function (m) {
+                    if (sizes[m.id] != null) {
+                        nodes++;
+                        bytes += sizes[m.id];
+                    }
+                });
+                return {
+                    info: info, nodes: nodes, bytes: bytes, share: total ? bytes / total : 0,
+                    label: typeof simplify.labelOf === 'function' ? simplify.labelOf(info) : (info.title || info.id),
+                    via: groupVia(info)
+                };
+            }).filter(function (gr) {
+                return gr.nodes >= LARGE_GROUP_NODES || (total > LARGE_GROUP_FROM && gr.share >= LARGE_GROUP_SHARE);
+            }).sort(function (a, b) { return b.bytes - a.bytes; }).slice(0, LARGE_GROUPS);
+        }
+
+        function groupLine(gr) {
+            return gr.nodes.toLocaleString() + ' nodes · ≈ ' + formatBytes(gr.bytes) + ' · ' + Math.round(gr.share * 100) + '%';
+        }
+
+        // Puts a group's members on the canvas and selects them.
+        function showGroup(g, info) {
+            try {
+                if (!info.open && g.simplify && typeof g.simplify.open === 'function') g.simplify.open(info.id);
+                requestAnimationFrame(function () {
+                    var members = info.members.map(function (m) { return g.getMutableNode(m.id); }).filter(Boolean);
+                    if (members.length && typeof g.selectElements === 'function') g.selectElements(members);
+                });
+            } catch (e) {
+                console.error('[pivot-explorer] could not show the group:', e);
+            }
+        }
+
+        // The save dialog's line: the size, and the large groups under it.
+        function sizeBlock(size, groups) {
+            var wrap = el('div', 'pe-save-graph-size');
+            var line = el('div', 'pe-size pe-size--' + size.state);
+            var icon = el('i', size.state === 'ok' ? 'fas fa-weight-hanging' : 'fas fa-triangle-exclamation');
+            icon.setAttribute('aria-hidden', 'true');
+            line.appendChild(icon);
+            line.appendChild(document.createTextNode(' ' + sizeText(size)));
+            wrap.appendChild(line);
+            if (groups.length) {
+                var more = el('details', 'pe-save-graph-groups');
+                more.appendChild(el('summary', null, 'Large groups (' + groups.length + ')'));
+                var list = el('ul');
+                groups.forEach(function (gr) {
+                    var li = el('li', null, gr.label);
+                    if (gr.via) li.appendChild(el('span', 'pe-save-graph-left-out-detail', ' · ' + gr.via));
+                    li.appendChild(el('span', 'pe-save-graph-left-out-detail', ' — ' + groupLine(gr)));
+                    list.appendChild(li);
+                });
+                more.appendChild(list);
+                wrap.appendChild(more);
+            }
+            return wrap;
         }
 
         var LEFT_OUT_KINDS = [
@@ -3121,7 +3342,7 @@
             ['module', 'Module answers'], ['other', 'Other']
         ];
 
-        function leftOut(node) {
+        function leftOut(node, reason) {
             var d = node.getData() || {};
             var kind = isEnrichmentResult(d) ? 'module'
                 : d.type === 'feed' || d._provenance === 'feed' ? 'feed'
@@ -3131,6 +3352,7 @@
             var detail = kind === 'module' ? (d.modules || []).join(', ')
                 : d._provenance === 'feed' ? d.feed_name
                 : d['attr-type'] || '';
+            if (reason) detail = (detail ? detail + ' · ' : '') + reason;
             return { kind: kind, label: String(d.label || d.value || d.name || node.id), detail: detail || '' };
         }
 
@@ -3138,8 +3360,8 @@
         // on what they are.
         function savedSummary(kept, dropped) {
             var text = plural(kept, 'element', 'elements') + ' kept.'
-                + (dropped.length === 1 ? ' 1 more is not a MISP record (a feed, a server, a tag or a module answer) and is left out.'
-                    : dropped.length ? ' ' + dropped.length + ' more are not MISP records (feeds, servers, tags or module answers) and are left out.'
+                + (dropped.length === 1 ? ' 1 more cannot be kept in a graph and is left out.'
+                    : dropped.length ? ' ' + dropped.length + ' more cannot be kept in a graph and are left out.'
                     : '');
             if (!dropped.length) return el('p', 'pe-save-graph-summary', text);
             var notice = el('details', 'pe-save-graph-left-out');
@@ -3217,11 +3439,58 @@
             return select;
         }
 
+        // Where the canvas's module answers go: into the graph, into this
+        // event as records first, or nowhere.
+        function answersChoice(count, onChange) {
+            var options = [['keep', 'Keep in the graph']];
+            if (eventId && canEdit) options.push(['event', 'Add to this event first']);
+            options.push(['leave', 'Leave out']);
+            var box = el('fieldset', 'pe-save-graph-answers');
+            box.appendChild(el('legend', null, 'Module answers (' + count + ')'));
+            var row = el('div', 'pe-save-graph-answers-options');
+            options.forEach(function (o, i) {
+                var label = el('label', 'pe-save-graph-check');
+                var radio = el('input');
+                radio.type = 'radio';
+                radio.name = 'answers';
+                radio.value = o[0];
+                radio.checked = i === 0;
+                radio.addEventListener('change', function () { if (radio.checked) onChange(o[0]); });
+                label.appendChild(radio);
+                label.appendChild(document.createTextNode(' ' + o[1]));
+                row.appendChild(label);
+            });
+            box.appendChild(row);
+            box.appendChild(el('div', 'pe-save-graph-hint',
+                'What the module said when it ran. Shown to readers who can see what was enriched.'));
+            return box;
+        }
+
+        // Writes the canvas's unsaved answers into this event with the
+        // explorer's own save, and resolves whether the graph may go on.
+        function addAnswersToEvent() {
+            var answers = unsavedOf(_graph.getMutableNodes().filter(isAnswerNode));
+            if (!answers.length) return Promise.resolve(true);
+            return _graph.pivots.save({ elements: answers }, { interactive: true }).then(function (report) {
+                if (report && report.cancelled) {
+                    _graph.notifier.warning('Not saved', 'Adding the answers to the event was cancelled.');
+                    return false;
+                }
+                if (report && report.errors && report.errors.length) {
+                    _graph.notifier.error('Not saved', 'The answers could not all be added to the event: '
+                        + failureText(report.errors[0].error));
+                    return false;
+                }
+                return true;
+            });
+        }
+
         // Resolves once the dialog is closed, saved or not.
         function saveGraphDialog() {
             var target = graphTarget();
             if (!target || !_graph) return Promise.resolve();
-            var doc = canvasDocument();
+            var answers = 'keep';
+            var doc = canvasDocument(answers);
             var kept = doc.document.nodes.length;
             if (!kept) {
                 _graph.notifier.warning('Nothing to save', 'No element on the canvas is a MISP record a graph can hold.');
@@ -3254,8 +3523,35 @@
             form.appendChild(formRow('Description', description));
             form.appendChild(formRow('Distribution', dist));
             form.appendChild(sgRow);
+            var size = sizeBlock(documentSize(doc.document, graphSharing.limits), []);
+            var tooLarge = false;
+            // The size, and whether Save may go on, for the document as it now stands
+            function measure(now) {
+                var measuredSize = documentSize(now.document, graphSharing.limits);
+                tooLarge = measuredSize.state === 'over';
+                var fresh = sizeBlock(measuredSize, largeGroups(_graph, now.sizes, measuredSize.bytes));
+                size.replaceWith(fresh);
+                size = fresh;
+                var saveButton = form.closest('.pvt-modal') && form.closest('.pvt-modal').querySelector('.pvt-modal__footer button:last-child');
+                if (saveButton) {
+                    saveButton.disabled = tooLarge;
+                    saveButton.title = tooLarge ? sizeText(measuredSize) : '';
+                }
+            }
+            if (doc.answers) {
+                form.appendChild(answersChoice(doc.answers, function (choice) {
+                    answers = choice;
+                    // Added to the event, they are kept as the records they become
+                    var now = canvasDocument(choice === 'leave' ? 'leave' : 'keep');
+                    var fresh = savedSummary(now.document.nodes.length, now.dropped);
+                    summary.replaceWith(fresh);
+                    summary = fresh;
+                    measure(now);
+                }));
+            }
             form.appendChild(activateRow);
             form.appendChild(summary);
+            form.appendChild(size);
             form.appendChild(error);
             sgRow.hidden = dist.value !== '4';
             dist.addEventListener('change', function () { sgRow.hidden = dist.value !== '4'; });
@@ -3283,33 +3579,49 @@
                 submit();
             });
             requestAnimationFrame(function () { name.focus(); name.select(); });
+            measure(doc);
 
             function submit() {
-                if (busy) return;
+                if (busy || tooLarge) return;
                 var graphName = name.value.trim();
                 if (!graphName) { error.textContent = 'A graph needs a name.'; return; }
                 if (dist.value === '4' && !sg.value) { error.textContent = 'Pick the sharing group to share it with.'; return; }
                 busy = true;
                 error.textContent = '';
-                // Read again: the canvas may have moved while the dialog was open.
-                window.IntelGraph.create({
+                var fields = {
                     name:             graphName,
                     description:      description.value,
                     target:           { type: target.type, uuid: target.uuid },
                     distribution:     +dist.value,
-                    sharing_group_id: dist.value === '4' ? +sg.value : null,
-                    content:          canvasDocument().document
-                }, { activate: activate.checked }).then(function (created) {
+                    sharing_group_id: dist.value === '4' ? +sg.value : null
+                };
+                if (answers !== 'event') {
+                    create(fields).then(function () { modal.hide(); }, function (err) {
+                        busy = false;
+                        error.textContent = 'Not saved: ' + failureText(err);
+                    });
+                    return;
+                }
+                // The event save asks for its relationship in a dialog of its own
+                modal.hide();
+                addAnswersToEvent().then(function (ok) {
+                    return ok ? create(fields) : null;
+                }).catch(function (err) {
+                    _graph.notifier.error('Not saved', failureText(err));
+                });
+            }
+
+            // Read again: the canvas may have moved while the dialog was open.
+            function create(fields) {
+                fields.content = canvasDocument(answers === 'leave' ? 'leave' : 'keep').document;
+                return window.IntelGraph.create(fields, { activate: activate.checked }).then(function (created) {
                     _savedGraph = {
                         uuid:     created.uuid,
-                        name:     created.name || graphName,
+                        name:     created.name || fields.name,
                         revision: parseInt(created.revision, 10) || 1
                     };
-                    modal.hide();
                     graphSaved('Saved as graph', _savedGraph);
-                }, function (err) {
-                    busy = false;
-                    error.textContent = 'Not saved: ' + failureText(err);
+                    refreshSaveControls();
                 });
             }
             return whenClosed;
@@ -3318,7 +3630,7 @@
         function updateGraph() {
             if (!_savedGraph || !_graph) return Promise.resolve();
             var saved = _savedGraph;
-            return window.IntelGraph.save(saved.uuid, canvasDocument().document, saved.revision).then(function (out) {
+            return window.IntelGraph.save(saved.uuid, canvasDocument('keep').document, saved.revision).then(function (out) {
                 saved.revision = parseInt(out && out.revision, 10) || saved.revision;
                 graphSaved('Graph updated', saved);
             }, function (err) {
@@ -3437,9 +3749,13 @@
 
         function enrichmentMark(d) {
             var mods = (d.modules && d.modules.length ? d.modules : [d.module]).filter(Boolean);
-            var lines = ['From enrichment — ' + mods.join(', '), 'Not in MISP: a module said this'];
+            // Kept in a graph: it claims who kept it, not that MISP checked it
+            var lines = d.kept_by
+                ? ['From enrichment · kept by ' + d.kept_by,
+                   mods.join(', ') + (d.ran_at ? ' — asked ' + ago(Math.floor(Date.now() / 1000) - d.ran_at) : '')]
+                : ['From enrichment — ' + mods.join(', '), 'Not in MISP: a module said this'];
             if (d.untyped) lines.push('Untyped: the module gave no type');
-            if (d.from_store) lines.push('Stored answer, ' + ago(d.age));
+            if (d.from_store && !d.kept_by) lines.push('Stored answer, ' + ago(d.age));
             return { position: 'ne', color: ENRICH_INK[mispTheme()], svgIcon: ENRICH_MARK,
                      title: lines.join('\n') };
         }
@@ -3520,7 +3836,8 @@
                     return (b.ui_priority || 0) - (a.ui_priority || 0) || (b.to_ids ? 1 : 0) - (a.to_ids ? 1 : 0);
                 });
             return kids.map(function (c, i) {
-                return { value: String(c.value), type: c['attr-type'], relation: c.object_relation || '', lead: i === 0 };
+                return { value: String(c.value), type: c['attr-type'], relation: c.object_relation || '', lead: i === 0,
+                         uuid: c.uuid };
             });
         }
 
@@ -3673,6 +3990,18 @@
             }, resultOwner(module, run)), { known: !!a.known });
         }
 
+        // What was asked, as a graph keeps an answer's origin: the exact
+        // attribute (inside an object too), a value, or another answer.
+        function askedOrigin(p, ranAt) {
+            var d = p.node.getData() || {};
+            var node = p.item.uuid ? 'Attribute:' + p.item.uuid
+                : isEnrichmentResult(d) ? 'ModuleAnswer'
+                : d.type === 'attribute' && d.uuid ? 'Attribute:' + d.uuid
+                : d.type === 'value' ? 'Value'
+                : null;
+            return node ? { node: node, type: p.item.type, value: p.item.value, ran_at: ranAt } : null;
+        }
+
         // §5.3: objects closed with their attributes, attributes and legacy
         // elements loose, each joined to its origin by an `enrichment` edge.
         function landEnrichment(answers) {
@@ -3685,14 +4014,17 @@
                 }
                 answered++;
                 if (run.capped) missed.push(module + ': ' + run.shown + ' of ' + Number(run.total).toLocaleString() + ' shown');
+                var asked = askedOrigin(p, Math.floor(Date.now() / 1000) - (run.age || 0));
                 function add(n) {
                     var had = land.get(n.id);
                     if (had && had.data.modules.indexOf(module) === -1) had.data.modules.push(module);
                     land.node(n);
                     // From an object, the edge names the attribute that was asked.
                     var label = p.item.relation ? module + ' · ' + p.item.relation : module;
-                    land.edge({ id: 'enr:' + origin + '>' + n.id + ':' + module, from: origin, to: n.id,
-                                data: { kind: 'enrichment', label: label, module: module, asked: p.item.value } });
+                    var via = p.item.uuid ? origin + '/' + p.item.uuid : origin;
+                    land.edge({ id: 'enr:' + via + '>' + n.id + ':' + module, from: origin, to: n.id,
+                                data: { kind: 'enrichment', label: label, module: module, asked: p.item.value,
+                                        origin: asked } });
                 }
                 (run.attributes || []).forEach(function (attr) {
                     // A misp_standard module echoes the attribute it was asked about.
@@ -3721,6 +4053,46 @@
                 });
             });
             return { result: land.result(), missed: missed, answered: answered };
+        }
+
+        // A module answer a graph kept, drawn as the explorer draws a fresh one:
+        // the same canvas id, so a pivot landing it again merges. `known` lists
+        // the values MISP holds where the reader can see them.
+        function answerNode(stored, keptBy, known) {
+            var c = stored.content || {};
+            var ranAt = 0;
+            (stored.origins || []).forEach(function (o) { if (o.ran_at > ranAt) ranAt = o.ran_at; });
+            function owner() {
+                return { scope: 'module', module: stored.module,
+                         modules: (stored.modules && stored.modules.length ? stored.modules : [stored.module]).slice(),
+                         kept_by: keptBy || undefined, ran_at: ranAt || undefined };
+            }
+            function isKnown(v) { return !!known && known.indexOf(String(v)) !== -1; }
+            function attribute(a, type) {
+                return Object.assign(attributeNodeData({
+                    type: type || a.type, value: a.value, category: a.category, comment: a.comment,
+                    to_ids: a.to_ids, object_relation: a.relation
+                }, owner()), { known: isKnown(a.value) });
+            }
+            if (c.kind === 'object') {
+                var id = resultObjectId(stored.module, c);
+                return {
+                    id: id,
+                    data: Object.assign(objectNodeData({ name: c.name, 'meta-category': c.meta_category }, owner()),
+                                        { description: c.description, comment: c.comment || undefined }),
+                    children: (c.attributes || []).map(function (a) {
+                        return { id: id + ':' + a.relation + ':' + a.value, data: attribute(a) };
+                    })
+                };
+            }
+            if (c.kind === 'element') {
+                var type = (c.types || [])[0] || 'text';
+                var data = attribute({ value: c.value }, type);
+                data.untyped = true;
+                data.candidate_types = (c.types || []).slice(1);
+                return { id: 'enr:' + type + ':' + c.value, data: data };
+            }
+            return { id: 'enr:' + c.type + ':' + c.value, data: attribute(c) };
         }
 
         // RFC 4122 v4; randomUUID needs a secure context, getRandomValues does not.
@@ -3758,10 +4130,17 @@
                 var first = edges.length ? edges[0].getData() : {};
                 var comment = d.comment || ('Enrichment: ' + (first.module || d.module)
                                             + (first.asked ? ' on ' + first.asked : ''));
+                // The attributes it was asked about: their sharing caps its own
+                var origins = [];
+                edges.forEach(function (e) {
+                    var o = (e.getData() || {}).origin;
+                    var asked = o && o.node.indexOf('Attribute:') === 0 ? o.node.slice('Attribute:'.length) : null;
+                    if (asked && origins.indexOf(asked) === -1) origins.push(asked);
+                });
                 var uuid = newUuid(), entry = { node: node, uuid: uuid, children: [] };
                 if (d.type === 'object') {
                     body.Object.push({
-                        uuid: uuid, name: d.name, comment: comment,
+                        uuid: uuid, name: d.name, comment: comment, origins: origins,
                         Attribute: (node.children || []).filter(function (c) { return pendingChildren[c.id]; })
                             .map(function (c) {
                                 var cu = newUuid();
@@ -3775,6 +4154,7 @@
                 } else {
                     var rec = resultAttributeRecord(d, uuid, comment);
                     delete rec.object_relation;
+                    rec.origins = origins;
                     body.Attribute.push(rec);
                     own.forEach(function (o) {
                         if (o.getData().type !== 'object') return;
@@ -3793,7 +4173,8 @@
             var ev = (_event && _event.Event) || {};
             var own = Object.assign(provenance(eventId, ev.uuid),
                 { module: undefined, modules: undefined, from_store: undefined, age: undefined,
-                  untyped: undefined, candidate_types: undefined, known: undefined });
+                  untyped: undefined, candidate_types: undefined, known: undefined,
+                  kept_by: undefined, ran_at: undefined });
             entry.node.updateData(Object.assign({ uuid: uuid }, own));
             if (entry.node.getData().type === 'object') {
                 var kids = childrenSaved ? entry.children : [];
@@ -4602,6 +4983,21 @@
             sourceMap:        sourceMap,
             sourceNodeData:   sourceNodeData,
             storedEdge:       storedEdge,
+            answerNode:       answerNode,
+            size: {
+                measured:     measured,
+                of:           documentSize,
+                text:         sizeText,
+                formatBytes:  formatBytes,
+                largeGroups:  largeGroups,
+                groupLine:    groupLine,
+                showGroup:    showGroup
+            },
+            isAnswerNode:     isAnswerNode,
+            answerItem:       function (node, g) {
+                var out = isAnswerNode(node) ? answerItemOf(node, enrichmentEdgesByTarget(g || _graph)) : null;
+                return out && out.item ? out.item : null;
+            },
             sources:          SOURCES,
             eachAnalystRelationship: eachAnalystRelationship,
             eachRelationshipOn: eachRelationshipOn,

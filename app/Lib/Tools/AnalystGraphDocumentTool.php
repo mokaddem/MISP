@@ -4,11 +4,17 @@ App::uses('Value', 'Model');
 /**
  * The document an analyst graph stores in its `content` column: which records
  * it shows and where they sit, never copies of them and no edges of its own.
+ * The one exception is a module answer, which has no record behind it and is
+ * kept whole, with the nodes it was asked about as its origins.
  *
  *     {
  *       "version": 1,
  *       "nodes": [{"type": "Attribute", "uuid": "…", "x": 120, "y": -40, "pinned": true},
- *                 {"type": "Value", "uuid": "…", "value": "8.8.8.8"}],
+ *                 {"type": "Value", "uuid": "…", "value": "8.8.8.8"},
+ *                 {"type": "ModuleAnswer", "uuid": "…", "module": "dns", "modules": ["dns"],
+ *                  "origins": [{"node": "Attribute:…", "module": "dns", "type": "domain",
+ *                               "value": "example.com", "ran_at": 1791100000}],
+ *                  "content": {"kind": "attribute", "type": "ip-dst", "value": "203.0.113.7", …}}],
  *       "hidden_edges": ["relationship:<uuid>"],
  *       "view": {"layout": "force", "zoom": 1.0, "center": [0, 0]}
  *     }
@@ -16,7 +22,9 @@ App::uses('Value', 'Model');
 class AnalystGraphDocumentTool
 {
     const VERSION = 1;
-    const NODE_TYPES = ['Event', 'Attribute', 'Object', 'GalaxyCluster', 'Value'];
+    const ANSWER = 'ModuleAnswer';
+    const NODE_TYPES = ['Event', 'Attribute', 'Object', 'GalaxyCluster', 'Value', self::ANSWER];
+    const ORIGIN_TYPES = ['Attribute', 'Value', self::ANSWER];
     const MAX_NODES = 2000;
     const MAX_BYTES = 16777216;
     const MAX_VALUE_BYTES = 1024;
@@ -24,7 +32,59 @@ class AnalystGraphDocumentTool
     const MAX_LAYOUT_LENGTH = 32;
     const SUMMARY_LIST_LIMIT = 100;
 
+    /** MISP's own attribute value limit: what MISP could not store, a graph cannot keep. */
+    const MAX_ANSWER_STRING_BYTES = 65535;
+    const MAX_ANSWER_ORIGINS = 50;
+    const MAX_ANSWER_ATTRIBUTES = 500;
+    const ANSWER_KINDS = ['attribute', 'object', 'element'];
+
     const UUID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+    // No dot: the name is read back inside a configuration path
+    const MODULE_PATTERN = '/^[A-Za-z0-9_\-]{1,128}$/';
+
+    /** What a save request carries besides its document. */
+    const REQUEST_OVERHEAD = 65536;
+
+    /**
+     * What a client may save: the node cap, and the bytes a document can
+     * reach before PHP refuses the request that carries it, which on stock
+     * settings is well under the document cap.
+     *
+     * @return array {nodes, bytes, document_bytes}
+     */
+    public static function limits()
+    {
+        $bytes = self::MAX_BYTES;
+        $post = self::iniBytes(ini_get('post_max_size'));
+        if ($post > 0) {
+            $bytes = min($bytes, max(0, $post - self::REQUEST_OVERHEAD));
+        }
+        return ['nodes' => self::MAX_NODES, 'bytes' => $bytes, 'document_bytes' => self::MAX_BYTES];
+    }
+
+    /**
+     * @param string|false $value A php.ini size, such as 8M
+     * @return int Bytes; 0 for no limit
+     */
+    public static function iniBytes($value)
+    {
+        $value = trim((string)$value);
+        if ($value === '' || !preg_match('/^(\d+)\s*([kmg]?)$/i', $value, $m)) {
+            return 0;
+        }
+        $bytes = (int)$m[1];
+        switch (strtolower($m[2])) {
+            case 'g':
+                $bytes *= 1024;
+                // no break
+            case 'm':
+                $bytes *= 1024;
+                // no break
+            case 'k':
+                $bytes *= 1024;
+        }
+        return $bytes;
+    }
 
     /**
      * @return array
@@ -188,6 +248,10 @@ class AnalystGraphDocumentTool
         $nodes = isset($document['nodes']) && is_array($document['nodes']) ? $document['nodes'] : [];
         $seen = array_flip(self::nodeKeysOf($nodes));
         foreach (array_values($items) as $i => $item) {
+            if (is_array($item) && ($item['type'] ?? null) === self::ANSWER) {
+                $report['refused'][] = ['index' => $i, 'error' => __('A module answer is kept by saving the graph, not added to it.')];
+                continue;
+            }
             $errors = [];
             $node = self::normaliseNode($item, $errors);
             if ($node === null) {
@@ -213,13 +277,15 @@ class AnalystGraphDocumentTool
 
     /**
      * Remove nodes from a stored document, named as nodes or as the
-     * `Type:uuid` keys addNodes() reports.
+     * `Type:uuid` keys addNodes() reports. A node in $kept stays, reported
+     * absent like one the document does not hold.
      *
      * @param array $document A stored document, decoded
      * @param array $items
+     * @param array $kept `Type:uuid` => true
      * @return array [array $document, array $report]
      */
-    public static function removeNodes(array $document, array $items)
+    public static function removeNodes(array $document, array $items, array $kept = [])
     {
         $report = ['removed' => [], 'absent' => [], 'refused' => []];
         $wanted = [];
@@ -231,18 +297,18 @@ class AnalystGraphDocumentTool
             }
             $wanted[$key] = true;
         }
-        $kept = [];
+        $remaining = [];
         foreach ($document['nodes'] ?? [] as $node) {
             $key = self::nodeKeysOf([$node])[0] ?? null;
-            if ($key !== null && isset($wanted[$key])) {
+            if ($key !== null && isset($wanted[$key]) && !isset($kept[$key])) {
                 $report['removed'][] = $key;
                 unset($wanted[$key]);
                 continue;
             }
-            $kept[] = $node;
+            $remaining[] = $node;
         }
         $report['absent'] = array_keys($wanted);
-        $document['nodes'] = $kept;
+        $document['nodes'] = $remaining;
         return [$document, $report];
     }
 
@@ -343,7 +409,13 @@ class AnalystGraphDocumentTool
             return null;
         }
         $normalised = ['type' => $type];
-        if ($type === 'Value') {
+        if ($type === self::ANSWER) {
+            $answer = self::normaliseAnswer($node, $errors);
+            if ($answer === null) {
+                return null;
+            }
+            $normalised += $answer;
+        } elseif ($type === 'Value') {
             $value = isset($node['value']) && is_scalar($node['value']) ? trim((string)$node['value']) : '';
             if ($value === '') {
                 $errors[] = __('a Value node needs a value.');
@@ -378,7 +450,388 @@ class AnalystGraphDocumentTool
                 $normalised[$flag] = true;
             }
         }
+        if ($type === self::ANSWER) {
+            // The answer itself last, so a reader of the document finds the layout first
+            foreach (['module', 'modules', 'origins', 'content'] as $field) {
+                $value = $normalised[$field];
+                unset($normalised[$field]);
+                $normalised[$field] = $value;
+            }
+        }
         return $normalised;
+    }
+
+    /**
+     * @param array $node
+     * @return bool
+     */
+    public static function isAnswer(array $node)
+    {
+        return ($node['type'] ?? null) === self::ANSWER;
+    }
+
+    /**
+     * The uuid an answer is stored under, derived from what it says: an
+     * attribute or an untyped element by its type and value, so the same value
+     * from several modules is one node; an object by its module, name and
+     * attributes.
+     *
+     * @param array $content A normalised answer content
+     * @param string $module
+     * @return string
+     */
+    public static function answerUuid(array $content, $module)
+    {
+        if ($content['kind'] === 'object') {
+            $triples = [];
+            foreach ($content['attributes'] as $attribute) {
+                $triples[] = [$attribute['relation'], $attribute['type'], $attribute['value']];
+            }
+            sort($triples);
+            $hash = hash('sha256', json_encode([$content['name'], $triples], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            return self::uuidV5('enr-obj:' . $module . ':' . $hash);
+        }
+        $type = $content['kind'] === 'element' ? $content['types'][0] : $content['type'];
+        return self::answerUuidFor($type, $content['value']);
+    }
+
+    /**
+     * The uuid of the attribute or element answer holding this value.
+     *
+     * @param string $type
+     * @param string $value
+     * @return string
+     */
+    public static function answerUuidFor($type, $value)
+    {
+        return self::uuidV5('enr:' . $type . ':' . $value);
+    }
+
+    /**
+     * An RFC 4122 version 5 uuid, in the namespace values are named in.
+     *
+     * @param string $name
+     * @return string
+     */
+    public static function uuidV5($name)
+    {
+        $hash = sha1(hex2bin(str_replace('-', '', Value::UUID_NAMESPACE)) . $name);
+        return sprintf(
+            '%s-%s-%04x-%04x-%s',
+            substr($hash, 0, 8),
+            substr($hash, 8, 4),
+            (hexdec(substr($hash, 12, 4)) & 0x0fff) | 0x5000,
+            (hexdec(substr($hash, 16, 4)) & 0x3fff) | 0x8000,
+            substr($hash, 20, 12)
+        );
+    }
+
+    /**
+     * An origin's identity within its answer: the node asked and the module
+     * that answered.
+     *
+     * @param array $origin
+     * @return string
+     */
+    public static function originKey(array $origin)
+    {
+        return $origin['node'] . '|' . $origin['module'];
+    }
+
+    /**
+     * A document without its module answers, as sync carries it.
+     *
+     * @param array $document Decoded
+     * @return array
+     */
+    public static function withoutAnswers(array $document)
+    {
+        if (isset($document['nodes']) && is_array($document['nodes'])) {
+            $document['nodes'] = array_values(array_filter($document['nodes'], function ($node) {
+                return !is_array($node) || !self::isAnswer($node);
+            }));
+        }
+        return $document;
+    }
+
+    /**
+     * A document whose module answers are reduced to their keys, for what
+     * runs outside the graph's audience.
+     *
+     * @param array $document Decoded
+     * @return array
+     */
+    public static function answersAsKeys(array $document)
+    {
+        if (isset($document['nodes']) && is_array($document['nodes'])) {
+            foreach ($document['nodes'] as $i => $node) {
+                if (is_array($node) && self::isAnswer($node)) {
+                    $document['nodes'][$i] = ['type' => self::ANSWER, 'uuid' => $node['uuid'] ?? null];
+                }
+            }
+        }
+        return $document;
+    }
+
+    /**
+     * @param array $node
+     * @param string[] $errors
+     * @return array|null module, modules, origins, content and the derived uuid
+     */
+    private static function normaliseAnswer(array $node, array &$errors)
+    {
+        $module = $node['module'] ?? null;
+        if (!is_string($module) || !preg_match(self::MODULE_PATTERN, $module)) {
+            $errors[] = __('an answer names the module it came from.');
+            return null;
+        }
+        $content = isset($node['content']) && is_array($node['content'])
+            ? self::normaliseContent($node['content'], $errors)
+            : null;
+        if ($content === null) {
+            if (empty($errors)) {
+                $errors[] = __('an answer needs its content.');
+            }
+            return null;
+        }
+        $uuid = self::answerUuid($content, $module);
+
+        $modules = [$module];
+        $listed = $node['modules'] ?? [];
+        if (!self::isList($listed)) {
+            $errors[] = __('modules must be a list.');
+            return null;
+        }
+        foreach ($listed as $name) {
+            if (!is_string($name) || !preg_match(self::MODULE_PATTERN, $name)) {
+                $errors[] = __('modules must be module names.');
+                return null;
+            }
+            $modules[] = $name;
+        }
+        $modules = array_values(array_unique($modules));
+        if (count($modules) > self::MAX_ANSWER_ORIGINS) {
+            $errors[] = __('an answer names at most %s modules.', self::MAX_ANSWER_ORIGINS);
+            return null;
+        }
+
+        $origins = $node['origins'] ?? null;
+        if (!self::isList($origins) || empty($origins)) {
+            $errors[] = __('an answer needs the origins it was asked about.');
+            return null;
+        }
+        if (count($origins) > self::MAX_ANSWER_ORIGINS) {
+            $errors[] = __('an answer has at most %s origins.', self::MAX_ANSWER_ORIGINS);
+            return null;
+        }
+        $kept = [];
+        foreach ($origins as $i => $origin) {
+            $origin = self::normaliseOrigin($origin, $error);
+            if ($origin === null) {
+                $errors[] = sprintf('origins[%s]: %s', $i, $error);
+                return null;
+            }
+            // A module can return the value it was asked about
+            if ($origin['node'] === self::ANSWER . ':' . $uuid) {
+                continue;
+            }
+            $kept[self::originKey($origin)] = $kept[self::originKey($origin)] ?? $origin;
+        }
+        if (empty($kept)) {
+            $errors[] = __('an answer needs the origins it was asked about.');
+            return null;
+        }
+        return [
+            'uuid' => $uuid,
+            'module' => $module,
+            'modules' => $modules,
+            'origins' => array_values($kept),
+            'content' => $content,
+        ];
+    }
+
+    /**
+     * @param mixed $origin
+     * @param string|null $error
+     * @return array|null
+     */
+    private static function normaliseOrigin($origin, &$error)
+    {
+        $error = null;
+        if (!is_array($origin)) {
+            $error = __('must be an object.');
+            return null;
+        }
+        $node = $origin['node'] ?? null;
+        $parts = is_string($node) ? explode(':', $node, 2) : [null];
+        $type = $parts[0];
+        if (!in_array($type, self::ORIGIN_TYPES, true)) {
+            $error = __('an origin is an attribute, a value or another answer.');
+            return null;
+        }
+        $module = $origin['module'] ?? null;
+        if (!is_string($module) || !preg_match(self::MODULE_PATTERN, $module)) {
+            $error = __('an origin names the module asked.');
+            return null;
+        }
+        $asked = [];
+        foreach (['type', 'value'] as $field) {
+            $asked[$field] = self::answerString($origin[$field] ?? null, false, $error);
+            if ($asked[$field] === null) {
+                $error = __('%s: %s', $field, $error);
+                return null;
+            }
+        }
+        $ranAt = $origin['ran_at'] ?? null;
+        if (is_string($ranAt) && ctype_digit($ranAt)) {
+            $ranAt = (int)$ranAt;
+        }
+        if (!is_int($ranAt) || $ranAt < 0) {
+            $error = __('ran_at must be a timestamp.');
+            return null;
+        }
+        if ($type === 'Attribute') {
+            $uuid = $parts[1] ?? null;
+            if (!is_string($uuid) || !preg_match(self::UUID_PATTERN, $uuid)) {
+                $error = __('invalid uuid.');
+                return null;
+            }
+            $uuid = strtolower($uuid);
+        } elseif ($type === 'Value') {
+            if (trim($asked['value']) === '') {
+                $error = __('a Value origin needs a value.');
+                return null;
+            }
+            $uuid = Value::uuidFor($asked['value']);
+        } else {
+            $uuid = self::answerUuidFor($asked['type'], $asked['value']);
+        }
+        return [
+            'node' => $type . ':' . $uuid,
+            'module' => $module,
+            'type' => $asked['type'],
+            'value' => $asked['value'],
+            'ran_at' => $ranAt,
+        ];
+    }
+
+    /**
+     * @param array $content
+     * @param string[] $errors
+     * @return array|null
+     */
+    private static function normaliseContent(array $content, array &$errors)
+    {
+        $kind = $content['kind'] ?? null;
+        if (!in_array($kind, self::ANSWER_KINDS, true)) {
+            $errors[] = __('content.kind is attribute, object or element.');
+            return null;
+        }
+        $error = null;
+        if ($kind === 'attribute') {
+            $attribute = self::normaliseAnswerAttribute($content, false, $error);
+            if ($attribute === null) {
+                $errors[] = 'content.' . $error;
+                return null;
+            }
+            return ['kind' => 'attribute'] + $attribute;
+        }
+        if ($kind === 'element') {
+            $types = $content['types'] ?? null;
+            if (!self::isList($types) || empty($types) || count($types) > self::MAX_ANSWER_ORIGINS) {
+                $errors[] = __('content.types must be a list of at most %s types.', self::MAX_ANSWER_ORIGINS);
+                return null;
+            }
+            foreach ($types as $i => $type) {
+                $types[$i] = self::answerString($type, false, $error);
+                if ($types[$i] === null) {
+                    $errors[] = 'content.types: ' . $error;
+                    return null;
+                }
+            }
+            $value = self::answerString($content['value'] ?? null, false, $error);
+            if ($value === null) {
+                $errors[] = 'content.value: ' . $error;
+                return null;
+            }
+            return ['kind' => 'element', 'types' => array_values(array_unique($types)), 'value' => $value];
+        }
+        $object = ['kind' => 'object'];
+        foreach (['name' => false, 'meta_category' => true, 'description' => true, 'comment' => true] as $field => $optional) {
+            $object[$field] = self::answerString($content[$field] ?? ($optional ? '' : null), $optional, $error);
+            if ($object[$field] === null) {
+                $errors[] = 'content.' . $field . ': ' . $error;
+                return null;
+            }
+        }
+        $attributes = $content['attributes'] ?? [];
+        if (!self::isList($attributes) || count($attributes) > self::MAX_ANSWER_ATTRIBUTES) {
+            $errors[] = __('content.attributes must be a list of at most %s attributes.', self::MAX_ANSWER_ATTRIBUTES);
+            return null;
+        }
+        $object['attributes'] = [];
+        foreach ($attributes as $i => $attribute) {
+            $attribute = is_array($attribute) ? self::normaliseAnswerAttribute($attribute, true, $error) : null;
+            if ($attribute === null) {
+                $errors[] = sprintf('content.attributes[%s].%s', $i, $error ?? __('must be an object.'));
+                return null;
+            }
+            $object['attributes'][] = $attribute;
+        }
+        return $object;
+    }
+
+    /**
+     * @param array $attribute
+     * @param bool $withRelation
+     * @param string|null $error
+     * @return array|null
+     */
+    private static function normaliseAnswerAttribute(array $attribute, $withRelation, &$error)
+    {
+        $fields = ($withRelation ? ['relation' => true] : []) + [
+            'type' => false,
+            'value' => false,
+            'category' => true,
+            'comment' => true,
+        ];
+        $out = [];
+        foreach ($fields as $field => $optional) {
+            $out[$field] = self::answerString($attribute[$field] ?? ($optional ? '' : null), $optional, $error);
+            if ($out[$field] === null) {
+                $error = $field . ': ' . $error;
+                return null;
+            }
+        }
+        $out['to_ids'] = !empty($attribute['to_ids']);
+        return $out;
+    }
+
+    /**
+     * @param mixed $value
+     * @param bool $mayBeEmpty
+     * @param string|null $error
+     * @return string|null
+     */
+    private static function answerString($value, $mayBeEmpty, &$error)
+    {
+        if ($value === null && $mayBeEmpty) {
+            $value = '';
+        }
+        if (!is_string($value) && !is_int($value) && !is_float($value)) {
+            $error = __('must be a string.');
+            return null;
+        }
+        $value = (string)$value;
+        if ($value === '' && !$mayBeEmpty) {
+            $error = __('must not be empty.');
+            return null;
+        }
+        if (strlen($value) > self::MAX_ANSWER_STRING_BYTES) {
+            $error = __('at most %s bytes.', self::MAX_ANSWER_STRING_BYTES);
+            return null;
+        }
+        return $value;
     }
 
     /**

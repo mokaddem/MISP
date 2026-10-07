@@ -36,8 +36,10 @@
             ];
         }
         if ($canGraph) {
+            App::uses('AnalystGraphDocumentTool', 'Tools');
             $graphSharing = $sharing + [
                 'default' => (int)(Configure::read('MISP.default_analyst_data_distribution') ?? 1),
+                'limits' => AnalystGraphDocumentTool::limits(),
             ];
         }
     }

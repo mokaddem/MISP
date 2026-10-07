@@ -114,6 +114,14 @@ echo $this->element('genericElements/assetLoader', [
 
     <div class="ig-page-bar d-flex flex-wrap align-items-center gap-2 mb-2" data-ig-page-bar>
         <div class="ig-page-status me-auto small text-body-secondary" data-ig-page-status role="status" aria-live="polite"></div>
+        <div class="dropdown" data-ig-page-size-wrap hidden>
+            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside" aria-expanded="false" data-ig-page-size-toggle
+                    title="<?= __('The size of the graph you would save, against what a save can carry') ?>">
+                <i class="fas fa-weight-hanging me-1" aria-hidden="true"></i><span data-ig-page-size-label></span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end ig-page-size-menu" data-ig-page-size-menu></div>
+        </div>
         <button type="button" class="btn btn-sm btn-outline-secondary" data-ig-page-keep hidden
                 title="<?= __('Nodes a pivot brought onto the canvas stay out of the graph until kept') ?>">
             <i class="fas fa-thumbtack me-1"></i><span data-ig-page-keep-label></span>

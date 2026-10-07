@@ -68,7 +68,7 @@ class AnalystGraphData extends AppModel
             'Value' => $values,
             'events' => $events ?: new stdClass(),
             'ui_priorities' => $priorities ?: new stdClass(),
-            'edges' => $this->edges($user, $uuids['Event'], $objects, $attributes, $clusters, $values, $events),
+            'edges' => $this->edges($user, $uuids['Event'], $objects, $attributes, $clusters, $values, $events, $this->answersOf($drawn)),
             'meta' => [
                 'nodes' => count($visible),
                 'drawn' => count($drawn),
@@ -167,7 +167,8 @@ class AnalystGraphData extends AppModel
 
     /**
      * The nodes the user may read, in document order. A Value node is
-     * authored content of the graph, so it is always readable.
+     * authored content of the graph, so it is always readable. A module
+     * answer comes with only the origins the user passes (answerFilter()).
      *
      * @param array $user
      * @param array $nodes Normalised nodes
@@ -188,10 +189,66 @@ class AnalystGraphData extends AppModel
      */
     public function visibleNodeLists(array $user, array $lists)
     {
+        return $this->filterNodeLists($user, $lists, false);
+    }
+
+    /**
+     * A stored document as this user may receive it. Every path that hands a
+     * document out goes through here: a module answer carries content, so a
+     * path that skipped it would leak more than a uuid.
+     *
+     * @param array $user
+     * @param array $document Decoded
+     * @param bool $keepRecords Keep record nodes as stored, filtering answers only
+     * @return array
+     */
+    public function documentFor(array $user, array $document, $keepRecords = false)
+    {
+        return $this->documentsFor($user, [$document], $keepRecords)[0];
+    }
+
+    /**
+     * documentFor() for several documents, with one lookup per type for all.
+     *
+     * @param array $user
+     * @param array $documents key => decoded document
+     * @param bool $keepRecords
+     * @return array key => document
+     */
+    public function documentsFor(array $user, array $documents, $keepRecords = false)
+    {
+        $lists = [];
+        foreach ($documents as $key => $document) {
+            $lists[$key] = is_array($document['nodes'] ?? null) ? $document['nodes'] : [];
+        }
+        $filtered = $this->filterNodeLists($user, $lists, $keepRecords);
+        foreach ($documents as $key => $document) {
+            if (is_array($document)) {
+                $documents[$key]['nodes'] = $filtered[$key];
+            }
+        }
+        return $documents;
+    }
+
+    /**
+     * @param array $user
+     * @param array $lists key => normalised nodes
+     * @param bool $keepRecords
+     * @return array key => nodes, in document order
+     */
+    private function filterNodeLists(array $user, array $lists, $keepRecords)
+    {
         $byType = [];
         foreach ($lists as $nodes) {
             foreach ($nodes as $node) {
-                if ($node['type'] !== 'Value') {
+                if (AnalystGraphDocumentTool::isAnswer($node)) {
+                    foreach ($node['origins'] as $origin) {
+                        list($type, $uuid) = explode(':', $origin['node'], 2);
+                        if ($type === 'Attribute') {
+                            $byType['Attribute'][$uuid] = true;
+                        }
+                    }
+                } elseif ($node['type'] !== 'Value' && !$keepRecords) {
                     $byType[$node['type']][$node['uuid']] = true;
                 }
             }
@@ -199,17 +256,429 @@ class AnalystGraphData extends AppModel
         $readable = [];
         $elements = $this->model('CollectionElement');
         foreach ($byType as $type => $uuids) {
-            foreach ($elements->readableUuids($user, $type, array_keys($uuids)) as $uuid) {
+            foreach ($elements->readableUuids($user, $type, array_map('strval', array_keys($uuids))) as $uuid) {
                 $readable[$type][strtolower($uuid)] = true;
             }
         }
         $out = [];
         foreach ($lists as $key => $nodes) {
-            $out[$key] = array_values(array_filter($nodes, function ($node) use ($readable) {
-                return $node['type'] === 'Value' || isset($readable[$node['type']][$node['uuid']]);
-            }));
+            $answers = $this->answerFilter($user, $nodes, $readable['Attribute'] ?? []);
+            $out[$key] = [];
+            foreach ($nodes as $node) {
+                if (AnalystGraphDocumentTool::isAnswer($node)) {
+                    if (isset($answers[$node['uuid']])) {
+                        $out[$key][] = $answers[$node['uuid']];
+                    }
+                } elseif ($keepRecords || $node['type'] === 'Value' || isset($readable[$node['type']][$node['uuid']])) {
+                    $out[$key][] = $node;
+                }
+            }
         }
         return $out;
+    }
+
+    /**
+     * The module answers of one document the user may see. An answer is seen
+     * when one of its origins passes and the user's organisation may use the
+     * module whose content it holds. An origin passes when that organisation
+     * may use the module asked and what was asked is visible: an attribute
+     * they can read, any Value, or an answer they see. Each answer keeps only
+     * the origins and modules the user passes.
+     *
+     * @param array $user
+     * @param array $nodes Normalised nodes
+     * @param array $readable Lowercase attribute uuid => true, for those the user may read
+     * @return array uuid => the answer as the user receives it
+     */
+    private function answerFilter(array $user, array $nodes, array $readable)
+    {
+        return $this->keptAnswers($nodes, $user, function ($uuid) use ($readable) {
+            return isset($readable[$uuid]);
+        });
+    }
+
+    /**
+     * The answers that pass for one organisation, as answerFilter() describes,
+     * with what counts as a visible attribute origin left to the caller.
+     *
+     * @param array $nodes Normalised nodes
+     * @param array $user Whose organisation the module test is for
+     * @param callable $attributePasses Given a lowercase attribute uuid
+     * @return array uuid => the answer, with the origins and modules that pass
+     */
+    private function keptAnswers(array $nodes, array $user, callable $attributePasses)
+    {
+        $answers = [];
+        foreach ($nodes as $node) {
+            if (AnalystGraphDocumentTool::isAnswer($node)) {
+                $answers[$node['uuid']] = $node;
+            }
+        }
+        if (empty($answers)) {
+            return [];
+        }
+        $seen = [];
+        $passes = function (array $origin) use ($user, $attributePasses, &$seen) {
+            if (!$this->mayUseModule($user, $origin['module'])) {
+                return false;
+            }
+            list($type, $uuid) = explode(':', $origin['node'], 2);
+            if ($type === 'Value') {
+                return true;
+            }
+            return $type === 'Attribute' ? $attributePasses($uuid) : isset($seen[$uuid]);
+        };
+        // Answers can be asked about answers, in chains and in loops
+        do {
+            $grew = false;
+            foreach ($answers as $uuid => $answer) {
+                if (isset($seen[$uuid]) || !$this->mayUseModule($user, $answer['module'])) {
+                    continue;
+                }
+                foreach ($answer['origins'] as $origin) {
+                    if ($passes($origin)) {
+                        $seen[$uuid] = true;
+                        $grew = true;
+                        break;
+                    }
+                }
+            }
+        } while ($grew);
+        $out = [];
+        foreach (array_keys($seen) as $uuid) {
+            $answer = $answers[$uuid];
+            $answer['origins'] = array_values(array_filter($answer['origins'], $passes));
+            $answer['modules'] = array_values(array_filter($answer['modules'], function ($module) use ($user) {
+                return $this->mayUseModule($user, $module);
+            }));
+            $out[$uuid] = $answer;
+        }
+        return $out;
+    }
+
+    /**
+     * A stored document as it is pushed to a server: the records as stored,
+     * and the module answers that server's organisation would see here. An
+     * answer goes when that organisation may use its module and one of its
+     * origins goes too: an attribute whose distribution lets it be pushed to
+     * that server, a Value, or another answer that goes. It carries only
+     * those origins, since an origin holds the value that was asked.
+     *
+     * @param array $document Decoded
+     * @param array $server A Server row
+     * @return array
+     */
+    public function documentForServer(array $document, array $server)
+    {
+        $nodes = is_array($document['nodes'] ?? null) ? $document['nodes'] : [];
+        $uuids = [];
+        foreach ($nodes as $node) {
+            if (is_array($node) && AnalystGraphDocumentTool::isAnswer($node)) {
+                foreach ($node['origins'] as $origin) {
+                    list($type, $uuid) = explode(':', $origin['node'], 2);
+                    if ($type === 'Attribute') {
+                        $uuids[$uuid] = true;
+                    }
+                }
+            }
+        }
+        $reaching = empty($uuids) ? [] : $this->attributesReaching($server, array_map('strval', array_keys($uuids)));
+        $remote = [
+            'org_id' => $server['Server']['remote_org_id'] ?? null,
+            'Role' => ['perm_site_admin' => 0],
+        ];
+        $kept = $this->keptAnswers($nodes, $remote, function ($uuid) use ($reaching) {
+            return isset($reaching[$uuid]);
+        });
+        $out = [];
+        foreach ($nodes as $node) {
+            if (!is_array($node) || !AnalystGraphDocumentTool::isAnswer($node)) {
+                $out[] = $node;
+            } elseif (isset($kept[$node['uuid']])) {
+                $out[] = $kept[$node['uuid']];
+            }
+        }
+        $document['nodes'] = $out;
+        return $document;
+    }
+
+    /**
+     * Of these attributes, the ones a push may carry to this server: their
+     * event, their object and themselves each pass the distribution check an
+     * event push applies. Whether the event is published yet is when it goes,
+     * not whether.
+     *
+     * @param array $server
+     * @param string[] $uuids Lowercase
+     * @return array uuid => true
+     */
+    private function attributesReaching(array $server, array $uuids)
+    {
+        if (empty($server['RemoteOrg']['uuid']) && !empty($server['Server']['remote_org_id'])) {
+            $org = $this->model('Organisation')->find('first', [
+                'conditions' => ['Organisation.id' => $server['Server']['remote_org_id']],
+                'fields' => ['Organisation.id', 'Organisation.uuid'],
+                'recursive' => -1,
+            ]);
+            $server['RemoteOrg'] = $org['Organisation'] ?? [];
+        }
+        $attributes = $this->model('MispAttribute')->find('all', [
+            'conditions' => ['Attribute.uuid' => $uuids],
+            'fields' => ['Attribute.uuid', 'Attribute.event_id', 'Attribute.object_id', 'Attribute.distribution', 'Attribute.sharing_group_id'],
+            'recursive' => -1,
+        ]);
+        if (empty($attributes)) {
+            return [];
+        }
+        $attributes = array_column($attributes, 'Attribute');
+        $byId = function (array $rows, $alias) {
+            $out = [];
+            foreach ($rows as $row) {
+                $out[$row[$alias]['id']] = $row[$alias];
+            }
+            return $out;
+        };
+        $events = $byId($this->model('Event')->find('all', [
+            'conditions' => ['Event.id' => array_values(array_unique(array_map('strval', array_column($attributes, 'event_id'))))],
+            'fields' => ['Event.id', 'Event.distribution', 'Event.sharing_group_id'],
+            'recursive' => -1,
+        ]), 'Event');
+        $objectIds = array_values(array_filter(array_unique(array_map('strval', array_column($attributes, 'object_id')))));
+        $objects = empty($objectIds) ? [] : $byId($this->model('MispObject')->find('all', [
+            'conditions' => ['Object.id' => $objectIds],
+            'fields' => ['Object.id', 'Object.distribution', 'Object.sharing_group_id'],
+            'recursive' => -1,
+        ]), 'Object');
+
+        $levels = [];
+        foreach ($attributes as $a) {
+            $chain = [$events[$a['event_id']] ?? null];
+            if (!empty($a['object_id'])) {
+                $chain[] = $objects[$a['object_id']] ?? null;
+            }
+            $chain[] = $a;
+            $levels[strtolower($a['uuid'])] = $chain;
+        }
+        $sgIds = [];
+        foreach ($levels as $chain) {
+            foreach ($chain as $level) {
+                if ($level !== null && (int)$level['distribution'] === 4) {
+                    $sgIds[$level['sharing_group_id']] = true;
+                }
+            }
+        }
+        $sharingGroups = [];
+        foreach (empty($sgIds) ? [] : $this->model('SharingGroup')->find('all', [
+            'conditions' => ['SharingGroup.id' => array_map('strval', array_keys($sgIds))],
+            'contain' => [
+                'SharingGroupServer' => ['fields' => ['id', 'server_id', 'all_orgs']],
+                'SharingGroupOrg' => ['Organisation' => ['fields' => ['id', 'uuid']]],
+            ],
+        ]) as $row) {
+            $sharingGroups[$row['SharingGroup']['id']] = $row;
+        }
+
+        $Event = $this->model('Event');
+        $reaching = [];
+        foreach ($levels as $uuid => $chain) {
+            $goes = true;
+            foreach ($chain as $level) {
+                if ($level === null) {
+                    $goes = false;
+                    break;
+                }
+                $distribution = (int)$level['distribution'];
+                if ($distribution === 5) {
+                    continue;
+                }
+                $check = ['Event' => ['distribution' => $distribution]];
+                if ($distribution === 4) {
+                    if (!isset($sharingGroups[$level['sharing_group_id']])) {
+                        $goes = false;
+                        break;
+                    }
+                    $check['SharingGroup'] = $sharingGroups[$level['sharing_group_id']];
+                }
+                if (!$Event->checkDistributionForPush($check, $server, 'Event')) {
+                    $goes = false;
+                    break;
+                }
+            }
+            if ($goes) {
+                $reaching[$uuid] = true;
+            }
+        }
+        return $reaching;
+    }
+
+    private $moduleUse = [];
+
+    /**
+     * Whether the user's organisation may use a module: its `_restrict`
+     * setting only. The role's right to run modules is about cost, and an
+     * answer already kept costs nothing.
+     *
+     * @param array $user
+     * @param string $module
+     * @return bool
+     */
+    private function mayUseModule(array $user, $module)
+    {
+        $key = ($user['org_id'] ?? '') . ':' . (empty($user['Role']['perm_site_admin']) ? 0 : 1) . ':' . $module;
+        if (!isset($this->moduleUse[$key])) {
+            $this->moduleUse[$key] = $this->model('Module')->canUse($user, 'Enrichment', ['name' => $module]);
+        }
+        return $this->moduleUse[$key];
+    }
+
+    /**
+     * The document a write stores, as far as module answers go (the record
+     * nodes are the writer's). An answer already stored keeps its content,
+     * module and origins, gaining any origin the write brings; a new origin
+     * must be one the writer can name — an attribute they can read, a Value,
+     * or an answer the document holds — and an answer left with none is not
+     * kept. Stored answers the writer cannot see are put back: only the
+     * answers they could see and left out are removed. Last, an answer whose
+     * origins are all gone goes: every attribute origin deleted for good,
+     * every answer origin out of the document. A Value origin never goes.
+     *
+     * @param array $user The writer
+     * @param array $incoming Normalised
+     * @param array|null $stored The stored document, decoded; null on create
+     * @return array The document to store
+     */
+    public function documentForWrite(array $user, array $incoming, $stored = null)
+    {
+        $storedAnswers = [];
+        foreach (($stored['nodes'] ?? []) as $node) {
+            if (is_array($node) && AnalystGraphDocumentTool::isAnswer($node) && isset($node['uuid'], $node['origins'], $node['content'])) {
+                $storedAnswers[$node['uuid']] = $node;
+            }
+        }
+        $seenStored = empty($storedAnswers) ? [] : array_flip(array_column(
+            array_filter($this->visibleNodes($user, array_values($storedAnswers)), ['AnalystGraphDocumentTool', 'isAnswer']),
+            'uuid'
+        ));
+
+        $nodes = [];
+        $incomingAnswers = [];
+        foreach ($incoming['nodes'] ?? [] as $node) {
+            if (!AnalystGraphDocumentTool::isAnswer($node)) {
+                $nodes[] = $node;
+                continue;
+            }
+            $uuid = $node['uuid'];
+            $incomingAnswers[$uuid] = true;
+            if (!isset($storedAnswers[$uuid])) {
+                $node['_new'] = array_fill_keys(array_map(['AnalystGraphDocumentTool', 'originKey'], $node['origins']), true);
+                $nodes[] = $node;
+                continue;
+            }
+            $kept = $storedAnswers[$uuid];
+            foreach (['x', 'y', 'pinned', 'collapsed'] as $field) {
+                unset($kept[$field]);
+                if (array_key_exists($field, $node)) {
+                    $kept[$field] = $node[$field];
+                }
+            }
+            $known = array_flip(array_map(['AnalystGraphDocumentTool', 'originKey'], $kept['origins']));
+            $kept['_new'] = [];
+            foreach ($node['origins'] as $origin) {
+                $originKey = AnalystGraphDocumentTool::originKey($origin);
+                if (!isset($known[$originKey]) && count($kept['origins']) < AnalystGraphDocumentTool::MAX_ANSWER_ORIGINS) {
+                    $kept['origins'][] = $origin;
+                    $kept['_new'][$originKey] = true;
+                    if (!in_array($origin['module'], $kept['modules'], true)) {
+                        $kept['modules'][] = $origin['module'];
+                    }
+                }
+            }
+            $nodes[] = $kept;
+        }
+        foreach ($storedAnswers as $uuid => $node) {
+            if (!isset($incomingAnswers[$uuid]) && !isset($seenStored[$uuid])) {
+                $nodes[] = $node;
+            }
+        }
+
+        $attributeOrigins = $newAttributeOrigins = [];
+        foreach ($nodes as $node) {
+            if (!AnalystGraphDocumentTool::isAnswer($node)) {
+                continue;
+            }
+            foreach ($node['origins'] as $origin) {
+                list($type, $uuid) = explode(':', $origin['node'], 2);
+                if ($type === 'Attribute') {
+                    $attributeOrigins[$uuid] = true;
+                    if (isset($node['_new'][AnalystGraphDocumentTool::originKey($origin)])) {
+                        $newAttributeOrigins[$uuid] = true;
+                    }
+                }
+            }
+        }
+        $readable = [];
+        if (!empty($newAttributeOrigins)) {
+            $readable = array_flip(array_map('strtolower', $this->model('CollectionElement')->readableUuids($user, 'Attribute', array_map('strval', array_keys($newAttributeOrigins)))));
+        }
+        $existing = [];
+        if (!empty($attributeOrigins)) {
+            // Soft-deleted attributes count: they can be restored
+            $existing = array_flip(array_map('strtolower', $this->model('MispAttribute')->find('column', [
+                'conditions' => ['Attribute.uuid' => array_map('strval', array_keys($attributeOrigins))],
+                'fields' => ['Attribute.uuid'],
+            ])));
+        }
+
+        do {
+            $inDocument = [];
+            foreach ($nodes as $node) {
+                if (AnalystGraphDocumentTool::isAnswer($node)) {
+                    $inDocument[$node['uuid']] = true;
+                }
+            }
+            $changed = false;
+            foreach ($nodes as $i => $node) {
+                if (!AnalystGraphDocumentTool::isAnswer($node)) {
+                    continue;
+                }
+                $origins = [];
+                $alive = false;
+                foreach ($node['origins'] as $origin) {
+                    list($type, $uuid) = explode(':', $origin['node'], 2);
+                    $new = isset($node['_new'][AnalystGraphDocumentTool::originKey($origin)]);
+                    if ($type === 'Value') {
+                        $live = true;
+                    } elseif ($type === 'Attribute') {
+                        $live = isset($existing[$uuid]);
+                        if ($new && !isset($readable[$uuid])) {
+                            continue;
+                        }
+                    } else {
+                        $live = isset($inDocument[$uuid]);
+                        if ($new && !$live) {
+                            continue;
+                        }
+                    }
+                    $origins[] = $origin;
+                    $alive = $alive || $live;
+                }
+                if (!$alive) {
+                    unset($nodes[$i]);
+                    $changed = true;
+                    continue;
+                }
+                if (count($origins) !== count($node['origins'])) {
+                    $nodes[$i]['origins'] = $origins;
+                    $changed = true;
+                }
+            }
+        } while ($changed);
+
+        foreach ($nodes as $i => $node) {
+            unset($nodes[$i]['_new']);
+        }
+        $incoming['nodes'] = array_values($nodes);
+        return $incoming;
     }
 
     /**
@@ -405,7 +874,7 @@ class AnalystGraphData extends AppModel
      * @return array
      */
     private function edges(array $user, array $eventUuids, array $objects,
-        array $attributes, array $clusters, array $values, array $events
+        array $attributes, array $clusters, array $values, array $events, array $answers
     ) {
         $keys = [];
         foreach ($eventUuids as $uuid) {
@@ -537,7 +1006,52 @@ class AnalystGraphData extends AppModel
                 }
             }
         }
+
+        foreach ($answers as $answer) {
+            $keys['ModuleAnswer:' . $answer['uuid']] = true;
+        }
+        foreach ($answers as $answer) {
+            foreach ($answer['origins'] as $origin) {
+                if (!isset($keys[$origin['node']])) {
+                    continue;
+                }
+                $add([
+                    'id' => 'enrichment:' . $origin['node'] . '>' . $answer['uuid'] . ':' . $origin['module'],
+                    'kind' => 'enrichment',
+                    'from' => $origin['node'],
+                    'to' => 'ModuleAnswer:' . $answer['uuid'],
+                    'label' => $origin['module'],
+                    'module' => $origin['module'],
+                ]);
+            }
+        }
         return array_values($edges);
+    }
+
+    /**
+     * The values of these answers that MISP holds where the user can see
+     * them: the "already in MISP" chips, recomputed for each reader.
+     *
+     * @param array $user
+     * @param array $nodes Visible nodes
+     * @return string[]
+     */
+    public function knownAnswerValues(array $user, array $nodes)
+    {
+        $answers = $this->answersOf($nodes);
+        if (empty($answers)) {
+            return [];
+        }
+        return $this->model('ValueIntelligence')->knownAnswerValues($user, array_column($answers, 'content'));
+    }
+
+    /**
+     * @param array $nodes
+     * @return array The module answers among them
+     */
+    private function answersOf(array $nodes)
+    {
+        return array_values(array_filter($nodes, ['AnalystGraphDocumentTool', 'isAnswer']));
     }
 
     /**

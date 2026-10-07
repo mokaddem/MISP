@@ -252,6 +252,21 @@ class GraphSyncTestModel
     }
 }
 
+/**
+ * What a push keeps of a graph's module answers, for each server: here,
+ * everything, and which server it was asked for.
+ */
+class GraphSyncTestAnswers
+{
+    public $servers = array();
+
+    public function documentForServer(array $document, array $server)
+    {
+        $this->servers[] = $server['Server']['id'];
+        return $document;
+    }
+}
+
 class GraphSyncTestGraph extends Graph
 {
     public $alias = 'Graph';
@@ -482,6 +497,7 @@ class GraphSyncTest extends TestCase
             'Opinion' => new GraphSyncTestModel('Opinion'),
             'Relationship' => new GraphSyncTestModel('Relationship'),
             'Graph' => new GraphSyncTestGraph($graphs),
+            'AnalystGraphData' => new GraphSyncTestAnswers(),
         );
     }
 
@@ -807,6 +823,11 @@ class GraphSyncTest extends TestCase
             return $request[1] === 'Graph';
         }), 2);
         $this->assertCount(2, $uploads);
+        $this->assertSame(
+            array($this->server['Server']['id'], $this->server['Server']['id']),
+            ClassRegistry::$instances['AnalystGraphData']->servers,
+            'each graph keeps the module answers that server may receive'
+        );
         $first = $uploads[0]['Graph'];
         $this->assertSame($this->uuid(9000), $first['content']['nodes'][0]['uuid']);
         $this->assertTrue($first['locked']);

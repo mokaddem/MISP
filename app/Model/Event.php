@@ -11698,7 +11698,9 @@ class Event extends AppModel
      * @param array $event As fetchSimpleEvent returns it
      * @param array $data `Attribute[]`, `Object[]` (each with its own
      *   `ObjectReference[]`), and `ObjectReference[]` from an object the
-     *   event already holds; every element carries a client uuid
+     *   event already holds; every element carries a client uuid, and a result
+     *   may carry `origins`, the uuids of the attributes it was asked about,
+     *   whose distribution caps its own
      * @return array `results`: sent uuid => `state` saved|existing|failed,
      *   the `uuid` the event holds it under, a `message` when failed; and
      *   the overall `message`
@@ -11707,12 +11709,13 @@ class Event extends AppModel
     {
         $eventId = $event['Event']['id'];
         $distribution = $this->Attribute->defaultDistribution();
+        $sharingFor = $this->__enrichmentSharing($eventId, $distribution, $data);
         $attributeFields = array_flip(['uuid', 'type', 'category', 'value', 'to_ids', 'comment', 'object_relation']);
         $types = $this->Attribute->typeDefinitions;
         // The category MISP would give it on save, so the duplicate check
         // compares like with like.
-        $shape = function (array $attribute) use ($attributeFields, $distribution, $types) {
-            $attribute = array_intersect_key($attribute, $attributeFields) + ['distribution' => $distribution];
+        $shape = function (array $attribute, array $sharing) use ($attributeFields, $types) {
+            $attribute = array_intersect_key($attribute, $attributeFields) + $sharing;
             if (empty($attribute['category']) && isset($types[$attribute['type'] ?? '']['default_category'])) {
                 $attribute['category'] = $types[$attribute['type']]['default_category'];
             }
@@ -11726,7 +11729,7 @@ class Event extends AppModel
         foreach ($data['Attribute'] ?? [] as $attribute) {
             if (is_array($attribute) && Validation::uuid($attribute['uuid'] ?? '')) {
                 unset($attribute['object_relation']);
-                $resolved['Attribute'][] = $shape($attribute);
+                $resolved['Attribute'][] = $shape($attribute, $sharingFor($attribute));
                 $sentAttributes[] = $attribute['uuid'];
             }
         }
@@ -11754,10 +11757,11 @@ class Event extends AppModel
                 continue;
             }
             $template = $templates[$name]['ObjectTemplate'];
+            $sharing = $sharingFor($object);
             $attributes = [];
             foreach ($object['Attribute'] ?? [] as $attribute) {
                 if (is_array($attribute) && Validation::uuid($attribute['uuid'] ?? '')) {
-                    $attributes[] = $shape($attribute);
+                    $attributes[] = $shape($attribute, $sharing);
                 }
             }
             $references = [];
@@ -11777,10 +11781,9 @@ class Event extends AppModel
                 'template_uuid' => $template['uuid'],
                 'template_version' => $template['version'],
                 'comment' => (string)($object['comment'] ?? ''),
-                'distribution' => $distribution,
                 'Attribute' => $attributes,
                 'ObjectReference' => $references,
-            ];
+            ] + $sharing;
             // Saved before, from this origin or another: the event keeps its
             // copy, and gains this origin's reference.
             $duplicate = $this->Object->duplicateObjectUuid($resolvedObject, $eventId);
@@ -11855,6 +11858,109 @@ class Event extends AppModel
             }
         }
         return ['results' => $results, 'message' => trim($message)];
+    }
+
+    /**
+     * How each enrichment result is shared: the default distribution, unless
+     * the narrowest of its `origins` (attribute uuids) in this event is
+     * narrower, in which case the result takes that origin's distribution and
+     * sharing group. An origin is as narrow as the narrowest of itself, its
+     * object and the event. Origins elsewhere, or values, leave the default.
+     *
+     * @param int $eventId
+     * @param int|string $default
+     * @param array $data As saveEnrichmentResults() takes it
+     * @return callable Given a result, returns its distribution fields
+     */
+    private function __enrichmentSharing($eventId, $default, array $data)
+    {
+        $originsOf = function ($result) {
+            $origins = is_array($result) && is_array($result['origins'] ?? null) ? $result['origins'] : [];
+            return array_values(array_filter($origins, function ($uuid) {
+                return is_string($uuid) && Validation::uuid($uuid);
+            }));
+        };
+        $uuids = [];
+        foreach (array_merge($data['Attribute'] ?? [], $data['Object'] ?? []) as $result) {
+            $uuids = array_merge($uuids, $originsOf($result));
+        }
+        $defaultSharing = ['distribution' => $default];
+        if (empty($uuids)) {
+            return function () use ($defaultSharing) {
+                return $defaultSharing;
+            };
+        }
+
+        $event = $this->find('first', [
+            'conditions' => ['Event.id' => $eventId],
+            'fields' => ['Event.distribution', 'Event.sharing_group_id'],
+            'recursive' => -1,
+        ]);
+        $eventLevel = [(int)$event['Event']['distribution'], $event['Event']['sharing_group_id']];
+        $attributes = $this->Attribute->find('all', [
+            'conditions' => [
+                'Attribute.uuid' => array_values(array_unique($uuids)),
+                'Attribute.event_id' => $eventId,
+                'Attribute.deleted' => 0,
+            ],
+            'fields' => ['Attribute.uuid', 'Attribute.distribution', 'Attribute.sharing_group_id', 'Attribute.object_id'],
+            'recursive' => -1,
+        ]);
+        $objectIds = array_values(array_filter(array_unique(Hash::extract($attributes, '{n}.Attribute.object_id'))));
+        $objects = empty($objectIds) ? [] : Hash::combine($this->Object->find('all', [
+            'conditions' => ['Object.id' => $objectIds],
+            'fields' => ['Object.id', 'Object.distribution', 'Object.sharing_group_id'],
+            'recursive' => -1,
+        ]), '{n}.Object.id', '{n}.Object');
+
+        // From narrowest to widest: your organisation, a sharing group, then community upward
+        $rank = function (array $level) {
+            return [0 => 0, 4 => 1, 1 => 2, 2 => 3, 3 => 4][$level[0]] ?? 4;
+        };
+        $narrowest = function (array $levels) use ($rank) {
+            $out = null;
+            foreach ($levels as $level) {
+                if ($out === null || $rank($level) < $rank($out)) {
+                    $out = $level;
+                }
+            }
+            return $out;
+        };
+        $levelOf = [];
+        foreach ($attributes as $row) {
+            $attribute = $row['Attribute'];
+            $chain = [$eventLevel];
+            $object = $objects[$attribute['object_id']] ?? null;
+            if ($object !== null && (int)$object['distribution'] !== 5) {
+                $chain[] = [(int)$object['distribution'], $object['sharing_group_id']];
+            }
+            if ((int)$attribute['distribution'] !== 5) {
+                $chain[] = [(int)$attribute['distribution'], $attribute['sharing_group_id']];
+            }
+            $levelOf[strtolower($attribute['uuid'])] = $narrowest($chain);
+        }
+        $defaultLevel = (int)$default === 5 ? $eventLevel : [(int)$default, null];
+
+        return function ($result) use ($originsOf, $levelOf, $narrowest, $rank, $defaultLevel, $defaultSharing) {
+            $levels = [];
+            foreach ($originsOf($result) as $uuid) {
+                if (isset($levelOf[strtolower($uuid)])) {
+                    $levels[] = $levelOf[strtolower($uuid)];
+                }
+            }
+            $origin = empty($levels) ? null : $narrowest($levels);
+            if ($origin === null) {
+                return $defaultSharing;
+            }
+            $narrower = $rank($origin) < $rank($defaultLevel)
+                || ($origin[0] === 4 && $defaultLevel[0] === 4 && (string)$origin[1] !== (string)$defaultLevel[1]);
+            if (!$narrower) {
+                return $defaultSharing;
+            }
+            return $origin[0] === 4
+                ? ['distribution' => 4, 'sharing_group_id' => $origin[1]]
+                : ['distribution' => $origin[0]];
+        };
     }
 
     /**

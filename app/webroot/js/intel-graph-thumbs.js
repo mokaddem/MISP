@@ -42,13 +42,14 @@
     var LONG_PRESS = 450;
     var AT_ONCE = 4;
     // Drawn bottom to top: the hubs (events, clusters) stay visible on a crowd
-    var ORDER = { Attribute: 0, Value: 1, Object: 2, GalaxyCluster: 3, Event: 4 };
+    var ORDER = { Attribute: 0, Value: 1, ModuleAnswer: 1, Object: 2, GalaxyCluster: 3, Event: 4 };
     var TYPES = [
         { type: 'Event', one: 'event', many: 'events' },
         { type: 'Object', one: 'object', many: 'objects' },
         { type: 'Attribute', one: 'attribute', many: 'attributes' },
         { type: 'GalaxyCluster', one: 'cluster', many: 'clusters' },
-        { type: 'Value', one: 'value', many: 'values' }
+        { type: 'Value', one: 'value', many: 'values' },
+        { type: 'ModuleAnswer', one: 'module answer', many: 'module answers' }
     ];
     // Never over the row the preview belongs to
     var SIDES = {
@@ -163,6 +164,10 @@
         if (type === 'Object') {
             var s = round(r * 1.75);
             return svgEl('rect', { x: round(x - s / 2), y: round(y - s / 2), width: s, height: s, class: cls }, parent);
+        }
+        if (type === 'ModuleAnswer') {
+            var t = round(r * 1.25);
+            return svgEl('path', { d: 'M' + x + ' ' + (y - t) + 'L' + (x + t) + ' ' + (y + t * 0.8) + 'L' + (x - t) + ' ' + (y + t * 0.8) + 'Z', class: cls }, parent);
         }
         if (type === 'GalaxyCluster') {
             var d = round(hubRadius(r, side) * 0.95);

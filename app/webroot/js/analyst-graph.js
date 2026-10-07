@@ -73,6 +73,9 @@
         var clusters = byUuid(payload.GalaxyCluster);
         var values = byUuid(payload.Value);
         kit.mergePriorities(payload.ui_priorities);
+        // An answer claims who kept it: the graph's organisation
+        var keptBy = (payload.Graph && payload.Graph.Orgc && payload.Graph.Orgc.name) || null;
+        var known = payload.known_values || [];
 
         function owner(rec) {
             var card = cards[rec.event_id] || {};
@@ -90,7 +93,7 @@
             (obj.Attribute || []).forEach(function (a) { parentOf[lower(a.uuid)] = 'obj:' + lower(obj.uuid); });
         });
 
-        var idOf = {}, keyOf = {}, folded = {}, clusterIdOf = {}, valueIdOf = {};
+        var idOf = {}, keyOf = {}, folded = {}, clusterIdOf = {}, valueIdOf = {}, answerIdOf = {};
         var positioned = 0, drawn = 0;
         doc.nodes.forEach(function (n) {
             var uuid = lower(n.uuid);
@@ -129,6 +132,10 @@
                         valueIdOf[uuid] = node.id;
                     }
                     break;
+                case 'ModuleAnswer':
+                    node = kit.answerNode(n, keptBy, known);
+                    answerIdOf[uuid] = node.id;
+                    break;
             }
             if (!node) return;
             node.data.graph_node = true;
@@ -153,6 +160,7 @@
             if (ID_PREFIX[type]) return ID_PREFIX[type] + uuid;
             if (type === 'GalaxyCluster') return clusterIdOf[uuid] || null;
             if (type === 'Value') return valueIdOf[uuid] || null;
+            if (type === 'ModuleAnswer') return answerIdOf[uuid] || null;
             return null;
         }
 
@@ -311,10 +319,18 @@
             });
         }
 
+        // A node as the document would hold it: a module answer whole, with
+        // the origins the enrichment edges that landed it name.
+        function documentNodeOf(node) {
+            var kit = explorer.kit;
+            if (kit.isAnswerNode(node)) return kit.answerItem(node, graph());
+            return documentNode(node);
+        }
+
         // On the canvas but not in the document: a pivot brought it. An
         // object's attributes come and go with the object.
         function isPivoted(node) {
-            return !node.isChild && !state.built.keyOf[node.id] && state.kept.indexOf(node.id) === -1 && !!documentNode(node);
+            return !node.isChild && !state.built.keyOf[node.id] && state.kept.indexOf(node.id) === -1 && !!documentNodeOf(node);
         }
 
         function inDocument(node) {
@@ -446,12 +462,14 @@
         }
 
         // The document's nodes still on the canvas, where they now sit;
-        // the ones not drawn, as stored; then what the user kept.
-        function documentOf() {
+        // the ones not drawn, as stored; then what the user kept. With
+        // `sizes`, each canvas node's share of the bytes is counted into it.
+        function documentOf(sizes) {
             var g = graph();
             var doc = state.payload.document;
             var built = state.built;
             var nodes = [];
+            var measured = sizes ? explorer.kit.size.measured : function () {};
             doc.nodes.forEach(function (n) {
                 var id = built.idOf[nodeKey(n)];
                 if (!id) {
@@ -462,6 +480,7 @@
                 if (!onCanvas) return;
                 if (built.folded[id]) {
                     nodes.push(n);
+                    measured(sizes, onCanvas, n);
                     return;
                 }
                 var out = Object.assign({}, n);
@@ -472,14 +491,18 @@
                 }
                 if (onCanvas.frozen) out.pinned = true;
                 nodes.push(out);
+                measured(sizes, onCanvas, out);
             });
             var seen = {};
             nodes.forEach(function (n) { seen[n.type === 'Value' ? 'Value:' + n.value : nodeKey(n)] = true; });
             state.kept.forEach(function (id) {
                 var node = g.getMutableNode(id);
-                var n = node && documentNode(node);
+                var n = node && documentNodeOf(node);
                 if (!n) return;
-                var key = n.type === 'Value' ? 'Value:' + n.value : nodeKey(n);
+                // The server names an answer; its canvas id is unique meanwhile
+                var key = n.type === 'Value' ? 'Value:' + n.value
+                    : n.type === 'ModuleAnswer' ? 'ModuleAnswer=' + id
+                    : nodeKey(n);
                 if (seen[key]) return;
                 seen[key] = true;
                 if (typeof node.x === 'number') {
@@ -488,6 +511,7 @@
                 }
                 if (node.frozen) n.pinned = true;
                 nodes.push(n);
+                measured(sizes, node, n);
             });
             var hidden = [];
             (doc.hidden_edges || []).forEach(function (id) {
@@ -701,6 +725,11 @@
             revision:   function () { return state.revision; },
             isDirty:    function () { return state.dirty; },
             documentOf: documentOf,
+            // { document, sizes }: what a save would send, and each canvas node's bytes in it
+            measure:    function () {
+                var sizes = {};
+                return { document: documentOf(sizes), sizes: sizes };
+            },
             nodeOf:     nodeOf,
             keep:       keep,
             pivoted:    pivoted,

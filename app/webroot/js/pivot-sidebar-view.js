@@ -442,7 +442,8 @@
         if (!e) return;
         N.push('caution', { first: true, mark: 'wand-magic-sparkles',
                             line: 'Not in MISP: ' + e.modules.join(', ') + ' said this',
-                            why: { text: e.from_store ? 'Stored answer, ' + hoursAgo(e.age) : 'Asked just now' } });
+                            why: { text: e.kept_by ? 'Kept by ' + e.kept_by + (e.age != null ? ', asked ' + hoursAgo(e.age) : '')
+                                       : e.from_store ? 'Stored answer, ' + hoursAgo(e.age) : 'Asked just now' } });
         if (e.untyped) {
             N.push('caution', { mark: 'circle-question', line: 'Untyped by the module',
                                 why: e.candidate_types.length ? { text: 'Also possible: ' + e.candidate_types.join(', ') } : null });

@@ -173,6 +173,7 @@ class AnalystGraphsController extends AppController
         $graph['Graph']['node_count'] = $payload['meta']['nodes'];
         unset($graph['Graph']['content_size']);
         $payload['editable_events'] = $this->__editableEvents(array_keys((array)$payload['events']));
+        $payload['known_values'] = $this->AnalystGraphData->knownAnswerValues($this->Auth->user(), $payload['document']['nodes']);
         return $this->RestResponse->viewData(['Graph' => $this->Graph->typed($graph['Graph'])] + $payload, 'json');
     }
 
@@ -234,8 +235,9 @@ class AnalystGraphsController extends AppController
             throw new BadRequestException(__('A save carries the graph document as content.'));
         }
         $content = $input['content'];
-        $result = $this->Graph->writeContent($graph['Graph']['id'], function () use ($content) {
-            return $content;
+        $user = $this->Auth->user();
+        $result = $this->Graph->writeContent($graph['Graph']['id'], function (array $stored) use ($content, $user) {
+            return $this->Graph->contentForWrite($user, $content, $stored);
         }, (int)$revision);
         return $this->__writeResponse($graph, $result);
     }
@@ -268,9 +270,21 @@ class AnalystGraphsController extends AppController
         $this->request->allowMethod(['post']);
         $graph = $this->__fetchEditableGraph($uuid);
         $items = $this->__items();
+        $user = $this->Auth->user();
         $report = null;
-        $result = $this->Graph->writeContent($graph['Graph']['id'], function (array $document) use ($items, &$report) {
-            list($document, $report) = AnalystGraphDocumentTool::removeNodes($document, $items);
+        $result = $this->Graph->writeContent($graph['Graph']['id'], function (array $document) use ($items, $user, &$report) {
+            // An answer the user cannot see is not theirs to remove
+            $seen = [];
+            foreach ($this->AnalystGraphData->visibleNodes($user, $document['nodes'] ?? []) as $node) {
+                $seen[AnalystGraphDocumentTool::nodeKey($node)] = true;
+            }
+            $hidden = [];
+            foreach ($document['nodes'] ?? [] as $node) {
+                if (AnalystGraphDocumentTool::isAnswer($node) && !isset($seen[AnalystGraphDocumentTool::nodeKey($node)])) {
+                    $hidden[AnalystGraphDocumentTool::nodeKey($node)] = true;
+                }
+            }
+            list($document, $report) = AnalystGraphDocumentTool::removeNodes($document, $items, $hidden);
             return empty($report['removed']) ? null : $document;
         });
         return $this->__writeResponse($graph, $result, $report);
@@ -289,7 +303,7 @@ class AnalystGraphsController extends AppController
         $original = $this->__fetchGraph($uuid);
         $input = $this->__input();
         $document = json_decode($original['Graph']['content'], true) ?: AnalystGraphDocumentTool::emptyDocument();
-        $document['nodes'] = $this->AnalystGraphData->visibleNodes($user, $document['nodes'] ?? []);
+        $document = $this->Graph->contentForWrite($user, $this->AnalystGraphData->documentFor($user, $document));
         $target = isset($input['target']) && is_array($input['target']) ? $input['target'] : [];
         $fork = ['Graph' => [
             'name' => isset($input['name']) && is_string($input['name']) ? $input['name'] : $original['Graph']['name'],
@@ -306,7 +320,7 @@ class AnalystGraphsController extends AppController
         }
         $id = $this->Graph->id;
         $created = $this->Graph->summaries($user, ['Graph.id' => $id])[0];
-        $created['content'] = AnalystGraphDocumentTool::decode($this->Graph->storedContents([$id])[$id]);
+        $created['content'] = $this->AnalystGraphData->documentFor($user, AnalystGraphDocumentTool::decode($this->Graph->storedContents([$id])[$id]));
         return $this->RestResponse->viewData(['Graph' => $created], 'json');
     }
 
@@ -577,7 +591,7 @@ class AnalystGraphsController extends AppController
                 $record['authors'] = $graph['authors'];
             }
             if (array_key_exists('content', $graph)) {
-                $record['content'] = $graph['content'];
+                $record['content'] = $this->Graph->contentForWrite($user, $graph['content']);
             }
             if (empty($record['object_type']) || empty($record['object_uuid'])) {
                 $refuse('object_uuid', __('This graph names no target; choose one to import it onto.'));

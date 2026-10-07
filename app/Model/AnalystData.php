@@ -266,9 +266,18 @@ class AnalystData extends AppModel
                 'action' => $action,
                 'id' => $data['id'],
             ];
-            $triggerData = [$this->alias => $data];
+            $triggerData = [$this->alias => $this->workflowTriggerData($data)];
             $this->executeTrigger('analyst-data-after-save', $triggerData, $workflowErrors, $logging);
         }
+    }
+
+    /**
+     * @param array $data The saved row
+     * @return array What the after-save workflow receives of it
+     */
+    protected function workflowTriggerData(array $data)
+    {
+        return $data;
     }
 
     public function getEditableFields(): array
@@ -1419,9 +1428,14 @@ class AnalystData extends AppModel
     private function prepareEntryForUpload($type, array $analystData, array $server)
     {
         if ($type === 'Graph') {
-            $analystData = ClassRegistry::init('Graph')->attachContent($analystData);
+            $Graph = ClassRegistry::init('Graph');
+            $analystData = $Graph->attachContent($analystData);
             if ($analystData === null) {
                 return __('The graph was deleted before it could be pushed.');
+            }
+            if (is_array($analystData['Graph']['content'])) {
+                $analystData['Graph']['content'] = ClassRegistry::init('AnalystGraphData')
+                    ->documentForServer($analystData['Graph']['content'], $server);
             }
         }
         return $this->prepareForPushToServer($type, $analystData, $server);

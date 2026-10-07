@@ -622,9 +622,14 @@
     // What a module said, when this element is a result of one (enrichment PRD E5).
     function enrichment(d) {
         if (d.scope !== 'module') return null;
+        // Kept in a graph: who kept it, and when the newest of its origins was asked
+        var kept = d.kept_by ? String(d.kept_by) : null;
         return {
             modules: (d.modules && d.modules.length ? d.modules : [d.module]).filter(Boolean),
-            from_store: !!d.from_store, age: d.age == null ? null : Number(d.age),
+            from_store: !!d.from_store,
+            age: kept && d.ran_at ? Math.max(0, Math.floor(Date.now() / 1000) - Number(d.ran_at))
+                : d.age == null ? null : Number(d.age),
+            kept_by: kept,
             untyped: !!d.untyped, candidate_types: d.candidate_types || []
         };
     }

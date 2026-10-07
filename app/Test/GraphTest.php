@@ -1419,4 +1419,587 @@ class GraphTest extends TestCase
         $this->assertSame(array(), $graph->withVisibleCounts(self::analyst(), array()));
         $this->assertCount(1, $graph->asked);
     }
+
+    // ------------------------------------------------------- module answers
+
+    const ORG_ONLY = 'f1000000-0000-4000-8000-000000000061';
+    const OPEN = 'f2000000-0000-4000-8000-000000000062';
+    const GONE = 'f3000000-0000-4000-8000-000000000063';
+    const RAN = 1791100000;
+
+    private static function answer($type, $value, array $origins, $module = 'dns', array $extra = array())
+    {
+        return array(
+            'type' => 'ModuleAnswer',
+            'module' => $module,
+            'origins' => $origins,
+            'content' => array('kind' => 'attribute', 'type' => $type, 'value' => $value, 'category' => 'Network activity', 'comment' => '', 'to_ids' => false),
+        ) + $extra;
+    }
+
+    private static function origin($node, $type, $value, $module = 'dns')
+    {
+        return array('node' => $node, 'module' => $module, 'type' => $type, 'value' => $value, 'ran_at' => self::RAN);
+    }
+
+    private static function answerKey($type, $value)
+    {
+        return 'ModuleAnswer:' . AnalystGraphDocumentTool::answerUuidFor($type, $value);
+    }
+
+    private static function keys(array $nodes)
+    {
+        return array_map(array('AnalystGraphDocumentTool', 'nodeKey'), $nodes);
+    }
+
+    private static function normalised(array $nodes)
+    {
+        list($document, $errors) = AnalystGraphDocumentTool::normalise(array('nodes' => $nodes));
+        if (!empty($errors)) {
+            throw new RuntimeException(implode(' ', $errors));
+        }
+        return $document;
+    }
+
+    /**
+     * Readable attributes, modules reserved away from the user's
+     * organisation, and the attribute uuids the instance still holds.
+     */
+    private function registerAnswerFakes(array $readable, array $reserved = array(), array $existing = null)
+    {
+        $this->fake('CollectionElement')->on('readableUuids', function ($user, $type, $uuids) use ($readable) {
+            return array_values(array_filter($uuids, function ($uuid) use ($readable) {
+                return self::inList($uuid, $readable);
+            }));
+        });
+        $this->fake('Module')->on('canUse', function ($user, $family, $module) use ($reserved) {
+            return !in_array($module['name'], $reserved, true);
+        });
+        $existing = $existing === null ? $readable : $existing;
+        $this->fake('MispAttribute')->on('find', function ($type, $query) use ($existing) {
+            return array_values(array_filter($query['conditions']['Attribute.uuid'], function ($uuid) use ($existing) {
+                return self::inList($uuid, $existing);
+            }));
+        });
+    }
+
+    private function registerAnswerResolveFakes(array $readable)
+    {
+        $this->registerResolveFakes($readable);
+        $this->fake('ObjectReference')->on('find', function () {
+            return array();
+        });
+    }
+
+    public function testAnAnswerIsStoredWithADerivedUuid()
+    {
+        $document = self::normalised(array(
+            self::answer('ip-dst', '203.0.113.7', array(
+                self::origin('Attribute:' . strtoupper(self::ORG_ONLY), 'domain', 'example.com'),
+                self::origin('Value:anything', 'domain', ' example.org ', 'circl_passivedns'),
+            ), 'dns', array('uuid' => self::uuid(1), 'x' => 1.5, 'y' => 2, 'pinned' => 1, 'modules' => array('circl_passivedns', 'dns'), 'extra' => 'dropped')),
+        ));
+
+        $node = $document['nodes'][0];
+        $this->assertSame(self::answerKey('ip-dst', '203.0.113.7'), AnalystGraphDocumentTool::nodeKey($node), 'the client uuid is ignored');
+        $this->assertSame(array('type', 'uuid', 'x', 'y', 'pinned', 'module', 'modules', 'origins', 'content'), array_keys($node));
+        $this->assertSame(array('dns', 'circl_passivedns'), $node['modules'], 'the stored module first');
+        $this->assertSame('Attribute:' . self::ORG_ONLY, $node['origins'][0]['node']);
+        $this->assertSame('Value:' . Value::uuidFor('example.org'), $node['origins'][1]['node'], 'a Value origin is named by its value');
+        $this->assertSame(array('kind' => 'attribute', 'type' => 'ip-dst', 'value' => '203.0.113.7', 'category' => 'Network activity', 'comment' => '', 'to_ids' => false), $node['content']);
+    }
+
+    public function testAnswerIdentityFollowsTheExplorersMerging()
+    {
+        $element = self::normalised(array(array(
+            'type' => 'ModuleAnswer', 'module' => 'legacy', 'origins' => array(self::origin('Value:', 'domain', 'a.example')),
+            'content' => array('kind' => 'element', 'types' => array('ip-dst', 'ip-src'), 'value' => '192.0.2.1'),
+        )))['nodes'][0];
+        $this->assertSame(self::answerKey('ip-dst', '192.0.2.1'), AnalystGraphDocumentTool::nodeKey($element), 'an element is its first type');
+
+        $object = function (array $attributes) {
+            return self::normalised(array(array(
+                'type' => 'ModuleAnswer', 'module' => 'whois', 'origins' => array(self::origin('Value:', 'domain', 'a.example', 'whois')),
+                'content' => array('kind' => 'object', 'name' => 'whois', 'attributes' => $attributes),
+            )))['nodes'][0];
+        };
+        $a = array('relation' => 'registrar', 'type' => 'whois-registrar', 'value' => 'R');
+        $b = array('relation' => 'creation-date', 'type' => 'datetime', 'value' => '2020');
+        $this->assertSame($object(array($a, $b))['uuid'], $object(array($b, $a))['uuid'], 'attribute order does not matter');
+        $this->assertNotSame($object(array($a))['uuid'], $object(array($a, $b))['uuid']);
+        $this->assertSame(array('relation' => 'registrar', 'type' => 'whois-registrar', 'value' => 'R', 'category' => '', 'comment' => '', 'to_ids' => false), $object(array($a))['content']['attributes'][0]);
+    }
+
+    public function testAnAnswerOriginOnAnotherAnswerIsNamedByWhatWasAsked()
+    {
+        $node = self::normalised(array(
+            self::answer('domain', 'b.example', array(self::origin('ModuleAnswer:' . self::uuid(9), 'ip-dst', '192.0.2.1'))),
+        ))['nodes'][0];
+
+        $this->assertSame(self::answerKey('ip-dst', '192.0.2.1'), $node['origins'][0]['node']);
+    }
+
+    public function testAnAnswerIsNotItsOwnOrigin()
+    {
+        $node = self::normalised(array(self::answer('ip-dst', '192.0.2.1', array(
+            self::origin('ModuleAnswer:', 'ip-dst', '192.0.2.1'),
+            self::origin('Value:', 'domain', 'a.example'),
+            self::origin('Value:', 'domain', 'a.example'),
+        ))))['nodes'][0];
+
+        $this->assertSame(array('Value:' . Value::uuidFor('a.example')), array_column($node['origins'], 'node'), 'and an origin is listed once');
+    }
+
+    public function invalidAnswers()
+    {
+        $origin = self::origin('Attribute:' . self::OPEN, 'domain', 'example.com');
+        $base = self::answer('ip-dst', '192.0.2.1', array($origin));
+        $content = function (array $change) use ($base) {
+            return array('content' => $change + $base['content']) + $base;
+        };
+        $origins = array();
+        for ($i = 0; $i <= AnalystGraphDocumentTool::MAX_ANSWER_ORIGINS; $i++) {
+            $origins[] = self::origin('Value:', 'domain', 'v' . $i . '.example');
+        }
+        $attributes = array_fill(0, AnalystGraphDocumentTool::MAX_ANSWER_ATTRIBUTES + 1, array('relation' => 'r', 'type' => 'text', 'value' => 'v'));
+        $noRanAt = $origin;
+        unset($noRanAt['ran_at']);
+        $tooLong = str_repeat('a', AnalystGraphDocumentTool::MAX_ANSWER_STRING_BYTES + 1);
+        return array(
+            'no module' => array(array_diff_key($base, array('module' => 1))),
+            'a dotted module' => array(array('module' => 'a.b') + $base),
+            'no origin' => array(array('origins' => array()) + $base),
+            'an event origin' => array(array('origins' => array(self::origin('Event:' . self::E1, 'domain', 'x'))) + $base),
+            'an origin with no ran_at' => array(array('origins' => array($noRanAt)) + $base),
+            'an origin with a bad uuid' => array(array('origins' => array(self::origin('Attribute:nope', 'domain', 'x'))) + $base),
+            'too many origins' => array(array('origins' => $origins) + $base),
+            'an unknown kind' => array($content(array('kind' => 'note'))),
+            'an empty value' => array($content(array('value' => ''))),
+            'a value too long' => array($content(array('value' => $tooLong))),
+            'a comment too long' => array($content(array('comment' => $tooLong))),
+            'too many object attributes' => array(array('content' => array('kind' => 'object', 'name' => 'o', 'attributes' => $attributes)) + $base),
+            'an element without types' => array(array('content' => array('kind' => 'element', 'types' => array(), 'value' => 'v')) + $base),
+            'modules not a list' => array(array('modules' => 'dns') + $base),
+        );
+    }
+
+    /**
+     * @dataProvider invalidAnswers
+     */
+    public function testInvalidAnswerIsRefused(array $node)
+    {
+        list($document, $errors) = AnalystGraphDocumentTool::normalise(array('nodes' => array($node)));
+
+        $this->assertNull($document);
+        $this->assertNotEmpty($errors);
+        $this->assertStringStartsWith('nodes[0]', $errors[0]);
+    }
+
+    public function testAStringAtTheAnswerLimitIsKept()
+    {
+        $value = str_repeat('a', AnalystGraphDocumentTool::MAX_ANSWER_STRING_BYTES);
+        $node = self::normalised(array(self::answer('text', $value, array(self::origin('Value:', 'domain', 'a.example')))))['nodes'][0];
+
+        $this->assertSame($value, $node['content']['value']);
+    }
+
+    public function testAddNodesTakesNoAnswers()
+    {
+        list($document, $report) = AnalystGraphDocumentTool::addNodes(AnalystGraphDocumentTool::emptyDocument(), array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Value:', 'domain', 'a.example'))),
+            self::valueNode('a.example'),
+        ));
+
+        $this->assertCount(1, $document['nodes']);
+        $this->assertSame(0, $report['refused'][0]['index']);
+    }
+
+    public function testRemoveNodesLeavesWhatItIsToldToKeep()
+    {
+        $document = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Value:', 'domain', 'a.example'))),
+            self::valueNode('a.example'),
+        ));
+        $key = self::answerKey('ip-dst', '192.0.2.1');
+
+        list($after, $report) = AnalystGraphDocumentTool::removeNodes($document, array($key, 'Value:' . Value::uuidFor('a.example')), array($key => true));
+
+        $this->assertSame(array($key), self::keys($after['nodes']));
+        $this->assertSame(array($key), $report['absent'], 'reported as if the document did not hold it');
+    }
+
+    public function testAnAnswerIsSeenThroughAnOriginTheReaderCanSee()
+    {
+        $this->registerAnswerFakes(array(self::OPEN));
+        $document = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::OPEN, 'domain', 'open.example'))),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+            self::answer('ip-dst', '192.0.2.3', array(self::origin('Value:', 'domain', 'value.example'))),
+        ));
+
+        $seen = (new AnalystGraphData())->visibleNodes(self::analyst(), $document['nodes']);
+
+        $this->assertSame(array(self::answerKey('ip-dst', '192.0.2.1'), self::answerKey('ip-dst', '192.0.2.3')), self::keys($seen));
+    }
+
+    public function testAReservedModuleHidesItsAnswerAndItsLinks()
+    {
+        $this->registerAnswerFakes(array(self::OPEN), array('reserved'));
+        $document = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::OPEN, 'domain', 'open.example', 'reserved')), 'dns'),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::OPEN, 'domain', 'open.example')), 'reserved'),
+            self::answer('ip-dst', '192.0.2.3', array(
+                self::origin('Attribute:' . self::OPEN, 'domain', 'open.example', 'reserved'),
+                self::origin('Value:', 'domain', 'open.example'),
+            ), 'dns', array('modules' => array('reserved'))),
+        ));
+
+        $seen = (new AnalystGraphData())->visibleNodes(self::analyst(), $document['nodes']);
+
+        $this->assertSame(array(self::answerKey('ip-dst', '192.0.2.3')), self::keys($seen));
+        $this->assertStringNotContainsString('reserved', json_encode($seen), 'no module the reader may not use is named');
+    }
+
+    public function testAChainOrALoopIsSeenOnlyFromAVisibleRoot()
+    {
+        $this->registerAnswerFakes(array(self::OPEN));
+        $document = self::normalised(array(
+            // a visible root, then a, then b
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::OPEN, 'domain', 'open.example'))),
+            self::answer('domain', 'b.example', array(self::origin('ModuleAnswer:', 'ip-dst', '192.0.2.1'))),
+            // a hidden root, then c, then d
+            self::answer('ip-dst', '192.0.2.3', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+            self::answer('domain', 'd.example', array(self::origin('ModuleAnswer:', 'ip-dst', '192.0.2.3'))),
+            // e and f asked about each other, no root
+            self::answer('ip-dst', '192.0.2.5', array(self::origin('ModuleAnswer:', 'domain', 'f.example'))),
+            self::answer('domain', 'f.example', array(self::origin('ModuleAnswer:', 'ip-dst', '192.0.2.5'))),
+        ));
+
+        $seen = (new AnalystGraphData())->visibleNodes(self::analyst(), $document['nodes']);
+
+        $this->assertSame(array(self::answerKey('ip-dst', '192.0.2.1'), self::answerKey('domain', 'b.example')), self::keys($seen));
+    }
+
+    public function testAReaderGetsOnlyTheOriginsTheyPass()
+    {
+        $this->registerAnswerFakes(array(self::OPEN));
+        $document = self::normalised(array(self::answer('ip-dst', '192.0.2.1', array(
+            self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'),
+            self::origin('Attribute:' . self::OPEN, 'domain', 'open.example'),
+        ))));
+
+        $seen = (new AnalystGraphData())->visibleNodes(self::analyst(), $document['nodes']);
+
+        $this->assertCount(1, $seen);
+        $this->assertSame(array('Attribute:' . self::OPEN), array_column($seen[0]['origins'], 'node'));
+        $this->assertStringNotContainsString(self::ORG_ONLY, json_encode($seen));
+        $this->assertStringNotContainsString('secret.example', json_encode($seen));
+    }
+
+    public function testRestReadKeepsRecordsAsStoredAndFiltersAnswers()
+    {
+        $this->registerAnswerFakes(array(self::OPEN));
+        $document = self::normalised(array(
+            self::node('Attribute', self::ORG_ONLY),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+        ));
+        $data = new AnalystGraphData();
+
+        $rest = $data->documentFor(self::analyst(), $document, true);
+        $read = $data->documentFor(self::analyst(), $document);
+
+        $this->assertSame(array('Attribute:' . self::ORG_ONLY), self::keys($rest['nodes']));
+        $this->assertSame(array(), $read['nodes']);
+    }
+
+    public function testCountsIncludeTheAnswersTheReaderSees()
+    {
+        $this->registerAnswerFakes(array(self::OPEN));
+        $counts = (new AnalystGraphData())->visibleCounts(self::analyst(), array(1 => self::stored(array(
+            self::node('Attribute', self::OPEN),
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::OPEN, 'domain', 'open.example'))),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+        ))));
+
+        $this->assertSame(array(1 => 2), $counts);
+    }
+
+    public function testResolveDrawsAnEnrichmentEdgeFromEachOriginTheReaderPasses()
+    {
+        $this->registerAnswerResolveFakes(array(self::O1, self::A_CHILD1, self::A1));
+        $this->fake('Module')->on('canUse', function () {
+            return true;
+        });
+        $document = self::normalised(array(
+            self::node('Object', self::O1),
+            self::valueNode('a.example'),
+            self::answer('ip-dst', '192.0.2.1', array(
+                self::origin('Attribute:' . self::A_CHILD1, 'ip-dst', '8.8.8.8'),
+                self::origin('Value:', 'domain', 'a.example', 'passive'),
+                self::origin('Attribute:' . self::A1, 'domain', 'not.drawn'),
+            )),
+        ));
+
+        $resolved = (new AnalystGraphData())->resolve(array('id' => 1), $document);
+
+        $answer = self::answerKey('ip-dst', '192.0.2.1');
+        $enrichment = array_values(array_filter($resolved['edges'], function ($e) {
+            return $e['kind'] === 'enrichment';
+        }));
+        $this->assertSame(array(
+            array('Attribute:' . self::A_CHILD1, $answer, 'dns'),
+            array('Value:' . Value::uuidFor('a.example'), $answer, 'passive'),
+        ), array_map(function ($e) {
+            return array($e['from'], $e['to'], $e['label']);
+        }, $enrichment), 'from an attribute inside a drawn object, from a Value; none from what is not drawn');
+        $this->assertSame(3, $resolved['meta']['nodes']);
+    }
+
+    public function testAThumbnailDrawsAnswersAsTheirOwnType()
+    {
+        $this->registerAnswerResolveFakes(array(self::O1, self::A_CHILD1));
+        $this->fake('Module')->on('canUse', function () {
+            return true;
+        });
+        $document = self::normalised(array(
+            self::node('Object', self::O1),
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::A_CHILD1, 'ip-dst', '8.8.8.8'))),
+        ));
+
+        $thumb = (new AnalystGraphData())->thumbnail(array('id' => 1), $document);
+
+        $this->assertSame(array('Object', 'ModuleAnswer'), array_column($thumb['nodes'], 'type'));
+        $this->assertCount(1, $thumb['edges']);
+        list($from, $to, $kind) = $thumb['edges'][0];
+        $this->assertSame(array(0, 1, 'enrichment'), array(min($from, $to), max($from, $to), $kind), 'joined to the object holding its origin');
+    }
+
+    public function testANewAnswerKeepsOnlyOriginsTheWriterCanName()
+    {
+        $this->registerAnswerFakes(array(self::OPEN), array(), array(self::OPEN, self::ORG_ONLY));
+        $incoming = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(
+                self::origin('Attribute:' . self::OPEN, 'domain', 'open.example'),
+                self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'),
+            )),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+            self::answer('domain', 'c.example', array(self::origin('ModuleAnswer:', 'ip-dst', '198.51.100.1'))),
+        ));
+
+        $out = (new AnalystGraphData())->documentForWrite(self::analyst(), $incoming);
+
+        $this->assertSame(array(self::answerKey('ip-dst', '192.0.2.1')), self::keys($out['nodes']));
+        $this->assertSame(array('Attribute:' . self::OPEN), array_column($out['nodes'][0]['origins'], 'node'));
+        $this->assertArrayNotHasKey('_new', $out['nodes'][0]);
+    }
+
+    public function testAStoredAnswerKeepsItsContentAndGainsOrigins()
+    {
+        $this->registerAnswerFakes(array(self::OPEN));
+        $stored = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Value:', 'domain', 'a.example')), 'dns', array('x' => 1, 'y' => 1, 'pinned' => true)),
+        ));
+        $sent = self::answer('ip-dst', '192.0.2.1', array(
+            self::origin('Value:', 'domain', 'a.example'),
+            self::origin('Attribute:' . self::OPEN, 'domain', 'open.example', 'passive'),
+        ), 'other', array('x' => 5, 'y' => 6));
+        $sent['content']['comment'] = 'rewritten';
+
+        $out = (new AnalystGraphData())->documentForWrite(self::analyst(), self::normalised(array($sent)), json_decode(json_encode($stored), true));
+
+        $node = $out['nodes'][0];
+        $this->assertSame('', $node['content']['comment'], 'the stored content wins');
+        $this->assertSame('dns', $node['module']);
+        $this->assertSame(array('dns', 'passive'), $node['modules']);
+        $this->assertSame(array('Value:' . Value::uuidFor('a.example'), 'Attribute:' . self::OPEN), array_column($node['origins'], 'node'));
+        $this->assertSame(array(5, 6), array($node['x'], $node['y']));
+        $this->assertArrayNotHasKey('pinned', $node, 'the layout is the writer\'s');
+    }
+
+    public function testAWriteKeepsTheAnswersItsWriterCannotSee()
+    {
+        $this->registerAnswerFakes(array(self::OPEN), array(), array(self::OPEN, self::ORG_ONLY));
+        $stored = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::OPEN, 'domain', 'open.example'))),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+            self::node('Attribute', self::OPEN),
+        ));
+
+        $out = (new AnalystGraphData())->documentForWrite(self::analyst(), self::normalised(array(self::node('Attribute', self::OPEN))), $stored);
+
+        $this->assertSame(array('Attribute:' . self::OPEN, self::answerKey('ip-dst', '192.0.2.2')), self::keys($out['nodes']),
+            'the seen answer left out is removed, the hidden one put back');
+    }
+
+    public function testAnAnswerGoesWithTheLastOfItsOrigins()
+    {
+        // ORG_ONLY is still held (soft-deleted, say); GONE was deleted for good
+        $this->registerAnswerFakes(array(self::OPEN, self::ORG_ONLY), array(), array(self::OPEN, self::ORG_ONLY));
+        $stored = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::GONE, 'domain', 'gone.example'))),
+            self::answer('domain', 'b.example', array(self::origin('ModuleAnswer:', 'ip-dst', '192.0.2.1'))),
+            self::answer('ip-dst', '192.0.2.2', array(
+                self::origin('Attribute:' . self::GONE, 'domain', 'gone.example'),
+                self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'kept.example'),
+            )),
+            self::answer('ip-dst', '192.0.2.3', array(self::origin('Value:', 'domain', 'v.example'))),
+        ));
+
+        $out = (new AnalystGraphData())->documentForWrite(self::analyst(), $stored, $stored);
+
+        $this->assertSame(array(self::answerKey('ip-dst', '192.0.2.2'), self::answerKey('ip-dst', '192.0.2.3')), self::keys($out['nodes']),
+            'the chain off a deleted origin goes; one live origin keeps an answer; a Value origin never goes');
+        $this->assertCount(2, $out['nodes'][0]['origins'], 'a stored origin stays once gone');
+    }
+
+    const PUSH_COMMUNITY = 'f4000000-0000-4000-8000-000000000064';
+    const PUSH_ORG_ONLY = 'f5000000-0000-4000-8000-000000000065';
+    const PUSH_GROUP = 'f6000000-0000-4000-8000-000000000066';
+    const PUSH_IN_OBJECT = 'f7000000-0000-4000-8000-000000000067';
+
+    /**
+     * Attributes as a push sees them: in an all-communities event, one
+     * inheriting, one org-only, one shared with a group the server is in, one
+     * inside a community-only object. The remote organisation is 9.
+     */
+    private function registerPushFakes(array &$asked = array())
+    {
+        $attributes = array(
+            array('uuid' => self::PUSH_COMMUNITY, 'event_id' => 1, 'object_id' => 0, 'distribution' => 5, 'sharing_group_id' => 0),
+            array('uuid' => self::PUSH_ORG_ONLY, 'event_id' => 1, 'object_id' => 0, 'distribution' => 0, 'sharing_group_id' => 0),
+            array('uuid' => self::PUSH_GROUP, 'event_id' => 1, 'object_id' => 0, 'distribution' => 4, 'sharing_group_id' => 7),
+            array('uuid' => self::PUSH_IN_OBJECT, 'event_id' => 1, 'object_id' => 3, 'distribution' => 5, 'sharing_group_id' => 0),
+        );
+        $this->fake('MispAttribute')->on('find', function ($type, $query) use ($attributes) {
+            return array_map(function ($a) {
+                return array('Attribute' => $a);
+            }, array_values(array_filter($attributes, function ($a) use ($query) {
+                return self::inList($a['uuid'], $query['conditions']['Attribute.uuid']);
+            })));
+        });
+        $this->fake('Event')
+            ->on('find', function () {
+                return array(array('Event' => array('id' => 1, 'distribution' => 3, 'sharing_group_id' => 0)));
+            })
+            ->on('checkDistributionForPush', function ($object, $server) {
+                $distribution = $object['Event']['distribution'];
+                if ($distribution === 4) {
+                    return in_array($server['Server']['id'], array_column($object['SharingGroup']['SharingGroupServer'], 'server_id'));
+                }
+                return $distribution >= 2;
+            });
+        $this->fake('MispObject')->on('find', function () {
+            return array(array('Object' => array('id' => 3, 'distribution' => 1, 'sharing_group_id' => 0)));
+        });
+        $this->fake('SharingGroup')->on('find', function () {
+            return array(array('SharingGroup' => array('id' => 7, 'roaming' => 0), 'SharingGroupServer' => array(array('server_id' => 2, 'all_orgs' => 1))));
+        });
+        $this->fake('Module')->on('canUse', function ($user, $family, $module) use (&$asked) {
+            $asked[] = $user['org_id'];
+            return $module['name'] !== 'reserved';
+        });
+    }
+
+    private static function pushServer()
+    {
+        return array('Server' => array('id' => 2, 'remote_org_id' => 9, 'internal' => 0), 'RemoteOrg' => array('uuid' => 'org-9'));
+    }
+
+    public function testAPushCarriesTheAnswersWhoseOriginsGoToo()
+    {
+        $asked = array();
+        $this->registerPushFakes($asked);
+        $document = self::normalised(array(
+            self::node('Attribute', self::PUSH_ORG_ONLY),
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::PUSH_COMMUNITY, 'domain', 'c.example'))),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::PUSH_ORG_ONLY, 'domain', 'secret.example'))),
+            self::answer('ip-dst', '192.0.2.3', array(self::origin('Attribute:' . self::PUSH_GROUP, 'domain', 'g.example'))),
+            self::answer('ip-dst', '192.0.2.4', array(self::origin('Attribute:' . self::PUSH_IN_OBJECT, 'domain', 'o.example'))),
+            self::answer('ip-dst', '192.0.2.5', array(self::origin('Value:', 'domain', 'v.example'))),
+            self::answer('ip-dst', '192.0.2.6', array(self::origin('Value:', 'domain', 'v.example')), 'reserved'),
+            self::answer('domain', 'chain.example', array(self::origin('ModuleAnswer:', 'ip-dst', '192.0.2.2'))),
+            self::answer('ip-dst', '192.0.2.8', array(
+                self::origin('Attribute:' . self::PUSH_ORG_ONLY, 'domain', 'secret.example'),
+                self::origin('Attribute:' . self::PUSH_COMMUNITY, 'domain', 'c.example'),
+            )),
+        ));
+        $document['view'] = new stdClass();
+
+        $pushed = (new AnalystGraphData())->documentForServer($document, self::pushServer());
+
+        $this->assertSame(array(
+            'Attribute:' . self::PUSH_ORG_ONLY,
+            self::answerKey('ip-dst', '192.0.2.1'),
+            self::answerKey('ip-dst', '192.0.2.3'),
+            self::answerKey('ip-dst', '192.0.2.5'),
+            self::answerKey('ip-dst', '192.0.2.8'),
+        ), self::keys($pushed['nodes']), 'records as stored; answers whose origin goes there, never a reserved module\'s');
+        $this->assertSame(array('Attribute:' . self::PUSH_COMMUNITY), array_column($pushed['nodes'][4]['origins'], 'node'));
+        $this->assertStringNotContainsString('secret.example', json_encode($pushed));
+        $this->assertSame(array(9), array_values(array_unique($asked)), 'the module test is the remote organisation\'s');
+        $this->assertInstanceOf('stdClass', $pushed['view']);
+    }
+
+    public function testAPushedGraphIsReceivedWithItsAnswers()
+    {
+        $document = self::normalised(array(
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::GONE, 'domain', 'not.here.yet'))),
+        ));
+
+        $graph = new GraphTestGraph();
+        $graph->data = array('Graph' => array());
+        $this->assertTrue($graph->validDocument(array('content' => $document)), 'an origin this instance does not hold yet is no reason to refuse it');
+        $this->assertSame(array(self::answerKey('ip-dst', '192.0.2.1')), self::keys(json_decode($graph->data['Graph']['content'], true)['nodes']));
+    }
+
+    public function testTheAfterSaveWorkflowGetsAnswerKeysOnly()
+    {
+        $graph = new GraphTestTriggerGraph();
+        $stored = self::stored(array(self::answer('ip-dst', '192.0.2.1', array(self::origin('Value:', 'domain', 'a.example')))));
+
+        $data = $graph->triggerData(array('id' => 1, 'content' => $stored));
+
+        $this->assertSame(array(array('type' => 'ModuleAnswer', 'uuid' => AnalystGraphDocumentTool::answerUuidFor('ip-dst', '192.0.2.1'))), json_decode($data['content'], true)['nodes']);
+        $this->assertStringNotContainsString('a.example', $data['content']);
+    }
+
+    public function testPhpSizesReadAsBytes()
+    {
+        $this->assertSame(8388608, AnalystGraphDocumentTool::iniBytes('8M'));
+        $this->assertSame(524288, AnalystGraphDocumentTool::iniBytes('512k'));
+        $this->assertSame(1073741824, AnalystGraphDocumentTool::iniBytes('1G'));
+        $this->assertSame(2048, AnalystGraphDocumentTool::iniBytes('2048'));
+        $this->assertSame(0, AnalystGraphDocumentTool::iniBytes('0'));
+        $this->assertSame(0, AnalystGraphDocumentTool::iniBytes(false));
+    }
+
+    public function testTheSaveLimitIsTheSmallerOfTheDocumentCapAndTheRequestCap()
+    {
+        $limits = AnalystGraphDocumentTool::limits();
+        $post = AnalystGraphDocumentTool::iniBytes(ini_get('post_max_size'));
+        $expected = $post > 0
+            ? min(AnalystGraphDocumentTool::MAX_BYTES, $post - AnalystGraphDocumentTool::REQUEST_OVERHEAD)
+            : AnalystGraphDocumentTool::MAX_BYTES;
+
+        $this->assertSame(array('nodes' => 2000, 'bytes' => $expected, 'document_bytes' => AnalystGraphDocumentTool::MAX_BYTES), $limits);
+    }
+
+    public function testTheAuditLogNamesAnswersByKey()
+    {
+        $summary = AnalystGraphDocumentTool::summariseChange(
+            self::stored(array()),
+            self::stored(array(self::answer('ip-dst', '192.0.2.1', array(self::origin('Value:', 'domain', 'a.example')))))
+        );
+
+        $this->assertSame(array(self::answerKey('ip-dst', '192.0.2.1')), $summary['nodes_added']);
+        $this->assertStringNotContainsString('192.0.2.1', json_encode($summary));
+    }
+}
+
+class GraphTestTriggerGraph extends GraphTestGraph
+{
+    public function triggerData(array $data)
+    {
+        return $this->workflowTriggerData($data);
+    }
 }

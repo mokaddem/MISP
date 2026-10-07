@@ -81,6 +81,9 @@ class AnalystDataController extends AppController
                 if ($this->modelSelection === 'Graph') {
                     // Only a fork records what it was forked from
                     unset($analystData['Graph']['forked_from_uuid']);
+                    if (isset($analystData['Graph']['content'])) {
+                        $analystData['Graph']['content'] = $this->AnalystData->contentForWrite($currentUser, $analystData['Graph']['content']);
+                    }
                 }
                 return $analystData;
             },
@@ -414,8 +417,11 @@ class AnalystDataController extends AppController
                         unset($analystData[$this->modelSelection]['_canEdit']);
                     }
                     if ($this->_isRest()) {
-                        $data[$i] = $this->__decodeGraphContent($analystData);
+                        $data[$i] = $analystData;
                     }
+                }
+                if ($this->_isRest()) {
+                    $data = $this->__decodeGraphContents($data);
                 }
                 if ($this->modelSelection === 'Graph' && !$this->_isRest()) {
                     $data = $this->__countGraphNodes($data);
@@ -690,11 +696,35 @@ class AnalystDataController extends AppController
      */
     private function __decodeGraphContent(array $analystData): array
     {
-        if ($this->modelSelection === 'Graph' && isset($analystData['Graph']['content'])) {
-            App::uses('AnalystGraphDocumentTool', 'Tools');
-            $analystData['Graph']['content'] = AnalystGraphDocumentTool::decode($analystData['Graph']['content']);
+        return $this->__decodeGraphContents([$analystData])[0];
+    }
+
+    /**
+     * Graph documents as REST returns them: records as stored, module answers
+     * only as the requester may see them.
+     *
+     * @param array $rows
+     * @return array
+     */
+    private function __decodeGraphContents(array $rows): array
+    {
+        if ($this->modelSelection !== 'Graph') {
+            return $rows;
         }
-        return $analystData;
+        App::uses('AnalystGraphDocumentTool', 'Tools');
+        $documents = [];
+        foreach ($rows as $i => $row) {
+            if (isset($row['Graph']['content'])) {
+                $documents[$i] = AnalystGraphDocumentTool::decode($row['Graph']['content']);
+            }
+        }
+        $documents = ClassRegistry::init('AnalystGraphData')->documentsFor($this->Auth->user(), array_filter($documents), true);
+        foreach ($rows as $i => $row) {
+            if (isset($row['Graph']['content'])) {
+                $rows[$i]['Graph']['content'] = $documents[$i] ?? null;
+            }
+        }
+        return $rows;
     }
 
     private function __typeSelector($type) {

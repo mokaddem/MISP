@@ -105,6 +105,43 @@ class Graph extends AnalystData
         return true;
     }
 
+    /**
+     * Content as a write by this user stores it (AnalystGraphData::documentForWrite).
+     * A document that does not validate is returned as given, for validation
+     * to report.
+     *
+     * @param array $user
+     * @param array|string|null $content
+     * @param array|null $stored The stored document, decoded; null on create
+     * @return mixed
+     */
+    public function contentForWrite(array $user, $content, $stored = null)
+    {
+        list($document, $errors) = AnalystGraphDocumentTool::normalise($content);
+        if (!empty($errors)) {
+            return $content;
+        }
+        return ClassRegistry::init('AnalystGraphData')->documentForWrite($user, $document, $stored);
+    }
+
+    /**
+     * The saved row as the after-save workflow receives it: workflow modules
+     * can forward data out, so answers go as their keys.
+     *
+     * @param array $data
+     * @return array
+     */
+    protected function workflowTriggerData(array $data)
+    {
+        if (isset($data['content'])) {
+            $document = is_string($data['content']) ? json_decode($data['content'], true) : $data['content'];
+            if (is_array($document)) {
+                $data['content'] = AnalystGraphDocumentTool::encode(AnalystGraphDocumentTool::answersAsKeys($document));
+            }
+        }
+        return $data;
+    }
+
     public function beforeSave($options = [])
     {
         parent::beforeSave($options);
