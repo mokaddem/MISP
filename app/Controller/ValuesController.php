@@ -464,7 +464,7 @@ class ValuesController extends AppController
          * fifth answer would arrive after the sum of the first four —
          * a failure that looks exactly like a slow instance.
          */
-        @session_write_close();
+        $this->_closeSession(true);
         $value = trim($this->__pasted());
         if ($value === '') {
             throw new BadRequestException(__('No value supplied.'));
@@ -1282,7 +1282,7 @@ class ValuesController extends AppController
                 throw new BadRequestException(__('Missing %s.', $key));
             }
         }
-        @session_write_close();
+        $this->_closeSession(true);
         $this->loadModel('ValueIntelligence');
         return $this->RestResponse->viewData(
             $this->ValueIntelligence->forEnrichmentRun(
@@ -1468,10 +1468,11 @@ class ValuesController extends AppController
          * So this is one line for the instances the measurement does
          * not cover. Authentication is done by the time an action
          * runs and this one writes nothing back to the session, so it
-         * costs nothing where it is not needed. Same idiom as
-         * `ServersController::getVersion()`.
+         * costs nothing where it is not needed. `_closeSession()` keeps
+         * the user readable once the session is closed, which an API
+         * key's request, having no session to reopen, needs.
          */
-        @session_write_close();
+        $this->_closeSession(true);
         $this->__renderLivePanel(
             $b64value,
             'forEnrichmentRun',
@@ -1546,7 +1547,7 @@ class ValuesController extends AppController
                 'This endpoint only accepts POST requests.'
             ));
         }
-        @session_write_close();
+        $this->_closeSession(true);
         /*
          * Two surfaces draw this answer and they have different
          * amounts of room: the Overview panel wants every chip the
