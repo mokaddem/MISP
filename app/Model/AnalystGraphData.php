@@ -57,7 +57,7 @@ class AnalystGraphData extends AppModel
         }
         $events = $this->events($user, $uuids['Event'], $objects, $attributes);
 
-        $document['nodes'] = $visible;
+        $document = AnalystGraphDocumentTool::withNodes($document, $visible);
         $document['view'] = (object)($document['view'] ?? []);
         $priorities = $this->model('ObjectTemplate')->uiPrioritiesFor($objects);
         return [
@@ -224,7 +224,7 @@ class AnalystGraphData extends AppModel
         $filtered = $this->filterNodeLists($user, $lists, $keepRecords);
         foreach ($documents as $key => $document) {
             if (is_array($document)) {
-                $documents[$key]['nodes'] = $filtered[$key];
+                $documents[$key] = AnalystGraphDocumentTool::withNodes($document, $filtered[$key]);
             }
         }
         return $documents;
@@ -398,8 +398,7 @@ class AnalystGraphData extends AppModel
                 $out[] = $kept[$node['uuid']];
             }
         }
-        $document['nodes'] = $out;
-        return $document;
+        return AnalystGraphDocumentTool::withNodes($document, $out);
     }
 
     /**
@@ -595,10 +594,15 @@ class AnalystGraphData extends AppModel
             }
             $nodes[] = $kept;
         }
+        $putBack = [];
         foreach ($storedAnswers as $uuid => $node) {
             if (!isset($incomingAnswers[$uuid]) && !isset($seenStored[$uuid])) {
                 $nodes[] = $node;
+                $putBack[AnalystGraphDocumentTool::nodeKey($node)] = true;
             }
+        }
+        if (!empty($putBack) && !empty($stored['groups'])) {
+            $incoming['groups'] = $this->groupsForWrite($user, $incoming['groups'] ?? [], $stored, $putBack, $nodes);
         }
 
         $attributeOrigins = $newAttributeOrigins = [];
@@ -677,8 +681,59 @@ class AnalystGraphData extends AppModel
         foreach ($nodes as $i => $node) {
             unset($nodes[$i]['_new']);
         }
-        $incoming['nodes'] = array_values($nodes);
-        return $incoming;
+        return AnalystGraphDocumentTool::withNodes($incoming, array_values($nodes));
+    }
+
+    /**
+     * The groups a write stores, with the answers it put back in their stored
+     * group: one the writer was shown follows where the write puts its other
+     * members, one they were not shown stays as stored, less the members the
+     * write groups elsewhere or leaves out.
+     *
+     * @param array $user The writer
+     * @param array $groups The write's groups, normalised
+     * @param array $stored The stored document, decoded
+     * @param array $putBack Keys of the answers put back, as keys
+     * @param array $nodes The nodes the write stores
+     * @return array
+     */
+    private function groupsForWrite(array $user, array $groups, array $stored, array $putBack, array $nodes)
+    {
+        $shown = [];
+        $view = AnalystGraphDocumentTool::withNodes($stored, $this->visibleNodes($user, $stored['nodes'] ?? []));
+        foreach ($view['groups'] as $group) {
+            $shown += array_flip($group['members']);
+        }
+        $grouped = [];
+        foreach ($groups as $i => $group) {
+            $grouped += array_fill_keys($group['members'], $i);
+        }
+        $present = array_flip(array_map(['AnalystGraphDocumentTool', 'nodeKey'], $nodes));
+        foreach ($stored['groups'] as $group) {
+            $members = $group['members'] ?? [];
+            $back = array_values(array_intersect($members, array_keys($putBack)));
+            if (empty($back)) {
+                continue;
+            }
+            $others = array_diff($members, $back);
+            if (!empty(array_intersect_key($shown, array_flip($others)))) {
+                foreach ($others as $key) {
+                    if (isset($grouped[$key])) {
+                        $groups[$grouped[$key]]['members'] = array_merge($groups[$grouped[$key]]['members'], $back);
+                        break;
+                    }
+                }
+                continue;
+            }
+            $group['members'] = array_values(array_filter($members, function ($key) use ($putBack, $present, $grouped) {
+                return isset($putBack[$key]) || (isset($present[$key]) && !isset($grouped[$key]));
+            }));
+            if (count($group['members']) >= 2) {
+                $grouped += array_fill_keys($group['members'], count($groups));
+                $groups[] = $group;
+            }
+        }
+        return $groups;
     }
 
     /**

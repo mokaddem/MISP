@@ -15,8 +15,9 @@ App::uses('Value', 'Model');
  *                  "origins": [{"node": "Attribute:…", "module": "dns", "type": "domain",
  *                               "value": "example.com", "ran_at": 1791100000}],
  *                  "content": {"kind": "attribute", "type": "ip-dst", "value": "203.0.113.7", …}}],
+ *       "groups": [{"title": "C2", "members": ["Attribute:<uuid>", "Value:<uuid>"], "x": 0, "y": 0}],
  *       "hidden_edges": ["relationship:<uuid>"],
- *       "view": {"layout": "force", "zoom": 1.0, "center": [0, 0]}
+ *       "view": {"layout": "force", "zoom": 1.0, "center": [0, 0], "rules": {"neighbours": false}}
  *     }
  */
 class AnalystGraphDocumentTool
@@ -30,6 +31,8 @@ class AnalystGraphDocumentTool
     const MAX_VALUE_BYTES = 1024;
     const MAX_EDGE_ID_LENGTH = 255;
     const MAX_LAYOUT_LENGTH = 32;
+    const MAX_TITLE_LENGTH = 255;
+    const MAX_RULES = 32;
     const SUMMARY_LIST_LIMIT = 100;
 
     /** MISP's own attribute value limit: what MISP could not store, a graph cannot keep. */
@@ -94,6 +97,7 @@ class AnalystGraphDocumentTool
         return [
             'version' => self::VERSION,
             'nodes' => [],
+            'groups' => [],
             'hidden_edges' => [],
             'view' => [],
         ];
@@ -153,6 +157,13 @@ class AnalystGraphDocumentTool
             $seen[$key] = $i;
             $document['nodes'][] = $node;
         }
+
+        $groups = $content['groups'] ?? [];
+        if (!self::isList($groups)) {
+            $errors[] = __('groups must be a list.');
+            $groups = [];
+        }
+        $document['groups'] = self::normaliseGroups($groups, $seen, $errors);
 
         $hiddenEdges = $content['hidden_edges'] ?? [];
         if (!self::isList($hiddenEdges)) {
@@ -276,6 +287,33 @@ class AnalystGraphDocumentTool
     }
 
     /**
+     * The document holding only these nodes: a group keeps the members still
+     * in it, and goes with fewer than two.
+     *
+     * @param array $document A stored document, decoded
+     * @param array $nodes Nodes of that document
+     * @return array
+     */
+    public static function withNodes(array $document, array $nodes)
+    {
+        $document['nodes'] = $nodes;
+        $present = array_flip(self::nodeKeysOf($nodes));
+        $groups = [];
+        foreach ($document['groups'] ?? [] as $group) {
+            $members = array_values(array_filter($group['members'] ?? [], function ($key) use ($present) {
+                return isset($present[$key]);
+            }));
+            if (count($members) < 2) {
+                continue;
+            }
+            $group['members'] = $members;
+            $groups[] = $group;
+        }
+        $document['groups'] = $groups;
+        return $document;
+    }
+
+    /**
      * Remove nodes from a stored document, named as nodes or as the
      * `Type:uuid` keys addNodes() reports. A node in $kept stays, reported
      * absent like one the document does not hold.
@@ -308,8 +346,7 @@ class AnalystGraphDocumentTool
             $remaining[] = $node;
         }
         $report['absent'] = array_keys($wanted);
-        $document['nodes'] = $remaining;
-        return [$document, $report];
+        return [self::withNodes($document, $remaining), $report];
     }
 
     /**
@@ -445,7 +482,7 @@ class AnalystGraphDocumentTool
             }
             $normalised[$axis] = $node[$axis];
         }
-        foreach (['pinned', 'collapsed'] as $flag) {
+        foreach (['pinned', 'collapsed', 'pulled_out'] as $flag) {
             if (!empty($node[$flag])) {
                 $normalised[$flag] = true;
             }
@@ -547,9 +584,9 @@ class AnalystGraphDocumentTool
     public static function withoutAnswers(array $document)
     {
         if (isset($document['nodes']) && is_array($document['nodes'])) {
-            $document['nodes'] = array_values(array_filter($document['nodes'], function ($node) {
+            $document = self::withNodes($document, array_values(array_filter($document['nodes'], function ($node) {
                 return !is_array($node) || !self::isAnswer($node);
-            }));
+            })));
         }
         return $document;
     }
@@ -835,6 +872,77 @@ class AnalystGraphDocumentTool
     }
 
     /**
+     * @param array $groups
+     * @param array $nodeKeys The document's node keys, as keys
+     * @param string[] $errors
+     * @return array
+     */
+    private static function normaliseGroups(array $groups, array $nodeKeys, array &$errors)
+    {
+        $normalised = [];
+        $groupOf = [];
+        foreach ($groups as $i => $group) {
+            if (!is_array($group) || (!empty($group) && self::isList($group))) {
+                $errors[] = sprintf('groups[%s]: %s', $i, __('must be an object.'));
+                continue;
+            }
+            $members = $group['members'] ?? null;
+            if (!self::isList($members)) {
+                $errors[] = sprintf('groups[%s]: %s', $i, __('members must be a list.'));
+                continue;
+            }
+            $keys = [];
+            foreach ($members as $member) {
+                $key = self::keyOf($member);
+                if ($key === null) {
+                    $errors[] = sprintf('groups[%s]: %s', $i, __('a member is not a node.'));
+                    continue 2;
+                }
+                if (isset($groupOf[$key])) {
+                    $errors[] = sprintf('groups[%s]: %s', $i, __('%s is already in groups[%s].', $key, $groupOf[$key]));
+                    continue 2;
+                }
+                if (isset($nodeKeys[$key])) {
+                    $keys[$key] = true;
+                }
+            }
+            $out = [];
+            if (isset($group['title'])) {
+                $title = is_string($group['title']) ? trim($group['title']) : null;
+                if ($title === null || mb_strlen($title) > self::MAX_TITLE_LENGTH) {
+                    $errors[] = sprintf('groups[%s]: %s', $i, __('title must be a string of at most %s characters.', self::MAX_TITLE_LENGTH));
+                    continue;
+                }
+                if ($title !== '') {
+                    $out['title'] = $title;
+                }
+            }
+            $out['members'] = array_keys($keys);
+            foreach (['x', 'y'] as $axis) {
+                if (!isset($group[$axis])) {
+                    continue;
+                }
+                if (!self::isFiniteNumber($group[$axis])) {
+                    $errors[] = sprintf('groups[%s]: %s', $i, __('%s must be a number.', $axis));
+                    continue 2;
+                }
+                $out[$axis] = $group[$axis];
+            }
+            if (!empty($group['open'])) {
+                $out['open'] = true;
+            }
+            if (count($keys) < 2) {
+                continue;
+            }
+            foreach ($out['members'] as $key) {
+                $groupOf[$key] = $i;
+            }
+            $normalised[] = $out;
+        }
+        return $normalised;
+    }
+
+    /**
      * @param array $view
      * @param string[] $errors
      * @return array
@@ -862,6 +970,20 @@ class AnalystGraphDocumentTool
                 $normalised['center'] = [$center[0], $center[1]];
             } else {
                 $errors[] = __('view.center must be [x, y].');
+            }
+        }
+        if (isset($view['rules'])) {
+            $rules = $view['rules'];
+            $valid = is_array($rules) && (empty($rules) || !self::isList($rules)) && count($rules) <= self::MAX_RULES;
+            foreach ($valid ? $rules : [] as $id => $enabled) {
+                if (!is_string($id) || strlen($id) > self::MAX_LAYOUT_LENGTH || !is_bool($enabled)) {
+                    $valid = false;
+                }
+            }
+            if (!$valid) {
+                $errors[] = __('view.rules must map at most %s rule ids to true or false.', self::MAX_RULES);
+            } elseif (!empty($rules)) {
+                $normalised['rules'] = $rules;
             }
         }
         return $normalised;

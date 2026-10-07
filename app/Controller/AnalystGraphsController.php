@@ -67,10 +67,13 @@ class AnalystGraphsController extends AppController
         $this->set('canEdit', !empty($summary['_canEdit']));
         $this->set('canFork', $canAnalyst);
         $labels = ClassRegistry::init('AnalystProfile')->pivotLabels($user);
+        $canGraph = $this->ACL->canUserAccess($user, 'analystData', 'add')
+            && $this->ACL->canUserAccess($user, 'analystGraphs', 'save');
         $this->set('explorer', [
             'canEdit' => !empty($user['Role']['perm_site_admin']) || !empty($user['Role']['perm_modify']),
             'canAnalyst' => $canAnalyst,
             'analystSharing' => $canAnalyst ? $this->__analystSharing($user, $summary) : null,
+            'graphSharing' => $canGraph ? $this->__analystSharing($user, $summary) : null,
             'labelPlan' => $labels['plan'],
             'permitted' => $labels['permitted'],
         ]);
@@ -440,8 +443,7 @@ class AnalystGraphsController extends AppController
         $graphs = [];
         foreach ($rows as $i => $row) {
             $graph = $row['Graph'];
-            $document = $documents[$i];
-            $document['nodes'] = $visible[$i];
+            $document = AnalystGraphDocumentTool::withNodes($documents[$i], $visible[$i]);
             $document['view'] = (object)($document['view'] ?? []);
             $graphs[] = ['Graph' => [
                 'uuid' => $graph['uuid'],

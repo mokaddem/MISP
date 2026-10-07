@@ -394,9 +394,60 @@ class GraphTest extends TestCase
                 array('type' => 'Attribute', 'uuid' => strtolower(self::ATTRIBUTE), 'x' => 120, 'y' => -40.5, 'pinned' => true),
                 array('type' => 'Value', 'uuid' => Value::uuidFor('8.8.8.8'), 'value' => '8.8.8.8'),
             ),
+            'groups' => array(),
             'hidden_edges' => array('relationship:a'),
             'view' => array('layout' => 'force', 'zoom' => 1.5, 'center' => array(0, 0)),
         ), $document);
+    }
+
+    public function testGroupsAreNormalised()
+    {
+        list($document, $errors) = AnalystGraphDocumentTool::normalise(array(
+            'nodes' => array(
+                self::node('Event', self::EVENT, array('pulled_out' => 1)),
+                self::node('Attribute', self::ATTRIBUTE),
+                self::valueNode('8.8.8.8'),
+                self::node('Attribute', self::uuid(1)),
+                self::node('Attribute', self::uuid(2)),
+            ),
+            'groups' => array(
+                array('title' => '  C2  ', 'members' => array('Attribute:' . self::ATTRIBUTE, self::valueNode('8.8.8.8'), 'Event:' . self::uuid(9)),
+                      'x' => 10, 'y' => -2.5, 'open' => 1, 'rule' => 'dropped'),
+                array('title' => '', 'members' => array(self::node('Attribute', self::uuid(1)), 'Attribute:' . self::uuid(2))),
+                array('members' => array('Event:' . self::EVENT, 'Event:' . self::uuid(9))),
+            ),
+            'view' => array('rules' => array('neighbours' => false, 'chains' => true)),
+        ));
+
+        $this->assertSame(array(), $errors);
+        $this->assertSame(array('type' => 'Event', 'uuid' => self::EVENT, 'pulled_out' => true), $document['nodes'][0]);
+        $this->assertSame(array(
+            array('title' => 'C2', 'members' => array('Attribute:' . strtolower(self::ATTRIBUTE), 'Value:' . Value::uuidFor('8.8.8.8')),
+                  'x' => 10, 'y' => -2.5, 'open' => true),
+            array('members' => array('Attribute:' . self::uuid(1), 'Attribute:' . self::uuid(2))),
+        ), $document['groups']);
+        $this->assertSame(array('neighbours' => false, 'chains' => true), $document['view']['rules']);
+    }
+
+    public function testWithNodesNarrowsGroups()
+    {
+        list($document) = AnalystGraphDocumentTool::normalise(array(
+            'nodes' => array(self::node('Event', self::EVENT), self::node('Attribute', self::uuid(1)), self::node('Attribute', self::uuid(2))),
+            'groups' => array(
+                array('members' => array('Event:' . self::EVENT, 'Attribute:' . self::uuid(1))),
+                array('members' => array('Attribute:' . self::uuid(2), 'Event:' . self::uuid(9))),
+            ),
+        ));
+        $this->assertCount(1, $document['groups']);
+
+        $narrowed = AnalystGraphDocumentTool::withNodes($document, array_slice($document['nodes'], 1));
+        $this->assertSame(array(), $narrowed['groups']);
+        $this->assertCount(2, $narrowed['nodes']);
+
+        list($removed) = AnalystGraphDocumentTool::removeNodes($document, array('Attribute:' . self::uuid(2)));
+        $this->assertCount(1, $removed['groups']);
+        list($removed) = AnalystGraphDocumentTool::removeNodes($document, array('Attribute:' . self::uuid(1)));
+        $this->assertSame(array(), $removed['groups']);
     }
 
     public function testJsonStringIsAccepted()
@@ -409,7 +460,7 @@ class GraphTest extends TestCase
     public function testEmptyDocumentEncodesViewAsAnObject()
     {
         $this->assertSame(
-            '{"version":1,"nodes":[],"hidden_edges":[],"view":{}}',
+            '{"version":1,"nodes":[],"groups":[],"hidden_edges":[],"view":{}}',
             AnalystGraphDocumentTool::encode(AnalystGraphDocumentTool::emptyDocument())
         );
     }
@@ -441,6 +492,21 @@ class GraphTest extends TestCase
             'hidden edge not a string' => array(array('hidden_edges' => array(array('id' => 1)))),
             'view as a list' => array(array('view' => array(1, 2))),
             'bad zoom' => array(array('view' => array('zoom' => 0))),
+            'groups not a list' => array(array('groups' => array('a' => array()))),
+            'group members not a list' => array(array('groups' => array(array('members' => 'Event:' . self::EVENT)))),
+            'group member not a node' => array(array('nodes' => array(self::node('Event', self::EVENT)), 'groups' => array(array('members' => array('Event:' . self::EVENT, 'Tag:1'))))),
+            'member in two groups' => array(array(
+                'nodes' => array(self::node('Event', self::EVENT), self::node('Attribute', self::ATTRIBUTE), self::node('Attribute', self::uuid(1))),
+                'groups' => array(
+                    array('members' => array('Event:' . self::EVENT, 'Attribute:' . self::ATTRIBUTE)),
+                    array('members' => array('Event:' . self::EVENT, 'Attribute:' . self::uuid(1))),
+                ),
+            )),
+            'group title not a string' => array(array('groups' => array(array('members' => array(), 'title' => 3)))),
+            'group title too long' => array(array('groups' => array(array('members' => array(), 'title' => str_repeat('a', 256))))),
+            'group position not a number' => array(array('groups' => array(array('members' => array(), 'x' => '1')))),
+            'rules as a list' => array(array('view' => array('rules' => array(true)))),
+            'rule not a boolean' => array(array('view' => array('rules' => array('neighbours' => 1)))),
         );
     }
 
@@ -507,7 +573,7 @@ class GraphTest extends TestCase
 
         $this->assertTrue($graph->validDocument(array('content' => $graph->data['Graph']['content'])));
         $this->assertSame(
-            '{"version":1,"nodes":[{"type":"Attribute","uuid":"' . strtolower(self::ATTRIBUTE) . '"}],"hidden_edges":[],"view":{}}',
+            '{"version":1,"nodes":[{"type":"Attribute","uuid":"' . strtolower(self::ATTRIBUTE) . '"}],"groups":[],"hidden_edges":[],"view":{}}',
             $graph->data['Graph']['content']
         );
     }
@@ -1452,9 +1518,9 @@ class GraphTest extends TestCase
         return array_map(array('AnalystGraphDocumentTool', 'nodeKey'), $nodes);
     }
 
-    private static function normalised(array $nodes)
+    private static function normalised(array $nodes, array $groups = array())
     {
-        list($document, $errors) = AnalystGraphDocumentTool::normalise(array('nodes' => $nodes));
+        list($document, $errors) = AnalystGraphDocumentTool::normalise(array('nodes' => $nodes, 'groups' => $groups));
         if (!empty($errors)) {
             throw new RuntimeException(implode(' ', $errors));
         }
@@ -1831,6 +1897,65 @@ class GraphTest extends TestCase
             'the seen answer left out is removed, the hidden one put back');
     }
 
+    public function testAReadNarrowsGroupsToWhatTheReaderSees()
+    {
+        $this->registerAnswerFakes(array(self::OPEN));
+        $document = self::normalised(array(
+            self::node('Attribute', self::OPEN),
+            self::node('Attribute', self::ORG_ONLY),
+            self::valueNode('a.example'),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+            self::valueNode('b.example'),
+        ), array(
+            array('title' => 'Seen', 'members' => array('Attribute:' . self::OPEN, 'Attribute:' . self::ORG_ONLY, self::valueNode('a.example'))),
+            array('title' => 'Unseen', 'members' => array(self::answerKey('ip-dst', '192.0.2.2'), self::valueNode('b.example'))),
+        ));
+        $data = new AnalystGraphData();
+
+        $read = $data->documentFor(self::analyst(), $document);
+        $rest = $data->documentFor(self::analyst(), $document, true);
+
+        $this->assertSame(array(
+            array('title' => 'Seen', 'members' => array('Attribute:' . self::OPEN, 'Value:' . Value::uuidFor('a.example'))),
+        ), $read['groups']);
+        $this->assertStringNotContainsString(self::ORG_ONLY, json_encode($read));
+        $this->assertStringNotContainsString('Unseen', json_encode($read), 'a group left with one member goes, title and all');
+        $this->assertSame(array('Seen'), array_column($rest['groups'], 'title'));
+        $this->assertCount(3, $rest['groups'][0]['members'], 'records as stored');
+    }
+
+    public function testAWriteKeepsTheHiddenAnswersInTheirGroups()
+    {
+        $this->registerAnswerFakes(array(self::OPEN), array(), array(self::OPEN, self::ORG_ONLY));
+        $shown = self::answerKey('ip-dst', '192.0.2.1');
+        $unshown = self::answerKey('ip-dst', '192.0.2.2');
+        $stored = self::normalised(array(
+            self::node('Attribute', self::OPEN),
+            self::valueNode('a.example'),
+            self::valueNode('b.example'),
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::ORG_ONLY, 'domain', 'secret.example'))),
+        ), array(
+            array('title' => 'Shown', 'members' => array('Attribute:' . self::OPEN, self::valueNode('a.example'), $shown)),
+            array('title' => 'Unshown', 'x' => 4, 'members' => array(self::valueNode('b.example'), $unshown)),
+        ));
+        $nodes = array(self::node('Attribute', self::OPEN), self::valueNode('a.example'), self::valueNode('b.example'));
+        $data = new AnalystGraphData();
+
+        $out = $data->documentForWrite(self::analyst(), self::normalised($nodes, array(
+            array('title' => 'Renamed', 'members' => array('Attribute:' . self::OPEN, self::valueNode('a.example'))),
+        )), $stored);
+
+        $this->assertSame(array(
+            array('title' => 'Renamed', 'members' => array('Attribute:' . self::OPEN, 'Value:' . Value::uuidFor('a.example'), $shown)),
+            array('title' => 'Unshown', 'members' => array('Value:' . Value::uuidFor('b.example'), $unshown), 'x' => 4),
+        ), $out['groups'], 'a shown group follows the write; one the writer was not shown stays as stored');
+
+        $out = $data->documentForWrite(self::analyst(), self::normalised($nodes), $stored);
+
+        $this->assertSame(array('Unshown'), array_column($out['groups'], 'title'), 'a shown group the writer ungrouped stays ungrouped');
+    }
+
     public function testAnAnswerGoesWithTheLastOfItsOrigins()
     {
         // ORG_ONLY is still held (soft-deleted, say); GONE was deleted for good
@@ -1938,6 +2063,30 @@ class GraphTest extends TestCase
         $this->assertStringNotContainsString('secret.example', json_encode($pushed));
         $this->assertSame(array(9), array_values(array_unique($asked)), 'the module test is the remote organisation\'s');
         $this->assertInstanceOf('stdClass', $pushed['view']);
+    }
+
+    public function testAPushNarrowsGroupsToTheAnswersThatGo()
+    {
+        $asked = array();
+        $this->registerPushFakes($asked);
+        $document = self::normalised(array(
+            self::node('Attribute', self::PUSH_ORG_ONLY),
+            self::answer('ip-dst', '192.0.2.1', array(self::origin('Attribute:' . self::PUSH_COMMUNITY, 'domain', 'c.example'))),
+            self::answer('ip-dst', '192.0.2.2', array(self::origin('Attribute:' . self::PUSH_ORG_ONLY, 'domain', 'secret.example'))),
+            self::answer('domain', 'x.example', array(self::origin('Attribute:' . self::PUSH_ORG_ONLY, 'domain', 'secret.example'))),
+            self::valueNode('v.example'),
+        ), array(
+            array('members' => array(self::answerKey('ip-dst', '192.0.2.1'), self::answerKey('ip-dst', '192.0.2.2'), self::valueNode('v.example'))),
+            array('title' => 'Org only', 'members' => array('Attribute:' . self::PUSH_ORG_ONLY, self::answerKey('domain', 'x.example'))),
+        ));
+
+        $pushed = (new AnalystGraphData())->documentForServer($document, self::pushServer());
+
+        $this->assertSame(array(
+            array('members' => array(self::answerKey('ip-dst', '192.0.2.1'), 'Value:' . Value::uuidFor('v.example'))),
+        ), $pushed['groups']);
+        $this->assertStringNotContainsString(self::answerKey('ip-dst', '192.0.2.2'), json_encode($pushed));
+        $this->assertStringNotContainsString('Org only', json_encode($pushed));
     }
 
     public function testAPushedGraphIsReceivedWithItsAnswers()
