@@ -181,6 +181,8 @@
             classes.push('is-swatch');
         } else if (!stacked) {
             classes.push(member || display !== 'full' ? 'is-tight' : 'is-single');
+        } else if (!member) {
+            classes.push('is-stacked');
         }
         if (hasNv) classes.push('has-meter');
         if (hs[2]) {

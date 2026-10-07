@@ -387,6 +387,8 @@ class TagChipHelper extends AppHelper
             $classes[] = 'is-swatch';
         } elseif (!$stacked) {
             $classes[] = $member || $display !== 'full' ? 'is-tight' : 'is-single';
+        } elseif (!$member) {
+            $classes[] = 'is-stacked';
         }
         if ($hasNv) {
             $classes[] = 'has-meter';

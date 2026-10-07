@@ -188,6 +188,19 @@
 .hinge-tags .hg-chip.is-single .hg-tail {
     flex: 0 1 auto;
 }
+/* A lone chip boxes its value the way a block boxes each member. */
+.hinge-tags .hg-chip.is-stacked {
+    row-gap: 3px;
+}
+.hinge-tags .hg-chip.is-stacked .hg-tail {
+    justify-self: start;
+    max-width: 100%;
+    padding: 1px 6px 2px;
+    background: var(--hg-raised);
+    border: 1px solid var(--hg-raised-border);
+    border-radius: 4px;
+    box-shadow: var(--hg-raised-shadow);
+}
 /* Outlined, not inverted: an inverted pill would need the page background. */
 .hinge-tags .hg-rel {
     flex: none;
