@@ -784,7 +784,7 @@
         toggle.setAttribute('aria-label', 'Whose graphs');
         head.appendChild(toggle);
         into.appendChild(head);
-        var holder = el('div', asDropdown ? '' : 'list-group');
+        var holder = el('div', asDropdown ? 'ig-so-list' : 'list-group');
         into.appendChild(holder);
         var buttons = SCOPES.map(function (s) {
             var b = el('button', 'btn btn-outline-primary', s.label);
