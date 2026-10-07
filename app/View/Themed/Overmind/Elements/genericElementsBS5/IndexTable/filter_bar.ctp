@@ -590,6 +590,12 @@ var filterBarConfig = <?= json_encode([
             ))), JSON_UNESCAPED_UNICODE) ?>,
             results: '#index-results',
             swap: ['#headerCountBadge', '.index-filter-pager', '.index-active-filters'],
+            // The swapped-in results arrive in the server's default view.
+            onApplied: function () {
+                if (scope.querySelector('#viewCard')) {
+                    setView(isMobile() ? 'card' : (localStorage.getItem('indexViewMode') || 'table'), false, scope);
+                }
+            },
             strings: <?= IndexFilterDraft::stringsJson() ?>,
         });
     }

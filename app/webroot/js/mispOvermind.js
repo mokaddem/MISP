@@ -6694,6 +6694,7 @@ function initScaffoldFilterDraft(bar, cfg) {
         extraChips: extraChips,
         results: cfg.results,
         swap: cfg.swap,
+        onApplied: cfg.onApplied,
         rootLinks: ['.index-filter-pager a[href]'],
         resultLinks: ['.pagination a[href]', 'thead a[href]'],
         // A tab that drives its own URLs — the attribute list inside an event
