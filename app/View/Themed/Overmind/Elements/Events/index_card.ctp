@@ -180,9 +180,16 @@ $popover = function ($label, array $chips) {
             $unresolved = $c['count'];
         }
     }
+    $lists = $this->TagChip->lists([], $clusters) . $this->TagChip->lists($tags);
+    // Many short lists flow into columns about 360px tall; a list that already
+    // spreads over columns of its own keeps the popover to itself.
+    $cols = 1;
+    if (strpos($lists, 'data-cols="2"') === false && strpos($lists, 'data-cols="3"') === false) {
+        $height = 45 * substr_count($lists, 'hg-card-head') + 21 * substr_count($lists, 'class="hg-row');
+        $cols = max(1, min(3, (int)ceil($height / 360)));
+    }
     return '<div class="dk-pop"><div class="dk-pop-head">' . h($label) . '</div>'
-        . $this->TagChip->lists([], $clusters)
-        . $this->TagChip->lists($tags)
+        . '<div class="dk-pop-body" data-cols="' . $cols . '">' . $lists . '</div>'
         . ($unresolved ? '<div class="dk-pop-note">' . h(__n(
             '%s galaxy tag whose cluster is not available here',
             '%s galaxy tags whose cluster is not available here',
