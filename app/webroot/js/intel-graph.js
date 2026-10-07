@@ -137,9 +137,10 @@
         });
     }
 
-    // { graphs, active } — the organisation's graphs the user may edit.
-    function list() {
-        return request('GET', graphPath('editable')).then(function (out) {
+    // { graphs, active } — the organisation's graphs the user may edit; with
+    // scope 'mine', only those listing the user among their authors.
+    function list(scope) {
+        return request('GET', graphPath('editable') + (scope === 'mine' ? '?scope=mine' : '')).then(function (out) {
             return { graphs: (out && out.Graph) || [], active: (out && out.active) || null };
         });
     }

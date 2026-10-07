@@ -142,15 +142,16 @@ class AnalystGraphsController extends AppController
 
     /**
      * The organisation's graphs the user may edit, newest first, without
-     * their documents.
+     * their documents; `?scope=mine` keeps those the user authored.
      */
     public function editable()
     {
         $this->request->allowMethod(['get']);
         $user = $this->Auth->user();
         $active = $this->Graph->activeFor($user, false);
+        $mine = ($this->request->query['scope'] ?? null) === 'mine';
         return $this->RestResponse->viewData([
-            'Graph' => $this->Graph->editableBy($user),
+            'Graph' => $this->Graph->editableBy($user, $mine),
             'active' => $active ? $active['uuid'] : null,
         ], 'json');
     }

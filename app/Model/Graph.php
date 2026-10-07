@@ -390,21 +390,39 @@ class Graph extends AnalystData
      * The graphs the user may edit that their organisation created.
      *
      * @param array $user
+     * @param bool $mine Only those naming the user's e-mail among their authors
      * @return array
      */
-    public function editableBy(array $user)
+    public function editableBy(array $user, $mine = false)
     {
         if (empty($user['Role']['perm_site_admin']) && empty($user['Role']['perm_analyst_data'])) {
             return [];
         }
-        $graphs = $this->summaries(
-            $user,
-            [$this->alias . '.orgc_uuid' => $user['Organisation']['uuid']],
-            ['limit' => self::EDITABLE_LIMIT]
-        );
-        return array_values(array_filter($graphs, function ($graph) {
+        $conditions = [$this->alias . '.orgc_uuid' => $user['Organisation']['uuid']];
+        $email = strtolower(trim($user['email'] ?? ''));
+        if ($mine) {
+            if ($email === '') {
+                return [];
+            }
+            $conditions[$this->alias . '.authors LIKE'] = '%' . addcslashes($email, '%_\\') . '%';
+        }
+        $graphs = $this->summaries($user, $conditions, ['limit' => self::EDITABLE_LIMIT]);
+        $graphs = array_filter($graphs, function ($graph) {
             return !empty($graph['_canEdit']);
-        }));
+        });
+        if ($mine && !empty($graphs)) {
+            $authors = $this->find('list', [
+                'conditions' => [$this->alias . '.id' => array_column($graphs, 'id')],
+                'fields' => [$this->alias . '.id', $this->alias . '.authors'],
+                'recursive' => -1,
+                'callbacks' => false,
+            ]);
+            $graphs = array_filter($graphs, function ($graph) use ($authors, $email) {
+                $names = preg_split('/[\s,;]+/', strtolower($authors[$graph['id']] ?? ''), -1, PREG_SPLIT_NO_EMPTY);
+                return in_array($email, $names, true);
+            });
+        }
+        return array_values($graphs);
     }
 
     /**

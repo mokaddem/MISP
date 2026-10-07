@@ -94,8 +94,9 @@
     function write(key, value) {
         try { window.localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* kept for this page only */ }
     }
-    var prefs = Object.assign({ open: false, width: 0, wide: false, tray: true, mode: 'docked', win: null }, read(KEY, {}));
+    var prefs = Object.assign({ open: false, width: 0, wide: false, tray: true, mode: 'docked', win: null, scope: 'org' }, read(KEY, {}));
     if (prefs.mode !== 'floating') prefs.mode = 'docked';
+    if (prefs.scope !== 'mine') prefs.scope = 'org';
     if (!validWin(prefs.win)) prefs.win = null;
     function validWin(w) {
         return !!w && /^[tb][lr]$/.test(w.corner) && ['dx', 'dy', 'w', 'h'].every(function (k) {
@@ -103,7 +104,7 @@
         });
     }
     function remember() {
-        write(KEY, { open: prefs.open, width: prefs.width, wide: prefs.wide, tray: prefs.tray, mode: prefs.mode, win: prefs.win });
+        write(KEY, { open: prefs.open, width: prefs.width, wide: prefs.wide, tray: prefs.tray, mode: prefs.mode, win: prefs.win, scope: prefs.scope });
     }
 
     // Recent arrivals, per graph: what the analyst sent while browsing,
@@ -765,31 +766,74 @@
             renderBanner();
         });
     }
+    var SCOPES = [
+        { key: 'mine', label: 'Mine', head: 'Your graphs', empty: 'No graph names you among its authors yet.' },
+        { key: 'org', label: 'Organisation', head: 'Your organisation’s graphs', empty: 'Your organisation has no graph yet.' }
+    ];
+    function scopeOf(key) {
+        return SCOPES.filter(function (s) { return s.key === key; })[0] || SCOPES[1];
+    }
+    var listSeq = 0;
     function fillSwitcher(into, asDropdown) {
         into.textContent = '';
-        var head = el(asDropdown ? 'h6' : 'p', asDropdown ? 'dropdown-header' : 'small text-body-secondary mb-0', 'Your organisation’s graphs');
+        var head = el('div', 'ig-so-scope' + (asDropdown ? ' dropdown-header' : ''));
+        var title = el(asDropdown ? 'h6' : 'p', asDropdown ? 'mb-0' : 'small text-body-secondary mb-0');
+        head.appendChild(title);
+        var toggle = el('div', 'btn-group btn-group-sm');
+        toggle.setAttribute('role', 'group');
+        toggle.setAttribute('aria-label', 'Whose graphs');
+        head.appendChild(toggle);
         into.appendChild(head);
         var holder = el('div', asDropdown ? '' : 'list-group');
-        holder.appendChild(el('div', 'px-3 py-2 text-body-secondary small', 'Loading…'));
         into.appendChild(holder);
-        IG().list().then(function (out) {
-            holder.textContent = '';
-            var a = IG().active();
-            var activeUuid = lower((a && a.uuid) || out.active);
-            var listed = out.graphs.some(function (g) { return lower(g.uuid) === activeUuid; });
-            if (a && !listed) {
-                var cur = graphRow(a, true, asDropdown, function () { hideMenu(); });
-                cur.disabled = true;
-                cur.querySelector('.ig-so-pick-name').textContent = a.name + ' — read-only';
-                holder.appendChild(cur);
-            }
-            out.graphs.forEach(function (g) { holder.appendChild(graphRow(g, lower(g.uuid) === activeUuid, asDropdown, pick)); });
-            if (!out.graphs.length) holder.appendChild(el('div', 'px-3 py-2 text-body-secondary small', 'Your organisation has no graph yet.'));
-            if (asDropdown && a) holder.appendChild(noneRow());
-        }, function (err) {
-            holder.textContent = '';
-            holder.appendChild(el('div', 'px-3 py-2 text-danger small', 'Could not list the graphs: ' + ((err && err.message) || 'error')));
+        var buttons = SCOPES.map(function (s) {
+            var b = el('button', 'btn btn-outline-primary', s.label);
+            b.type = 'button';
+            b.addEventListener('click', function () {
+                if (prefs.scope === s.key) return;
+                prefs.scope = s.key;
+                remember();
+                load();
+            });
+            toggle.appendChild(b);
+            return b;
         });
+        function load() {
+            var scope = scopeOf(prefs.scope);
+            title.textContent = scope.head;
+            SCOPES.forEach(function (s, i) {
+                buttons[i].classList.toggle('active', s.key === scope.key);
+                buttons[i].setAttribute('aria-pressed', s.key === scope.key ? 'true' : 'false');
+            });
+            var seq = ++listSeq;
+            holder.textContent = '';
+            holder.appendChild(el('div', 'px-3 py-2 text-body-secondary small', 'Loading…'));
+            IG().list(scope.key).then(function (out) {
+                if (seq !== listSeq) return;
+                holder.textContent = '';
+                var a = IG().active();
+                var activeUuid = lower((a && a.uuid) || out.active);
+                var listed = out.graphs.some(function (g) { return lower(g.uuid) === activeUuid; });
+                if (a && !listed) {
+                    if (scope.key === 'mine' && lower(out.active) === lower(a.uuid)) {
+                        holder.appendChild(graphRow(a, true, asDropdown, pick));
+                    } else {
+                        var cur = graphRow(a, true, asDropdown, function () { hideMenu(); });
+                        cur.disabled = true;
+                        cur.querySelector('.ig-so-pick-name').textContent = a.name + ' — read-only';
+                        holder.appendChild(cur);
+                    }
+                }
+                out.graphs.forEach(function (g) { holder.appendChild(graphRow(g, lower(g.uuid) === activeUuid, asDropdown, pick)); });
+                if (!out.graphs.length) holder.appendChild(el('div', 'px-3 py-2 text-body-secondary small', scope.empty));
+                if (asDropdown && a) holder.appendChild(noneRow());
+            }, function (err) {
+                if (seq !== listSeq) return;
+                holder.textContent = '';
+                holder.appendChild(el('div', 'px-3 py-2 text-danger small', 'Could not list the graphs: ' + ((err && err.message) || 'error')));
+            });
+        }
+        load();
         if (asDropdown) into.appendChild(el('div', 'dropdown-divider'));
         into.appendChild(newGraphForm(asDropdown));
     }

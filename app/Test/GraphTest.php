@@ -262,6 +262,13 @@ class GraphTestActiveGraph extends GraphTestGraph
         $this->summaryCalls[] = array($conditions, $options);
         return $this->summaryRows;
     }
+
+    public $authors = array();
+
+    public function find($type = 'first', $query = array())
+    {
+        return array_intersect_key($this->authors, array_flip($query['conditions']['Graph.id']));
+    }
 }
 
 class GraphTestCountedGraph extends GraphTestGraph
@@ -1301,6 +1308,33 @@ class GraphTest extends TestCase
             array('Graph.orgc_uuid' => 'org-1'),
             array('limit' => Graph::EDITABLE_LIMIT),
         )), $graph->summaryCalls);
+    }
+
+    public function testMineKeepsTheGraphsNamingTheUserAmongTheirAuthors()
+    {
+        $graph = new GraphTestActiveGraph();
+        $graph->summaryRows = array(
+            array('id' => 1, 'uuid' => 'a', '_canEdit' => true),
+            array('id' => 2, 'uuid' => 'b', '_canEdit' => true),
+            array('id' => 3, 'uuid' => 'c', '_canEdit' => true),
+            array('id' => 4, 'uuid' => 'd', '_canEdit' => false),
+        );
+        $graph->authors = array(
+            1 => 'Some_One@example.test',
+            2 => 'xsome_one@example.test, colleague@example.test',
+            3 => 'colleague@example.test; some_one@example.test',
+            4 => 'some_one@example.test',
+        );
+        $user = self::analyst() + array('email' => 'some_one@example.test');
+
+        $mine = $graph->editableBy($user, true);
+
+        $this->assertSame(array('a', 'c'), array_column($mine, 'uuid'));
+        $this->assertSame(array(array(
+            array('Graph.orgc_uuid' => 'org-1', 'Graph.authors LIKE' => '%some\_one@example.test%'),
+            array('limit' => Graph::EDITABLE_LIMIT),
+        )), $graph->summaryCalls);
+        $this->assertSame(array(), $graph->editableBy(self::analyst(), true));
     }
 
     public function testTargetsAreLabelledOnlyWhereTheUserCanReadThem()
