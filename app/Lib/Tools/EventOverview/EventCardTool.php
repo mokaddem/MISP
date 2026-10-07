@@ -1,6 +1,7 @@
 <?php
 App::uses('EventContextTool', 'Tools/EventOverview');
 App::uses('DistributionLevel', 'Tools');
+App::uses('ValueLabelPriority', 'Tools/ValueIntelligence');
 
 /**
  * Shapes one event of the index into what its card draws: three one-line
@@ -14,10 +15,13 @@ class EventCardTool
 
     /**
      * @param array $context EventContextTool::rows() output
+     * @param array|null $profile The reader's analyst profile, which ranks
+     *                            the classification row's tags and clusters
+     *                            together
      * @return array attribution / behaviour / classification chip lists, and
      *               the attribution and technique counts
      */
-    public static function rows(array $context)
+    public static function rows(array $context, $profile = null)
     {
         $rows = ['attribution' => [], 'behaviour' => [], 'classification' => []];
         $seen = [];
@@ -90,7 +94,10 @@ class EventCardTool
         foreach ($context['clusters'] ?? [] as $item) {
             $type = $item['cluster']['Galaxy']['type'] ?? $item['key'];
             if ($once('c|' . $type . '|' . $item['name'])) {
-                $rows['classification'][] = self::clusterChip($item, false);
+                $rows['classification'][] = self::clusterChip($item, false) + [
+                    'key' => $type,
+                    'scope' => ValueLabelPriority::GALAXIES,
+                ];
             }
         }
 
@@ -112,6 +119,8 @@ class EventCardTool
                         'label' => $galaxyTag['value'],
                         'galaxy' => $galaxyTag['type'],
                         'source' => ['unheld' => self::unheldCluster($galaxyTag, $galaxies)],
+                        'key' => $galaxyTag['type'],
+                        'scope' => ValueLabelPriority::GALAXIES,
                     ];
                 }
                 continue;
@@ -125,8 +134,11 @@ class EventCardTool
                 'name' => $item['name'],
                 'colour' => $tag['colour'] ?? null,
                 'source' => ['tag' => $item['tag']],
+                'key' => $item['key'],
+                'scope' => ValueLabelPriority::TAXONOMIES,
             ];
         }
+        $rows['classification'] = ValueLabelPriority::across($rows['classification'], $profile);
         if ($folded) {
             $rows['classification'][] = ['kind' => 'fold', 'count' => $folded];
         }
@@ -325,6 +337,7 @@ class EventCardTool
             'relationship' => $cluster['relationship_type'] ?? null,
             'attribution' => $attribution,
             'source' => ['cluster' => $cluster],
+            'priority' => $item['priority'] ?? null,
         ];
     }
 

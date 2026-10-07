@@ -1300,7 +1300,7 @@ class EventsController extends AppController
             }
             $sharingGroupId = (int)($e['sharing_group_id'] ?? 0);
             $events[$k]['EventCard'] = [
-                'rows' => EventCardTool::rows($context),
+                'rows' => EventCardTool::rows($context, $profile),
                 'markings' => EventCardTool::markings($context, $markingNamespaces),
                 'state' => EventCardTool::state($e),
                 'distribution' => EventCardTool::distribution(

@@ -156,6 +156,39 @@ class EventCardToolTest extends TestCase
         $this->assertSame(0, $rows['technique_count'], 'mitigations are not techniques');
     }
 
+    public function testClassificationFollowsTheProfileAcrossTagsAndClusters(): void
+    {
+        $profile = ['context' => [
+            'taxonomies' => ['pinned' => ['tlp', 'admiralty-scale']],
+            'galaxies' => ['preferred' => ['sector']],
+        ]];
+        $tags = [
+            $this->eventTag(1, 'type:OSINT'),
+            $this->eventTag(2, 'admiralty-scale:source-reliability="b"'),
+            $this->galaxyTag(3, 'stix-2.1-attack-pattern', '7e6945c5-7f3b-55f6-bcb7-fa324c6bdaed'),
+        ];
+        $clusters = [
+            $this->cluster(20, 'Kali365', 'tool-sector'),
+            $this->cluster(21, 'Academia - University', 'sector'),
+        ];
+        $context = EventContextTool::rows($tags, $clusters, null, [], [], $profile, ['taxonomies' => ['tlp', 'admiralty-scale']]);
+        $rows = EventCardTool::rows($context, $profile);
+        $this->assertSame(
+            ['tag:b', 'cluster:Academia - University', 'cluster:Kali365', 'tag:OSINT', 'fold:1'],
+            $this->labels($rows['classification'])
+        );
+        $this->assertSame('pinned', $rows['classification'][0]['priority']);
+        $this->assertSame('preferred', $rows['classification'][1]['priority']);
+        $this->assertNull($rows['classification'][2]['priority']);
+
+        $plain = $this->labels($this->rows($tags, $clusters)['classification']);
+        $this->assertSame(
+            ['cluster:Kali365', 'cluster:Academia - University', 'tag:OSINT', 'tag:b', 'fold:1'],
+            $plain,
+            'without a profile, the order is unchanged'
+        );
+    }
+
     public function testEmptyContext(): void
     {
         $rows = $this->rows([], []);
