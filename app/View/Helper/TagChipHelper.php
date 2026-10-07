@@ -102,6 +102,47 @@ class TagChipHelper extends AppHelper
         return $this->wrap($this->renderChip($row, 'flow', $options), $options);
     }
 
+    /**
+     * Tags or clusters as the reference lists a folded block opens onto: one
+     * list per namespace or galaxy, whatever its size, in order of appearance.
+     *
+     * @param array $tags as collection()
+     * @param array $clusters as clusters()
+     * @return string
+     */
+    public function lists(array $tags, array $clusters = [])
+    {
+        $rows = $this->normalise($tags);
+        foreach ($clusters as $cluster) {
+            $row = $this->clusterRow($cluster);
+            if ($row !== null) {
+                $rows[] = $row;
+            }
+        }
+        $groups = [];
+        foreach ($rows as $row) {
+            $namespace = $row['parsed']['namespace'];
+            $key = isset($row['groupKey'])
+                ? "\2" . $row['groupKey']
+                : "\1" . mb_strtolower((string)$namespace);
+            if (!isset($groups[$key])) {
+                $groups[$key] = [
+                    'namespace' => $namespace ?? __('Tags'),
+                    'galaxy' => $row['galaxy'] ?? null,
+                    'rows' => [],
+                ];
+            }
+            $groups[$key]['rows'][] = $row;
+        }
+        $out = '';
+        foreach ($groups as $group) {
+            $first = $group['rows'][0];
+            $style = sprintf('--hg-h:%d;--hg-s:62%%', $first['hue'] ?? TagChipTool::hue($group['namespace']));
+            $out .= $this->renderCard($group, $style, $this->icon($first));
+        }
+        return $out;
+    }
+
     private function renderRows(array $rows, array $options)
     {
         if (empty($rows)) {

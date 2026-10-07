@@ -43,29 +43,14 @@ $fields = [
         'element' => 'id',
         'url' => $baseurl . '/events/view2/%id%',
         'card_section' => 'top',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Distribution'),
-        'data_path' => 'Event.distribution',
-        'element' => 'distribution',
-        'card_section' => 'top',
-        'display_in' => ['card']
+        'display_in' => ['table']
     ],
     [
         'name' => __('Info'),
         'data_path' => 'Event',
         'element' => 'event_info',
         'card_section' => 'title',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Published'),
-        'sort' => 'Event.published',
-        'data_path' => 'Event.published',
-        'element' => 'published',
-        'card_section' => 'top',
-        'display_in' => ['card']
+        'display_in' => ['table']
     ],
     [
         'name' => __('Creator Org'),
@@ -73,15 +58,7 @@ $fields = [
         'data_path' => 'Orgc',
         'element' => 'organisation',
         'card_section' => 'meta',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Owner Org'),
-        'sort' => 'Org.name',
-        'data_path' => 'Org',
-        'element' => 'organisation',
-        'card_section' => 'meta',
-        'display_in' => ['card']
+        'display_in' => ['table']
     ],
     [
         'name' => __('Tags'),
@@ -89,7 +66,7 @@ $fields = [
         'element' => 'tag_list',
         'plan' => $labelPlan ?? null,
         'card_section' => 'tag',
-        'display_in' => ['table', 'card']
+        'display_in' => ['table']
     ],
     [
         'name' => __('Galaxy'),
@@ -97,30 +74,14 @@ $fields = [
         'element' => 'galaxy',
         'plan' => $labelPlan ?? null,
         'card_section' => 'galaxy',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Created'),
-        'data_path' => 'Event.date',
-        'element' => 'datetime',
-        'mode' => 'created',
-        'card_section' => 'meta',
-        'display_in' => ['card']
-    ],
-    [
-        'name' => __('Last Modified'),
-        'data_path' => 'Event.timestamp',
-        'element' => 'datetime',
-        'mode' => 'modified',
-        'card_section' => 'meta',
-        'display_in' => ['card']
+        'display_in' => ['table']
     ],
     [
         'name' => __('Contents'),
         'data_path' => 'Event',
         'element' => 'event_contents',
         'card_section' => 'meta',
-        'display_in' => ['table', 'card']
+        'display_in' => ['table']
     ],
     [
         'name' => __('Actions'),
@@ -128,7 +89,7 @@ $fields = [
         'data_path' => 'Event.id',
         'publish_path' => 'Event.published',
         'card_section' => 'extra',
-        'display_in' => ['table','card'],
+        'display_in' => ['table', 'card'],
         'actions' => [
             [
                 'type' => 'navigate',
@@ -262,11 +223,19 @@ $children[] = [
  * - index_url                     : Base URL for pagination / filters
  */
 
+echo $this->element('genericElements/assetLoader', [
+    'css' => ['events-index-cards'],
+    'js' => ['events-index-cards'],
+]);
+
+echo '<div class="dk-index">';
 echo $this->element('genericElementsBS5/IndexTable/scaffold', [
     'scaffold_data' => [
         'data' => [
             'data' => $events,
-            'cards_per_row' => ['' => 1, 'lg' => 2, 'xxxxl' => 3],
+            // The grid itself is events-index-cards.css: auto-fill, 330px minimum.
+            'cards_per_row' => 1,
+            'card_element' => 'Events/index_card',
             'filter_bar' => [
                 'pull' => 'right',
                 'children' => $children,
@@ -280,3 +249,4 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
     ],
     'item_url' => '/events'
 ]);
+echo '</div>';
