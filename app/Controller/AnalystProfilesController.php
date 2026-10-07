@@ -701,6 +701,60 @@ class AnalystProfilesController extends AppController
     }
 
     /**
+     * Share a site admin's own profile with every user, who may then read,
+     * fork and select it.
+     *
+     * @param int|string|null $id
+     * @return CakeResponse
+     */
+    public function share($id = null)
+    {
+        return $this->__setShared($id, true);
+    }
+
+    /**
+     * Withdraw a shared profile. Readers who selected it fall through to
+     * their next scope; it goes back to its owner disabled.
+     *
+     * @param int|string|null $id
+     * @return CakeResponse
+     */
+    public function unshare($id = null)
+    {
+        return $this->__setShared($id, false);
+    }
+
+    /**
+     * @param int|string|null $id
+     * @param bool $shared
+     * @return CakeResponse
+     */
+    private function __setShared($id, $shared)
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'This endpoint only accepts POST requests.'
+            ));
+        }
+        $user = $this->Auth->user();
+        $this->__profileOr404($user, $id);
+        $row = $this->AnalystProfile->setShared($user, $id, $shared);
+        if ($row === null) {
+            return $this->__refuse(array($this->AnalystProfile->shareError));
+        }
+        return $this->__wrote(
+            array('profile' => $this->AnalystProfile->summarise($row)),
+            sprintf(
+                $shared
+                    ? __('%s is shared: every user can now read, fork and select it.')
+                    : __('%s is no longer shared, and is disabled.'),
+                $row['name']
+            ),
+            array('action' => 'view', $row['id'])
+        );
+    }
+
+    /**
      * Which scope this write is for, checked against D13's permissions.
      *
      * @return string
@@ -800,7 +854,7 @@ class AnalystProfilesController extends AppController
             ));
         }
         $displaced = null;
-        if ($enabled && empty($row['default'])) {
+        if ($enabled && empty($row['default']) && empty($row['shared'])) {
             $displaced = $this->__enabledFor($user, !empty($row['org_id']));
             if ($displaced !== null
                 && (int)$displaced['id'] === (int)$row['id']
@@ -889,9 +943,9 @@ class AnalystProfilesController extends AppController
             ));
         }
         if (!$this->AnalystProfile->delete($row['id'])) {
-            return $this->__refuse(array(__(
-                'The profile could not be deleted.'
-            )));
+            return $this->__refuse($this->__flatten(
+                $this->AnalystProfile->validationErrors
+            ) ?: array(__('The profile could not be deleted.')));
         }
         return $this->__wrote(
             array(
@@ -1603,6 +1657,9 @@ class AnalystProfilesController extends AppController
             'profile' => $this->AnalystProfile->summarise($row),
             'editable' => $editable && $mayEdit,
             'may_edit' => $mayEdit,
+            'may_share' => !empty($user['Role']['perm_site_admin'])
+                && !empty($row['user_id'])
+                && $row['user_id'] == $user['id'],
             'sections' => $form->sections($parameters, $sources),
             'groups' => $form->groups(),
             'bands' => $form->bandStrip($parameters),
@@ -2009,7 +2066,10 @@ class AnalystProfilesController extends AppController
      */
     private function __enabledFor(array $user, $forOrg)
     {
-        $conditions = array('AnalystProfile.enabled' => 1);
+        $conditions = array(
+            'AnalystProfile.enabled' => 1,
+            'AnalystProfile.shared' => 0,
+        );
         if ($forOrg) {
             $conditions['AnalystProfile.org_id'] = $user['org_id'];
         } else {
@@ -2047,6 +2107,7 @@ class AnalystProfilesController extends AppController
         $owners = $this->AnalystProfile->find('all', array(
             'conditions' => array(
                 'AnalystProfile.enabled' => 1,
+                'AnalystProfile.shared' => 0,
                 'AnalystProfile.user_id !=' => null,
             ),
             'fields' => array('AnalystProfile.user_id'),

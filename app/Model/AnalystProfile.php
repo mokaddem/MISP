@@ -58,6 +58,13 @@ class AnalystProfile extends AppModel
      */
     public $selectionError = null;
 
+    /**
+     * Why the last `setShared()` refused, as a sentence for the form.
+     *
+     * @var string|null
+     */
+    public $shareError = null;
+
     public $validate = array(
         'name' => array(
             'notBlank' => array('rule' => 'notBlank'),
@@ -220,7 +227,7 @@ class AnalystProfile extends AppModel
      */
     private function __validateOneEnabledPerOwner(array $data)
     {
-        if (empty($data['enabled'])) {
+        if (empty($data['enabled']) || $this->__isShared($data)) {
             return true;
         }
         $owner = array();
@@ -232,6 +239,7 @@ class AnalystProfile extends AppModel
             return true;
         }
         $owner['AnalystProfile.enabled'] = 1;
+        $owner['AnalystProfile.shared'] = 0;
         if (!empty($data['id'])) {
             $owner['AnalystProfile.id !='] = $data['id'];
         }
@@ -256,6 +264,14 @@ class AnalystProfile extends AppModel
     public function beforeSave($options = array())
     {
         $data = &$this->data[$this->alias];
+        if (!empty($data['id'])
+            && ((array_key_exists('enabled', $data) && empty($data['enabled']))
+                || (array_key_exists('shared', $data) && empty($data['shared'])))
+            && $this->__namedByInstance($data['id'])
+        ) {
+            $this->invalidate('enabled', $this->__instanceGuardMessage());
+            return false;
+        }
         $now = date('Y-m-d H:i:s');
         if (empty($data['id'])) {
             $data['created'] = $now;
@@ -323,6 +339,9 @@ class AnalystProfile extends AppModel
         if (!empty($data['default'])) {
             return;
         }
+        if ($this->__isShared($data + array('id' => $this->id))) {
+            return;
+        }
         $userId = isset($data['user_id']) ? $data['user_id'] : null;
         $orgId = isset($data['org_id']) ? $data['org_id'] : null;
         if (!array_key_exists('user_id', $data)
@@ -350,6 +369,65 @@ class AnalystProfile extends AppModel
         } elseif (!empty($orgId)) {
             ClassRegistry::init('AnalystProfileSelection')->clearFor($orgId);
         }
+    }
+
+    public function beforeDelete($cascade = true)
+    {
+        if ($this->__namedByInstance($this->id)) {
+            $this->invalidate('enabled', $this->__instanceGuardMessage());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Is this row the shared profile the instance setting puts in force?
+     * Switching it off would end assessment scoring for every reader who
+     * selected nothing, so it is refused until the setting names another.
+     *
+     * @param int|string $id
+     * @return bool
+     */
+    private function __namedByInstance($id)
+    {
+        $row = $this->find('first', array(
+            'conditions' => array('AnalystProfile.id' => $id),
+            'fields' => array('AnalystProfile.uuid', 'AnalystProfile.shared'),
+            'recursive' => -1,
+        ));
+        if (empty($row) || empty($row['AnalystProfile']['shared'])) {
+            return false;
+        }
+        $instance = trim((string)Configure::read(
+            'Plugin.ValueIntelligence_instance_profile'
+        ));
+        return $instance === $row['AnalystProfile']['uuid'];
+    }
+
+    private function __instanceGuardMessage()
+    {
+        return __(
+            'This shared profile is the instance profile. Name another one'
+            . ' in Plugin.ValueIntelligence_instance_profile first.'
+        );
+    }
+
+    /**
+     * Whether the row being saved is shared, read from the save or, for a
+     * partial update, from what is stored.
+     *
+     * @param array $data
+     * @return bool
+     */
+    private function __isShared(array $data)
+    {
+        if (array_key_exists('shared', $data)) {
+            return !empty($data['shared']);
+        }
+        if (empty($data['id'])) {
+            return false;
+        }
+        return (bool)$this->field('shared', array('AnalystProfile.id' => $data['id']));
     }
 
     /**
@@ -513,6 +591,7 @@ class AnalystProfile extends AppModel
         if (!empty($ownership)) {
             $branches[] = array(
                 'AnalystProfile.enabled' => 1,
+                'AnalystProfile.shared' => 0,
                 'OR' => $ownership,
             );
         }
@@ -534,7 +613,7 @@ class AnalystProfile extends AppModel
         foreach ($candidates as $candidate) {
             $row = $candidate['AnalystProfile'];
             $byUuid[$row['uuid']] = $row;
-            if (empty($row['enabled'])) {
+            if (empty($row['enabled']) || !empty($row['shared'])) {
                 continue;
             }
             if ($userId !== null && $row['user_id'] == $userId) {
@@ -689,7 +768,7 @@ class AnalystProfile extends AppModel
      */
     public function isSelectableAt(array $user, $scope, array $row)
     {
-        if (!empty($row['default'])) {
+        if (!empty($row['default']) || !empty($row['shared'])) {
             return true;
         }
         if ($scope === 'instance') {
@@ -880,7 +959,10 @@ class AnalystProfile extends AppModel
      */
     private function __enabledOwnedBy(array $user, $scope)
     {
-        $conditions = array('AnalystProfile.enabled' => 1);
+        $conditions = array(
+            'AnalystProfile.enabled' => 1,
+            'AnalystProfile.shared' => 0,
+        );
         if ($scope === 'user') {
             if (empty($user['id'])) {
                 return null;
@@ -915,10 +997,13 @@ class AnalystProfile extends AppModel
      * therefore the more careful reading.
      *
      * @param array $row The unwrapped row
-     * @return string `user`, `org` or `default`
+     * @return string `shared`, `user`, `org` or `default`
      */
     public function scopeOf(array $row)
     {
+        if (!empty($row['shared'])) {
+            return 'shared';
+        }
         if (!empty($row['user_id'])) {
             return 'user';
         }
@@ -929,8 +1014,9 @@ class AnalystProfile extends AppModel
     }
 
     /**
-     * The profiles a viewer may see: their own, their organisation's, and the
-     * instance default. A site admin sees every profile on the instance.
+     * The profiles a viewer may see: their own, their organisation's, the
+     * shipped ones and the enabled shared ones. A site admin sees every
+     * profile on the instance.
      *
      * @param array $user
      * @param array $filters
@@ -944,6 +1030,10 @@ class AnalystProfile extends AppModel
                 array('AnalystProfile.user_id' => $user['id']),
                 array('AnalystProfile.org_id' => $user['org_id']),
                 array('AnalystProfile.default' => 1),
+                array(
+                    'AnalystProfile.shared' => 1,
+                    'AnalystProfile.enabled' => 1,
+                ),
             );
         }
         if (isset($filters['enabled'])) {
@@ -998,6 +1088,9 @@ class AnalystProfile extends AppModel
         if (!empty($row['default'])) {
             return true;
         }
+        if (!empty($row['shared']) && !empty($row['enabled'])) {
+            return true;
+        }
         if (!empty($row['user_id']) && $row['user_id'] == $user['id']) {
             return true;
         }
@@ -1030,7 +1123,7 @@ class AnalystProfile extends AppModel
         $row = isset($profile['AnalystProfile'])
             ? $profile['AnalystProfile']
             : $profile;
-        if (!empty($row['default'])) {
+        if (!empty($row['default']) || !empty($row['shared'])) {
             return false;
         }
         if (!empty($row['user_id'])) {
@@ -1100,6 +1193,62 @@ class AnalystProfile extends AppModel
     }
 
     /**
+     * Share a site admin's own profile with the instance, or withdraw it.
+     *
+     * A shared profile is readable, forkable and selectable by everyone, at
+     * every scope including the instance setting. It stops being its owner's
+     * own answer and only a site admin edits it. Withdrawn, it goes back to
+     * its owner disabled, so it cannot clash with the profile they already
+     * have enabled.
+     *
+     * @param array $user
+     * @param int|string $id
+     * @param bool $shared
+     * @return array|null The saved row, or null with `shareError` set
+     */
+    public function setShared(array $user, $id, $shared)
+    {
+        $this->shareError = null;
+        if (empty($user['Role']['perm_site_admin'])) {
+            $this->shareError = __('Only a site admin can share a profile.');
+            return null;
+        }
+        $row = $this->fetchProfile($user, $id);
+        if (empty($row)) {
+            $this->shareError = __('Invalid analyst profile.');
+            return null;
+        }
+        $row = $row['AnalystProfile'];
+        if (empty($row['user_id']) || $row['user_id'] != $user['id']) {
+            $this->shareError = __(
+                'Only a profile you own personally can be shared.'
+            );
+            return null;
+        }
+        if ((bool)$shared === !empty($row['shared'])) {
+            return $row;
+        }
+        $saved = $this->save(array('AnalystProfile' => array(
+            'id' => $row['id'],
+            'shared' => $shared ? 1 : 0,
+            'enabled' => $shared ? 1 : 0,
+        )), array('fieldList' => array('shared', 'enabled', 'modified')));
+        if (!$saved) {
+            $errors = Hash::flatten($this->validationErrors);
+            $this->shareError = empty($errors)
+                ? __('The profile could not be saved.')
+                : reset($errors);
+            return null;
+        }
+        $this->resolutionCache = array();
+        $stored = $this->find('first', array(
+            'conditions' => array('AnalystProfile.id' => $row['id']),
+            'recursive' => -1,
+        ));
+        return $stored['AnalystProfile'];
+    }
+
+    /**
      * The index board: every profile this reader may see, the one in
      * force, and per row the reason it is not.
      *
@@ -1163,6 +1312,7 @@ class AnalystProfile extends AppModel
                 : null,
             'enabled' => !empty($row['enabled']),
             'default' => !empty($row['default']),
+            'shared' => !empty($row['shared']),
             'version' => (int)$row['version'],
             'revision' => (int)$row['revision'],
             'modified' => isset($row['modified']) ? $row['modified'] : null,
@@ -1187,9 +1337,13 @@ class AnalystProfile extends AppModel
     private function __decorate(array $user, array $row, $inForce,
         array $resolution = array()
     ) {
-        $mine = !empty($row['user_id']) && $row['user_id'] == $user['id'];
+        $shared = !empty($row['shared']);
+        $mine = !$shared && !empty($row['user_id'])
+            && $row['user_id'] == $user['id'];
         $ours = !empty($row['org_id']) && $row['org_id'] == $user['org_id'];
-        if (!empty($row['user_id'])) {
+        if ($shared) {
+            $scopeRank = 0;
+        } elseif (!empty($row['user_id'])) {
             $scopeRank = $mine ? 3 : 1;
         } elseif (!empty($row['org_id'])) {
             $scopeRank = $ours ? 2 : 1;
@@ -1238,6 +1392,9 @@ class AnalystProfile extends AppModel
                 && !$ours
                 && !empty($user['Role']['perm_admin'])
                 && $this->isSelectableAt($user, 'org', $row),
+            'can_share' => !empty($user['Role']['perm_site_admin'])
+                && !empty($row['user_id'])
+                && $row['user_id'] == $user['id'],
         );
         $decorated['standing'] = $this->__standing($user, $row, $inForce,
             $decorated);
@@ -1261,7 +1418,8 @@ class AnalystProfile extends AppModel
         }
         $mine = !empty($row['user_id']) && $row['user_id'] == $user['id'];
         $ours = !empty($row['org_id']) && $row['org_id'] == $user['org_id'];
-        if (!$mine && !$ours && empty($row['default'])) {
+        $reference = !empty($row['default']) || !empty($row['shared']);
+        if (!$mine && !$ours && !$reference) {
             // A site admin looking at somebody else's. It could never
             // have been in force for this reader.
             return array('state' => 'other_owner');
@@ -1276,7 +1434,7 @@ class AnalystProfile extends AppModel
          * *not chosen*, and the difference is the whole of what the
          * selection UI is for.
          */
-        if (!empty($row['default']) && empty($decorated['selected_by'])) {
+        if ($reference && empty($decorated['selected_by'])) {
             return array('state' => 'not_selected');
         }
         if ($inForce === null) {
@@ -1319,16 +1477,19 @@ class AnalystProfile extends AppModel
         }
         if (!empty($row['user_id'])) {
             if ($row['user_id'] == $user['id']) {
-                return __('You');
+                return empty($row['shared']) ? __('You') : __('Shared by you');
             }
             $owner = ClassRegistry::init('User')->find('first', array(
                 'conditions' => array('User.id' => $row['user_id']),
                 'fields' => array('User.email'),
                 'recursive' => -1,
             ));
-            return empty($owner)
+            $name = empty($owner)
                 ? sprintf(__('User #%s'), $row['user_id'])
                 : $owner['User']['email'];
+            return empty($row['shared'])
+                ? $name
+                : sprintf(__('Shared by %s'), $name);
         }
         if (!empty($row['org_id'])) {
             $org = ClassRegistry::init('Organisation')->find('first', array(

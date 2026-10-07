@@ -79,6 +79,12 @@ if ($inForce === null) {
                 $named
             );
             break;
+        case 'shared':
+            $line = sprintf(
+                h(__('Assessments use %s, a shared analyst profile.')),
+                $named
+            );
+            break;
         default:
             $line = sprintf(
                 h(__(

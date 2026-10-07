@@ -2156,6 +2156,8 @@ class Server extends AppModel
                 'AnalystProfile.user_id',
                 'AnalystProfile.org_id',
                 'AnalystProfile.default',
+                'AnalystProfile.shared',
+                'AnalystProfile.enabled',
             ),
             'recursive' => -1,
         ));
@@ -2164,10 +2166,15 @@ class Server extends AppModel
                 . ' If the shipped profiles have not been loaded yet, run'
                 . ' the profile update and this will resolve.';
         }
+        if (!empty($profile['AnalystProfile']['shared'])) {
+            return empty($profile['AnalystProfile']['enabled'])
+                ? 'That shared profile is disabled.'
+                : true;
+        }
         if (empty($profile['AnalystProfile']['default'])) {
             return 'That profile belongs to a user or an organisation.'
-                . ' Only a profile MISP ships can be put in force for the'
-                . ' whole instance.';
+                . ' Only a profile MISP ships or one a site admin shared can'
+                . ' be put in force for the whole instance.';
         }
         return true;
     }
@@ -8803,12 +8810,13 @@ class Server extends AppModel
                  * five opinionated profiles comes into force unless a site
                  * admin names it here.
                  *
-                 * Only a shipped profile can be named. Every other row
-                 * belongs to a user or an organisation, and putting one of
-                 * those in force instance-wide would hand `scopeOf()` a
+                 * Only a shipped or a shared profile can be named. Any other
+                 * row belongs to a user or an organisation, and putting one
+                 * of those in force instance-wide would hand `scopeOf()` a
                  * row whose owner is not the reader - which is the one
                  * assumption that lets `verdictPanels()` describe the
-                 * profile in force without taking a `$user`.
+                 * profile in force without taking a `$user`. A shared row
+                 * is described as shared, never as its owner's.
                  *
                  * Disabling the named profile still switches assessment
                  * scoring off for everyone who owns none, which is how
@@ -8816,7 +8824,7 @@ class Server extends AppModel
                  */
                 'ValueIntelligence_instance_profile' => array(
                     'level' => 1,
-                    'description' => __('The uuid of the Analyst Profile this instance scores values with, for every reader whose organisation and account have selected none. Defaults to the shipped default-v1. It must name a profile MISP ships or one imported as an instance profile; a profile owned by a user or an organisation cannot be put in force here.'),
+                    'description' => __('The uuid of the Analyst Profile this instance scores values with, for every reader whose organisation and account have selected none. Defaults to the shipped default-v1. It must name a profile MISP ships or one a site admin has shared; a profile owned by a user or an organisation cannot be put in force here.'),
                     'value' => '6e2679bc-ebb0-417f-90d8-16cb1d0144ba',
                     'test' => 'testAnalystProfileUuid',
                     'type' => 'string',
