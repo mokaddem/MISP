@@ -344,14 +344,30 @@
 .pes-attrs { list-style: none; margin: 0; padding: 0; }
 .pes-attr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 4px 0; border-top: 1px solid var(--pes-line); }
 .pes-attr:first-child { border-top: 0; }
-.pes-attr-rel, .pes-attr-val { grid-column: 1; }
+.pes-attr-rel, .pes-attr-line { grid-column: 1; }
 .pes-attr-rel { font-size: 12px; color: var(--pes-ink-3); font-weight: 600; }
-.pes-attr-val { font-family: var(--pes-mono); font-size: 12.5px; color: var(--pes-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pes-attr-line { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.pes-attr-val { min-width: 0; font-family: var(--pes-mono); font-size: 12.5px; color: var(--pes-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 a.pes-attr-val:not(.vp-hc-trigger) { text-decoration: none; }
 a.pes-attr-val:not(.vp-hc-trigger):hover { text-decoration: underline; }
 .pes-attr-marks { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 5px; align-items: center; color: var(--pes-ink-3); font-size: 11.5px; }
 .pes-attr-marks .is-warn { color: var(--pes-alarm); }
 .pes-attr-marks .is-known { color: var(--pes-caution); }
+.pes-copy {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; vertical-align: middle;
+    background: none; color: var(--pes-ink-3); font-size: 11px; line-height: 1; cursor: pointer;
+    opacity: 0; transition: opacity .12s, color .12s, background-color .12s;
+}
+.pes-copy:hover { color: var(--h-ink); background: var(--pes-inset); }
+.pes-copy:focus-visible { opacity: 1; outline: 2px solid var(--h-ink); outline-offset: 1px; }
+.pes-copy.is-done { color: var(--h-ink); }
+.pes-copy.is-failed { color: var(--pes-alarm); }
+.pes-attr:hover .pes-copy, .pes-rows dd:hover .pes-copy, .pes-copy.is-done, .pes-copy.is-failed,
+.pes-id > .pes-copy { opacity: 1; }
+.pes-id > .pes-copy { margin-top: 17px; }
+.pes-rows dd .pes-copy { margin-left: 3px; width: 18px; height: 18px; font-size: 10.5px; }
+@media (hover: none) { .pes-copy { opacity: 1; } }
 .pes-attr-more {
     margin-top: 4px; font: inherit; font-size: 12px; color: var(--h-ink); background: none; border: 0; padding: 2px 0; cursor: pointer; font-weight: 600;
 }

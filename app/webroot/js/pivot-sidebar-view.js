@@ -71,6 +71,50 @@
         return n + ' ' + (n === 1 ? one : (many || one + 's'));
     }
 
+    function copyText(text) {
+        var clip = window.navigator && window.navigator.clipboard;
+        if (clip && window.isSecureContext) return clip.writeText(text);
+        return new Promise(function (resolve, reject) {
+            var ta = h('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;opacity:0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            ta.remove();
+            if (ok) resolve(); else reject();
+        });
+    }
+    function copyButton(text, what) {
+        var label = 'Copy ' + (what || 'value');
+        var b = h('button', 'pes-copy');
+        b.type = 'button';
+        b.title = label;
+        b.setAttribute('aria-label', label);
+        add(b, fa('copy'));
+        var timer = null;
+        function settle(cls, glyphName, tip) {
+            clearTimeout(timer);
+            b.classList.remove('is-done', 'is-failed');
+            b.classList.add(cls);
+            b.firstChild.className = 'fa-solid fa-' + glyphName;
+            b.title = tip;
+            timer = setTimeout(function () {
+                b.classList.remove(cls);
+                b.firstChild.className = 'fa-solid fa-copy';
+                b.title = label;
+            }, 1500);
+        }
+        b.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            copyText(String(text)).then(function () { settle('is-done', 'check', 'Copied'); },
+                                        function () { settle('is-failed', 'xmark', 'The browser refused the clipboard'); });
+        });
+        return b;
+    }
+
     function pad(n) { return n < 10 ? '0' + n : String(n); }
     function day(ts) {
         var d = new Date(Number(ts) * 1000);
@@ -643,6 +687,9 @@
             if (vm.entity === 'attribute') {
                 title.classList.add('is-value');
                 if (vm.profile) valueCard(title, vm, vm.profile.b64);
+                if (vm.card.value !== undefined && vm.card.value !== null && vm.card.value !== '') {
+                    add(id, copyButton(vm.card.value));
+                }
             }
         }
         var sub = clusterTitle ? null : subtitle(vm);
@@ -755,7 +802,11 @@
             v.target = '_blank';
             v.rel = 'noopener';
         }
-        return valueCard(v, vm, k.b64);
+        valueCard(v, vm, k.b64);
+        var line = h('div', 'pes-attr-line');
+        add(line, v);
+        if (k.value !== undefined && k.value !== null && k.value !== '') add(line, copyButton(k.value));
+        return line;
     }
 
     function objectTop(vm) {
@@ -815,6 +866,7 @@
             var dd = add(dl, h('dd', r[2] === 'code' ? 'pes-code' : ''));
             if (typeof r[1] === 'object' && r[1].nodeType) dd.appendChild(r[1]);
             else dd.textContent = String(r[1]);
+            if (r[3]) add(dd, copyButton(r[1], r[3]));
             sec.weight++;
         });
         return dl;
@@ -850,7 +902,7 @@
             return !(f.kind === 'time' && !f.value);
         }).map(function (f) {
             var v = f.kind === 'time' ? stamp(f.value) : f.value;
-            return [f.label, v, f.kind === 'code' ? 'code' : null];
+            return [f.label, v, f.kind === 'code' ? 'code' : null, f.key === 'uuid' ? 'UUID' : null];
         });
     }
 
@@ -1076,7 +1128,7 @@
         var r = [];
         if (known) {
             r.push(['Related events', rel.related_events ? String(rel.related_events) : 'None']);
-            if (rel.extends) r.push(['Extends', rel.extends.uuid, 'code']);
+            if (rel.extends) r.push(['Extends', rel.extends.uuid, 'code', 'UUID']);
         }
         rows(sec, r);
         if (!known) { markRecord(vm, sec); recordGate(vm, sec); }
@@ -1233,7 +1285,7 @@
             break;
         case 'feed': case 'server':
             recordSection(vm, list, [['Name', c.name], ['Provider', c.provider], ['Format', c.format],
-                                     ['URL', c.url, 'code'], ['Events', c.events], ['On this canvas', plural(c.attributes_here || 0, 'attribute')]]);
+                                     ['URL', c.url, 'code', 'URL'], ['Events', c.events], ['On this canvas', plural(c.attributes_here || 0, 'attribute')]]);
             break;
         case 'edge':
             recordSection(vm, list, [['Kind', c.kind_label], ['Relationship', c.relationship_type],
@@ -1311,9 +1363,9 @@
         }
         var c = vm.card;
         recordSection(vm, list, [
-            ['Value', c.value], ['Galaxy', d && d.galaxy_name || c.galaxy], ['Tag', c.tag_name, 'code'],
+            ['Value', c.value], ['Galaxy', d && d.galaxy_name || c.galaxy], ['Tag', c.tag_name, 'code', 'tag name'],
             ['Source', d && d.source], ['Authors', d && d.authors && d.authors.length ? d.authors.join(', ') : null],
-            ['UUID', d && d.uuid || vm.uuid, 'code'], ['ID', d && d.id, 'code']
+            ['UUID', d && d.uuid || vm.uuid, 'code', 'UUID'], ['ID', d && d.id, 'code']
         ]);
     }
 
