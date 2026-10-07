@@ -22,6 +22,8 @@
 // may modify (data's editable_events); anything else is a relationship.
 // menus: true adds "Keep in graph", "Remove from graph" and "Hide in this
 // graph" to the canvas menus. onChange(handle) hears every edit a save keeps.
+// saveControls: { save() → Promise }, the page's save: the canvas then
+// carries a Save pill, and "Save as new graph…" for a user with graphSharing.
 //
 // Loaded by IntelGraph.load(), after pivotick.iife, misp-pivot-nodes, the
 // sidebar and pivot-explorer.
@@ -186,10 +188,6 @@
         return { Event: { Attribute: payload.Attribute || [], Object: payload.Object || [] } };
     }
 
-    function round(n) {
-        return Math.round(n * 10) / 10;
-    }
-
     // A node brought onto the canvas, as the document names it.
     function documentNode(node) {
         var d = node.getData() || {};
@@ -207,8 +205,12 @@
     // place, then lets go of those the analyst had not pinned. Without it an
     // add re-runs the layout and moves the saved one.
     function holdLayout(g) {
+        holdNodes(g, g.getMutableNodes());
+    }
+
+    function holdNodes(g, nodes) {
         var held = [];
-        g.getMutableNodes().forEach(function (n) {
+        nodes.forEach(function (n) {
             if (n.frozen || typeof n.x !== 'number' || typeof n.y !== 'number') return;
             n.fx = n.x;
             n.fy = n.y;
@@ -269,6 +271,11 @@
             removed: {},
             hide: {},
             hiddenRaw: {},
+            // The stored group each hand-made canvas group was restored from
+            // or saved as, by canvas group id.
+            groupOf: {},
+            grouping: null,
+            saving: false,
             dirty: false
         };
         var request = config.request;
@@ -303,6 +310,15 @@
         function changed(reason) {
             state.dirty = true;
             if (config.onChange) config.onChange(handle, reason);
+            refreshControls();
+        }
+
+        // The pill re-reads itself once its own save settles; a refresh while
+        // that save is out would leave it busy.
+        function refreshControls() {
+            var g = graph();
+            if (!config.saveControls || state.saving || !g) return;
+            try { g.UIManager.refreshTopBar(); } catch (e) { /* no top bar */ }
         }
 
         function nodesOf(element) {
@@ -366,6 +382,11 @@
                 opts.simulation.warmupTicks = 0;
                 opts.simulation.d3Alpha = 0.05;
             }
+            var rules = (state.payload.document.view || {}).rules || {};
+            ((opts.UI.simplify && opts.UI.simplify.rules) || []).forEach(function (r) {
+                var id = r.id || r.kind;
+                if (typeof rules[id] === 'boolean') r.enabled = rules[id];
+            });
             opts.UI.extraPanels = [kit.sharedPanel()];
             if (!canEditGraph() && opts.UI.editors) {
                 opts.UI.editors.edgeCreator = { enabled: false };
@@ -384,6 +405,80 @@
             };
         }
 
+        // The stored groups become the canvas's hand-made groups, sitting and
+        // open as saved; nodes pulled out of an auto group stay out.
+        function restoreGrouping(g) {
+            var simplify = g.simplify;
+            var doc = state.payload.document;
+            var built = state.built;
+            state.groupOf = {};
+            if (!simplify || !simplify.isEnabled()) return;
+            function drawnId(key) {
+                var id = built.idOf[key];
+                return id && !built.folded[id] && g.getMutableNode(id) ? id : null;
+            }
+            var pulled = doc.nodes.filter(function (n) { return n.pulled_out; })
+                .map(function (n) { return drawnId(nodeKey(n)); }).filter(Boolean);
+            if (pulled.length) simplify.pullOut(pulled);
+            var records = [];
+            state.unrestored = [];
+            (doc.groups || []).forEach(function (group, i) {
+                var members = (group.members || []).map(drawnId).filter(Boolean);
+                if (members.length < 2) {
+                    state.unrestored.push(group);
+                    return;
+                }
+                var record = { id: 'pvt-manual-' + (i + 1), members: members };
+                if (group.title) record.title = group.title;
+                state.groupOf[record.id] = group;
+                records.push(record);
+            });
+            if (records.length) {
+                simplify.setManualGroups(records);
+                var placed = [];
+                records.forEach(function (record) {
+                    var group = state.groupOf[record.id];
+                    var node = simplify.getGroupNode(record.id);
+                    if (!node) return;
+                    if (typeof group.x === 'number' && typeof group.y === 'number') {
+                        node.x = group.x;
+                        node.y = group.y;
+                        placed.push(node);
+                    }
+                    if (group.open) simplify.open(record.id);
+                });
+                // A group is never pinned: held, it settles where it was saved.
+                holdNodes(g, placed);
+                g.nextTick();
+            }
+            state.grouping = groupingSignature();
+            // Every grouping edit redraws; a retitle changes no dot, so the
+            // grouping's own onChange misses it.
+            g.onVisibleChange(function () {
+                if (state.saving) return;
+                var now = groupingSignature();
+                if (now === state.grouping) return;
+                state.grouping = now;
+                changed('grouped');
+            });
+        }
+
+        // What a save keeps of the grouping, positions aside: a drag is
+        // already "moved".
+        function groupingSignature() {
+            var grouping = explorer.kit.canvasGrouping(inDocument);
+            return JSON.stringify([
+                grouping.groups.map(function (group) {
+                    return JSON.stringify([group.title || '', group.members.map(JSON.stringify).sort(), !!group.open]);
+                }).sort(),
+                grouping.rules,
+                Object.keys(grouping.pulledOut).filter(function (id) {
+                    var n = graph().getMutableNode(id);
+                    return n && inDocument(n);
+                }).sort()
+            ]);
+        }
+
         function afterMount(graph) {
             state.payload.document.nodes.forEach(function (n) {
                 if (!n.pinned) return;
@@ -391,6 +486,7 @@
                 var node = id && !state.built.folded[id] ? graph.getMutableNode(id) : null;
                 if (node) node.freeze();
             });
+            restoreGrouping(graph);
             // A click ends a drag too; only one that moved the node counts.
             try {
                 var bus = graph.renderer.getGraphInteraction();
@@ -427,9 +523,19 @@
                 canEdit:        !!config.canEdit,
                 canAnalyst:     !!config.canAnalyst,
                 analystSharing: config.analystSharing,
+                graphSharing:   config.saveControls ? config.graphSharing : null,
                 text:           config.text
             },
             load: load,
+            graphTarget: function () {
+                var g = state.payload && state.payload.Graph;
+                return g && g.object_uuid ? { type: g.object_type, uuid: g.object_uuid, label: g.name } : null;
+            },
+            savedGraph: config.saveControls ? {
+                name:  function () { return (state.payload && state.payload.Graph.name) || ''; },
+                dirty: function () { return canEditGraph() && state.dirty; },
+                save:  config.saveControls.save
+            } : null,
             pivots: function (kit) {
                 var p = kit.pivots;
                 return [p.tags(), p.taggedEvents(), p.relatedClusters(), p.surroundings(),
@@ -445,12 +551,55 @@
             return explorer.graph();
         }
 
+        // The canvas's groups as the document keeps them. A group restored
+        // from the document keeps the members this canvas does not draw; a
+        // stored group too thin to draw keeps those, and its drawn members
+        // no other group took.
+        function groupsOf(grouping) {
+            var g = graph();
+            var built = state.built;
+            function drawn(key) {
+                var id = built.idOf[key];
+                return !!id && !!g.getMutableNode(built.folded[id] || id);
+            }
+            function regrouped(key) {
+                var info = g.simplify && g.simplify.groupOf(built.idOf[key]);
+                return !!info && (info.rule === 'manual' || info.rule === 'landings');
+            }
+            var groups = [], byId = {}, unrestored = [];
+            grouping.groups.forEach(function (group) {
+                var out = Object.assign({}, group, { members: group.members.slice() });
+                delete out.id;
+                var stored = state.groupOf[group.id];
+                if (stored) {
+                    stored.members.forEach(function (key) {
+                        if (typeof key === 'string' && !drawn(key)) out.members.push(key);
+                    });
+                }
+                if (/^pvt-manual-/.test(group.id)) byId[group.id] = out;
+                groups.push(out);
+            });
+            (state.unrestored || []).forEach(function (group) {
+                var out = Object.assign({}, group, {
+                    members: group.members.filter(function (key) { return !drawn(key) || !regrouped(key); })
+                });
+                unrestored.push(out);
+                groups.push(out);
+            });
+            return { groups: groups, byId: byId, unrestored: unrestored };
+        }
+
         // The document's nodes still on the canvas, where they now sit;
         // the ones not drawn, as stored; then what the user kept.
         function documentOf() {
+            return composeDocument().document;
+        }
+
+        function composeDocument() {
             var g = graph();
             var doc = state.payload.document;
             var built = state.built;
+            var grouping = explorer.kit.canvasGrouping(inDocument);
             var nodes = [];
             doc.nodes.forEach(function (n) {
                 var id = built.idOf[nodeKey(n)];
@@ -466,11 +615,14 @@
                 }
                 var out = Object.assign({}, n);
                 delete out.pinned;
-                if (typeof onCanvas.x === 'number' && typeof onCanvas.y === 'number') {
-                    out.x = round(onCanvas.x);
-                    out.y = round(onCanvas.y);
+                delete out.pulled_out;
+                var at = explorer.kit.canvasPosition(onCanvas);
+                if (at) {
+                    out.x = at.x;
+                    out.y = at.y;
                 }
                 if (onCanvas.frozen) out.pinned = true;
+                if (grouping.pulledOut[id]) out.pulled_out = true;
                 nodes.push(out);
             });
             var seen = {};
@@ -482,13 +634,19 @@
                 var key = n.type === 'Value' ? 'Value:' + n.value : nodeKey(n);
                 if (seen[key]) return;
                 seen[key] = true;
-                if (typeof node.x === 'number') {
-                    n.x = round(node.x);
-                    n.y = round(node.y);
+                var at = explorer.kit.canvasPosition(node);
+                if (at) {
+                    n.x = at.x;
+                    n.y = at.y;
                 }
                 if (node.frozen) n.pinned = true;
+                if (grouping.pulledOut[id]) n.pulled_out = true;
                 nodes.push(n);
             });
+            var groups = groupsOf(grouping);
+            var view = Object.assign({}, doc.view || {});
+            delete view.rules;
+            if (Object.keys(grouping.rules).length) view.rules = grouping.rules;
             var hidden = [];
             (doc.hidden_edges || []).forEach(function (id) {
                 if (state.hide[id] !== false) hidden.push(id);
@@ -497,10 +655,15 @@
                 if (state.hide[id] && hidden.indexOf(id) === -1) hidden.push(id);
             });
             return {
-                version: doc.version || 1,
-                nodes: nodes,
-                hidden_edges: hidden,
-                view: doc.view || {}
+                document: {
+                    version: doc.version || 1,
+                    nodes: nodes,
+                    groups: groups.groups,
+                    hidden_edges: hidden,
+                    view: view
+                },
+                groupOf: groups.byId,
+                unrestored: groups.unrestored
             };
         }
 
@@ -625,16 +788,27 @@
         }
 
         function save() {
+            var composed = composeDocument();
+            state.saving = true;
             return request('POST', '/analyst_graphs/save/' + encodeURIComponent(state.uuid) + '.json',
-                           { content: documentOf(), revision: state.revision })
+                           { content: composed.document, revision: state.revision })
             .then(function (report) {
                 state.revision = report.revision;
                 state.kept = [];
                 state.removed = {};
                 state.hide = {};
                 state.hiddenRaw = {};
+                state.groupOf = composed.groupOf;
+                state.unrestored = composed.unrestored;
                 state.dirty = false;
-                return refresh().then(function () { return report; });
+                return refresh().then(function () {
+                    if (state.grouping !== null) state.grouping = groupingSignature();
+                    state.saving = false;
+                    return report;
+                });
+            }, function (err) {
+                state.saving = false;
+                throw err;
             });
         }
 
@@ -709,6 +883,7 @@
             showEdge:   showEdge,
             hiddenEdges: hiddenEdges,
             save:       save,
+            refreshControls: refreshControls,
             refresh:    refresh,
             rebase:     rebase,
             followed:   followed,

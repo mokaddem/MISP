@@ -57,7 +57,7 @@ class AnalystGraphData extends AppModel
         }
         $events = $this->events($user, $uuids['Event'], $objects, $attributes);
 
-        $document['nodes'] = $visible;
+        $document = AnalystGraphDocumentTool::withNodes($document, $visible);
         $document['view'] = (object)($document['view'] ?? []);
         $priorities = $this->model('ObjectTemplate')->uiPrioritiesFor($objects);
         return [

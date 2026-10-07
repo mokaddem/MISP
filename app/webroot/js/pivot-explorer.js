@@ -36,6 +36,10 @@
     //   chips: false              → every zoom keeps the small drawing
     //   canReference(from, to)    → whether a drawn edge between these node
     //                               data can be an object reference
+    //   graphTarget(kit)          → { type, uuid, label }: what "Save as graph"
+    //                               attaches to
+    //   savedGraph                → { name(), dirty(), save() }: the canvas is
+    //                               this stored graph, and the Save pill writes it
     //
     // A hook left out keeps the event page's behaviour.
     function createExplorer(host) {
@@ -3078,6 +3082,8 @@
         // controls update that graph, and "Save as new" starts another.
         var _savedGraph = null;   // { uuid, name, revision }
 
+        var TARGET_NAMES = { Event: 'event', GalaxyCluster: 'galaxy cluster', Collection: 'collection' };
+
         function graphTarget() {
             if (!graphSharing || !window.IntelGraph) return null;
             if (host.graphTarget) return host.graphTarget(kit);
@@ -3090,30 +3096,105 @@
             return Math.round(v * 10) / 10;
         }
 
-        // The records on the canvas, where they sit now. An attribute drawn
-        // inside its object, or a node folded into a group, has no position
-        // of its own; anything that is not a MISP record (a feed, a server, a
-        // tag, a module's answer) cannot be kept, and is named in `dropped`;
-        // a child left out with its parent goes unnamed.
+        function documentRef(item) {
+            return item.type === 'Value'
+                ? { type: 'Value', value: item.value }
+                : { type: item.type, uuid: item.uuid };
+        }
+
+        function refKey(item) {
+            return item.type === 'Value' ? 'Value|' + item.value : item.type + ':' + String(item.uuid).toLowerCase();
+        }
+
+        // Where a node is kept: where it sits, or for one that landed folded
+        // and was never drawn, near the group holding it. Off the group by a
+        // step its id picks, so a group opened on reopen is not one stacked dot.
+        function canvasPosition(node) {
+            if (typeof node.x === 'number' && typeof node.y === 'number') {
+                return { x: roundPosition(node.x), y: roundPosition(node.y) };
+            }
+            var holder = node.foldedInto;
+            while (holder && !(typeof holder.x === 'number' && typeof holder.y === 'number')) holder = holder.foldedInto;
+            if (!holder) return null;
+            var h = 0;
+            for (var i = 0; i < node.id.length; i++) h = (h * 31 + node.id.charCodeAt(i)) | 0;
+            var angle = (Math.abs(h) % 360) * Math.PI / 180;
+            return { x: roundPosition(holder.x + 30 * Math.cos(angle)), y: roundPosition(holder.y + 30 * Math.sin(angle)) };
+        }
+
+        // The groups a document keeps: hand-made ones, and the ones a pivot
+        // landed, whose run is gone on reopen.
+        var KEPT_GROUP_RULES = { manual: true, landings: true };
+
+        // How the canvas is folded, as a graph document keeps it: those groups
+        // (members as document nodes, `id` the canvas group's), the auto rules
+        // switched away from their default, and the node ids pulled out of an
+        // auto group. `keep(node)` narrows the members.
+        function canvasGrouping(keep) {
+            var out = { groups: [], rules: {}, pulledOut: {} };
+            var simplify = _graph && _graph.simplify;
+            if (!simplify || !simplify.isEnabled()) return out;
+            var taken = {};
+            simplify.getGroups().forEach(function (info) {
+                if (!KEPT_GROUP_RULES[info.rule]) return;
+                var members = [];
+                info.members.forEach(function (n) {
+                    var item = (!keep || keep(n)) && graphItemOf(n);
+                    if (!item || taken[refKey(item)]) return;
+                    taken[refKey(item)] = true;
+                    members.push(documentRef(item));
+                });
+                if (members.length < 2) return;
+                var group = { id: info.id, members: members };
+                if (info.rule === 'manual' && info.title) group.title = info.title;
+                var node = simplify.getGroupNode(info.id);
+                if (node && typeof node.x === 'number' && typeof node.y === 'number') {
+                    group.x = roundPosition(node.x);
+                    group.y = roundPosition(node.y);
+                }
+                if (info.open) group.open = true;
+                out.groups.push(group);
+            });
+            var defaults = {};
+            simplifyOption().rules.forEach(function (r) { defaults[r.kind] = !!r.enabled; });
+            simplify.getRules().forEach(function (r) {
+                if (KEPT_GROUP_RULES[r.kind] || r.custom) return;
+                if (r.enabled !== !!defaults[r.id]) out.rules[r.id] = r.enabled;
+            });
+            _graph.getMutableNodes().forEach(function (n) {
+                if (simplify.isPulledOut(n)) out.pulledOut[n.id] = true;
+            });
+            return out;
+        }
+
+        // The records on the canvas, where they sit now, and how the canvas
+        // folds them. An attribute drawn inside its object has no position of
+        // its own; a node folded into a group keeps the one it had. Anything
+        // that is not a MISP record (a feed, a server, a tag, a module's
+        // answer) cannot be kept, and is named in `dropped`; a child left out
+        // with its parent goes unnamed.
         function canvasDocument() {
             var nodes = [], dropped = [];
+            var grouping = canvasGrouping();
             _graph.getMutableNodes().forEach(function (node) {
                 var item = graphItemOf(node);
                 if (!item) {
                     if (!(node.isChild && node.parentNode && !graphItemOf(node.parentNode))) dropped.push(leftOut(node));
                     return;
                 }
-                var out = item.type === 'Value'
-                    ? { type: 'Value', value: item.value }
-                    : { type: item.type, uuid: item.uuid };
-                if (!node.foldedInto && typeof node.x === 'number' && typeof node.y === 'number') {
-                    out.x = roundPosition(node.x);
-                    out.y = roundPosition(node.y);
+                var out = documentRef(item);
+                var at = !node.isChild && canvasPosition(node);
+                if (at) {
+                    out.x = at.x;
+                    out.y = at.y;
                     if (node.frozen) out.pinned = true;
                 }
+                if (grouping.pulledOut[node.id]) out.pulled_out = true;
                 nodes.push(out);
             });
-            return { document: { version: 1, nodes: nodes }, dropped: dropped };
+            var doc = { version: 1, nodes: nodes, groups: grouping.groups };
+            if (Object.keys(grouping.rules).length) doc.view = { rules: grouping.rules };
+            return { document: doc, dropped: dropped };
         }
 
         var LEFT_OUT_KINDS = [
@@ -3264,7 +3345,8 @@
             var closed;
             var whenClosed = new Promise(function (resolve) { closed = resolve; });
             var modal = _graph.UIManager.createModal({
-                header:  'Save as graph on this ' + (target.type === 'GalaxyCluster' ? 'galaxy cluster' : 'event'),
+                header:  (host.savedGraph ? 'Save as new graph' : 'Save as graph') + ' on this '
+                         + (TARGET_NAMES[target.type] || 'event'),
                 body:    form,
                 rawBody: true,
                 buttons: [
@@ -3300,13 +3382,15 @@
                     sharing_group_id: dist.value === '4' ? +sg.value : null,
                     content:          canvasDocument().document
                 }, { activate: activate.checked }).then(function (created) {
-                    _savedGraph = {
+                    var saved = {
                         uuid:     created.uuid,
                         name:     created.name || graphName,
                         revision: parseInt(created.revision, 10) || 1
                     };
+                    // A stored graph's own canvas stays that graph.
+                    if (!host.savedGraph) _savedGraph = saved;
                     modal.hide();
-                    graphSaved('Saved as graph', _savedGraph);
+                    graphSaved('Saved as graph', saved);
                 }, function (err) {
                     busy = false;
                     error.textContent = 'Not saved: ' + failureText(err);
@@ -3332,7 +3416,27 @@
             });
         }
 
+        function saveOwnGraph() {
+            return host.savedGraph.save();
+        }
+
         function saveGraphMenu() {
+            if (host.savedGraph) {
+                var own = host.savedGraph;
+                return [{
+                    text:          'Save graph',
+                    title:         'Writes the canvas into this graph',
+                    iconClass:     'fas fa-floppy-disk',
+                    dividerBefore: true,
+                    visible:       function () { return own.dirty(); },
+                    onclick:       saveOwnGraph
+                }, {
+                    text:          'Save as new graph…',
+                    iconClass:     'fas fa-plus',
+                    visible:       function () { return !!graphTarget(); },
+                    onclick:       saveGraphDialog
+                }];
+            }
             return [{
                 text:          'Save canvas as graph…',
                 title:         'Keeps what is on the canvas as an analyst graph',
@@ -3355,7 +3459,29 @@
             }];
         }
 
+        function ownGraphAction(own) {
+            return {
+                id:        'save-graph',
+                text:      function () { return own.dirty() ? 'Save' : 'Saved'; },
+                title:     function () {
+                    return own.dirty()
+                        ? 'Writes the canvas into “' + own.name() + '”'
+                        : '“' + own.name() + '” holds what is on the canvas';
+                },
+                iconClass: 'fas fa-floppy-disk',
+                // A disabled pill disables its caret too.
+                enabled:   function () { return own.dirty() || !!graphTarget(); },
+                onclick:   function () { return own.dirty() ? saveOwnGraph() : undefined; },
+                menu:      function () {
+                    return graphTarget()
+                        ? [{ text: 'Save as new graph…', iconClass: 'fas fa-plus', onclick: saveGraphDialog }]
+                        : [];
+                }
+            };
+        }
+
         function saveGraphActions() {
+            if (host.savedGraph) return [ownGraphAction(host.savedGraph)];
             return [{
                 id:        'save-graph',
                 text:      function () { return _savedGraph ? 'Update graph' : 'Save as graph'; },
@@ -4602,6 +4728,8 @@
             sourceMap:        sourceMap,
             sourceNodeData:   sourceNodeData,
             storedEdge:       storedEdge,
+            canvasGrouping:   canvasGrouping,
+            canvasPosition:   canvasPosition,
             sources:          SOURCES,
             eachAnalystRelationship: eachAnalystRelationship,
             eachRelationshipOn: eachRelationshipOn,

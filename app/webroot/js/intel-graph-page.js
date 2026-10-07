@@ -3,7 +3,8 @@
 // the fork and settings dialogs.
 //
 // What a save keeps: positions and pins, nodes kept from a pivot, nodes
-// removed, links hidden in this graph. Adds made from other pages are saved
+// removed, links hidden in this graph, and how the canvas is grouped. The
+// canvas carries the same Save as the bar. Adds made from other pages are saved
 // as they land and reach this page in place. A save on a version saved
 // elsewhere since is refused (409); the bar offers to lay this canvas over
 // the newer version, or to reload it.
@@ -70,7 +71,7 @@
 
         var REASONS = {
             moved: 'moved', kept: 'kept from a pivot', removed: 'removed',
-            hidden: 'links hidden', shown: 'links shown again'
+            hidden: 'links hidden', shown: 'links shown again', grouped: 'grouping changed'
         };
 
         function dirty() { return !!handle && handle.isDirty(); }
@@ -172,11 +173,19 @@
             render();
         }
 
+        // The page bar sits outside a fullscreen canvas: there, a failure is
+        // also said on the canvas.
+        function notifyCanvas(title, text) {
+            var g = handle && handle.graph();
+            if (document.fullscreenElement && g && g.notifier) g.notifier.warning(title, text);
+        }
+
+        // Resolves once settled, saved or not: the canvas pill waits on it.
         function save() {
-            if (!handle || saving) return;
+            if (!handle || saving) return Promise.resolve();
             saving = true;
             render();
-            handle.save().then(function (report) {
+            return handle.save().then(function (report) {
                 saving = false;
                 changes = {};
                 savedAt = report.modified || savedAt;
@@ -185,11 +194,17 @@
                 saving = false;
                 if (err && err.status === 409) {
                     showConflict(err.body && err.body.revision);
+                    notifyCanvas('Not saved', 'This graph was saved elsewhere since it opened here.');
                     return;
                 }
                 render();
                 statusEl.appendChild(el('div', 'text-danger', 'Not saved: ' + message(err)));
+                notifyCanvas('Not saved', message(err));
             });
+        }
+
+        function saveFromBar() {
+            save().then(function () { if (handle) handle.refreshControls(); });
         }
 
         function guard(e) {
@@ -331,7 +346,7 @@
         function boot() {
             bindFork();
             bindSettings();
-            if (saveBtn) saveBtn.addEventListener('click', save);
+            if (saveBtn) saveBtn.addEventListener('click', saveFromBar);
             if (discardBtn) discardBtn.addEventListener('click', function () {
                 window.removeEventListener('beforeunload', guard);
                 window.location.reload();
@@ -345,6 +360,7 @@
                 cardEl: document.getElementById('ig-page-card'),
                 fitHeight: true,
                 menus: canEdit,
+                saveControls: canEdit ? { save: save } : null,
                 onChange: onChange
             })).then(function (h) {
                 handle = h;
