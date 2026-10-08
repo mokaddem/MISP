@@ -99,11 +99,11 @@
         var old = document.querySelector('.ifp-error');
         if (old) { old.remove(); }
         var alert = document.createElement('div');
-        alert.className = 'alert alert-danger alert-dismissible fade show mt-2 mb-0 ifp-error';
+        alert.className = 'alert alert-danger alert-dismissible fade show mb-3 ifp-error';
         alert.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + esc(S('loadError'))
             + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
-        var chips = document.getElementById('ifp-chips');
-        (chips || b).insertAdjacentElement('afterend', alert);
+        var row = document.querySelector('.ifp-row');
+        (row || b).insertAdjacentElement('afterend', alert);
     }
 
     function swapIn(doc) {

@@ -13,8 +13,16 @@ echo '<div id="' . $containerId . '_content">';
 
     <!-- CARD 1 : FILTERS -->
     <?php if (!empty($scaffold_data['data']['filter_bar'])): ?>
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
+        <?php
+        $pickerBar = !empty(array_filter(
+            $scaffold_data['data']['filter_bar']['children'] ?? [],
+            function ($child) {
+                return ($child['type'] ?? '') === 'picker';
+            }
+        ));
+        ?>
+        <div class="<?= $pickerBar ? 'ifp-card' : 'card shadow-sm mb-4' ?>">
+            <div class="<?= $pickerBar ? '' : 'card-body' ?>">
                 <?= $this->element(
                 'genericElementsBS5/IndexTable/filter_bar',
                 [

@@ -55,7 +55,7 @@ $config = [
 $count = count($selected);
 ?>
 <div class="ifp-picker flex-shrink-0" id="ifp-picker-<?= h($name) ?>" data-ifp-swap data-ifp-picker="<?= h(json_encode($config, JSON_UNESCAPED_UNICODE)) ?>">
-    <button type="button" class="btn btn-outline-secondary ifp-btn<?= $count ? ' is-set' : '' ?>" aria-expanded="false" aria-haspopup="dialog" data-tour="index-picker-<?= h($name) ?>">
+    <button type="button" class="btn btn-sm btn-outline-secondary ifp-btn<?= $count ? ' is-set' : '' ?>" aria-expanded="false" aria-haspopup="dialog" data-tour="index-picker-<?= h($name) ?>">
         <?php if (!empty($child['icon'])): ?>
             <i class="<?= h($child['icon']) ?>" aria-hidden="true"></i>
         <?php endif; ?>

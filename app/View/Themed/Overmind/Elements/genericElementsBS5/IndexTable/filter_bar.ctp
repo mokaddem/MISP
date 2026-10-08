@@ -215,6 +215,20 @@ $activeTotal = count(array_diff_key(
                 $searchVal = $currentFilters['quickFilter'] ?? null;
             }
             ?>
+            <?php if ($pickerMode): ?>
+            <div class="input-group input-group-sm ifp-query" data-tour="index-search">
+                <span class="input-group-text"><i class="fas fa-search" aria-hidden="true"></i></span>
+                <input
+                    class="form-control"
+                    id="filterField"
+                    type="search"
+                    autocomplete="off"
+                    placeholder="<?= h($child['placeholder']) ?>"
+                    aria-label="<?= h($child['placeholder']) ?>"
+                    value="<?= $searchVal !== null ? h(urldecode($searchVal)) : '' ?>"
+                >
+            </div>
+            <?php else: ?>
             <div class="flex-grow-1" style="max-width: 600px">
                 <div class="input-group" data-tour="index-search">
                     <input
@@ -233,6 +247,7 @@ $activeTotal = count(array_diff_key(
                     </button>
                 </div>
             </div>
+            <?php endif; ?>
         <?php endif; ?>
 
         <?php if ($child['type'] === 'value_match'): ?>
@@ -308,30 +323,8 @@ $activeTotal = count(array_diff_key(
             ]) ?>
         <?php endif; ?>
 
-        <?php if ($child['type'] === 'button'): ?>
-            <?php // `pressed` makes a toggle: the url is then where pressing it leads, on or off. ?>
-            <a href="<?= h($child['url']) ?>"
-               class="<?= h($child['class']) ?> flex-shrink-0<?= !empty($child['pressed']) ? ' active' : '' ?>"<?php
-               if (array_key_exists('pressed', $child)): ?>
-               aria-pressed="<?= !empty($child['pressed']) ? 'true' : 'false' ?>"<?php
-               endif; ?><?php
-               if (!empty($child['id'])): ?>
-               id="<?= h($child['id']) ?>"<?php
-               endif; ?><?php
-               if ($pickerMode): ?>
-               data-ifp-nav data-ifp-swap<?php
-               endif; ?><?php
-               if (!empty($child['title'])): ?>
-               title="<?= h($child['title']) ?>"<?php
-               endif; ?><?php
-               if (!empty($child['onclick'])): ?>
-               onclick="<?= h($child['onclick']) ?>"<?php
-               endif; ?>>
-                <?php if (!empty($child['icon'])): ?>
-                    <i class="<?= h($child['icon']) ?>"></i>
-                <?php endif; ?>
-                <?= h($child['label']) ?>
-            </a>
+        <?php if ($child['type'] === 'button' && !$pickerMode): ?>
+            <?= $this->element('genericElementsBS5/IndexTable/filter_button', ['child' => $child]) ?>
         <?php endif; ?>
 
         <?php if ($child['type'] === 'menu' && !empty($child['items'])): ?>
@@ -370,6 +363,21 @@ $activeTotal = count(array_diff_key(
 
     <?php endforeach; ?>
 
+    <?php if ($pickerMode): ?>
+    <div class="ifp-end">
+        <?php
+        $toggles = array_filter($filter_bar['children'], function ($child) {
+            return $child['type'] === 'button';
+        });
+        ?>
+        <?php if ($toggles): ?>
+            <div class="btn-group btn-group-sm" role="group">
+                <?php foreach ($toggles as $child): ?>
+                    <?= $this->element('genericElementsBS5/IndexTable/filter_button', ['child' => $child, 'nav' => true]) ?>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    <?php else: ?>
     <div class="ms-auto index-filter-pager">
         <?php
         if (empty($filter_bar['skip_pagination'])) {
@@ -380,6 +388,7 @@ $activeTotal = count(array_diff_key(
         }
         ?>
     </div>
+    <?php endif; ?>
 
     <?php foreach ($filter_bar['children'] as $child): ?>
     <?php if ($child['type'] === 'button_group'): ?>
@@ -416,7 +425,7 @@ $activeTotal = count(array_diff_key(
     <?php endif; ?>
     <?php endforeach; ?>
 
-    <div class="btn-group" role="group" data-tour="index-view">
+    <div class="btn-group<?= $pickerMode ? ' btn-group-sm' : '' ?>" role="group" data-tour="index-view">
 
         <?php if (!empty($filter_bar['view_switch'])): ?>
             <!-- Custom view switch (e.g. table / JSON) — each is a link/reload, not the default client-side table/card toggle. -->
@@ -446,6 +455,7 @@ $activeTotal = count(array_diff_key(
             </button>
         <?php endif; ?>
     </div>
+    <?php if ($pickerMode): ?></div><?php endif; ?>
 
 </div>
 
@@ -496,12 +506,35 @@ if ($explicitActive !== null) {
 }
 ?>
 <?php if ($pickerMode): ?>
-    <?= $this->element('genericElementsBS5/IndexTable/filter_chips', [
-        'state' => $filterState,
-        'pickers' => $pickers,
-        'chips' => $filter_bar['chips'] ?? [],
-        'searchChild' => $searchChild,
-    ]) ?>
+    <?php $pageParams = $this->Paginator->params(); ?>
+    <div class="ifp-row">
+        <span class="ifp-count" id="ifp-count" data-ifp-swap><?php
+            if (!empty($pageParams['current'])) {
+                echo sprintf(
+                    __('%s shown, page %s of %s'),
+                    '<b>' . h(number_format($pageParams['current'])) . '</b>',
+                    h($pageParams['page']),
+                    h($pageParams['pageCount'])
+                );
+            }
+        ?></span>
+        <?= $this->element('genericElementsBS5/IndexTable/filter_chips', [
+            'state' => $filterState,
+            'pickers' => $pickers,
+            'chips' => $filter_bar['chips'] ?? [],
+            'searchChild' => $searchChild,
+        ]) ?>
+        <div class="index-filter-pager">
+            <?php
+            if (empty($filter_bar['skip_pagination'])) {
+                echo $this->element(
+                    'genericElementsBS5/IndexTable/pagination_nav',
+                    ['maxPages' => 5, 'size' => 'sm']
+                );
+            }
+            ?>
+        </div>
+    </div>
 <?php endif; ?>
 <div class="index-active-filters">
 <?php // With a draft in play the chips live in its summary, buttons included. ?>
