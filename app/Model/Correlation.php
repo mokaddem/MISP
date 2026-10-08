@@ -9,6 +9,7 @@ App::uses('AppModel', 'Model');
  * @method createCorrelationEntry(string $value, array $a, array $b)
  * @method runBeforeSaveCorrelation(array $attribute)
  * @method fetchRelatedEventIds(array $user, int $eventId, array $sgids, bool $excludeNonCorrelating = false)
+ * @method fetchRelatedEventCount(array $user, int $eventId, array $sgids, int $limit)
  * @method getFieldRules
  * @method getContainRules($filter = null)
  * @method updateContainedCorrelations(array $data, string $type, array $options = [])
@@ -1151,6 +1152,21 @@ class Correlation extends AppModel
             return [];
         }
         return $relatedEventIds;
+    }
+
+    /**
+     * Count the events getRelatedEventIds($user, $eventId, $sgids, true)
+     * returns, reading at most $limit correlations each way.
+     *
+     * @param array $user
+     * @param int $eventId
+     * @param array $sgids
+     * @param int $limit
+     * @return array [int $count, bool $more] $more when correlations were left unread
+     */
+    public function countRelatedEvents(array $user, int $eventId, array $sgids, int $limit)
+    {
+        return $this->fetchRelatedEventCount($user, $eventId, $sgids, $limit);
     }
 
     /**
