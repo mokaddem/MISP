@@ -3199,13 +3199,13 @@
         // A canvas note as a graph document keeps it. anchorOf(node) names
         // the node it hangs on, or null for one the document does not keep.
         function noteItem(note, anchorOf) {
-            var out = { id: note.id, content: note.content || '' };
+            var out = note.toJSON();
+            var at = out.attachedElement;
+            delete out.attachedElement;
+            if (!out.content) out.content = '';
             ['x', 'y', 'width', 'height'].forEach(function (f) {
-                if (typeof note[f] === 'number' && isFinite(note[f])) out[f] = note[f];
+                if (typeof out[f] !== 'number' || !isFinite(out[f])) delete out[f];
             });
-            if (note.color) out.color = note.color;
-            if (note.surface) out.surface = note.surface;
-            var at = note.getAttachedElement();
             if (at && at.type === 'node') {
                 var node = _graph.getMutableNode(at.id);
                 var anchor = node && anchorOf(node);

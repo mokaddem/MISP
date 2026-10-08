@@ -63,6 +63,19 @@
         return typeof n.x === 'number' && typeof n.y === 'number';
     }
 
+    // A stored note as pivotick's note options. An anchor no longer drawn
+    // leaves the note where it was saved.
+    function noteOptions(n, nodeId, edgeDrawn) {
+        var note = {
+            id: n.id, content: n.content, x: n.x, y: n.y,
+            width: n.width, height: n.height, color: n.color, surface: n.surface
+        };
+        var id = n.node && nodeId(n.node);
+        if (id) note.attachedElement = { type: 'node', id: id };
+        else if (n.edge && edgeDrawn(n.edge)) note.attachedElement = { type: 'edge', id: n.edge };
+        return note;
+    }
+
     // The payload as pivotick data, and how its ids map onto the document.
     function graphData(payload, kit) {
         var land = kit.landing();
@@ -182,14 +195,7 @@
         var drawnEdge = {};
         out.edges.forEach(function (e) { drawnEdge[e.id] = true; });
         out.notes = (doc.notes || []).map(function (n) {
-            var note = {
-                id: n.id, content: n.content, x: n.x, y: n.y,
-                width: n.width, height: n.height, color: n.color, surface: n.surface
-            };
-            // An anchor no longer drawn leaves the note where it was saved
-            if (n.node && idOf[n.node]) note.attachedElement = { type: 'node', id: idOf[n.node] };
-            else if (n.edge && drawnEdge[n.edge]) note.attachedElement = { type: 'edge', id: n.edge };
-            return note;
+            return noteOptions(n, function (key) { return idOf[key]; }, function (id) { return drawnEdge[id]; });
         });
         return {
             data: out,
@@ -528,11 +534,7 @@
 
         // What a save keeps of the notes.
         function notesSignature() {
-            return JSON.stringify(graph().getNotes().map(function (note) {
-                var at = note.getAttachedElement();
-                return [note.id, note.content, note.x, note.y, note.width, note.height,
-                        note.color, note.surface, at ? at.type + ':' + at.id : ''];
-            }));
+            return JSON.stringify(graph().getNotes());
         }
 
         function watchNotes(g) {
@@ -856,6 +858,15 @@
                 if (edgeHidden(e.id)) return;
                 if (!g.getMutableEdge(e.id) && g.getMutableNode(e.from) && g.getMutableNode(e.to)) g.addEdge(e);
             });
+            // A note saved elsewhere joins the canvas; one deleted here stays gone
+            var unseen = (payload.document.notes || []).filter(function (n) {
+                return !g.getNote(n.id) && !state.droppedNotes[n.id];
+            });
+            if (unseen.length) {
+                quietNotes(function () {
+                    unseen.forEach(function (n) { g.addNote(canvasNoteOptions(n)); });
+                });
+            }
             if (fresh.length) {
                 try {
                     if (g.simulation && g.simulation.isEnabled()) g.simulation.reheat(0.3);
@@ -937,35 +948,31 @@
             g.nextTick();
         }
 
-        // The drawn notes as the document has them. One it gained stays
-        // undrawn until the graph is opened again; a save still keeps it.
+        // The canvas's notes become the document's.
         function placeNotes(g, doc) {
-            var stored = {};
-            (doc.notes || []).forEach(function (n) { stored[n.id] = n; });
+            quietNotes(function () {
+                g.setNotes((doc.notes || []).map(canvasNoteOptions));
+            });
+            state.droppedNotes = {};
+        }
+
+        // A note change the canvas did not make, which no save owes.
+        function quietNotes(fn) {
             state.placing = true;
             try {
-                g.getNotes().forEach(function (note) {
-                    var n = stored[note.id];
-                    if (!n) {
-                        g.noteManager.removeNote(note);
-                        return;
-                    }
-                    note.setPosition(typeof n.x === 'number' ? n.x : note.x, typeof n.y === 'number' ? n.y : note.y);
-                    note.setSize(n.width || note.width, n.height || note.height);
-                    note.setContent(n.content || '');
-                    if (n.color) note.setColor(n.color);
-                    if (n.surface) note.setSurface(n.surface);
-                    var id = n.node ? state.built.idOf[n.node] : n.edge;
-                    var type = n.node ? 'node' : 'edge';
-                    var drawn = id && (type === 'node' ? g.getMutableNode(id) : g.getMutableEdge(id));
-                    note.setAttachedElement(drawn ? { type: type, id: id } : undefined);
-                    g.noteManager.editNote(note);
-                });
+                fn();
             } finally {
                 state.placing = false;
             }
-            state.droppedNotes = {};
-            state.notes = notesSignature();
+            if (state.notes !== null) state.notes = notesSignature();
+        }
+
+        function canvasNoteOptions(n) {
+            var g = graph();
+            return noteOptions(n, function (key) {
+                var id = state.built.idOf[key];
+                return id && g.getMutableNode(id) ? id : null;
+            }, function (id) { return !!g.getMutableEdge(id); });
         }
 
         // This graph saved whole elsewhere on the page. A canvas with no edits
