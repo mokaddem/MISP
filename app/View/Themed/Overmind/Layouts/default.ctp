@@ -87,6 +87,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 [$bootstrapTheme['css'], ['preload' => true]],
                 ['tom-select.bootstrap5.min', ['preload' => true]],
                 ['mainOvermind', ['preload' => true]],
+                ['index-table', ['preload' => true]],
                 // The rail's styles come with the theme.
                 $useRail ? null : ['overmind-navbar', ['preload' => true]],
                 ['fontawesome7.min', ['preload' => true]],

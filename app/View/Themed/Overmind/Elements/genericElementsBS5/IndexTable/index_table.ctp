@@ -102,7 +102,7 @@ foreach ($data['data'] as $k => $data_row) {
 <?php else: ?>
 
 <div class="table-responsive table-scroll">
-    <table id="<?= h($tableId) ?>" class="table table-hover align-middle mb-0<?= empty($data['table_class']) ? '' : ' ' . h($data['table_class']) ?>"
+    <table id="<?= h($tableId) ?>" class="table table-hover align-middle mb-0 ix-table<?= empty($data['table_class']) ? '' : ' ' . h($data['table_class']) ?>"
         <?= $dblclickUrl !== null ? 'data-dblclick-url="' . h($dblclickUrl) . '"' : '' ?>>
 
         <?= $this->element(
