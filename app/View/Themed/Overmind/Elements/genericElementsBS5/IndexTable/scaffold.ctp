@@ -15,7 +15,7 @@ echo '<div id="' . $containerId . '_content" data-ifp-scope="' . h($item_url) . 
     // Mirrors filter_bar.ctp: every bar is a picker bar unless it opts out.
     $barData = $scaffold_data['data']['filter_bar'] ?? [];
     $pickerBar = !empty($barData) && (
-        (($barData['picker_bar'] ?? true) && ($barData['transport'] ?? 'path') !== 'query')
+        ($barData['picker_bar'] ?? true)
         || !empty(array_filter($barData['children'] ?? [], function ($child) {
             return ($child['type'] ?? '') === 'picker';
         }))
@@ -68,7 +68,15 @@ echo '<div id="' . $containerId . '_content" data-ifp-scope="' . h($item_url) . 
         ?>
         <div class="ifp-bottom" data-tour="index-pagination">
             <span class="ifp-count"><?php
-                if (!empty($paging['current']) && (int)$paging['current'] === $shownRows) {
+                $openEnded = !empty($paging['nextPage'])
+                    && (int)($paging['pageCount'] ?? 0) <= (int)($paging['page'] ?? 1);
+                if (!empty($paging['current']) && (int)$paging['current'] === $shownRows && $openEnded) {
+                    echo sprintf(
+                        h(__('Showing %s–%s')),
+                        h(number_format($first)),
+                        h(number_format($first + $shownRows - 1))
+                    );
+                } elseif (!empty($paging['current']) && (int)$paging['current'] === $shownRows) {
                     echo sprintf(
                         h(__('Showing %s–%s of %s')),
                         h(number_format($first)),

@@ -1,8 +1,9 @@
 <?php
 
 /**
- * An index's filters as its URL carries them (CakePHP named segments), and
- * the URLs one change away from them.
+ * An index's filters as its URL carries them (CakePHP named segments, or the
+ * query string for an index whose values may hold a '/'), and the URLs one
+ * change away from them.
  */
 class IndexFilterState
 {
@@ -17,16 +18,24 @@ class IndexFilterState
     /** @var array raw key => value, in URL order */
     private $named;
 
+    /** @var array|null sort / direction / limit named segments, in query mode */
+    private $paging = null;
+
     /**
      * @param string $base index URL with no state on it
      * @param array $named the request's named params
      * @param string $prefix
+     * @param array|null $query the request's query, when the filters ride there
      */
-    public function __construct($base, array $named, $prefix = '')
+    public function __construct($base, array $named, $prefix = '', $query = null)
     {
         $this->base = $base;
         $this->prefix = $prefix;
         $this->named = [];
+        if ($query !== null) {
+            $this->paging = array_intersect_key($named, array_flip(['sort', 'direction', 'limit']));
+            $named = array_filter((array)$query, 'is_string');
+        }
         foreach ($named as $key => $value) {
             if (is_array($value)) {
                 $value = implode('|', $value);
@@ -154,6 +163,13 @@ class IndexFilterState
     private function format(array $named)
     {
         $url = $this->base;
+        if ($this->paging !== null) {
+            foreach ($this->paging as $key => $value) {
+                $url .= '/' . $key . ':' . rawurlencode((string)$value);
+            }
+            $query = http_build_query(array_diff_key($named, array_flip(self::PAGINATOR_KEYS)), '', '&', PHP_QUERY_RFC3986);
+            return $url . ($query === '' ? '' : '?' . $query);
+        }
         foreach ($named as $key => $value) {
             $url .= '/' . $key . ':' . rawurlencode($value);
         }

@@ -3181,6 +3181,12 @@ class EventsController extends AppController
     private function __setAttributeFilterOptions(array $extensionSet)
     {
         $this->set($this->Event->Attribute->indexFilterOptions());
+        $tag = $this->request->params['named']['tags'] ?? null;
+        App::uses('IndexPicker', 'Tools');
+        $this->set('filterLabels', IndexPicker::resolve(
+            $this->Auth->user(),
+            is_string($tag) && $tag !== '' ? ['tag' => [$tag]] : []
+        ));
         $orgNames = array_values($this->Event->Orgc->find('list', [
             'fields' => ['Orgc.id', 'Orgc.name'],
             'conditions' => [

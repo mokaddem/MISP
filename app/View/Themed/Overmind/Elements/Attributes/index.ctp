@@ -471,16 +471,49 @@ if (!empty($show_filters)) {
 }
 
 App::uses('AttributeFilterPanel', 'Tools');
-$moreFilterChildren = AttributeFilterPanel::children(
-    compact('categoryOptions', 'typeOptions', 'orgOptions', 'tagOptions')
+App::uses('IndexPicker', 'Tools');
+$filterLabels = $filterLabels ?? ['org' => [], 'tag' => [], 'galaxy' => []];
+/*
+ * The global index's filters go through restSearch, which takes several values
+ * joined with || and ! to exclude one; the event tab's take one value, except
+ * `type`, which takes a comma list.
+ */
+$pickerSettings = $inEventView
+    ? ['type' => ['separator' => ',']]
+    : ['category' => ['separator' => '||'], 'type' => ['separator' => '||']];
+$remotePickers = [];
+if (!$inEventView && IndexPicker::canPickOrgs($me)) {
+    $remotePickers[] = [
+        'type' => 'picker',
+        'name' => 'org',
+        'label' => __('Creator Org'),
+        'icon' => 'misp-icon misp-icon-organisation misp-simple',
+        'source' => $baseurl . '/organisations/pickerSearch',
+        'separator' => '||',
+        'exclude' => true,
+        'resolved' => $filterLabels['org'],
+    ];
+}
+$remotePickers[] = [
+    'type' => 'picker',
+    'name' => 'tags',
+    'label' => __('Tags'),
+    'icon' => 'fas fa-tag',
+    'source' => $baseurl . '/tags/pickerSearch',
+    'resolved' => $filterLabels['tag'],
+] + ($inEventView ? ['single' => true] : ['separator' => '||', 'exclude' => true]);
+foreach (AttributeFilterPanel::children(
+    compact('categoryOptions', 'typeOptions', 'orgOptions')
         + ['galaxyOptions' => $galaxyOptions ?? null],
     $inEventView
-);
-$children[] = [
-    'type' => 'more_filters',
-    'label' => __('More filters'),
-    'children' => $moreFilterChildren,
-];
+) as $filter) {
+    $children[] = $filter + ($pickerSettings[$filter['name']] ?? []);
+    if ($filter['name'] === 'type') {
+        $children = array_merge($children, $remotePickers);
+        $remotePickers = [];
+    }
+}
+$children = array_merge($children, $remotePickers);
 
 if (empty($show_event_id) && !empty($event['Event']['id'])) {
     $attrEventId     = $event['Event']['id'];
@@ -493,18 +526,20 @@ if (empty($show_event_id) && !empty($event['Event']['id'])) {
     $attrBaseUrl     = $baseurl . '/events/viewAttributes/' . $attrEventId
         . ($extensionSuffix ?? '');
 
-    // Fallback hrefs (real toggles are handled by view_attributes.ctp)
-    $deletedUrl  = $attrBaseUrl
-        . ($toggleDeleted ? '/deleted:' . $toggleDeleted : '')
-        . ($currentProposal ? '/proposal:' . $currentProposal : '');
-    $proposalUrl = $attrBaseUrl
-        . ($currentDeleted ? '/deleted:' . $currentDeleted : '')
-        . ($toggleProposal ? '/proposal:' . $toggleProposal : '');
+    // The toggles keep every other filter of the tab.
+    App::uses('IndexFilterState', 'Tools');
+    $tabState = new IndexFilterState(
+        $attrBaseUrl,
+        array_diff_key($namedParams, array_flip(['extended', 'extending']))
+    );
+    $deletedUrl  = $tabState->url(['deleted' => $toggleDeleted ?: null]);
+    $proposalUrl = $tabState->url(['proposal' => $toggleProposal ?: null]);
 
     $children[] = [
         'type'  => 'button',
         'url'   => $proposalUrl,
         'class' => 'btn attr-proposal-toggle ' . ($currentProposal ? 'btn-warning' : 'btn-outline-warning'),
+        'id' => 'attr-proposal-toggle',
         'icon'  => 'fas fa-comment-dots',
         'label' => __('Proposals') . (!empty($proposalCount) ? ' (' . (int)$proposalCount . ')' : ''),
     ];
@@ -513,6 +548,7 @@ if (empty($show_event_id) && !empty($event['Event']['id'])) {
         'type'  => 'button',
         'url'   => $deletedUrl,
         'class' => 'btn attr-deleted-toggle ' . ($currentDeleted ? 'btn-danger' : 'btn-outline-danger'),
+        'id' => 'attr-deleted-toggle',
         'icon'  => 'fas fa-trash',
         'label' => __('Deleted') . (!empty($deletedCount) ? ' (' . (int)$deletedCount . ')' : ''),
     ];
@@ -521,11 +557,27 @@ if (empty($show_event_id) && !empty($event['Event']['id'])) {
 
 $filterBar = [
     'pull' => 'right',
-    // view_attributes.ctp drives the event tab's controls itself.
-    'picker_bar' => false,
     'children' => $children,
     'soft_delete' => '/deleteSelection',
+    'chips' => [
+        'labels' => [
+            'deleted' => __('Deleted'),
+            'proposal' => __('Proposals'),
+            'warninglist' => __('Warninglist'),
+            'email' => __('Creator'),
+        ],
+        'values' => [
+            'deleted' => ['1' => __('included'), '2' => __('only')],
+            'proposal' => ['1' => __('only')],
+        ],
+    ],
 ];
+if ($inEventView) {
+    $filterBar['base_url'] = $baseurl . '/events/viewAttributes/' . $event['Event']['id'] . ($extensionSuffix ?? '');
+} else {
+    // The instance-wide index is the heaviest query MISP pages: a picker asks first.
+    $filterBar['apply'] = 'draft';
+}
 
 // Mass actions beside delete. A soft-deleted row can only be deleted for good,
 // and edit / object / relationship are scoped to the event whose page this is,

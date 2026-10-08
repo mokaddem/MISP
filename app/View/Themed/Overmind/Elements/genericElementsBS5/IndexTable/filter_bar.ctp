@@ -12,7 +12,7 @@ if (empty($filter_bar)) {
  * pickers. A picker takes one value unless its child names the `separator`
  * its controller splits on (`||` for CRUD and IndexFilter parameters).
  */
-$pickerBarOn = ($filter_bar['picker_bar'] ?? true) && ($filter_bar['transport'] ?? 'path') !== 'query';
+$pickerBarOn = $filter_bar['picker_bar'] ?? true;
 if ($pickerBarOn) {
     $toPicker = function (array $child) {
         $options = [];
@@ -40,6 +40,7 @@ if ($pickerBarOn) {
             'options' => $options,
             'single' => empty($child['separator']),
             'separator' => $child['separator'] ?? '|',
+            'exclude' => !empty($child['exclude']),
             'hint' => $child['help'] ?? null,
         ];
     };
@@ -158,7 +159,8 @@ if ($pickerMode) {
     $filterState = new IndexFilterState(
         $filterBase,
         $this->request->params['named'] ?? [],
-        $stripSearchPrefix ? 'search' : ''
+        $stripSearchPrefix ? 'search' : '',
+        ($filter_bar['transport'] ?? 'path') === 'query' ? ($this->request->query ?? []) : null
     );
     echo $this->element('genericElements/assetLoader', [
         'css' => ['index-filters'],
@@ -250,6 +252,7 @@ $activeTotal = count(array_diff_key(
             ? 'quickFilter' : ($searchChild['name'] ?? null),
         'idField' => $searchChild['id_field'] ?? null,
         'apply' => $filter_bar['apply'] ?? 'close',
+        'transport' => $filter_bar['transport'] ?? 'path',
         'strings' => [
             'typeToSearch' => __('Type 2 characters to search'),
             'searching' => __('Searching…'),
@@ -594,7 +597,16 @@ if ($explicitActive !== null) {
     ?>
     <div class="ifp-row">
         <span class="ifp-count" data-ifp-swap="count"><?php
-            if ($pagingOk) {
+            // Paged by "is there a next one" (the attribute index): no total.
+            $openEnded = !empty($pageParams['nextPage'])
+                && (int)($pageParams['pageCount'] ?? 0) <= (int)($pageParams['page'] ?? 1);
+            if ($pagingOk && $openEnded) {
+                echo sprintf(
+                    __('%s shown, page %s'),
+                    '<b>' . h(number_format($rowCount)) . '</b>',
+                    h($pageParams['page'])
+                );
+            } elseif ($pagingOk) {
                 echo sprintf(
                     __('%s shown, page %s of %s'),
                     '<b>' . h(number_format($rowCount)) . '</b>',

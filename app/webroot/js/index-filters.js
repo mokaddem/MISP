@@ -101,10 +101,14 @@
         var parts = splitUrl(bar, currentUrl(bar));
         var named = parts.named;
         delete named.page;
+        parts.query.delete('page');
         Object.keys(changes).forEach(function (name) {
             var key = c.prefix + name;
             var value = changes[name];
-            if (value === null || value === undefined || value === '') {
+            var gone = value === null || value === undefined || value === '';
+            if (c.transport === 'query') {
+                if (gone) { parts.query.delete(key); } else { parts.query.set(key, value); }
+            } else if (gone) {
                 delete named[key];
             } else {
                 named[key] = value;
@@ -439,7 +443,7 @@
         open.dirty = true;
         if (open.pc.single) {
             var btn = open.picker.querySelector('.ifp-btn');
-            closePicker(true);
+            closePicker('draft');
             btn.focus();
             return;
         }
@@ -670,7 +674,7 @@
             return;
         }
 
-        var link = navLink(bar, target);
+        var link = event.defaultPrevented ? null : navLink(bar, target);
         if (link && isPlainClick(event)) {
             event.preventDefault();
             load(bar, link.getAttribute('href'), true);

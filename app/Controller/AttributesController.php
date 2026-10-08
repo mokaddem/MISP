@@ -337,7 +337,7 @@ class AttributesController extends AppController
         $this->set('typeDefinitions', $this->MispAttribute->typeDefinitions);
         $this->set('categoryDefinitions', $this->MispAttribute->categoryDefinitions);
         $this->set('distributionLevels', $this->MispAttribute->distributionLevels);
-        $this->__setIndexFilterOptions($orgTable);
+        $this->__setIndexFilterOptions();
         $this->set('menuData',  ['menuList' => 'event-collection', 'menuItem' => 'listAttributes']);
     }
 
@@ -394,19 +394,27 @@ class AttributesController extends AppController
     }
 
     /**
-     * Option lists for the index filter bar. Galaxy tags are left out of the
-     * tag list, the galaxy dropdown covers them and there are thousands.
+     * Option lists for the index filter bar, and the labels of the
+     * organisations and tags the URL asks for (they are searched as you type).
      *
-     * @param array $orgTable Orgc rows keyed by id, as fetched by index()
      * @return void
      */
-    private function __setIndexFilterOptions(array $orgTable)
+    private function __setIndexFilterOptions()
     {
         $this->set($this->MispAttribute->indexFilterOptions());
 
-        $orgNames = array_column($orgTable, 'name');
-        sort($orgNames);
-        $this->set('orgOptions', ['' => ''] + array_combine($orgNames, $orgNames));
+        $values = [];
+        foreach (['org' => 'org', 'tags' => 'tag'] as $param => $kind) {
+            $raw = $this->request->query[$param] ?? ($this->request->params['named'][$param] ?? null);
+            foreach (is_string($raw) ? explode('||', $raw) : [] as $piece) {
+                $piece = ltrim(trim($piece), '!');
+                if ($piece !== '') {
+                    $values[$kind][] = $piece;
+                }
+            }
+        }
+        App::uses('IndexPicker', 'Tools');
+        $this->set('filterLabels', IndexPicker::resolve($this->Auth->user(), $values));
     }
 
     /**

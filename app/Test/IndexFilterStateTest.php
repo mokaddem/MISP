@@ -80,6 +80,22 @@ class IndexFilterStateTest extends TestCase
         $this->assertSame('csv||misp', IndexFilterState::join($pieces, '||'));
     }
 
+    public function testQueryTransportKeepsFiltersInTheQuery()
+    {
+        $state = new IndexFilterState(
+            '/attributes/index',
+            ['sort' => 'Attribute.type', 'page' => '3'],
+            '',
+            ['value' => 'https://a/b', 'tags' => 'tlp:red||!tlp:white', 'page' => '2']
+        );
+        $this->assertSame(['value' => 'https://a/b', 'tags' => 'tlp:red||!tlp:white'], $state->filters());
+        $this->assertSame(
+            '/attributes/index/sort:Attribute.type?value=https%3A%2F%2Fa%2Fb&tags=tlp%3Ared',
+            $state->url(['tags' => 'tlp:red'])
+        );
+        $this->assertSame('/attributes/index/sort:Attribute.type', $state->clearUrl([]));
+    }
+
     public function testKeyCarriesThePrefix()
     {
         $this->assertSame('searchorg', $this->state([])->key('org'));
