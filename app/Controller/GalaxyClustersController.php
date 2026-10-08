@@ -1,6 +1,7 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('GalaxyClusterRailCards', 'Tools/RailCards');
+App::uses('GalaxyElementFacets', 'Tools');
 
 /**
  * @property GalaxyCluster $GalaxyCluster
@@ -98,6 +99,26 @@ class GalaxyClustersController extends AppController
         }
         $searchConditions['GalaxyCluster.galaxy_id'] = $galaxyId;
 
+        $posted = is_array($this->request->data) ? ($this->request->data['request'] ?? $this->request->data) : [];
+        $metaParams = [];
+        foreach ($this->params['named'] as $name => $value) {
+            if (strpos($name, GalaxyElementFacets::PARAM_PREFIX) === 0) {
+                $metaParams[$name] = is_array($value) ? implode(GalaxyElementFacets::SEPARATOR, $value) : (string)$value;
+            }
+        }
+        foreach (GalaxyElementFacets::filtersFromParams(array_merge($posted, $metaParams)) as $key => $filter) {
+            if ($filter['include']) {
+                $ids = $this->GalaxyCluster->GalaxyElement->clusterIdsWithValue($galaxyId, $key, $filter['include']);
+                $searchConditions['AND'][] = ['GalaxyCluster.id' => $ids ?: [-1]];
+            }
+            if ($filter['exclude']) {
+                $ids = $this->GalaxyCluster->GalaxyElement->clusterIdsWithValue($galaxyId, $key, $filter['exclude']);
+                if ($ids) {
+                    $searchConditions['AND'][] = ['NOT' => ['GalaxyCluster.id' => $ids]];
+                }
+            }
+        }
+
         if ($this->_isRest()) {
             $clusters = $this->GalaxyCluster->find(
                 'all',
@@ -175,6 +196,8 @@ class GalaxyClustersController extends AppController
         $this->set('list', $clusters);
         $this->set('galaxy_id', $galaxyId);
         $this->set('custom_cluster_count', $customClusterCount);
+        $this->set('metaFacets', $this->GalaxyCluster->GalaxyElement->filterFacets($this->Auth->user(), $galaxyId));
+        $this->set('metaParams', $metaParams);
 
         if ($this->request->is('ajax')) {
             $this->layout = false;

@@ -26,7 +26,7 @@ class GalaxiesController extends AppController
     {
         $aclConditions = $this->Galaxy->buildConditions($this->Auth->user());
         $params = [
-            'filters' => ['name', 'namespace', 'description', 'kill_chain_order', 'uuid', 'enabled', 'value'],
+            'filters' => ['name', 'namespace', 'description', 'kill_chain_order', 'uuid', 'enabled', 'default', 'value'],
             'quickFilters' => ['name', 'namespace', 'description', 'kill_chain_order', 'uuid'],
             'quickFilterParameter' => 'value',
             'conditions' => ['AND' => $aclConditions],
