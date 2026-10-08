@@ -1246,7 +1246,7 @@ class EventsController extends AppController
                 ['Graph.object_type' => 'Event', 'Graph.object_uuid' => $uuids],
                 $Graph->buildConditions($user),
             ]],
-            'fields' => ['Graph.uuid', 'Graph.name', 'Graph.object_uuid'],
+            'fields' => ['Graph.uuid', 'Graph.name', 'Graph.object_uuid', 'Graph.revision'],
             'order' => ['Graph.modified' => 'DESC'],
             'recursive' => -1,
             'callbacks' => false,
@@ -1256,6 +1256,7 @@ class EventsController extends AppController
             $graphs[$row['Graph']['object_uuid']][] = [
                 'uuid' => $row['Graph']['uuid'],
                 'name' => $row['Graph']['name'],
+                'revision' => (int)$row['Graph']['revision'],
             ];
         }
 

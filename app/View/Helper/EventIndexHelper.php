@@ -280,12 +280,17 @@ class EventIndexHelper extends AppHelper
         $extras = [];
         if ($graphs) {
             $n = count($graphs);
-            $title = $this->plural($n, '%s analyst graph', '%s analyst graphs') . ":\n" . implode("\n", array_column($graphs, 'name'));
+            $label = $this->plural($n, '%s analyst graph', '%s analyst graphs') . ': ' . implode(', ', array_column($graphs, 'name'));
+            // Newest first: the preview shows the graph changed last
             $extras[] = sprintf(
-                '<a class="dk-graph" href="%s" title="%s" aria-label="%s"><i class="misp-icon misp-icon-analyst-graph misp-simple text-analystGraph"></i> %d</a>',
+                '<a class="dk-graph" href="%s" aria-label="%s" data-intel-graph-thumb="%s" data-revision="%d" data-surface="peek" data-name="%s"%s>'
+                    . '<i class="misp-icon misp-icon-analyst-graph misp-simple text-analystGraph"></i> %d</a>',
                 h($this->baseurl() . ($n === 1 ? '/analyst_graphs/view/' . $graphs[0]['uuid'] : '/events/view2/' . (int)$event['id'])),
-                h($title),
-                h($title),
+                h($label),
+                h($graphs[0]['uuid']),
+                (int)($graphs[0]['revision'] ?? 0),
+                h($graphs[0]['name']),
+                $n > 1 ? ' data-note="' . h(__('Changed last of %s graphs on this event', $n)) . '"' : '',
                 $n
             );
         }

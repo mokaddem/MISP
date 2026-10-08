@@ -372,8 +372,8 @@ $children[] = [
  */
 
 echo $this->element('genericElements/assetLoader', [
-    'css' => ['events-index-cards', 'events-index-table'],
-    'js' => ['events-index-cards', 'events-index-table'],
+    'css' => ['events-index-cards', 'events-index-table', 'intel-graph-thumbs'],
+    'js' => ['events-index-cards', 'events-index-table', 'intel-graph-thumb', 'intel-graph-thumbs'],
 ]);
 
 printf(
