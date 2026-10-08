@@ -397,6 +397,12 @@ class ValueIntelligence extends AppModel
     const RELATION_SCAN_TTL = 300;
 
     /**
+     * Seconds the occurrence tag read is held in Redis; the context and
+     * matrix panels share it.
+     */
+    const OWN_TAGS_TTL = 300;
+
+    /**
      * How long a computing request holds the right to compute.
      *
      * The lock exists to stop a stampede, not to serialise the page, so
@@ -2154,8 +2160,8 @@ class ValueIntelligence extends AppModel
     ) {
         $valueModel = $this->model('Value');
         /*
-         * **Two reads, one per kind**, because a single cap over both
-         * makes the smaller list a hostage to the larger. `443` carries
+         * **One cap per kind**, because a single cap over both makes
+         * the smaller list a hostage to the larger. `443` carries
          * 3,858 plain tags and two galaxy tags, so under one cap which
          * clusters survived depended on how crowded the plain list was
          * — and the live probe caught the consequence: a CIRCL org
@@ -2205,13 +2211,10 @@ class ValueIntelligence extends AppModel
          * *there are more* is answered by the fetch rather than by a
          * second aggregate.
          */
+        $ownTags = $this->ownTags($user, $value, $options);
+        unset($options['fresh']);
         $tags = $this->mergeTagScopes(
-            $valueModel->topTagsFor(
-                $user,
-                $value,
-                self::CONTEXT_TAG_CAP + 1,
-                $options + array('galaxy' => false)
-            ),
+            $ownTags['tags'],
             $valueModel->eventTagsFor(
                 $user,
                 $value,
@@ -2224,12 +2227,7 @@ class ValueIntelligence extends AppModel
             $tags = array_slice($tags, 0, self::CONTEXT_TAG_CAP, true);
         }
         $galaxyTags = $this->mergeTagScopes(
-            $valueModel->topTagsFor(
-                $user,
-                $value,
-                self::CONTEXT_GALAXY_CAP,
-                $options + array('galaxy' => true)
-            ),
+            array_slice($ownTags['galaxy'], 0, self::CONTEXT_GALAXY_CAP, true),
             $valueModel->eventTagsFor(
                 $user,
                 $value,
@@ -2507,6 +2505,34 @@ class ValueIntelligence extends AppModel
     }
 
     /**
+     * `Value::topTagsFor` at the widest caps its two callers draw, held
+     * in Redis.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor, plus `fresh`
+     * @return array `tags` and `galaxy`, as Value::topTagsFor
+     */
+    private function ownTags(array $user, $value, array $options = array())
+    {
+        $fresh = !empty($options['fresh']);
+        unset($options['fresh']);
+        $key = 'misp:value_intelligence:own_tags:v'
+            . self::CACHE_SHAPE . ':' . (int)$user['id']
+            . ':' . hash('sha256', $value . '|' . json_encode($options));
+        return $this->cachedFold($key, $fresh,
+            function () use ($user, $value, $options) {
+                return $this->model('Value')->topTagsFor(
+                    $user,
+                    $value,
+                    self::CONTEXT_TAG_CAP + 1,
+                    max(self::CONTEXT_GALAXY_CAP, self::MATRIX_GALAXY_CAP),
+                    $options
+                );
+            }, self::OWN_TAGS_TTL);
+    }
+
+    /**
      * The value's galaxy tags as EventMatrixTool hits: a cluster on any
      * occurrence is the strong state, one only on the events holding the
      * value the weaker, counted in events.
@@ -2519,20 +2545,15 @@ class ValueIntelligence extends AppModel
     private function matrixHits(array $user, $value,
         array $options = array()
     ) {
-        $valueModel = $this->model('Value');
-        $options += array('galaxy' => true);
+        $ownTags = $this->ownTags($user, $value, $options);
+        unset($options['fresh']);
         $tags = $this->mergeTagScopes(
-            $valueModel->topTagsFor(
+            $ownTags['galaxy'],
+            $this->model('Value')->eventTagsFor(
                 $user,
                 $value,
                 self::MATRIX_GALAXY_CAP,
-                $options
-            ),
-            $valueModel->eventTagsFor(
-                $user,
-                $value,
-                self::MATRIX_GALAXY_CAP,
-                $options
+                $options + array('galaxy' => true)
             )
         );
         if (empty($tags)) {
@@ -5779,10 +5800,12 @@ class ValueIntelligence extends AppModel
      * @param string $key The cache key, already scoped and versioned
      * @param bool $fresh Skip the read; still take the lock
      * @param callable $compute Returns the fold to cache
+     * @param int $ttl Seconds the fold is held
      * @return array
      */
-    private function cachedFold($key, $fresh, callable $compute)
-    {
+    private function cachedFold($key, $fresh, callable $compute,
+        $ttl = self::RELATION_SCAN_TTL
+    ) {
         $redis = null;
         try {
             $redis = RedisTool::init();
@@ -5827,7 +5850,7 @@ class ValueIntelligence extends AppModel
             $fold = $compute();
             $redis->setex(
                 $key,
-                self::RELATION_SCAN_TTL,
+                $ttl,
                 RedisTool::compress(RedisTool::serialize($fold))
             );
         } finally {
