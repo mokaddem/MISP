@@ -161,7 +161,9 @@ class AnalystDataController extends AppController
         ];
         $this->CRUD->edit($id, $params);
         if ($this->IndexFilter->isRest()) {
-            return $this->restResponsePayload;
+            // A GET answers with the record it would edit
+            return $this->restResponsePayload
+                ?? $this->RestResponse->viewData($this->__decodeGraphContent($this->viewVars['entity']), 'json');
         }
 
         if (($this->theme ?? null) === 'Overmind' && $this->request->is('post')) {
