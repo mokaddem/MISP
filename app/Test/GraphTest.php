@@ -698,6 +698,40 @@ class GraphTest extends TestCase
         );
     }
 
+    public function testAuditSummaryOfANotesEdit()
+    {
+        $old = self::storedWithNotes(array(
+            array('id' => 'n1', 'content' => 'a', 'node' => 'Event:' . self::EVENT),
+            array('id' => 'n2', 'content' => 'b', 'x' => 0),
+            array('id' => '42', 'content' => 'gone'),
+        ));
+        $new = self::storedWithNotes(array(
+            array('id' => 'n1', 'content' => 'a, edited', 'node' => 'Event:' . self::EVENT),
+            array('id' => 'n2', 'content' => 'b', 'x' => 50, 'color' => '#FCA5A5'),
+            array('id' => 'n3', 'content' => 'c'),
+        ));
+
+        $summary = AnalystGraphDocumentTool::summariseChange($old, $new);
+        $this->assertSame(array(3, 3), $summary['note_count']);
+        $this->assertSame(array('n3'), $summary['notes_added']);
+        $this->assertSame(array('42'), $summary['notes_removed']);
+        $this->assertSame(array('n1'), $summary['notes_edited']);
+        $this->assertSame(1, $summary['notes_edited_count']);
+        $this->assertSame(0, $summary['nodes_added_count']);
+    }
+
+    public function testAuditSummaryCountsNotesOfANewDocument()
+    {
+        $content = self::storedWithNotes(array(array('id' => 'n1', 'content' => 'a')));
+        $this->assertSame(1, AnalystGraphDocumentTool::summariseChange(null, $content)['note_count']);
+    }
+
+    private static function storedWithNotes(array $notes)
+    {
+        list($document) = AnalystGraphDocumentTool::normalise(array('nodes' => array(self::node('Event', self::EVENT)), 'notes' => $notes));
+        return AnalystGraphDocumentTool::encode($document);
+    }
+
     public function testAuditSummaryListsAreCapped()
     {
         $new = AnalystGraphDocumentTool::encode(self::documentWithNodes(150) + array('hidden_edges' => array(), 'view' => array()));

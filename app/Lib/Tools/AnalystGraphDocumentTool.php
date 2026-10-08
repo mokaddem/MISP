@@ -411,18 +411,57 @@ class AnalystGraphDocumentTool
             'node_count' => count($newKeys),
             'content_size' => strlen((string)$new),
         ];
+        $newNotes = self::storedNotes($new);
         if ($old === null) {
+            if (!empty($newNotes)) {
+                $summary['note_count'] = count($newNotes);
+            }
             return $summary;
         }
         $oldKeys = self::storedNodeKeys($old);
         $summary['node_count'] = [count($oldKeys), count($newKeys)];
         $summary['content_size'] = [strlen($old), strlen((string)$new)];
-        foreach (['nodes_added' => array_diff($newKeys, $oldKeys), 'nodes_removed' => array_diff($oldKeys, $newKeys)] as $field => $keys) {
-            $keys = array_values($keys);
+        $lists = ['nodes_added' => array_diff($newKeys, $oldKeys), 'nodes_removed' => array_diff($oldKeys, $newKeys)];
+        $oldNotes = self::storedNotes($old);
+        if (!empty($oldNotes) || !empty($newNotes)) {
+            $summary['note_count'] = [count($oldNotes), count($newNotes)];
+            // What a note says and what it is about; moving or restyling it is layout
+            $edited = array_filter(array_intersect_key($newNotes, $oldNotes), function ($note, $id) use ($oldNotes) {
+                foreach (['content', 'node', 'edge'] as $field) {
+                    if (($note[$field] ?? null) !== ($oldNotes[$id][$field] ?? null)) {
+                        return true;
+                    }
+                }
+                return false;
+            }, ARRAY_FILTER_USE_BOTH);
+            $lists += [
+                'notes_added' => array_keys(array_diff_key($newNotes, $oldNotes)),
+                'notes_removed' => array_keys(array_diff_key($oldNotes, $newNotes)),
+                'notes_edited' => array_keys($edited),
+            ];
+        }
+        foreach ($lists as $field => $keys) {
+            $keys = array_map('strval', array_values($keys));
             $summary[$field . '_count'] = count($keys);
             $summary[$field] = array_slice($keys, 0, self::SUMMARY_LIST_LIMIT);
         }
         return $summary;
+    }
+
+    /**
+     * @param string|null $content
+     * @return array Note id => note
+     */
+    private static function storedNotes($content)
+    {
+        $document = is_string($content) ? json_decode($content, true) : null;
+        $notes = [];
+        foreach (is_array($document) && is_array($document['notes'] ?? null) ? $document['notes'] : [] as $note) {
+            if (is_array($note) && isset($note['id']) && is_string($note['id'])) {
+                $notes[$note['id']] = $note;
+            }
+        }
+        return $notes;
     }
 
     /**
