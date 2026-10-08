@@ -388,7 +388,7 @@ class EventIndexHelper extends AppHelper
                 $tiers[$tagId] = $tier;
             }
         }
-        $lists = $this->TagChip->lists([], $clusters) . $this->TagChip->lists($tags);
+        $lists = $this->TagChip->lists([], $clusters) . $this->TagChip->lists($tags, [], ['ownColour' => true]);
         if ($tiers) {
             $lists = preg_replace_callback(
                 '/<div class="hg-row([^"]*)" title="([^"]*)" data-tag-id="(\d+)"/',

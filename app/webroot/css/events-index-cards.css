@@ -204,6 +204,13 @@
 }
 .dk-chip.is-tag.dk-pref::after { background: var(--tc, var(--dk-ink2)); opacity: .9; }
 .hg-row.dk-pref { position: relative; }
+/* tag lists in the popover keep each tag's own colour, as its chip does */
+.hg-card.is-own .hg-card-head { box-shadow: inset 3px 0 0 var(--hg-c, var(--dk-line)); }
+.hg-card.is-own .hg-hns { color: var(--hg-text); }
+.hg-card.is-own .hg-row { border-left: 3px solid var(--tc, var(--dk-line)); border-radius: 0 3px 3px 0; padding-left: 6px; }
+[data-misp-mode="dark"] .hg-card.is-own .hg-card-head { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--hg-c, var(--dk-line)) 70%, #fff); }
+[data-misp-mode="dark"] .hg-card.is-own .hg-row { border-left-color: color-mix(in srgb, var(--tc, var(--dk-line)) 70%, #fff); }
+.hg-card.is-own .hg-row.dk-pref .hg-name::after { background: var(--tc, var(--dk-ink2)); }
 .hg-row.dk-pref .hg-name::after {
     content: ""; display: inline-block; width: 4px; height: 4px; margin-left: 5px; vertical-align: .45em;
     border-radius: 50%; background: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark, 48%));
