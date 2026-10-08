@@ -106,18 +106,14 @@ $lane = function ($key, $lane, $title = null) use ($col, $offered) {
             . $this->EventIndex->laneIcon($lane) . '<span>' . h($this->EventIndex->laneLabel($lane)) . '</span></span>',
     ], 'te-lane');
 };
-$count = function ($key, $count, $setting, $iconHtml, $title, $sort = null) use ($col, $icon, $offered) {
-    $field = [
+$count = function ($key, $count, $setting, $iconHtml, $title) use ($col, $icon, $offered) {
+    return $col($key, [
         'element' => 'event_count',
         'count' => $count,
         'header_html' => $icon($iconHtml),
         'header_title' => $title,
         'requirement' => $offered($setting),
-    ];
-    if ($sort) {
-        $field['sort'] = $sort;
-    }
-    return $col($key, $field, 'te-num');
+    ], 'te-num');
 };
 
 $fields = [
@@ -169,7 +165,7 @@ $fields = [
     $lane('attrib', 'attribution'),
     $lane('behav', 'behaviour', __('ATT&CK techniques (count, then ids), then mitigations')),
     $lane('classif', 'classification', __('Other clusters, then tags')),
-    $count('attrs', 'attributes', 'attribute_count', '<i class="misp-icon misp-icon-attribute misp-simple text-attribute"></i>', __('Attributes'), 'Event.attribute_count'),
+    $count('attrs', 'attributes', 'attribute_count', '<i class="misp-icon misp-icon-attribute misp-simple text-attribute"></i>', __('Attributes')),
     $count('objs', 'objects', 'attribute_count', '<i class="misp-icon misp-icon-object misp-simple text-object"></i>', __('Objects')),
     $count('reps', 'reports', 'report_count', '<i class="misp-icon misp-icon-report misp-simple text-report"></i>', __('Reports')),
     $count('corr', 'correlations', 'correlations', '<i class="fas fa-link text-correlation"></i>', __('Correlations')),

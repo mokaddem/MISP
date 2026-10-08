@@ -40,16 +40,20 @@
 .te-index .te-table thead th.te-c-sel, .te-index .te-table thead th.te-c-act { overflow: visible; z-index: 6; }
 .te-index .te-table thead th a { display: inline-flex; align-items: center; max-width: 100%; color: inherit; }
 .te-index .te-table thead th a:hover { color: var(--bs-body-color); }
-.te-index .te-table thead th .sortable-header { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
-.te-index .te-table thead th .sort-icon { margin-left: 2px; font-size: .68rem; }
+.te-index .te-table thead th .sortable-header { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The arrow hangs off the link, which keeps room for it, so clipping the label never reaches it. */
+.te-index .te-table thead th a:has(.sort-icon) { position: relative; padding-right: 13px; }
+.te-index .te-table thead th .sort-icon {
+    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    margin: 0; font-size: .62rem; line-height: 1;
+}
+.te-index .te-table thead th .sort-icon::before { content: "\f063"; }
 .te-index .te-table thead th:has(a.asc), .te-index .te-table thead th:has(a.desc) {
     color: var(--bs-body-color); box-shadow: inset 0 -2px 0 var(--dk-accent);
 }
 .te-index .te-table thead th a.asc .sort-icon, .te-index .te-table thead th a.desc .sort-icon { opacity: 1; color: var(--dk-accent); }
 .te-index .te-table thead th a.asc .sort-icon::before { content: "\f062"; }
-.te-index .te-table thead th a.desc .sort-icon::before { content: "\f063"; }
 .te-index .te-table thead th.te-num { text-align: right; }
-.te-index .te-table thead th.te-num a { flex-direction: row-reverse; }
 .te-hicon { display: inline-flex; align-items: center; gap: 3px; }
 .te-hicon .misp-icon { width: 15px; height: 15px; }
 .te-hicon i.fas { font-size: .85rem; }
