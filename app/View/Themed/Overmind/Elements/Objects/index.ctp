@@ -10,13 +10,14 @@ $currentProposal = (int)($namedParams['proposal'] ?? 0);
 // deleted:2 is "only what holds something soft-deleted"
 $toggleDeleted   = $currentDeleted ? 0 : 2;
 $toggleProposal  = $currentProposal ? 0 : 1;
-// Fallback hrefs (the JS rebuilds the real URL); each preserves the other toggle.
-$toggleUrl       = $baseurl . $objectsUrl
-    . ($toggleDeleted ? '/deleted:' . $toggleDeleted : '')
-    . ($currentProposal ? '/proposal:' . $currentProposal : '');
-$proposalUrl     = $baseurl . $objectsUrl
-    . ($currentDeleted ? '/deleted:' . $currentDeleted : '')
-    . ($toggleProposal ? '/proposal:' . $toggleProposal : '');
+// The toggles keep every other filter of the tab.
+App::uses('IndexFilterState', 'Tools');
+$tabState = new IndexFilterState(
+    $baseurl . $objectsUrl,
+    array_diff_key($namedParams, array_flip(['extended', 'extending']))
+);
+$toggleUrl   = $tabState->url(['deleted' => $toggleDeleted ?: null]);
+$proposalUrl = $tabState->url(['proposal' => $toggleProposal ?: null]);
 
 $canEdit = isset($event)
     ? $this->Acl->canModifyEvent($event)
@@ -77,15 +78,16 @@ $objContext = function (array $object) use (
     ];
 };
 
-// The attribute index's panel, led by what only an object has. An attribute
+// The attribute index's pickers, led by what only an object has. An attribute
 // filter keeps the objects holding at least one matching attribute.
 App::uses('AttributeFilterPanel', 'Tools');
-$moreFilterChildren = AttributeFilterPanel::children(
+$filterLabels = $filterLabels ?? ['org' => [], 'tag' => [], 'galaxy' => []];
+$moreFilterChildren = [];
+foreach (AttributeFilterPanel::children(
     [
         'categoryOptions' => $categoryOptions ?? null,
         'typeOptions' => $typeOptions ?? null,
         'orgOptions' => $orgOptions ?? null,
-        'tagOptions' => $tagOptions ?? null,
         'galaxyOptions' => $galaxyOptions ?? null,
     ],
     true,
@@ -93,7 +95,21 @@ $moreFilterChildren = AttributeFilterPanel::children(
         ['name' => 'name', 'label' => __('Template'), 'options' => $templateOptions ?? null, 'col' => 3],
         ['name' => 'meta-category', 'label' => __('Meta-category'), 'options' => $metaCategoryOptions ?? null, 'col' => 3],
     ]
-);
+) as $filter) {
+    // `type` takes a comma list; the others one value.
+    $moreFilterChildren[] = $filter + ($filter['name'] === 'type' ? ['separator' => ','] : []);
+    if ($filter['name'] === 'type') {
+        $moreFilterChildren[] = [
+            'type' => 'picker',
+            'name' => 'tags',
+            'label' => __('Tags'),
+            'icon' => 'fas fa-tag',
+            'source' => $baseurl . '/tags/pickerSearch',
+            'single' => true,
+            'resolved' => $filterLabels['tag'],
+        ];
+    }
+}
 
 // The fold controls only have something to act on once the page holds an
 // object, so an empty list gets no pair of dead buttons.
@@ -117,7 +133,7 @@ $foldChildren = empty($objects) ? [] : [
 ];
 ?>
 
-<div id="objectListContainer" class="container-fluid px-0">
+<div id="objectListContainer" class="container-fluid px-0" data-ifp-scope="<?= h($objectsUrl) ?>">
 
     <!-- ── Filter bar (same card structure as scaffold) ──── -->
     <div class="card shadow-sm mb-4">
@@ -126,7 +142,21 @@ $foldChildren = empty($objects) ? [] : [
                 'genericElementsBS5/IndexTable/filter_bar',
                 [
                     'scaffold_data' => [
+                        // For the count beside the chips.
+                        'data' => $objects,
                         'filter_bar' => [
+                            'base_url' => $baseurl . $objectsUrl,
+                            'chips' => [
+                                'labels' => [
+                                    'deleted' => __('Deleted'),
+                                    'proposal' => __('Proposals'),
+                                    'name' => __('Template'),
+                                ],
+                                'values' => [
+                                    'deleted' => ['1' => __('included'), '2' => __('only')],
+                                    'proposal' => ['1' => __('only')],
+                                ],
+                            ],
                             'children' => array_merge([
                                 [
                                     'type'        => 'search',
@@ -136,14 +166,10 @@ $foldChildren = empty($objects) ? [] : [
                                     'name'        => 'searchFor',
                                 ],
                                 [
-                                    'type'     => 'more_filters',
-                                    'label'    => __('More filters'),
-                                    'children' => $moreFilterChildren,
-                                ],
-                                [
                                     'type'  => 'button',
                                     'url'   => $proposalUrl,
                                     'class' => 'btn obj-proposal-toggle '. ($currentProposal ? 'btn-warning' : 'btn-outline-warning'),
+                                    'id'    => 'obj-proposal-toggle',
                                     'icon'  => 'fas fa-comment-dots',
                                     'label' => __('Proposals') . (!empty($proposalCount) ? ' (' . (int)$proposalCount . ')' : ''),
                                 ],
@@ -151,10 +177,11 @@ $foldChildren = empty($objects) ? [] : [
                                     'type'  => 'button',
                                     'url'   => $toggleUrl,
                                     'class' => 'btn obj-deleted-toggle '. ($currentDeleted ? 'btn-danger' : 'btn-outline-danger'),
+                                    'id'    => 'obj-deleted-toggle',
                                     'icon'  => 'fas fa-trash',
                                     'label' => __('Deleted') . (!empty($deletedCount) ? ' (' . (int)$deletedCount . ')' : ''),
                                 ],
-                            ], $foldChildren),
+                            ], $moreFilterChildren, $foldChildren),
                         ],
                     ],
                     'item_url' => $objectsUrl,
@@ -671,8 +698,6 @@ $foldChildren = empty($objects) ? [] : [
     var eventId      = <?= json_encode((string)$eventId) ?>;
     var errMsg       = <?= json_encode(__('Could not load objects.')) ?>;
     var _objBase     = baseurl + <?= json_encode($objectsUrl) ?>;
-    var _deletedState = <?= (int)$currentDeleted ?>;
-    var _proposalState = <?= (int)$currentProposal ?>;
 
     // Correct the baseIndexUrl set by filter_bar (it appended /index)
     baseIndexUrl = _objBase;
@@ -681,27 +706,11 @@ $foldChildren = empty($objects) ? [] : [
         return document.querySelector('.ajax-tab-content[data-url*="viewObjects"]');
     }
 
-    /*
-     * This tab's own URL shape: `events/viewObjects/<id>` plus named segments.
-     * The filters are read straight off the bar's controls, which the draft in
-     * filter_bar.ctp owns — the same split as the attribute tab.
-     */
+    // The tab's URL is its filter state (index-filters.js), minus the page.
     function buildObjectsUrl() {
-        var url = _objBase;
-        if (_deletedState) url += '/deleted:' + _deletedState;
-        if (_proposalState) url += '/proposal:' + _proposalState;
         var cont = getContainer();
-        if (!cont) return url;
-        cont.querySelectorAll('select.filter-draft-input').forEach(function (sel) {
-            var name  = sel.getAttribute('name');
-            var value = (sel.value || '').trim();
-            if (name && value !== '') { url += '/' + name + ':' + encodeURIComponent(value); }
-        });
-        var field = cont.querySelector('#filterField');
-        if (field && field.value.trim()) {
-            url += '/searchFor:' + encodeURIComponent(field.value.trim());
-        }
-        return url;
+        var url = (cont && cont.dataset.url) || _objBase;
+        return url.replace(/\/page:[^/?]*/, '');
     }
 
     function loadObjects(url) {
@@ -729,6 +738,9 @@ $foldChildren = empty($objects) ? [] : [
                 if (typeof initTopbarFilterSelects === 'function') {
                     initTopbarFilterSelects(container);
                 }
+                container.dispatchEvent(new CustomEvent('misp:container-loaded', {
+                    bubbles: true, detail: { url: url }
+                }));
                 container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             })
             .catch(function () {
@@ -757,22 +769,6 @@ $foldChildren = empty($objects) ? [] : [
         };
     }
 
-    // Toggle buttons (deleted / proposals) — clone to strip default navigation,
-    // flip the relevant state then reload from the full URL (which preserves the
-    // other toggle + the search term).
-    function wireObjToggle(selector, flip) {
-        var btn = container ? container.querySelector(selector) : null;
-        if (!btn) return;
-        var fresh = btn.cloneNode(true);
-        btn.parentNode.replaceChild(fresh, btn);
-        fresh.addEventListener('click', function (e) {
-            e.preventDefault();
-            flip();
-            loadObjects(buildObjectsUrl());
-        });
-    }
-    wireObjToggle('.obj-deleted-toggle', function () { _deletedState = _deletedState ? 0 : 2; });
-    wireObjToggle('.obj-proposal-toggle', function () { _proposalState = _proposalState ? 0 : 1; });
 
     function setAllObjectsExpanded(expand) {
         (container || document)

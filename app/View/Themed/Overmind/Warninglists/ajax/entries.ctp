@@ -5,6 +5,7 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
             'data' => $entries,
             'filter_bar' => [
                 'pull' => 'right',
+                'base_url' => $baseurl . '/warninglists/entries/' . h($id),
                 'children' => [
                     [
                         'type' => 'search',

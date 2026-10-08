@@ -72,6 +72,14 @@ class EventsController extends AppController
         'publish_timestamp'
     ];
 
+    // Overmind's table shows and sorts by the last change.
+    const OVERMIND_HIDDEN_INDEX_COLUMNS = [
+        'is_extension',
+        'publish_timestamp',
+        'owner_org',
+        'creator_user'
+    ];
+
     public function beforeFilter()
     {
         parent::beforeFilter();
@@ -161,6 +169,91 @@ class EventsController extends AppController
             $includeIDs[] = -1;
         }
         return array($includeIDs, $excludeIDs);
+    }
+
+    /**
+     * Labels and styles for the org, tag and galaxy values the URL filters on.
+     *
+     * @param array $passedArgs
+     * @return array kind => value => {value, label, style}
+     */
+    private function __indexFilterLabels(array $passedArgs)
+    {
+        $values = [];
+        foreach (['org', 'tag', 'galaxy'] as $kind) {
+            $raw = $passedArgs['search' . $kind] ?? null;
+            if ($raw === null || $raw === '') {
+                continue;
+            }
+            $pieces = is_array($raw) ? $raw : preg_split('/[|&]/', (string)$raw);
+            foreach ($pieces as $piece) {
+                $piece = ltrim(trim((string)$piece), '!');
+                if ($piece !== '') {
+                    $values[$kind][] = $piece;
+                }
+            }
+        }
+        if (empty($values)) {
+            return ['org' => [], 'tag' => [], 'galaxy' => []];
+        }
+        App::uses('IndexPicker', 'Tools');
+        return IndexPicker::resolve($this->Auth->user(), $values);
+    }
+
+    /**
+     * Event-level cluster filter: any of the included cluster tags, none of
+     * the excluded ones, as semi-joins on event_tags.
+     *
+     * @param array $pieces cluster tag names, `!` to exclude
+     * @return array|false conditions, false when nothing included resolves
+     */
+    private function __galaxyFilterConditions(array $pieces)
+    {
+        $include = $exclude = [];
+        foreach ($pieces as $piece) {
+            $piece = trim((string)$piece);
+            if ($piece === '' || $piece === '!') {
+                continue;
+            }
+            if ($piece[0] === '!') {
+                $exclude[] = substr($piece, 1);
+            } else {
+                $include[] = $piece;
+            }
+        }
+        $idsFor = function (array $names) {
+            if (empty($names)) {
+                return [];
+            }
+            return array_map('intval', $this->Event->EventTag->Tag->find('column', [
+                'conditions' => ['Tag.name' => array_values(array_unique($names))],
+                'fields' => ['Tag.id'],
+            ]));
+        };
+        $table = $this->Event->EventTag->table;
+        $semiJoin = function (array $tagIds, $operator) use ($table) {
+            return sprintf(
+                'Event.id %s (SELECT %s.event_id FROM %s WHERE %s.tag_id IN (%s))',
+                $operator,
+                $table,
+                $table,
+                $table,
+                implode(',', $tagIds)
+            );
+        };
+        $conditions = [];
+        if (!empty($include)) {
+            $includeIds = $idsFor($include);
+            if (empty($includeIds)) {
+                return false;
+            }
+            $conditions[] = $semiJoin($includeIds, 'IN');
+        }
+        $excludeIds = $idsFor($exclude);
+        if (!empty($excludeIds)) {
+            $conditions[] = $semiJoin($excludeIds, 'NOT IN');
+        }
+        return $conditions;
     }
 
     /**
@@ -759,6 +852,38 @@ class EventsController extends AppController
                         }
                     }
                     break;
+                case 'galaxy':
+                    if ($v === '' || $v === [] || !Configure::read('MISP.tagging')) {
+                        continue 2;
+                    }
+                    $galaxyConditions = $this->__galaxyFilterConditions(is_array($v) ? $v : explode('|', $v));
+                    if ($galaxyConditions === false) {
+                        $nothing = true;
+                        break;
+                    }
+                    foreach ($galaxyConditions as $galaxyCondition) {
+                        $this->paginate['conditions']['AND'][] = $galaxyCondition;
+                    }
+                    break;
+                case 'pending':
+                    if ($v === '' || !in_array((string)$v, ['0', '1'], true)) {
+                        continue 2;
+                    }
+                    $this->paginate['conditions']['AND'][] = $v == 1
+                        ? ['Event.publish_timestamp >' => 0, 'Event.timestamp > Event.publish_timestamp']
+                        : ['OR' => ['Event.publish_timestamp' => 0, 'Event.timestamp <= Event.publish_timestamp']];
+                    break;
+                case 'firstpublished':
+                    if ($v == "") {
+                        continue 2;
+                    }
+                    if (is_array($v) && isset($v[0]) && isset($v[1])) {
+                        $this->paginate['conditions']['AND'][] = ['Event.first_publication >=' => $this->Event->resolveTimeDelta($v[0])];
+                        $this->paginate['conditions']['AND'][] = ['Event.first_publication <=' => $this->Event->resolveTimeDelta($v[1])];
+                    } else {
+                        $this->paginate['conditions']['AND'][] = ['Event.first_publication >=' => $this->Event->resolveTimeDelta($v)];
+                    }
+                    break;
                 default:
                     continue 2;
             }
@@ -821,7 +946,7 @@ class EventsController extends AppController
         }
         // list the events
         $urlparams = "";
-        $overrideAbleParams = array('all', 'attribute', 'published', 'eventid', 'datefrom', 'dateuntil', 'org', 'eventinfo', 'tag', 'tags', 'distribution', 'sharinggroup', 'analysis', 'threatlevel', 'email', 'hasproposal', 'timestamp', 'publishtimestamp', 'publish_timestamp', 'minimal', 'value', 'is_extension', 'is_extended', 'include_event_tags_fingerprint');
+        $overrideAbleParams = array('all', 'attribute', 'published', 'eventid', 'datefrom', 'dateuntil', 'org', 'eventinfo', 'tag', 'tags', 'distribution', 'sharinggroup', 'analysis', 'threatlevel', 'email', 'hasproposal', 'timestamp', 'publishtimestamp', 'publish_timestamp', 'minimal', 'value', 'is_extension', 'is_extended', 'include_event_tags_fingerprint', 'galaxy', 'pending', 'firstpublished');
         $paginationParams = array('limit', 'page', 'sort', 'direction', 'order');
         $passedArgs = $this->passedArgs;
 
@@ -878,14 +1003,23 @@ class EventsController extends AppController
         }
         $this->Event->includeAnalystData = isset($passedArgs['includeAnalystData']) ? $passedArgs['includeAnalystData'] : false;
         $this->paginate['includeAnalystData'] = isset($passedArgs['includeAnalystData']) ? $passedArgs['includeAnalystData'] : false;
+        $withCards = $this->theme === 'Overmind';
+        if ($withCards) {
+            $this->Event->Behaviors->load('EventIndexStats', [
+                'lastLogin' => (int)$this->Auth->user('last_login'),
+            ]);
+        }
         $events = $this->paginate();
+        if ($withCards) {
+            $this->set('indexStats', $this->Event->indexStats());
+            $this->Event->Behaviors->unload('EventIndexStats');
+        }
 
         if (count($events) === 1 && isset($this->passedArgs['searchall'])) {
             $this->redirect(array('controller' => 'events', 'action' => 'view', $events[0]['Event']['id']));
         }
 
-        list($possibleColumns, $enabledColumns) = $this->__indexColumns();
-        $withCards = $this->theme === 'Overmind';
+        list($possibleColumns, $enabledColumns, $savedHiddenColumns) = $this->__indexColumns();
         $attachColumns = $enabledColumns;
         if ($withCards) {
             // The cards ignore the table's hidden columns; the optional counts
@@ -905,6 +1039,7 @@ class EventsController extends AppController
         $this->set('labelPlan', $labelPlan);
         $this->set('possibleColumns', $possibleColumns);
         $this->set('columns', $enabledColumns);
+        $this->set('savedHiddenColumns', $savedHiddenColumns);
         $this->set('eventDescriptions', $this->Event->fieldDescriptions);
         $this->set('analysisLevels', $this->Event->analysisLevels);
         $this->set('distributionLevels', $this->Event->distributionLevels);
@@ -933,24 +1068,9 @@ class EventsController extends AppController
             );
         }
         $this->set('events', $events);
-
-        $orgs = $this->Event->Orgc->find('list', [
-            'fields' => ['Orgc.name', 'Orgc.name'],
-            'order' => ['Orgc.name' => 'ASC']
-        ]);
-        $this->set('orgOptions', ['' => ''] + $orgs);
-
-        $tags = $this->Event->EventTag->Tag->find('list', [
-            'fields' => ['Tag.name', 'Tag.name'],
-            'order' => ['Tag.name' => 'ASC']
-        ]);
-        $this->set('tagOptions', ['' => ''] + $tags);
-
-        $galaxies = $this->GalaxyCluster->Galaxy->find('list', [
-            'fields' => ['Galaxy.name', 'Galaxy.name'],
-            'order' => ['Galaxy.name' => 'ASC']
-        ]);
-        $this->set('galaxyOptions', ['' => ''] + $galaxies);
+        if ($withCards) {
+            $this->set('filterLabels', $this->__indexFilterLabels($passedArgs));
+        }
 
         if ($this->request->is('ajax')) {
             $this->autoRender = false;
@@ -1195,7 +1315,8 @@ class EventsController extends AppController
             $possibleColumns[] = 'correlations';
         }
 
-        if (Configure::read('MISP.showEventReportCountOnIndex')) {
+        // Overmind marks the events holding reports, as it does analyst graphs
+        if (Configure::read('MISP.showEventReportCountOnIndex') || $this->theme === 'Overmind') {
             $possibleColumns[] = 'report_count';
         }
 
@@ -1215,13 +1336,21 @@ class EventsController extends AppController
         $possibleColumns[] = 'publish_timestamp';
 
         $userDisabledColumns = $this->User->UserSetting->getValueForUser($this->Auth->user()['id'], 'event_index_hide_columns');
-        if ($userDisabledColumns === null) {
-            $userDisabledColumns = self::DEFAULT_HIDDEN_INDEX_COLUMNS;
+        $saved = $userDisabledColumns !== null;
+        if ($saved) {
+            $userDisabledColumns = array_intersect(
+                (array)$userDisabledColumns,
+                UserSetting::EVENT_INDEX_HIDEABLE_COLUMNS
+            );
+        } else {
+            $userDisabledColumns = $this->theme === 'Overmind'
+                ? self::OVERMIND_HIDDEN_INDEX_COLUMNS
+                : self::DEFAULT_HIDDEN_INDEX_COLUMNS;
         }
 
         $enabledColumns = array_diff($possibleColumns, $userDisabledColumns);
 
-        return [$possibleColumns, $enabledColumns];
+        return [$possibleColumns, $enabledColumns, $saved ? array_values($userDisabledColumns) : null];
     }
 
     private function __attachInfoToEvents(array $columns, array $events)
@@ -1239,7 +1368,10 @@ class EventsController extends AppController
         }
 
         if (in_array('attribute_count', $columns, true)) {
-            $events = $this->Event->attachObjectAndAttributeCountToEvents($events);
+            $events = $this->Event->attachObjectCountToEvents(
+                $events,
+                Event::INDEX_OBJECT_LIMIT
+            );
         }
 
         if (in_array('correlations', $columns, true)) {
@@ -1298,7 +1430,7 @@ class EventsController extends AppController
                 ['Graph.object_type' => 'Event', 'Graph.object_uuid' => $uuids],
                 $Graph->buildConditions($user),
             ]],
-            'fields' => ['Graph.uuid', 'Graph.name', 'Graph.object_uuid'],
+            'fields' => ['Graph.uuid', 'Graph.name', 'Graph.object_uuid', 'Graph.revision'],
             'order' => ['Graph.modified' => 'DESC'],
             'recursive' => -1,
             'callbacks' => false,
@@ -1308,6 +1440,7 @@ class EventsController extends AppController
             $graphs[$row['Graph']['object_uuid']][] = [
                 'uuid' => $row['Graph']['uuid'],
                 'name' => $row['Graph']['name'],
+                'revision' => (int)$row['Graph']['revision'],
             ];
         }
 
@@ -1344,9 +1477,15 @@ class EventsController extends AppController
             $extendedBy[$row['Event']['extends_uuid']] = (int)$row[0]['children'];
         }
 
+        App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
+        $grades = ValueTrustTool::planFor($profile)['grades'];
+        $pinned = EventCardTool::pinned($profile);
+        $pinnedExtras = array_diff($pinned, $markingNamespaces);
+
+        $contexts = [];
+        $pinnedTagNames = [];
         foreach ($events as $k => $event) {
-            $e = $event['Event'];
-            $context = EventContextTool::rows(
+            $contexts[$k] = EventContextTool::rows(
                 $event['EventTag'] ?? [],
                 $event['GalaxyCluster'] ?? [],
                 null,
@@ -1355,6 +1494,24 @@ class EventsController extends AppController
                 $profile,
                 $permitted
             );
+            foreach ($contexts[$k]['classification'] as $item) {
+                if ($item['kind'] === 'tag' && in_array($item['key'], $pinnedExtras, true)) {
+                    $pinnedTagNames[$item['name']] = true;
+                }
+            }
+        }
+        // Redis-cached, and bounded by the distinct pinned tags on the page.
+        $descriptions = [];
+        if ($pinnedTagNames) {
+            $Taxonomy = ClassRegistry::init('Taxonomy');
+            foreach (array_keys($pinnedTagNames) as $tagName) {
+                $descriptions[$tagName] = EventCardTool::tagDescription($Taxonomy->getTaxonomyForTag($tagName));
+            }
+        }
+
+        foreach ($events as $k => $event) {
+            $e = $event['Event'];
+            $context = $contexts[$k];
             $extends = null;
             if (!empty($e['extends_uuid'])) {
                 $parent = $extendedEvents[$e['extends_uuid']] ?? null;
@@ -1364,8 +1521,9 @@ class EventsController extends AppController
             }
             $sharingGroupId = (int)($e['sharing_group_id'] ?? 0);
             $events[$k]['EventCard'] = [
-                'rows' => EventCardTool::rows($context),
-                'markings' => EventCardTool::markings($context, $markingNamespaces),
+                'rows' => EventCardTool::rows($context, $profile),
+                'markings' => EventCardTool::markings($context, $markingNamespaces, $pinned, $descriptions),
+                'grade' => EventCardTool::grade($event['Orgc'] ?? [], $grades),
                 'state' => EventCardTool::state($e),
                 'distribution' => EventCardTool::distribution(
                     $e['distribution'],
@@ -3087,6 +3245,12 @@ class EventsController extends AppController
     private function __setAttributeFilterOptions(array $extensionSet)
     {
         $this->set($this->Event->Attribute->indexFilterOptions());
+        $tag = $this->request->params['named']['tags'] ?? null;
+        App::uses('IndexPicker', 'Tools');
+        $this->set('filterLabels', IndexPicker::resolve(
+            $this->Auth->user(),
+            is_string($tag) && $tag !== '' ? ['tag' => [$tag]] : []
+        ));
         $orgNames = array_values($this->Event->Orgc->find('list', [
             'fields' => ['Orgc.id', 'Orgc.name'],
             'conditions' => [

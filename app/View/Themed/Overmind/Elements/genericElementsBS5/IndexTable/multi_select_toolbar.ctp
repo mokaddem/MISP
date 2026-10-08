@@ -27,17 +27,15 @@ $massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
 };
 ?>
 <div id="multiSelectToolbar"
-     class="mt-2 d-none">
+     class="ms-float d-none" role="region" aria-label="<?= h(__('Selected items')) ?>">
 <?php if ($disabledReason !== null): ?>
     <fieldset disabled class="border-0 p-0 m-0" title="<?= h($disabledReason) ?>">
 <?php endif; ?>
 
     <div class="p-2 border rounded bg-light d-flex align-items-center gap-2 flex-wrap">
 
-        <strong>
-            <?= __('Selected items') ?>:
-            <span id="selectedCount">0</span>
-        </strong>
+        <span class="ms-count"><?= sprintf(h(__('%s selected')), '<b id="selectedCount">0</b>') ?></span>
+        <span class="ms-sep" aria-hidden="true"></span>
 
 <?php if ($scopeNote !== null): ?>
         <span class="small text-muted" id="multiSelectScopeNote">
@@ -59,7 +57,7 @@ $massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
 
         <?php if (!empty($filter_bar['export'])): ?>
             <button id="multi-export-button"
-                    class="btn btn-primary btn-sm ms-2"
+                    class="btn btn-primary btn-sm"
                     title="<?= __('Export selected attributes') ?>"
                     aria-label="<?= __('Export selected attributes') ?>"
                     onclick="multiSelectItems('<?= h($baseurl . $item_url . '/restSearchExport') ?>', '')">
@@ -77,7 +75,7 @@ $massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
                     : ($baseurl . $item_url . $filter_bar['fetch']);
             ?>
             <button id="mass-fetch-button"
-                    class="btn btn-primary btn-sm ms-2 d-none"
+                    class="btn btn-primary btn-sm d-none"
                     title="<?= __('Fetch the selected events') ?>"
                     aria-label="<?= __('Fetch the selected events') ?>"
                     onclick="multiSelectItems('<?= h($massFetchUrl) ?>', '')">
@@ -93,7 +91,7 @@ $massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
             foreach (($filter_bar['custom_actions'] ?? []) as $customAction):
         ?>
             <button id="<?= h($customAction['id']) ?>"
-                    class="btn btn-sm ms-2 <?= h($customAction['class'] ?? 'btn-primary') ?>"
+                    class="btn btn-sm <?= h($customAction['class'] ?? 'btn-primary') ?>"
                     title="<?= h($customAction['label']) ?>"
                     aria-label="<?= h($customAction['label']) ?>"
                     onclick="<?= h($customAction['onclick']) ?>">
@@ -269,12 +267,12 @@ $massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
         <?php if (!empty($filter_bar['soft_delete'])): ?>
             <?php // The confirmation modal soft-deletes unless told to delete for good. ?>
             <button id="multi-soft-delete-button"
-                    class="btn btn-danger btn-sm d-none"
+                    class="btn btn-outline-danger btn-sm d-none"
                     title="<?= __('Delete selected items') ?>"
                     aria-label="<?= __('Delete selected items') ?>"
                     onclick="multiSelectItems('<?= h($baseurl . $item_url . $filter_bar['soft_delete']) ?>', '')">
-                <i class="fas fa-trash text-white"></i>
-                <span class="text-white"> <?= __('Delete') ?></span>
+                <i class="fas fa-trash"></i>
+                <span> <?= __('Delete') ?></span>
             </button>
         <?php endif; ?>
 
@@ -309,14 +307,19 @@ $massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
                     : ($baseurl . $item_url . $filter_bar['delete']);
             ?>
             <button id="multi-delete-button"
-                    class="btn btn-danger btn-sm d-none"
+                    class="btn btn-outline-danger btn-sm d-none"
                     title="<?= __('Delete selected items') ?>"
                     aria-label="<?= __('Delete selected items') ?>"
                     onclick="multiSelectItems('<?= h($multiDeleteUrl) ?>', '/true')">
-                <i class="fas fa-trash text-white"></i>
-                <span class="text-white"> <?= __('Delete') ?></span>
+                <i class="fas fa-trash"></i>
+                <span> <?= __('Delete') ?></span>
             </button>
         <?php endif; ?>
+
+        <span class="ms-sep" aria-hidden="true"></span>
+        <button type="button" class="btn btn-sm btn-link ms-clear" onclick="clearMultiSelect(this)">
+            <?= __('Clear selection') ?>
+        </button>
 
     </div>
 <?php if ($disabledReason !== null): ?>

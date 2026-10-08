@@ -35,6 +35,12 @@ class Event extends AppModel
     const NO_PUSH_DISTRIBUTION = 'distribution',
         NO_PUSH_SERVER_RULES = 'push_rules';
 
+    // Correlations read each way per event for the index's correlation count
+    const INDEX_CORRELATION_LIMIT = 1000;
+
+    // Objects read per event for the index's object count
+    const INDEX_OBJECT_LIMIT = 1000;
+
     public $actsAs = array(
         'AuditLog',
         'SysLogLogable.SysLogLogable' => array(
@@ -693,12 +699,30 @@ class Event extends AppModel
      * @param array $user
      * @param array $events
      * @param bool $excludeNonCorrelating Count only the related events that the
-     *      event view can actually show a correlation for
+     *      event view can actually show a correlation for, within
+     *      INDEX_CORRELATION_LIMIT correlations; `correlation_count_more` marks
+     *      a count that stopped there
      * @return array
      */
     public function attachCorrelationCountToEvents(array $user, array $events, bool $excludeNonCorrelating = false)
     {
         $sgids = $this->SharingGroup->authorizedIds($user);
+        if ($excludeNonCorrelating) {
+            if (empty($sgids)) {
+                $sgids = [-1];
+            }
+            foreach ($events as &$event) {
+                list($count, $more) = $this->Attribute->Correlation->countRelatedEvents(
+                    $user,
+                    (int)$event['Event']['id'],
+                    $sgids,
+                    self::INDEX_CORRELATION_LIMIT
+                );
+                $event['Event']['correlation_count'] = $count;
+                $event['Event']['correlation_count_more'] = $more;
+            }
+            return $events;
+        }
         foreach ($events as &$event) {
             $event['Event']['correlation_count'] = $this->getRelatedEventCount($user, $event['Event']['id'], $sgids, $excludeNonCorrelating);
         }
@@ -708,14 +732,9 @@ class Event extends AppModel
     public function attachSightingsCountToEvents(array $user, array $events)
     {
         $eventIds = array_column(array_column($events, 'Event'), 'id');
-        $this->Sighting->virtualFields['count'] = 'count(Sighting.id)';
-        $sightings = $this->Sighting->find('list', array(
-            'fields' => array('Sighting.event_id', 'Sighting.count'),
-            'conditions' => array('event_id' => $eventIds),
-            'group' => array('event_id')
-        ));
+        $sightings = $this->Sighting->countForEvents($user, $eventIds);
         foreach ($events as $key => $event) {
-            $events[$key]['Event']['sightings_count'] = isset($sightings[$event['Event']['id']]) ? $sightings[$event['Event']['id']] : 0;
+            $events[$key]['Event']['sightings_count'] = $sightings[$event['Event']['id']] ?? 0;
         }
         return $events;
     }
@@ -735,13 +754,7 @@ class Event extends AppModel
         if (empty($eventIds)) {
             return $events;
         }
-        $objectCounts = $this->Object->find('all', array(
-            'fields' => array('Object.event_id', 'COUNT(Object.id) as count'),
-            'conditions' => array('Object.event_id' => $eventIds, 'Object.deleted' => 0),
-            'recursive' => -1,
-            'group' => array('Object.event_id'),
-        ));
-        $objectCounts = Hash::combine($objectCounts, '{n}.Object.event_id', '{n}.0.count');
+        $events = $this->attachObjectCountToEvents($events);
         $attributeCounts = $this->Attribute->find('all', array(
             'fields' => array('Attribute.event_id', 'COUNT(Attribute.id) as count'),
             'conditions' => array('Attribute.event_id' => $eventIds, 'Attribute.deleted' => 0, 'Attribute.object_id' => 0),
@@ -751,10 +764,84 @@ class Event extends AppModel
         $attributeCounts = Hash::combine($attributeCounts, '{n}.Attribute.event_id', '{n}.0.count');
         foreach ($events as $key => $event) {
             $eventId = $event['Event']['id'];
-            $events[$key]['Event']['object_count'] = isset($objectCounts[$eventId]) ? (int)$objectCounts[$eventId] : 0;
             $events[$key]['Event']['attribute_count_no_objects'] = isset($attributeCounts[$eventId]) ? (int)$attributeCounts[$eventId] : 0;
         }
         return $events;
+    }
+
+    /**
+     * Attaches `object_count`, the number of (non-deleted) objects, to each
+     * event of an index list.
+     *
+     * @param array $events
+     * @param int|null $limit Read at most this many objects per event;
+     *      `object_count_more` marks a count that stopped there
+     * @return array
+     */
+    public function attachObjectCountToEvents(array $events, $limit = null)
+    {
+        $eventIds = array_column(array_column($events, 'Event'), 'id');
+        if (empty($eventIds)) {
+            return $events;
+        }
+        if ($limit === null) {
+            $objectCounts = $this->Object->find('all', array(
+                'fields' => array('Object.event_id', 'COUNT(Object.id) as count'),
+                'conditions' => array('Object.event_id' => $eventIds, 'Object.deleted' => 0),
+                'recursive' => -1,
+                'group' => array('Object.event_id'),
+            ));
+            $objectCounts = Hash::combine($objectCounts, '{n}.Object.event_id', '{n}.0.count');
+        } else {
+            $objectCounts = $this->__countObjectsUpTo($eventIds, $limit + 1);
+        }
+        foreach ($events as $key => $event) {
+            $count = (int)($objectCounts[$event['Event']['id']] ?? 0);
+            if ($limit !== null) {
+                $events[$key]['Event']['object_count_more'] = $count > $limit;
+                $count = min($count, $limit);
+            }
+            $events[$key]['Event']['object_count'] = $count;
+        }
+        return $events;
+    }
+
+    /**
+     * @param array $eventIds
+     * @param int $limit
+     * @return array event id => non-deleted objects, at most $limit
+     */
+    private function __countObjectsUpTo(array $eventIds, $limit)
+    {
+        $db = $this->Object->getDataSource();
+        $counts = [];
+        foreach ($eventIds as $eventId) {
+            $capped = $db->buildStatement([
+                'fields' => ['Object.id'],
+                'table' => $db->fullTableName($this->Object),
+                'alias' => 'Object',
+                'conditions' => [
+                    'Object.event_id' => (int)$eventId,
+                    'Object.deleted' => 0,
+                ],
+                'order' => null,
+                'group' => null,
+                'limit' => $limit,
+                'offset' => null,
+            ], $this->Object);
+            $rows = $db->fetchAll(
+                sprintf(
+                    'SELECT COUNT(*) AS %s FROM (%s) AS %s',
+                    $db->name('n'),
+                    $capped,
+                    $db->name('capped')
+                ),
+                [],
+                ['cache' => false]
+            );
+            $counts[$eventId] = (int)($rows[0][0]['n'] ?? 0);
+        }
+        return $counts;
     }
 
     public function attachProposalsCountToEvents($user, $events)
@@ -1090,12 +1177,11 @@ class Event extends AppModel
         $events = $this->attachTagsToEvents($events);
         $events = ClassRegistry::init('GalaxyCluster')
             ->attachClustersToEventIndex($user, $events, true);
-        $events = $this->attachObjectAndAttributeCountToEvents($events);
+        $events = $this->attachObjectCountToEvents($events);
 
         $cards = [];
         foreach ($events as $event) {
             $card = $event['Event'];
-            unset($card['attribute_count_no_objects']);
             $card['Orgc'] = $event['Orgc'];
             $card['Tag'] = [];
             foreach ($event['EventTag'] as $eventTag) {

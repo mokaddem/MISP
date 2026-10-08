@@ -89,7 +89,13 @@
 .dk-lead > .misp-icon { width: 14px; height: 14px; color: var(--dk-accent); }
 .dk-sel { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; z-index: 2; }
 .dk-sel .checkbox-actions-wrapper { margin: 0; background: none; border-radius: 0; }
-.dk-sel .checkbox-index input[type="checkbox"] { margin: 0; width: 15px; height: 15px; border-radius: 4px; }
+.dk-sel .checkbox-index input[type="checkbox"] {
+    margin: 0; width: 15px; height: 15px; border-radius: 4px;
+    background-color: var(--bs-body-bg); border-color: color-mix(in srgb, var(--bs-body-color) 34%, transparent);
+}
+.dk-sel .checkbox-index input[type="checkbox"]:hover:not(:checked) { border-color: var(--bs-primary); }
+.dk-sel .checkbox-index input[type="checkbox"]:checked { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+.dk-sel .checkbox-index input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--bs-primary) 30%, transparent); }
 .dk-sel .checkbox-index input[type="checkbox"]::after { left: 4.5px; top: 1.5px; width: 4.5px; height: 8px; }
 .dk-card:hover .dk-sel, .dk-card:focus-within .dk-sel, .dk-selecting .dk-sel, .dk-card.is-selected .dk-sel { opacity: 1; }
 .dk-card:hover .dk-lead > .misp-icon, .dk-card:focus-within .dk-lead > .misp-icon, .dk-selecting .dk-lead > .misp-icon, .dk-card.is-selected .dk-lead > .misp-icon { visibility: hidden; }
@@ -187,24 +193,102 @@
 .dk-chip.is-mit { font-family: var(--bs-font-monospace); font-size: .69rem; padding: 0 6px; }
 .dk-chip.is-mit i { color: var(--dk-ink2); }
 .dk-chip.is-fold { border-style: dashed; background: transparent; color: var(--dk-ink2); }
-.dk-fold { flex: none; display: inline-flex; position: relative; z-index: 2; }
-.dk-fold[hidden] { display: none; }
 .dk-more {
+    flex: none; position: relative; z-index: 2;
     border: 0; border-radius: 4px; padding: 0 4px; background: none; cursor: pointer;
     font-size: .74rem; font-weight: 600; line-height: 20px; color: var(--dk-ink2);
 }
+.dk-more[hidden] { display: none; }
 .dk-more:hover, .dk-more[aria-expanded="true"] { color: var(--dk-ink); background: var(--bs-secondary-bg); }
 .dk-more:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 1px; }
 
-/* the +N popover, attached to body: the row as the table's folded-tag lists */
-.dk-pop-head {
-    padding: 7px 12px 6px 10px; font-size: .74rem; font-weight: 650; color: var(--bs-secondary-color);
-    border-bottom: 1px solid var(--bs-border-color-translucent);
+/* the analyst profile ranks this chip: a small dot in the chip's own colour */
+.dk-chip.dk-pref { padding-right: 11px; }
+.dk-chip.dk-pref::after {
+    content: ""; position: absolute; top: 3px; right: 3px; width: 4px; height: 4px; border-radius: 50%;
+    background: var(--dk-gx-ink); opacity: .7;
 }
+.dk-chip.is-tag.dk-pref::after { background: var(--tc, var(--dk-ink2)); opacity: .9; }
+.hg-row.dk-pref { position: relative; }
+/* tag lists in the popover keep each tag's own colour, as its chip does */
+.hg-card.is-own .hg-hns { color: var(--hg-text); }
+.hg-card.is-own .hg-row { border-left: 3px solid var(--tc, var(--dk-line)); border-radius: 0 3px 3px 0; padding-left: 6px; }
+[data-misp-mode="dark"] .hg-card.is-own .hg-row { border-left-color: color-mix(in srgb, var(--tc, var(--dk-line)) 70%, #fff); }
+.hg-card.is-own .hg-row.dk-pref .hg-name::after { background: var(--tc, var(--dk-ink2)); }
+.hg-row.dk-pref .hg-name::after {
+    content: ""; display: inline-block; width: 4px; height: 4px; margin-left: 5px; vertical-align: .45em;
+    border-radius: 50%; background: hsl(var(--hg-h, 210) var(--hg-s, 62%) var(--hg-l-mark, 48%));
+}
+
+/* grade squares: the org's own claim (admiralty) outlined, the reader's grade filled */
+.dk-grade {
+    position: relative; z-index: 2;
+    display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none;
+    border: 1px solid var(--dk-line); border-radius: 4px; color: var(--dk-ink);
+    font-size: .72rem; font-weight: 700; font-variant-numeric: tabular-nums; cursor: default; letter-spacing: -.02em;
+}
+.dk-grade.is-mine {
+    color: color-mix(in srgb, var(--dk-accent) 78%, var(--bs-body-color));
+    background: color-mix(in srgb, var(--dk-accent) 15%, var(--dk-surface));
+    border-color: color-mix(in srgb, var(--dk-accent) 45%, transparent);
+}
+.dk-marks .dk-grade { height: 19px; width: 22px; }
+.dk-pin-tag { flex: none; height: 19px; max-width: 80px; padding: 0 5px 0 4px; font-size: .68rem; }
+
+/* the context popover, attached to body: the event's context as folded-tag lists */
+.dk-pop-float {
+    position: absolute; z-index: 1080; min-width: 260px;
+    max-width: calc(100vw - 32px); overflow: hidden;
+    background: var(--bs-body-bg); color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color); border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .16), 0 2px 6px rgba(0, 0, 0, .08);
+    font-size: .8rem;
+}
+[data-misp-mode="dark"] .dk-pop-float { background: color-mix(in srgb, var(--bs-body-color) 6%, var(--bs-body-bg)); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.dk-pop-float[hidden] { display: none; }
+.dk-pop-float:focus { outline: none; }
+.dk-pop-float.is-pinned { border-color: color-mix(in srgb, var(--dk-accent) 45%, var(--bs-border-color)); }
+.dk-pop-head {
+    position: sticky; top: 0; z-index: 5; display: flex; align-items: baseline; gap: 8px;
+    padding: 8px 10px 7px 12px; background: inherit; border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.dk-pop-float .dk-pop-head { background: var(--bs-body-bg); }
+[data-misp-mode="dark"] .dk-pop-float .dk-pop-head, [data-misp-mode="dark"] .dk-pop-float .dk-pop-foot { background: color-mix(in srgb, var(--bs-body-color) 6%, var(--bs-body-bg)); }
+.dk-pop-id { flex: none; font-family: var(--bs-font-monospace); font-size: .74rem; color: var(--bs-secondary-color); }
+.dk-pop-head b { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 520px; }
+.dk-pop-x { margin-left: auto; flex: none; border: 0; background: none; color: var(--bs-secondary-color); padding: 0 2px; }
+.dk-pop-x:hover { color: var(--bs-body-color); }
+.dk-pop-sec + .dk-pop-sec { border-top: 1px solid var(--bs-border-color-translucent); }
+.dk-pop-sec.is-focus { box-shadow: inset 3px 0 0 var(--dk-accent); }
+.dk-pop-sec h4 {
+    display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 12px 6px;
+    font-size: .74rem; font-weight: 650; color: var(--bs-secondary-color);
+}
+.dk-pop-sec.is-focus h4 { color: var(--bs-body-color); }
+.dk-pop-sec h4 i { width: 13px; text-align: center; color: var(--bs-tertiary-color); }
+.dk-pop-sec h4 .misp-icon { width: 13px; height: 13px; }
+.dk-pop-sec h4 small { font-weight: 500; color: var(--bs-tertiary-color); font-variant-numeric: tabular-nums; }
+.dk-pop-foot {
+    position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding: 5px 8px;
+    background: var(--bs-body-bg); border-top: 1px solid var(--bs-border-color-translucent);
+}
+.dk-pop-foot button {
+    border: 0; background: none; padding: 2px 6px; border-radius: 4px; font: inherit; font-size: .76rem; font-weight: 600;
+    color: var(--dk-accent); display: inline-flex; align-items: center; gap: 6px;
+}
+.dk-pop-foot button:hover { background: var(--bs-tertiary-bg); }
+.dk-pop-foot button:focus-visible { outline: 2px solid var(--dk-accent); }
+.dk-pop-foot i { font-size: .72rem; }
 .dk-pop-body { margin-top: -1px; column-gap: 0; column-rule: 1px solid var(--bs-border-color-translucent); }
 .dk-pop-body[data-cols="2"] { column-count: 2; }
 .dk-pop-body[data-cols="3"] { column-count: 3; }
-.dk-pop-body .hg-card { break-inside: avoid; border-top: 1px solid var(--hg-border); }
+.dk-pop-body .hg-card { break-inside: avoid; border-top: 1px solid color-mix(in srgb, var(--hg-border) 55%, transparent); }
+.dk-pop-body .hg-card-head { border-bottom: 0; padding: 10px 12px 2px 10px; font-size: 11px; }
+.dk-pop-body .hg-list { padding-top: 3px; padding-bottom: 10px; }
+.dk-pop-float .dk-pop-body .hinge-tags .hg-list { width: auto; max-width: none; }
+.dk-pop-body .hg-card { min-width: 0; }
+.dk-pop-more { margin-right: auto; align-self: center; padding: 0 4px; font-size: .74rem; color: var(--bs-secondary-color); }
+.dk-pop-body .hg-card.is-own .hg-card-head { box-shadow: none; padding-left: 8px; }
 .dk-pop-note {
     padding: 6px 12px 8px; font-size: .74rem; color: var(--bs-secondary-color);
     border-top: 1px solid var(--bs-border-color-translucent);
@@ -229,9 +313,9 @@
 .dk-xtra { display: inline-flex; gap: 7px; margin-left: auto; padding-left: 4px; min-width: 0; overflow: hidden; color: var(--dk-ink2); font-variant-numeric: tabular-nums; }
 .dk-xtra span { position: relative; z-index: 2; cursor: default; }
 .dk-xtra .misp-icon { width: 12px; height: 12px; vertical-align: -1px; }
-.dk-xtra .dk-graph { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 3px; color: var(--dk-ink2); text-decoration: none; font-weight: 600; }
-.dk-xtra .dk-graph .misp-icon { width: 14px; height: 14px; }
-.dk-xtra .dk-graph:hover { color: var(--dk-accent); }
+.dk-xtra .dk-graph, .dk-xtra .dk-report { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 3px; color: var(--dk-ink2); text-decoration: none; font-weight: 600; }
+.dk-xtra .dk-graph .misp-icon, .dk-xtra .dk-report .misp-icon { width: 14px; height: 14px; }
+.dk-xtra .dk-graph:hover, .dk-xtra .dk-report:hover { color: var(--dk-accent); }
 .dk-dist {
     position: relative; z-index: 2; margin-left: auto; flex: none; cursor: default;
     width: 26px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;

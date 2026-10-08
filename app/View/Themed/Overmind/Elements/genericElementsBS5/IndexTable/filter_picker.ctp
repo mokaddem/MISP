@@ -1,0 +1,73 @@
+<?php
+/**
+ * One `picker` child of the filter bar: a button with a selection count and
+ * a dropdown the bar's script builds on open (index-filters.js).
+ *
+ * - name     : filter name, unprefixed
+ * - label    : button and chip label
+ * - icon     : classes of the button's icon
+ * - source   : search URL answering ?q= with [{value, label, style}]
+ * - options  : fixed list instead of a source, [{value, label, style}]
+ * - exclude  : whether a value can be excluded (`!value`)
+ * - resolved : value => {label, style} for the values a URL may carry
+ * - all_of   : whether `a&b` in the URL means all of them
+ * - hint     : line under the list
+ * - separator: between values in the URL, '|' unless the index splits on '||'
+ * - single   : one value at a time, applied as soon as it is picked
+ *
+ * @var array $child
+ * @var IndexFilterState $state
+ */
+$name = $child['name'];
+$raw = (string)$state->get($name);
+$allOf = !empty($child['all_of']) && strpos($raw, '&') !== false && strpos($raw, '|') === false;
+$pieces = $allOf
+    ? array_map(function ($v) { return [$v, false]; }, array_values(array_filter(explode('&', $raw), 'strlen')))
+    : IndexFilterState::pieces($raw, $child['separator'] ?? '|');
+
+$known = [];
+foreach (($child['options'] ?? []) as $option) {
+    $known[(string)$option['value']] = $option;
+}
+foreach (($child['resolved'] ?? []) as $value => $row) {
+    $known[(string)$value] = $row;
+}
+$selected = [];
+foreach ($pieces as [$value, $excluded]) {
+    $row = $known[$value] ?? null;
+    $selected[] = [
+        'value' => $value,
+        'label' => $row['label'] ?? $value,
+        'style' => $row['style'] ?? null,
+        'exclude' => $excluded && !empty($child['exclude']),
+        'unresolved' => $row === null,
+    ];
+}
+
+$config = [
+    'name' => $name,
+    'label' => $child['label'],
+    'source' => $child['source'] ?? null,
+    'options' => isset($child['options']) ? array_values($child['options']) : null,
+    'exclude' => !empty($child['exclude']),
+    'selected' => $selected,
+    'allOf' => $allOf,
+    'hint' => $child['hint'] ?? null,
+    'sep' => $child['separator'] ?? '|',
+    'single' => !empty($child['single']),
+];
+$count = count($selected);
+?>
+<div class="ifp-picker flex-shrink-0" data-ifp-swap="picker-<?= h($name) ?>" data-ifp-picker="<?= h(json_encode($config, JSON_UNESCAPED_UNICODE)) ?>">
+    <button type="button" class="btn btn-sm btn-outline-secondary ifp-btn<?= $count ? ' is-set' : '' ?>" aria-expanded="false" aria-haspopup="dialog" data-tour="index-picker-<?= h($name) ?>">
+        <?php if (!empty($child['icon'])): ?>
+            <i class="<?= h($child['icon']) ?>" aria-hidden="true"></i>
+        <?php endif; ?>
+        <span><?= h($child['label']) ?></span>
+        <?php if ($count): ?>
+            <span class="badge rounded-pill text-bg-primary" aria-label="<?= h(__n('%s selected', '%s selected', $count, $count)) ?>"><?= h($count) ?></span>
+        <?php endif; ?>
+        <i class="fas fa-chevron-down ifp-caret" aria-hidden="true"></i>
+    </button>
+    <div class="ifp-pop" role="dialog" tabindex="-1" aria-label="<?= h($child['label']) ?>" hidden></div>
+</div>

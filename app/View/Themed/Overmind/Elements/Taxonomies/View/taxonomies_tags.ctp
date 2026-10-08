@@ -131,6 +131,7 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
             'data' => $entries,
             'filter_bar' => [
                 'pull' => 'right',
+                'base_url' => $baseurl . '/taxonomies/taxonomy_tags/' . $id,
                 'children' => [
                     [
                         'type' => 'search',

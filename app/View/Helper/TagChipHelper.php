@@ -5,8 +5,8 @@ App::uses('GalaxyColour', 'Tools');
 App::uses('FontAwesomeHelper', 'View/Helper');
 
 /**
- * Renders tags as chips: the path on a first row and the leaf always on a
- * second. Two or more tags of a collection sharing a namespace fuse into a
+ * Renders tags as chips: the path on a first row and the leaf on a second,
+ * or both on one row for a lone namespace:value tag when asked. Two or more tags of a collection sharing a namespace fuse into a
  * block that prints the namespace once, each member keeping its predicate.
  * Colour means taxonomy: a taxonomy whose declared palette tells its
  * values apart (TLP, PAP) keeps its colours, every other one gets a hue
@@ -30,6 +30,8 @@ class TagChipHelper extends AppHelper
      *   canModifyAll       may remove any tag
      *   canModifyLocal     may remove local tags
      *   display            'full' (default), 'leaf' or 'swatch'
+     *   inline             a namespace:value tag keeps its leaf on the
+     *                      namespace's row, unboxed (default false)
      *   group              fuse shared namespaces into blocks (default true)
      *   minGroup           members before a namespace earns a block (2)
      *   wideAt             members before a block takes its own line (8)
@@ -108,9 +110,12 @@ class TagChipHelper extends AppHelper
      *
      * @param array $tags as collection()
      * @param array $clusters as clusters()
+     * @param array $options ownColour: each tag row carries its tag's own
+     *   colour, and a list whose tags share one takes it, as tag chips
+     *   drawn outside this helper do
      * @return string
      */
-    public function lists(array $tags, array $clusters = [])
+    public function lists(array $tags, array $clusters = [], array $options = [])
     {
         $rows = $this->normalise($tags);
         foreach ($clusters as $cluster) {
@@ -138,6 +143,15 @@ class TagChipHelper extends AppHelper
         foreach ($groups as $group) {
             $first = $group['rows'][0];
             $style = sprintf('--hg-h:%d;--hg-s:62%%', $first['hue'] ?? TagChipTool::hue($group['namespace']));
+            if (!empty($options['ownColour']) && !isset($first['hue'])) {
+                $group['ownColour'] = true;
+                $colours = array_unique(array_map(function ($row) {
+                    return strtolower((string)$row['tag']['Tag']['colour']);
+                }, $group['rows']));
+                if (count($colours) === 1 && $this->isHex(reset($colours))) {
+                    $style .= ';--hg-c:' . reset($colours);
+                }
+            }
             $out .= $this->renderCard($group, $style, $this->icon($first));
         }
         return $out;
@@ -410,6 +424,8 @@ class TagChipHelper extends AppHelper
         $showPath = $display === 'full'
             && ($member ? !empty($p['above']) : $p['namespace'] !== null);
         $stacked = $display !== 'swatch' && ($showPath || $rel);
+        $inline = $stacked && !empty($options['inline']) && !$member
+            && empty($p['above']);
 
         $nv = $tag['Tag']['numerical_value'] ?? null;
         $hasNv = $nv !== null && $nv !== '' && is_numeric($nv) && $display !== 'swatch';
@@ -428,6 +444,8 @@ class TagChipHelper extends AppHelper
             $classes[] = 'is-swatch';
         } elseif (!$stacked) {
             $classes[] = $member || $display !== 'full' ? 'is-tight' : 'is-single';
+        } elseif ($inline) {
+            $classes[] = 'is-inline';
         } elseif (!$member) {
             $classes[] = 'is-stacked';
         }
@@ -464,14 +482,14 @@ class TagChipHelper extends AppHelper
                     }
                     $rail .= sprintf('<span class="hg-path">%s</span>', $path);
                 }
-                if ($hasNv) {
+                if ($hasNv && !$inline) {
                     $rail .= $this->numeral($nv, $over);
                 }
                 $inner .= sprintf('<span class="hg-rail">%s</span>', $rail);
             }
 
             $tail = sprintf('<span class="hg-leaf">%s</span>', h($p['leaf']));
-            if ($hasNv && !$stacked) {
+            if ($hasNv && (!$stacked || $inline)) {
                 $tail .= $this->numeral($nv, $over);
             }
             if ($isLocal) {
@@ -763,11 +781,13 @@ class TagChipHelper extends AppHelper
                     $right = sprintf('<span class="hg-code-up">%s</span>%s', h($item['parent']), h(substr($item['right'], strlen($item['parent']))));
                 }
                 $tagId = (int)($tag['Tag']['id'] ?? 0);
+                $colour = (string)($tag['Tag']['colour'] ?? '');
                 $list .= sprintf(
-                    '<div class="hg-row%s" title="%s"%s><span class="hg-name">%s</span>%s%s</div>',
+                    '<div class="hg-row%s" title="%s"%s%s><span class="hg-name">%s</span>%s%s</div>',
                     $sub ? ' is-sub' : '',
                     h($this->titleOf($item['row'])),
                     $tagId ? sprintf(' data-tag-id="%d"', $tagId) : '',
+                    !empty($group['ownColour']) && $this->isHex($colour) ? sprintf(' style="--tc:%s"', strtolower($colour)) : '',
                     $name,
                     empty($tag['local']) ? '' : sprintf('<span class="hg-flag">%s</span>', __('local')),
                     $item['right'] === '' ? '' : sprintf('<span class="hg-lead"></span><code class="hg-code">%s</code>', $right)
@@ -778,8 +798,9 @@ class TagChipHelper extends AppHelper
 
         $count = count($items);
         return sprintf(
-            '<div class="hinge-tags hg-card" style="%s"><div class="hg-card-head">%s%s<b class="hg-hns">%s</b><span class="hg-fold-n">%d</span>%s</div>'
+            '<div class="hinge-tags hg-card%s" style="%s"><div class="hg-card-head">%s%s<b class="hg-hns">%s</b><span class="hg-fold-n">%d</span>%s</div>'
                 . '<ol class="hg-list" data-cols="%d" style="--hg-namew:%dch;--hg-codew:%dch">%s</ol></div>',
+            empty($group['ownColour']) ? '' : ' is-own',
             $style,
             $sharedRel === '' ? '' : sprintf('<span class="hg-rel">%s</span>', h($sharedRel)),
             $icon,
@@ -791,6 +812,11 @@ class TagChipHelper extends AppHelper
             $rightWidth,
             $list
         );
+    }
+
+    private function isHex($colour)
+    {
+        return (bool)preg_match('/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i', (string)$colour);
     }
 
     private function numeral($nv, $over)

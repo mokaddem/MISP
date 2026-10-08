@@ -47,6 +47,9 @@ class WarninglistsController extends AppController
         if (isset($filters['type'])) {
             $this->paginate['conditions'][] = ['Warninglist.type' => $filters['type']];
         }
+        if (isset($filters['default'])) {
+            $this->paginate['conditions'][] = ['Warninglist.default' => $filters['default']];
+        }
         if (isset($filters['enabled'])) {
             $this->paginate['conditions'][] = ['Warninglist.enabled' => $filters['enabled']];
         }

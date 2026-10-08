@@ -392,6 +392,19 @@ class OrganisationsController extends AppController
     }
 
     /**
+     * Organisations for an index filter picker: GET ?q=<term>.
+     */
+    public function pickerSearch()
+    {
+        $this->request->allowMethod(['get']);
+        App::uses('IndexPicker', 'Tools');
+        return $this->RestResponse->viewData(
+            IndexPicker::organisations($this->Auth->user(), $this->request->query('q')),
+            'json'
+        );
+    }
+
+    /**
      * One of the organisation page's lazy rail cards.
      *
      * @param int $id

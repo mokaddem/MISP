@@ -245,6 +245,12 @@ button.igt:focus-visible {
     color: var(--bs-secondary-color);
 }
 
+.igt-pop-note {
+    margin-top: 4px;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+}
+
 .igt-swatch {
     flex: 0 0 auto;
     overflow: visible;

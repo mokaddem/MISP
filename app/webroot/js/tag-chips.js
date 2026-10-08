@@ -12,7 +12,7 @@
  * tag_id?, local?, relationship_type?, description?}; hue is
  * GalaxyColour::hue() and is derived here when missing.
  * opts: searchUrl (prefix, '' for no link), display ('full'|'leaf'|'swatch'),
- * group, minGroup, wideAt, cls.
+ * inline (a namespace:value tag on one row), group, minGroup, wideAt, cls.
  */
 (function (root) {
     'use strict';
@@ -168,6 +168,7 @@
         var showPath = display === 'full' &&
             (member ? p.above.length > 0 : p.namespace !== null);
         var stacked = display !== 'swatch' && !!(showPath || rel);
+        var inline = stacked && !!opts.inline && !member && p.above.length === 0;
         var nvRaw = tag.numerical_value;
         var hasNv = nvRaw !== null && nvRaw !== undefined && nvRaw !== '' && !isNaN(Number(nvRaw)) &&
             display !== 'swatch';
@@ -181,6 +182,8 @@
             classes.push('is-swatch');
         } else if (!stacked) {
             classes.push(member || display !== 'full' ? 'is-tight' : 'is-single');
+        } else if (inline) {
+            classes.push('is-inline');
         } else if (!member) {
             classes.push('is-stacked');
         }
@@ -207,11 +210,11 @@
                     });
                     rail += '<span class="hg-path">' + path + '</span>';
                 }
-                if (hasNv) rail += numeral(nv, over);
+                if (hasNv && !inline) rail += numeral(nv, over);
                 inner += '<span class="hg-rail">' + rail + '</span>';
             }
             var tail = '<span class="hg-leaf">' + esc(p.leaf) + '</span>';
-            if (hasNv && !stacked) tail += numeral(nv, over);
+            if (hasNv && (!stacked || inline)) tail += numeral(nv, over);
             if (isLocal) {
                 tail += '<span class="hg-flag" title="' + (x.galaxy ? 'Local cluster' : 'Local tag') + '">local</span>';
             }

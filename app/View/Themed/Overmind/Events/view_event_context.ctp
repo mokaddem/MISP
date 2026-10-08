@@ -52,6 +52,17 @@ $clusters = function (array $items) use ($mark) {
     foreach ($items as $item) {
         if ($item['kind'] === 'cluster') {
             $out[] = $mark($item);
+        } elseif ($item['kind'] === 'unheld') {
+            $out[] = [
+                'value' => $item['name'],
+                'galaxy' => $item['galaxy']['name'] ?? $item['key'],
+                'galaxy_id' => $item['galaxy']['id'] ?? null,
+                'icon' => $item['galaxy']['icon'] ?? null,
+                'tag_id' => $item['tag']['Tag']['id'] ?? null,
+                'description' => __('Cluster not available here'),
+                '_eo_level' => $item['level'],
+                '_eo_count' => (int)$item['count'],
+            ];
         }
     }
     return $out;

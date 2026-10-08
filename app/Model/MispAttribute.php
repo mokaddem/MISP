@@ -1822,8 +1822,9 @@ class MispAttribute extends AppModel
     }
 
     /**
-     * Option lists of the attribute indexes' "More filters" panel, shared by
-     * the global index and the event view so both offer the same choices.
+     * Option lists of the attribute indexes' filter pickers, shared by the
+     * global index and the event view so both offer the same choices. Tags are
+     * searched as you type (tags/pickerSearch), so no list of them is sent.
      *
      * @return array view var name => [value => label], each led by ''
      */
@@ -1836,11 +1837,6 @@ class MispAttribute extends AppModel
             'categoryOptions' => ['' => '']
                 + array_combine($categoryKeys, $categoryKeys),
             'typeOptions' => ['' => ''] + array_combine($typeKeys, $typeKeys),
-            'tagOptions' => ['' => ''] + $this->AttributeTag->Tag->find('list', [
-                'fields' => ['Tag.name', 'Tag.name'],
-                'conditions' => ['Tag.is_galaxy' => 0],
-                'order' => ['Tag.name' => 'ASC'],
-            ]),
             'galaxyOptions' => ['' => ''] + ClassRegistry::init('Galaxy')->find('list', [
                 'fields' => ['Galaxy.type', 'Galaxy.name'],
                 'order' => ['Galaxy.name' => 'ASC'],

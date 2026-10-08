@@ -241,6 +241,20 @@ class GalaxyClustersController extends AppController
     }
 
     /**
+     * Galaxy clusters for an index filter picker, valued by tag name:
+     * GET ?q=<term>.
+     */
+    public function pickerSearch()
+    {
+        $this->request->allowMethod(['get']);
+        App::uses('IndexPicker', 'Tools');
+        return $this->RestResponse->viewData(
+            IndexPicker::clusters($this->Auth->user(), $this->request->query('q')),
+            'json'
+        );
+    }
+
+    /**
      * One of the cluster page's lazy rail cards.
      *
      * @param mixed $id ID or UUID of the cluster

@@ -186,12 +186,16 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
             'cards_per_row' => ['' => 1, 'lg' => 2, 'xxxxl' => 3],
             'filter_bar' => [
                 'pull' => 'right',
+                // The event's Reports tab reloads itself and searches with `searchFor:`.
+                'base_url' => empty($eventView)
+                    ? null
+                    : $baseurl . '/events/viewEventReports/' . $eventId . ($extensionSuffix ?? ''),
                 'children' => [
                     [
                         'type' => 'search',
                         'button' => 'Search',
                         'placeholder' => 'Search by name or by content',
-                        'name'        => 'value',
+                        'name'        => empty($eventView) ? 'value' : 'searchFor',
                         'mode'        => 'legacy',
                     ],
                     [

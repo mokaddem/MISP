@@ -18,6 +18,11 @@
 // focusing it opens it at once, clicking it keeps it open. In the switcher
 // the row is the button: hovering the tile, focusing the row or a long press
 // opens it. Escape closes it.
+//
+// data-surface="peek" draws nothing in place: the element itself (a link or a
+// badge) is the trigger, and its graph is asked for only when the preview
+// opens — for lists where most graphs are never looked at. data-note adds a
+// line under the preview.
 
 (function () {
     'use strict';
@@ -55,7 +60,8 @@
     var SIDES = {
         card: ['left', 'below', 'above'],
         switcher: ['left', 'below', 'above'],
-        index: ['below', 'above']
+        index: ['below', 'above'],
+        peek: ['above', 'below']
     };
 
     /* ── loading ───────────────────────────────────────────── */
@@ -227,7 +233,7 @@
     }
 
     function draw(tile) {
-        if (tile.started) return;
+        if (tile.started || tile.peek) return;
         tile.started = true;
         var size = SIZES[tile.surface];
         request(tile.uuid, tile.revision).then(function (thumb) {
@@ -305,6 +311,7 @@
         pop.appendChild(tile.stage);
         tile.legend = htmlEl('div', 'igt-pop-legend');
         pop.appendChild(tile.legend);
+        if (tile.note) pop.appendChild(htmlEl('div', 'igt-pop-note', tile.note));
         tile.caret = htmlEl('span', 'igt-pop-caret');
         pop.appendChild(tile.caret);
         document.body.appendChild(pop);
@@ -484,7 +491,7 @@
             show(tile, 'hover');
             return;
         }
-        request(tile.uuid, tile.revision);
+        if (!tile.peek) request(tile.uuid, tile.revision);
         timers.open = setTimeout(function () { show(tile, 'hover'); }, OPEN_DELAY);
     }
 
@@ -571,8 +578,29 @@
         return null;
     }
 
+    function mountPeek(holder, uuid) {
+        holder.removeAttribute('data-intel-graph-thumb');
+        holder.setAttribute('data-thumb-for', uuid);
+        var tile = {
+            el: holder, row: holder, uuid: uuid, surface: 'peek', peek: true,
+            name: holder.getAttribute('data-name') || '',
+            note: holder.getAttribute('data-note') || '',
+            revision: holder.getAttribute('data-revision') || undefined
+        };
+        tiles.push(tile);
+        holder.addEventListener('pointerenter', function (e) { onEnter(tile, e); });
+        holder.addEventListener('pointerleave', function (e) { onLeave(tile, e); });
+        holder.addEventListener('focusin', function (e) { onFocusIn(tile, e); });
+        holder.addEventListener('focusout', function (e) { onFocusOut(tile, e); });
+    }
+
     function mount(holder) {
         var surface = holder.getAttribute('data-surface');
+        if (surface === 'peek') {
+            var peekUuid = (holder.getAttribute('data-intel-graph-thumb') || '').toLowerCase();
+            if (peekUuid) mountPeek(holder, peekUuid);
+            return;
+        }
         var size = SIZES[surface];
         var uuid = (holder.getAttribute('data-intel-graph-thumb') || '').toLowerCase();
         if (!size || !uuid) return;

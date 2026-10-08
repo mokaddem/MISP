@@ -1822,9 +1822,11 @@ class Sighting extends AppModel
      * `Value::sightingCountsFor` is the one caller and applies both.
      *
      * @param array $user
+     * @param string $ownColumn The column that makes an event the reader's own;
+     *      `Event.org_id` agrees with eventsStatistic(), the event page's count
      * @return array Conditions, empty where the reader may see all
      */
-    public function visibilityConditions(array $user)
+    public function visibilityConditions(array $user, $ownColumn = 'Event.orgc_id')
     {
         $policy = $this->sightingsPolicy();
         if ($policy === self::SIGHTING_POLICY_EVERYONE
@@ -1833,7 +1835,7 @@ class Sighting extends AppModel
             return array();
         }
         $orgId = (int)$user['org_id'];
-        $own = array('Event.orgc_id' => $orgId);
+        $own = array($ownColumn => $orgId);
         if ($policy === self::SIGHTING_POLICY_SIGHTING_REPORTER) {
             return array('OR' => array(
                 $own,
@@ -1850,6 +1852,42 @@ class Sighting extends AppModel
             $own,
             array('Sighting.org_id' => $orgs),
         ));
+    }
+
+    /**
+     * Sightings and false positives per event that the reader may see, counted
+     * as eventsStatistic() counts them for the event page.
+     *
+     * @param array $user
+     * @param array $eventIds
+     * @return array event id => count, absent where there is none
+     */
+    public function countForEvents(array $user, array $eventIds)
+    {
+        if (empty($eventIds)) {
+            return [];
+        }
+        $conditions = [
+            'Sighting.event_id' => $eventIds,
+            'Sighting.type' => array_keys(array_intersect(self::TYPE, ['sighting', 'false-positive'])),
+        ];
+        $policy = $this->visibilityConditions($user, 'Event.org_id');
+        if (!empty($policy)) {
+            $conditions['AND'][] = $policy;
+        }
+        $counts = $this->find('all', [
+            'fields' => ['Sighting.event_id', 'COUNT(Sighting.id) AS count'],
+            'conditions' => $conditions,
+            'joins' => [[
+                'table' => 'events',
+                'alias' => 'Event',
+                'type' => 'INNER',
+                'conditions' => ['Event.id = Sighting.event_id'],
+            ]],
+            'group' => ['Sighting.event_id'],
+            'recursive' => -1,
+        ]);
+        return array_map('intval', Hash::combine($counts, '{n}.Sighting.event_id', '{n}.0.count'));
     }
 
     /**

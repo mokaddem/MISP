@@ -29,6 +29,19 @@ class TagsController extends AppController
         $this->Security->unlockedActions[] = 'search';
     }
 
+    /**
+     * Visible, non-galaxy tags for an index filter picker: GET ?q=<term>.
+     */
+    public function pickerSearch()
+    {
+        $this->request->allowMethod(['get']);
+        App::uses('IndexPicker', 'Tools');
+        return $this->RestResponse->viewData(
+            IndexPicker::tags($this->Auth->user(), $this->request->query('q')),
+            'json'
+        );
+    }
+
     public function index()
     {
         $this->loadModel('Taxonomy');
