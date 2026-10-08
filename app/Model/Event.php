@@ -711,13 +711,14 @@ class Event extends AppModel
             if (empty($sgids)) {
                 $sgids = [-1];
             }
+            $counts = $this->Attribute->Correlation->countRelatedEventsFor(
+                $user,
+                array_map('intval', array_column(array_column($events, 'Event'), 'id')),
+                $sgids,
+                self::INDEX_CORRELATION_LIMIT
+            );
             foreach ($events as &$event) {
-                list($count, $more) = $this->Attribute->Correlation->countRelatedEvents(
-                    $user,
-                    (int)$event['Event']['id'],
-                    $sgids,
-                    self::INDEX_CORRELATION_LIMIT
-                );
+                list($count, $more) = $counts[(int)$event['Event']['id']] ?? [0, false];
                 $event['Event']['correlation_count'] = $count;
                 $event['Event']['correlation_count_more'] = $more;
             }
@@ -815,31 +816,40 @@ class Event extends AppModel
     {
         $db = $this->Object->getDataSource();
         $counts = [];
-        foreach ($eventIds as $eventId) {
-            $capped = $db->buildStatement([
-                'fields' => ['Object.id'],
-                'table' => $db->fullTableName($this->Object),
-                'alias' => 'Object',
-                'conditions' => [
-                    'Object.event_id' => (int)$eventId,
-                    'Object.deleted' => 0,
-                ],
-                'order' => null,
-                'group' => null,
-                'limit' => $limit,
-                'offset' => null,
-            ], $this->Object);
+        foreach (array_chunk($eventIds, 50) as $chunk) {
+            $branches = [];
+            foreach ($chunk as $eventId) {
+                $counts[$eventId] = 0;
+                $branches[] = '(' . $db->buildStatement([
+                    'fields' => [sprintf('%d AS %s', $eventId, $db->name('event_id'))],
+                    'table' => $db->fullTableName($this->Object),
+                    'alias' => 'Object',
+                    'conditions' => [
+                        'Object.event_id' => (int)$eventId,
+                        'Object.deleted' => 0,
+                    ],
+                    'order' => null,
+                    'group' => null,
+                    'limit' => $limit,
+                    'offset' => null,
+                ], $this->Object) . ')';
+            }
             $rows = $db->fetchAll(
                 sprintf(
-                    'SELECT COUNT(*) AS %s FROM (%s) AS %s',
+                    'SELECT %s, COUNT(*) AS %s FROM (%s) AS %s GROUP BY %s',
+                    $db->name('event_id'),
                     $db->name('n'),
-                    $capped,
-                    $db->name('capped')
+                    implode(' UNION ALL ', $branches),
+                    $db->name('capped'),
+                    $db->name('event_id')
                 ),
                 [],
                 ['cache' => false]
             );
-            $counts[$eventId] = (int)($rows[0][0]['n'] ?? 0);
+            foreach ($rows as $row) {
+                $row = ($row['capped'] ?? []) + ($row[0] ?? []);
+                $counts[(int)$row['event_id']] = (int)$row['n'];
+            }
         }
         return $counts;
     }

@@ -10,6 +10,7 @@ App::uses('AppModel', 'Model');
  * @method runBeforeSaveCorrelation(array $attribute)
  * @method fetchRelatedEventIds(array $user, int $eventId, array $sgids, bool $excludeNonCorrelating = false)
  * @method fetchRelatedEventCount(array $user, int $eventId, array $sgids, int $limit)
+ * @method fetchRelatedEventCounts(array $user, array $eventIds, array $sgids, int $limit)
  * @method getFieldRules
  * @method getContainRules($filter = null)
  * @method updateContainedCorrelations(array $data, string $type, array $options = [])
@@ -1167,6 +1168,28 @@ class Correlation extends AppModel
     public function countRelatedEvents(array $user, int $eventId, array $sgids, int $limit)
     {
         return $this->fetchRelatedEventCount($user, $eventId, $sgids, $limit);
+    }
+
+    /**
+     * countRelatedEvents() for several events, batched where the engine
+     * supports it.
+     *
+     * @param array $user
+     * @param int[] $eventIds
+     * @param array $sgids
+     * @param int $limit
+     * @return array event id => [int $count, bool $more]
+     */
+    public function countRelatedEventsFor(array $user, array $eventIds, array $sgids, int $limit)
+    {
+        if ($this->Behaviors->hasMethod('fetchRelatedEventCounts')) {
+            return $this->fetchRelatedEventCounts($user, $eventIds, $sgids, $limit);
+        }
+        $counts = [];
+        foreach ($eventIds as $eventId) {
+            $counts[(int)$eventId] = $this->fetchRelatedEventCount($user, (int)$eventId, $sgids, $limit);
+        }
+        return $counts;
     }
 
     /**
