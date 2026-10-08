@@ -4,7 +4,10 @@
     foreach ($fields as $k => $header) {
         if (!isset($header['requirement']) || $header['requirement']) {
             $header_data = '';
-            if (!empty($header['icon'])) {
+            // `header_html`: a heading drawn as markup (icons, a control), used as given.
+            if (isset($header['header_html'])) {
+                $header['name'] = $header['header_html'];
+            } elseif (!empty($header['icon'])) {
                 $header['name'] = sprintf(
                     '<i class="fas fa-%s"></i> %s',
                     h($header['icon']),
