@@ -112,9 +112,10 @@ class IndexPicker
     /**
      * @param array $user
      * @param string $term
+     * @param string $valueField 'tag_name', or 'uuid' to name one cluster among same-named ones
      * @return array
      */
-    public static function clusters(array $user, $term)
+    public static function clusters(array $user, $term, $valueField = 'tag_name')
     {
         $GalaxyCluster = ClassRegistry::init('GalaxyCluster');
         return self::search($GalaxyCluster, [
@@ -122,10 +123,14 @@ class IndexPicker
                 $GalaxyCluster->buildConditions($user),
                 ['GalaxyCluster.deleted' => 0],
             ]],
-            'fields' => ['GalaxyCluster.value', 'GalaxyCluster.tag_name', 'Galaxy.name', 'Galaxy.icon'],
+            'fields' => ['GalaxyCluster.value', 'GalaxyCluster.tag_name', 'GalaxyCluster.uuid', 'Galaxy.name', 'Galaxy.icon'],
             'contain' => ['Galaxy'],
             'order' => ['GalaxyCluster.value' => 'ASC'],
-        ], 'LOWER(GalaxyCluster.value)', $term, [self::class, 'clusterRow']);
+        ], 'LOWER(GalaxyCluster.value)', $term, function (array $r) use ($valueField) {
+            $row = self::clusterRow($r);
+            $row['value'] = $r['GalaxyCluster'][$valueField];
+            return $row;
+        });
     }
 
     /**

@@ -105,12 +105,29 @@ $fields = [
     ],
 ];
 
+$canAddRelation = $this->Acl->canAccess('galaxyClusterRelations', 'add')
+    && (!empty($me['Role']['perm_site_admin'])
+        || (!empty($me['Role']['perm_galaxy_editor']) && $me['org_id'] == $cluster['GalaxyCluster']['orgc_id']));
+$addRelationButton = '';
+if ($canAddRelation) {
+    $addUrl = $baseurl . '/galaxy_cluster_relations/add/' . (int)$cluster['GalaxyCluster']['id'];
+    $addRelationButton = sprintf(
+        '<button type="button" class="btn btn-sm btn-primary" onclick="openModal(%s)"><i class="fas fa-plus me-1"></i>%s</button>',
+        h(json_encode($addUrl)),
+        __('Add relationship')
+    );
+}
+
 if (empty($relations)) {
     echo '<div class="text-center text-muted py-5">'
         . '<i class="fas fa-diagram-project fa-2x mb-2 opacity-50"></i><br>'
         . __('This cluster has no relationships.')
+        . ($addRelationButton ? '<div class="mt-3">' . $addRelationButton . '</div>' : '')
         . '</div>';
 } else {
+    if ($addRelationButton) {
+        echo '<div class="d-flex justify-content-end mb-2">' . $addRelationButton . '</div>';
+    }
     echo $this->element('genericElementsBS5/IndexTable/scaffold', [
         'scaffold_data' => [
             'data' => [

@@ -104,8 +104,22 @@ class GalaxyClusterRelationsController extends AppController
         }
     }
 
-    public function add()
+    /**
+     * @param mixed $sourceId ID or UUID of the cluster the relationship starts from, fixing the source
+     */
+    public function add($sourceId = null)
     {
+        $sourceCluster = null;
+        if ($sourceId !== null) {
+            $sourceCluster = $this->GalaxyClusterRelation->SourceCluster->fetchIfAuthorized($this->Auth->user(), $sourceId, array('edit', 'publish'), true, false);
+            $sourceCluster = $sourceCluster['GalaxyCluster'];
+            $sourceCluster['Galaxy'] = $this->GalaxyClusterRelation->SourceCluster->Galaxy->find('first', array(
+                'recursive' => -1,
+                'conditions' => array('Galaxy.id' => $sourceCluster['galaxy_id']),
+                'fields' => array('Galaxy.id', 'Galaxy.name', 'Galaxy.icon'),
+            ))['Galaxy'] ?? [];
+            $this->set('sourceCluster', $sourceCluster);
+        }
         $this->loadModel('MispAttribute');
         $distributionLevels = $this->MispAttribute->distributionLevels;
         unset($distributionLevels[5]);
@@ -121,6 +135,9 @@ class GalaxyClusterRelationsController extends AppController
             $errors = array();
             if (empty($this->request->data['GalaxyClusterRelation'])) {
                 $this->request->data = array('GalaxyClusterRelation' => $this->request->data);
+            }
+            if ($sourceCluster !== null) {
+                $this->request->data['GalaxyClusterRelation']['galaxy_cluster_uuid'] = $sourceCluster['uuid'];
             }
             $relation = $this->request->data;
             if ($relation['GalaxyClusterRelation']['distribution'] != 4) {
@@ -177,12 +194,14 @@ class GalaxyClusterRelationsController extends AppController
             } else {
                 if (empty($errors)) {
                     $this->Flash->success($message);
-                    $this->redirect(array('action' => 'index'));
+                    return $this->__redirectAfterSave();
                 } else {
                     $message .= __(' Reason: %s', json_encode(array_merge($errors, $this->GalaxyClusterRelation->validationErrors)));
                     $this->Flash->error($message);
                 }
             }
+        } elseif ($sourceCluster !== null) {
+            $this->request->data['GalaxyClusterRelation']['galaxy_cluster_uuid'] = $sourceCluster['uuid'];
         }
         $this->set('existingRelations', $this->GalaxyClusterRelation->getExistingRelationships());
         $this->set('distributionLevels', $distributionLevels);
@@ -280,7 +299,7 @@ class GalaxyClusterRelationsController extends AppController
             } else {
                 if (empty($errors)) {
                     $this->Flash->success($message);
-                    $this->redirect(array('action' => 'index'));
+                    return $this->__redirectAfterSave();
                 } else {
                     $message .= __(' Reason: %s', json_encode(array_merge($errors, $this->GalaxyClusterRelation->validationErrors), true));
                     $this->Flash->error($message);
@@ -288,6 +307,10 @@ class GalaxyClusterRelationsController extends AppController
             }
         }
         $this->request->data = $existingRelation;
+        $targetCluster = $this->GalaxyClusterRelation->SourceCluster->fetchIfAuthorized($this->Auth->user(), $existingRelation['GalaxyClusterRelation']['referenced_galaxy_cluster_uuid'], 'view', false, false);
+        if (isset($targetCluster['GalaxyCluster'])) {
+            $this->set('targetCluster', $targetCluster['GalaxyCluster']);
+        }
         $this->set('existingRelations', $this->GalaxyClusterRelation->getExistingRelationships());
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', $initialDistribution);
@@ -297,6 +320,22 @@ class GalaxyClusterRelationsController extends AppController
             $this->layout = false;
         }
         $this->render('add');
+    }
+
+    /**
+     * Back to the cluster page the form was opened from, else the index.
+     */
+    private function __redirectAfterSave()
+    {
+        $path = (string)parse_url((string)env('HTTP_REFERER'), PHP_URL_PATH);
+        $base = (string)$this->request->base;
+        if ($base !== '' && strpos($path, $base . '/') === 0) {
+            $path = substr($path, strlen($base));
+        }
+        if (preg_match('#^/galaxy_?clusters/view/([\w-]+)$#i', $path, $matches)) {
+            return $this->redirect(array('controller' => 'galaxy_clusters', 'action' => 'view', $matches[1]));
+        }
+        return $this->redirect(array('action' => 'index'));
     }
 
     public function delete($id)

@@ -265,14 +265,15 @@ class GalaxyClustersController extends AppController
 
     /**
      * Galaxy clusters for an index filter picker, valued by tag name:
-     * GET ?q=<term>.
+     * GET ?q=<term>, or by UUID with &value=uuid.
      */
     public function pickerSearch()
     {
         $this->request->allowMethod(['get']);
         App::uses('IndexPicker', 'Tools');
+        $valueField = $this->request->query('value') === 'uuid' ? 'uuid' : 'tag_name';
         return $this->RestResponse->viewData(
-            IndexPicker::clusters($this->Auth->user(), $this->request->query('q')),
+            IndexPicker::clusters($this->Auth->user(), $this->request->query('q'), $valueField),
             'json'
         );
     }
