@@ -172,29 +172,103 @@
 
     function place() {
         var el = popEl;
-        el.style.maxHeight = '';
-        el.scrollTop = 0;
-        var r = pop.zone.getBoundingClientRect(), pw = el.offsetWidth, ph = el.offsetHeight;
+        var r = pop.zone.getBoundingClientRect();
         var vw = document.documentElement.clientWidth;
-        var left = Math.min(Math.max(16, r.left), vw - pw - 16);
         var head = pop.root.closest('table') && pop.root.closest('table').querySelector('thead');
         var headBottom = head ? head.getBoundingClientRect().bottom : 0;
         var below = window.innerHeight - r.bottom - 12, above = r.top - Math.max(headBottom, 0) - 12;
-        var top;
-        if (ph <= below || below >= above) {
-            if (ph > below) el.style.maxHeight = Math.max(160, below) + 'px';
-            top = r.bottom + 2;
+        el.style.left = '0px';
+        el.style.top = '0px';
+        var beside = widen(Math.max(below, above), vw - 32);
+        var pw, ph, top;
+        if (beside) {
+            ph = el.offsetHeight;
+            top = ph <= below || below >= above ? r.bottom + 2 : r.top - ph - 2;
         } else {
-            if (ph > above) {
-                el.style.maxHeight = above + 'px';
-                ph = above;
-            }
-            top = r.top - ph - 2;
+            // Too tall for either side: over the row rather than cut short
+            var nav = document.querySelector('nav.fixed-top, .navbar.fixed-top');
+            var ceiling = Math.max(8, nav ? nav.getBoundingClientRect().bottom + 8 : 8);
+            truncate(window.innerHeight - ceiling - 8);
+            ph = el.offsetHeight;
+            top = Math.max(ceiling, Math.min(r.bottom + 2, window.innerHeight - ph - 8));
         }
+        pw = el.offsetWidth;
+        var left = Math.min(Math.max(16, r.left), vw - pw - 16);
         el.style.left = (left + window.scrollX) + 'px';
         el.style.top = (top + window.scrollY) + 'px';
-        var sec = pop.view === 'all' && el.querySelector('.dk-pop-sec.is-focus');
-        if (sec) el.scrollTop = Math.max(0, sec.offsetTop - el.querySelector('.dk-pop-head').offsetHeight);
+    }
+
+    // A popover never scrolls: it takes more columns while the screen has the
+    // width; then, failing that, its last groups and their last rows give way
+    // to a note.
+    function widen(height, width) {
+        var el = popEl;
+        var bodies = $$('.dk-pop-body', el);
+        var tooTall = function () { return el.offsetHeight > height; };
+        var grow = function () {
+            if (el.offsetWidth >= width) return false;
+            var grew = false;
+            bodies.forEach(function (b) {
+                var cards = $$('.hg-card', b);
+                // One long list spreads its own rows instead
+                var target = cards.length === 1 ? cards[0].querySelector('.hg-list') : b;
+                var cap = cards.length === 1 ? 4 : cards.length;
+                var n = parseInt(getComputedStyle(target).columnCount, 10) || 1;
+                if (n < cap) {
+                    target.style.columnCount = n + 1;
+                    grew = true;
+                }
+            });
+            return grew;
+        };
+        while (tooTall() && grow()) { /* widen */ }
+        return !tooTall();
+    }
+
+    function truncate(height) {
+        var el = popEl;
+        var tooTall = function () { return el.offsetHeight > height; };
+        if (!tooTall()) return;
+        var focus = el.querySelector('.dk-pop-sec.is-focus');
+        var cards = $$('.dk-pop-body .hg-card', el);
+        // Popped from the end: the other lanes give way before the one asked for
+        cards = cards.filter(function (c) { return focus && focus.contains(c); })
+            .concat(cards.filter(function (c) { return !focus || !focus.contains(c); }));
+        var hidden = 0;
+        var hide = function (node) { node.style.display = 'none'; };
+        while (tooTall() && cards.length > 1) {
+            var card = cards.pop();
+            hidden += card.querySelectorAll('.hg-row').length;
+            hide(card);
+        }
+        var note = document.createElement('a');
+        note.className = 'dk-pop-more';
+        note.href = (window.baseurl || '') + '/events/view2/' + pop.root.getAttribute('data-event-id');
+        var foot = el.querySelector('.dk-pop-foot');
+        foot.insertBefore(note, foot.firstChild);
+        var say = function (n) { note.textContent = '+' + n + ' not shown · open the event'; };
+        say(hidden || 1);
+        if (tooTall() && cards.length) {
+            var last = cards[cards.length - 1];
+            var rows = $$('.hg-row', last);
+            var lo = 0, hi = rows.length;
+            var show = function (k) {
+                rows.forEach(function (row, i) { row.style.display = i < k ? '' : 'none'; });
+                $$('.hg-fam', last).forEach(function (fam) {
+                    fam.style.display = fam.querySelector('.hg-row:not([style*="none"])') ? '' : 'none';
+                });
+                say(hidden + rows.length - k);
+            };
+            while (lo < hi) {
+                var mid = Math.ceil((lo + hi) / 2);
+                show(mid);
+                if (tooTall()) hi = mid - 1; else lo = mid;
+            }
+            show(lo);
+        }
+        $$('.dk-pop-sec', el).forEach(function (sec) {
+            if (!sec.querySelector('.hg-card:not([style*="none"])') && sec.querySelector('.hg-card')) hide(sec);
+        });
     }
 
     function openPop(zone, pinned) {

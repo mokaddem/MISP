@@ -231,8 +231,8 @@
 
 /* the context popover, attached to body: the event's context as folded-tag lists */
 .dk-pop-float {
-    position: absolute; z-index: 1080; min-width: 260px; max-width: min(760px, calc(100vw - 32px));
-    max-height: min(62vh, 560px); overflow: auto;
+    position: absolute; z-index: 1080; min-width: 260px;
+    max-width: calc(100vw - 32px); overflow: hidden;
     background: var(--bs-body-bg); color: var(--bs-body-color);
     border: 1px solid var(--bs-border-color); border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, .16), 0 2px 6px rgba(0, 0, 0, .08);
@@ -279,6 +279,9 @@
 .dk-pop-body .hg-card { break-inside: avoid; border-top: 1px solid color-mix(in srgb, var(--hg-border) 55%, transparent); }
 .dk-pop-body .hg-card-head { border-bottom: 0; padding: 10px 12px 2px 10px; font-size: 11px; }
 .dk-pop-body .hg-list { padding-top: 3px; padding-bottom: 10px; }
+.dk-pop-float .dk-pop-body .hinge-tags .hg-list { width: auto; max-width: none; }
+.dk-pop-body .hg-card { min-width: 0; }
+.dk-pop-more { margin-right: auto; align-self: center; padding: 0 4px; font-size: .74rem; color: var(--bs-secondary-color); }
 .dk-pop-body .hg-card.is-own .hg-card-head { box-shadow: none; padding-left: 8px; }
 .dk-pop-note {
     padding: 6px 12px 8px; font-size: .74rem; color: var(--bs-secondary-color);
