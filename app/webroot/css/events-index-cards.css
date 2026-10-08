@@ -205,10 +205,8 @@
 .dk-chip.is-tag.dk-pref::after { background: var(--tc, var(--dk-ink2)); opacity: .9; }
 .hg-row.dk-pref { position: relative; }
 /* tag lists in the popover keep each tag's own colour, as its chip does */
-.hg-card.is-own .hg-card-head { box-shadow: inset 3px 0 0 var(--hg-c, var(--dk-line)); }
 .hg-card.is-own .hg-hns { color: var(--hg-text); }
 .hg-card.is-own .hg-row { border-left: 3px solid var(--tc, var(--dk-line)); border-radius: 0 3px 3px 0; padding-left: 6px; }
-[data-misp-mode="dark"] .hg-card.is-own .hg-card-head { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--hg-c, var(--dk-line)) 70%, #fff); }
 [data-misp-mode="dark"] .hg-card.is-own .hg-row { border-left-color: color-mix(in srgb, var(--tc, var(--dk-line)) 70%, #fff); }
 .hg-card.is-own .hg-row.dk-pref .hg-name::after { background: var(--tc, var(--dk-ink2)); }
 .hg-row.dk-pref .hg-name::after {
@@ -278,7 +276,10 @@
 .dk-pop-body { margin-top: -1px; column-gap: 0; column-rule: 1px solid var(--bs-border-color-translucent); }
 .dk-pop-body[data-cols="2"] { column-count: 2; }
 .dk-pop-body[data-cols="3"] { column-count: 3; }
-.dk-pop-body .hg-card { break-inside: avoid; border-top: 1px solid var(--hg-border); }
+.dk-pop-body .hg-card { break-inside: avoid; border-top: 1px solid color-mix(in srgb, var(--hg-border) 55%, transparent); }
+.dk-pop-body .hg-card-head { border-bottom: 0; padding: 10px 12px 2px 10px; font-size: 11px; }
+.dk-pop-body .hg-list { padding-top: 3px; padding-bottom: 10px; }
+.dk-pop-body .hg-card.is-own .hg-card-head { box-shadow: none; padding-left: 8px; }
 .dk-pop-note {
     padding: 6px 12px 8px; font-size: .74rem; color: var(--bs-secondary-color);
     border-top: 1px solid var(--bs-border-color-translucent);
