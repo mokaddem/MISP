@@ -549,10 +549,16 @@ class UserSettingsController extends AppController
             throw new MethodNotAllowedException(__('Expecting POST request.'));
         }
 
-        $hideColumns = $this->UserSetting->getValueForUser($this->Auth->user()['id'], 'event_index_hide_columns');
-        if ($hideColumns === null) {
-            $hideColumns = [];
+        if (!in_array($columnName, $this->UserSetting::EVENT_INDEX_HIDEABLE_COLUMNS, true)) {
+            throw new BadRequestException(__('Invalid column name.'));
         }
+
+        $hideColumns = $this->UserSetting->getValueForUser($this->Auth->user()['id'], 'event_index_hide_columns');
+        // A name since renamed (`extending`) would fail the whole save.
+        $hideColumns = array_values(array_intersect(
+            (array)$hideColumns,
+            $this->UserSetting::EVENT_INDEX_HIDEABLE_COLUMNS
+        ));
 
         if (($key = array_search($columnName, $hideColumns, true)) !== false) {
             unset($hideColumns[$key]);

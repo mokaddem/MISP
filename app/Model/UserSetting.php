@@ -28,6 +28,24 @@ class UserSetting extends AppModel
         'User'
     );
 
+    // Column names `event_index_hide_columns` may hold
+    const EVENT_INDEX_HIDEABLE_COLUMNS = [
+        'owner_org',
+        'is_extension',
+        'clusters',
+        'tags',
+        'highlights',
+        'attribute_count',
+        'correlations',
+        'report_count',
+        'sightings',
+        'proposals',
+        'discussion',
+        'creator_user',
+        'timestamp',
+        'publish_timestamp',
+    ];
+
     // private
     const VALID_SETTINGS = array(
         'publish_alert_filter' => array(
@@ -308,24 +326,6 @@ class UserSetting extends AppModel
 
         public static function validate_event_index_hide_columns($value, $user)
         {
-            // Valid column names that can be hidden in the event index
-            $validColumns = [
-                'owner_org',
-                'is_extension',
-                'clusters',
-                'tags',
-                'highlights',
-                'attribute_count',
-                'correlations',
-                'report_count',
-                'sightings',
-                'proposals',
-                'discussion',
-                'creator_user',
-                'timestamp',
-                'publish_timestamp'
-            ];
-
             // Decode if it's a JSON string
             if (is_string($value)) {
                 $decoded = json_decode($value, true);
@@ -346,7 +346,7 @@ class UserSetting extends AppModel
 
             // All column names must be valid
             foreach ($value as $column) {
-                if (!in_array($column, $validColumns, true)) {
+                if (!in_array($column, self::EVENT_INDEX_HIDEABLE_COLUMNS, true)) {
                     return false;
                 }
             }

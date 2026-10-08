@@ -1157,7 +1157,12 @@ class EventsController extends AppController
 
         $userDisabledColumns = $this->User->UserSetting->getValueForUser($this->Auth->user()['id'], 'event_index_hide_columns');
         $saved = $userDisabledColumns !== null;
-        if (!$saved) {
+        if ($saved) {
+            $userDisabledColumns = array_intersect(
+                (array)$userDisabledColumns,
+                UserSetting::EVENT_INDEX_HIDEABLE_COLUMNS
+            );
+        } else {
             $userDisabledColumns = $this->theme === 'Overmind'
                 ? self::OVERMIND_HIDDEN_INDEX_COLUMNS
                 : self::DEFAULT_HIDDEN_INDEX_COLUMNS;
