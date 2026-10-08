@@ -127,6 +127,8 @@ $foldChildren = empty($objects) ? [] : [
                 [
                     'scaffold_data' => [
                         'filter_bar' => [
+                            // The Objects tab drives its controls itself.
+                            'picker_bar' => false,
                             'children' => array_merge([
                                 [
                                     'type'        => 'search',

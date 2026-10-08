@@ -12,12 +12,14 @@ echo '<div id="' . $containerId . '_content" data-ifp-scope="' . h($item_url) . 
     <?= $scaffold_data['data']['before_filter_bar'] ?? '' ?>
 
     <?php
-    $pickerBar = !empty(array_filter(
-        $scaffold_data['data']['filter_bar']['children'] ?? [],
-        function ($child) {
+    // Mirrors filter_bar.ctp: every bar is a picker bar unless it opts out.
+    $barData = $scaffold_data['data']['filter_bar'] ?? [];
+    $pickerBar = !empty($barData) && (
+        (($barData['picker_bar'] ?? true) && ($barData['transport'] ?? 'path') !== 'query')
+        || !empty(array_filter($barData['children'] ?? [], function ($child) {
             return ($child['type'] ?? '') === 'picker';
-        }
-    ));
+        }))
+    );
     ?>
 
     <!-- CARD 1 : FILTERS -->
@@ -61,11 +63,12 @@ echo '<div id="' . $containerId . '_content" data-ifp-scope="' . h($item_url) . 
     <?php if (empty($scaffold_data['data']['skip_pagination']) && $pickerBar): ?>
         <?php
         $paging = $this->Paginator->params();
-        $first = ((int)$paging['page'] - 1) * (int)$paging['limit'] + 1;
+        $first = ((int)($paging['page'] ?? 1) - 1) * (int)($paging['limit'] ?? 0) + 1;
+        $shownRows = count($scaffold_data['data']['data'] ?? []);
         ?>
         <div class="ifp-bottom" data-tour="index-pagination">
             <span class="ifp-count"><?php
-                if (!empty($paging['current'])) {
+                if (!empty($paging['current']) && (int)$paging['current'] === $shownRows) {
                     echo sprintf(
                         h(__('Showing %s–%s of %s')),
                         h(number_format($first)),

@@ -13,6 +13,7 @@
  * - all_of   : whether `a&b` in the URL means all of them
  * - hint     : line under the list
  * - separator: between values in the URL, '|' unless the index splits on '||'
+ * - single   : one value at a time, applied as soon as it is picked
  *
  * @var array $child
  * @var IndexFilterState $state
@@ -53,6 +54,7 @@ $config = [
     'allOf' => $allOf,
     'hint' => $child['hint'] ?? null,
     'sep' => $child['separator'] ?? '|',
+    'single' => !empty($child['single']),
 ];
 $count = count($selected);
 ?>

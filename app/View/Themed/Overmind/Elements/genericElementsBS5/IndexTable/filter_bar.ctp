@@ -6,6 +6,64 @@ if (empty($filter_bar)) {
     return;
 }
 
+/*
+ * Every bar is a picker bar unless it opts out with `picker_bar => false`:
+ * `more_filters` selects and top-level `dropdown`s become fixed-option
+ * pickers. A picker takes one value unless its child names the `separator`
+ * its controller splits on (`||` for CRUD and IndexFilter parameters).
+ */
+$pickerBarOn = ($filter_bar['picker_bar'] ?? true) && ($filter_bar['transport'] ?? 'path') !== 'query';
+if ($pickerBarOn) {
+    $toPicker = function (array $child) {
+        $options = [];
+        $walk = function ($list) use (&$walk, &$options) {
+            foreach ((array)$list as $value => $label) {
+                if (is_array($label) && isset($label['value'], $label['name'])) {
+                    $value = $label['value'];
+                    $label = $label['name'];
+                } elseif (is_array($label)) {
+                    $walk($label);
+                    continue;
+                }
+                if ((string)$value === '') {
+                    continue;
+                }
+                $options[] = ['value' => (string)$value, 'label' => (string)$label];
+            }
+        };
+        $walk($child['options'] ?? []);
+        return [
+            'type' => 'picker',
+            'name' => $child['name'],
+            'label' => $child['label'] ?? $child['name'],
+            'icon' => $child['icon'] ?? null,
+            'options' => $options,
+            'single' => empty($child['separator']),
+            'separator' => $child['separator'] ?? '|',
+            'hint' => $child['help'] ?? null,
+        ];
+    };
+    $children = [];
+    foreach ($filter_bar['children'] as $child) {
+        $type = $child['type'] ?? '';
+        if ($type === 'more_filters') {
+            $selects = $child['children'] ?? [];
+        } elseif ($type === 'dropdown') {
+            $selects = [$child];
+        } else {
+            $children[] = $child;
+            continue;
+        }
+        foreach ($selects as $select) {
+            $picker = empty($select['name']) ? null : $toPicker($select);
+            if (!empty($picker['options'])) {
+                $children[] = $picker;
+            }
+        }
+    }
+    $filter_bar['children'] = $children;
+}
+
 // The action this bar drives — pagination/search/filter URLs are built against
 // `<item_url>/<action>`. Defaults to 'index';
 $filterAction = $filter_bar['action'] ?? 'index';
@@ -74,7 +132,7 @@ foreach ($filter_bar['children'] as $child) {
         $pickers[$child['name']] = $child;
     }
 }
-$pickerMode = !empty($pickers);
+$pickerMode = $pickerBarOn || !empty($pickers);
 if ($pickerMode) {
     App::uses('IndexFilterState', 'Tools');
     /*
@@ -188,13 +246,15 @@ $activeTotal = count(array_diff_key(
     if ($pickerMode): ?> data-ifp-bar="<?= h(json_encode([
         'base' => $filterBase,
         'prefix' => $stripSearchPrefix ? 'search' : '',
-        'searchField' => $searchChild['name'] ?? null,
+        'searchField' => ($searchChild['mode'] ?? 'quickFilter') === 'quickFilter'
+            ? 'quickFilter' : ($searchChild['name'] ?? null),
         'idField' => $searchChild['id_field'] ?? null,
         'apply' => $filter_bar['apply'] ?? 'close',
         'strings' => [
             'typeToSearch' => __('Type 2 characters to search'),
             'searching' => __('Searching…'),
             'noMatch' => __('Nothing matches'),
+            'more' => __('%s more: type to narrow'),
             'searchFailed' => __('The search failed'),
             'search' => __('Search'),
             'selected' => __('Selected'),
@@ -279,8 +339,8 @@ $activeTotal = count(array_diff_key(
             $vmVal = $vmVal !== null ? urldecode($vmVal) : '';
             $vmActive = $vmVal !== '';
             ?>
-            <div class="dropdown dropdown-filters flex-shrink-0">
-                <button class="btn <?= $vmActive ? 'btn-primary' : 'btn-outline-primary' ?> dropdown-toggle"
+            <div class="dropdown dropdown-filters flex-shrink-0"<?= $pickerMode ? ' data-ifp-swap="vm-' . h($child['name']) . '"' : '' ?>>
+                <button class="btn <?= $pickerMode ? 'btn-sm ' : '' ?><?= $vmActive ? 'btn-primary' : 'btn-outline-primary' ?> dropdown-toggle"
                         type="button"
                         data-bs-toggle="dropdown"
                         data-bs-auto-close="outside"
@@ -525,22 +585,32 @@ if ($explicitActive !== null) {
 }
 ?>
 <?php if ($pickerMode): ?>
-    <?php $pageParams = $this->Paginator->params(); ?>
+    <?php
+    // Indexes paged in PHP leave the paginator describing something else.
+    $pageParams = $this->Paginator->params();
+    $rowCount = count($scaffold_data['data'] ?? []);
+    $pagingOk = !empty($pageParams) && (int)($pageParams['current'] ?? -1) === $rowCount
+        && (int)($pageParams['pageCount'] ?? 0) > 0;
+    ?>
     <div class="ifp-row">
         <span class="ifp-count" data-ifp-swap="count"><?php
-            if (!empty($pageParams['current'])) {
+            if ($pagingOk) {
                 echo sprintf(
                     __('%s shown, page %s of %s'),
-                    '<b>' . h(number_format($pageParams['current'])) . '</b>',
+                    '<b>' . h(number_format($rowCount)) . '</b>',
                     h($pageParams['page']),
                     h($pageParams['pageCount'])
                 );
+            } else {
+                echo sprintf(__('%s shown'), '<b>' . h(number_format($rowCount)) . '</b>');
             }
         ?></span>
         <?= $this->element('genericElementsBS5/IndexTable/filter_chips', [
             'state' => $filterState,
             'pickers' => $pickers,
-            'chips' => $filter_bar['chips'] ?? [],
+            'chips' => array_merge($filter_bar['chips'] ?? [], [
+                'labels' => ($filter_bar['chips']['labels'] ?? []) + $controlLabels,
+            ]),
             'searchChild' => $searchChild,
         ]) ?>
         <div class="index-filter-pager">
@@ -880,7 +950,9 @@ var filterBarConfig = <?= json_encode([
         applyFilters();
     }
 
-    scope.querySelectorAll('.value-match-input').forEach(input => {
+    // A picker bar's value-match box is index-filters.js's.
+    const valueMatchScope = filterBarEl && filterBarEl.hasAttribute('data-ifp-bar') ? document.createDocumentFragment() : scope;
+    valueMatchScope.querySelectorAll('.value-match-input').forEach(input => {
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -889,11 +961,11 @@ var filterBarConfig = <?= json_encode([
         });
     });
 
-    scope.querySelectorAll('.value-match-apply').forEach(btn => {
+    valueMatchScope.querySelectorAll('.value-match-apply').forEach(btn => {
         btn.addEventListener('click', () => applyValueMatch(btn));
     });
 
-    scope.querySelectorAll('.value-match-clear').forEach(btn => {
+    valueMatchScope.querySelectorAll('.value-match-clear').forEach(btn => {
         btn.addEventListener('click', () => {
             const input = btn.closest('.input-group')?.querySelector('.value-match-input');
             if (input) {

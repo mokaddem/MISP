@@ -521,6 +521,8 @@ if (empty($show_event_id) && !empty($event['Event']['id'])) {
 
 $filterBar = [
     'pull' => 'right',
+    // view_attributes.ctp drives the event tab's controls itself.
+    'picker_bar' => false,
     'children' => $children,
     'soft_delete' => '/deleteSelection',
 ];

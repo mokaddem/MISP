@@ -15,7 +15,10 @@
 $labels = $chips['labels'] ?? [];
 $valueLabels = $chips['values'] ?? [];
 $scope = $chips['scope'] ?? [];
-$searchKeys = array_filter([$searchChild['name'] ?? null, $searchChild['id_field'] ?? null]);
+$searchKeys = array_filter([
+    ($searchChild['mode'] ?? 'quickFilter') === 'quickFilter' ? 'quickFilter' : ($searchChild['name'] ?? null),
+    $searchChild['id_field'] ?? null,
+]);
 
 $items = [];
 foreach ($state->filters() as $name => $value) {

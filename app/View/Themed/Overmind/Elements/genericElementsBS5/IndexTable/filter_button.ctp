@@ -15,8 +15,8 @@
    if (!empty($child['id'])): ?>
    id="<?= h($child['id']) ?>"<?php
    endif; ?><?php
-   if (!empty($nav)): ?>
-   data-ifp-nav data-ifp-swap<?php
+   if (!empty($nav) && empty($child['onclick']) && !preg_match('/^(#|javascript:)/i', (string)$child['url'])): ?>
+   data-ifp-nav data-ifp-swap="<?= h($child['id'] ?? 'toggle-' . substr(md5((string)($child['label'] ?? '')), 0, 8)) ?>"<?php
    endif; ?><?php
    if (!empty($child['title'])): ?>
    title="<?= h($child['title']) ?>"<?php

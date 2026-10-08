@@ -21,6 +21,9 @@
     var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     var MIN_TERM = 2;
     var THROTTLE = 300;
+    // A fixed list longer than this gets a search box and shows LIST_MAX rows.
+    var LOCAL_MAX = 12;
+    var LIST_MAX = 20;
 
     var open = null;
     var inFlight = null;
@@ -71,10 +74,31 @@
         return tab ? (tab.dataset.url || '') : window.location.pathname + window.location.search;
     }
 
+    /*
+     * The URL as base + positional segments, its named segments and its query.
+     * The base is the URL's own path when it is the bar's base spelled another
+     * way (`/sharing_groups/index` for `/SharingGroups/index`), else the bar's.
+     */
+    function splitUrl(bar, url) {
+        var c = cfg(bar);
+        var cut = url.indexOf('?');
+        var path = pathOf(cut === -1 ? url : url.slice(0, cut));
+        var named = {};
+        var plain = path.split('/').filter(function (segment) {
+            var colon = segment.indexOf(':');
+            if (colon <= 0) { return true; }
+            named[segment.slice(0, colon)] = decodeURIComponent(segment.slice(colon + 1));
+            return false;
+        }).join('/');
+        var norm = function (s) { return s.toLowerCase().replace(/_/g, '').replace(/\/+$/, ''); };
+        var base = norm(plain).indexOf(norm(pathOf(c.base))) === 0 ? plain : c.base;
+        return { base: base, named: named, query: new URLSearchParams(cut === -1 ? '' : url.slice(cut + 1)) };
+    }
+
     // changes: unprefixed name => value, null removes it. Paging restarts.
     function urlWith(bar, changes) {
         var c = cfg(bar);
-        var parts = parseIndexUrl(currentUrl(bar), pathOf(c.base));
+        var parts = splitUrl(bar, currentUrl(bar));
         var named = parts.named;
         delete named.page;
         Object.keys(changes).forEach(function (name) {
@@ -86,7 +110,7 @@
                 named[key] = value;
             }
         });
-        return formatIndexUrl(c.base, { positional: parts.positional, named: named, query: parts.query });
+        return formatIndexUrl(parts.base, { named: named, query: parts.query });
     }
 
     function searchUrl(bar) {
@@ -134,10 +158,10 @@
         if (chips && !chips.querySelector('.ifp-chip:not([hidden])')) { chips.hidden = true; }
         var clear = scope.querySelector('.ifp-clear');
         if (clear) {
-            var origin = parseIndexUrl(tab.dataset.ifpOrigin, pathOf(cfg(bar).base));
-            var sort = parseIndexUrl(currentUrl(bar), pathOf(cfg(bar).base)).named;
+            var origin = splitUrl(bar, tab.dataset.ifpOrigin);
+            var sort = splitUrl(bar, currentUrl(bar)).named;
             ['sort', 'direction', 'limit'].forEach(function (k) { if (sort[k]) { origin.named[k] = sort[k]; } });
-            clear.setAttribute('href', formatIndexUrl(cfg(bar).base, origin));
+            clear.setAttribute('href', formatIndexUrl(origin.base, origin));
         }
     }
 
@@ -352,8 +376,20 @@
             ? document.activeElement.closest('.ifp-opt') : null;
         var focusValue = focused ? focused.getAttribute('data-value') : null;
 
-        if (pc.options) {
+        if (pc.options && !open.local) {
             res.innerHTML = pc.options.map(rowHtml).join('');
+        } else if (open.local) {
+            sel.innerHTML = open.selection.map(rowHtml).join('');
+            sel.previousElementSibling.hidden = !open.selection.length;
+            var term = open.term.toLowerCase();
+            var matches = pc.options.filter(function (o) {
+                return !open.selection.some(function (s) { return s.value === o.value; })
+                    && (term === '' || o.label.toLowerCase().indexOf(term) !== -1);
+            });
+            res.innerHTML = matches.slice(0, LIST_MAX).map(rowHtml).join('');
+            status.hidden = matches.length > 0 && matches.length <= LIST_MAX;
+            status.textContent = matches.length > LIST_MAX
+                ? S(bar, 'more').replace('%s', matches.length - LIST_MAX) : S(bar, 'noMatch');
         } else {
             sel.innerHTML = open.selection.map(rowHtml).join('');
             sel.previousElementSibling.hidden = !open.selection.length;
@@ -395,16 +431,28 @@
             ? (current === 'exclude' ? 'none' : 'exclude')
             : (current === 'none' ? 'include' : 'none');
         if (i !== -1) { open.selection.splice(i, 1); }
+        if (open.pc.single) { open.selection = []; }
         if (next !== 'none') {
             open.selection.push({ value: item.value, label: item.label, style: item.style || null,
                 exclude: next === 'exclude', unresolved: !!item.unresolved });
         }
         open.dirty = true;
+        if (open.pc.single) {
+            var btn = open.picker.querySelector('.ifp-btn');
+            closePicker(true);
+            btn.focus();
+            return;
+        }
         renderLists();
     }
 
     function search(term) {
         var pc = open.pc;
+        if (open.local) {
+            open.term = term;
+            renderLists();
+            return;
+        }
         if (open.timer) { clearTimeout(open.timer); open.timer = null; }
         if (open.request) { open.request.abort(); open.request = null; }
         if (term.length < MIN_TERM) {
@@ -443,12 +491,12 @@
         }, THROTTLE);
     }
 
-    function build(bar, picker) {
+    function build(bar, picker, local) {
         var pc = pickerCfg(picker);
         var draft = cfg(bar).apply === 'draft';
         var pop = picker.querySelector('.ifp-pop');
         var html = '';
-        if (pc.source) {
+        if (pc.source || local) {
             html += '<div class="ifp-search"><i class="fas fa-search" aria-hidden="true"></i>'
                 + '<input type="search" class="form-control form-control-sm" autocomplete="off" spellcheck="false"'
                 + ' placeholder="' + esc(S(bar, 'search')) + '" aria-label="' + esc(S(bar, 'search') + ' ' + pc.label) + '"></div>';
@@ -456,15 +504,17 @@
         if (pc.allOf) {
             html += '<p class="ifp-note"><i class="fas fa-circle-info" aria-hidden="true"></i> ' + esc(S(bar, 'allOf')) + '</p>';
         }
-        if (!pc.options) {
+        var multi = pc.single ? 'false' : 'true';
+        if (!pc.options || local) {
             html += '<div class="ifp-head" hidden>' + esc(S(bar, 'selected')) + '</div>'
-                + '<ul class="ifp-opts ifp-sel" role="listbox" aria-multiselectable="true"></ul>';
+                + '<ul class="ifp-opts ifp-sel" role="listbox" aria-multiselectable="' + multi + '"></ul>';
         }
-        html += '<ul class="ifp-opts ifp-res" role="listbox" aria-multiselectable="true"></ul>';
-        if (!pc.options) { html += '<div class="ifp-status" role="status"></div>'; }
+        html += '<ul class="ifp-opts ifp-res" role="listbox" aria-multiselectable="' + multi + '"></ul>';
+        if (!pc.options || local) { html += '<div class="ifp-status" role="status"></div>'; }
         var foot = draft ? S(bar, 'applyDraft') : S(bar, 'applyOnClose');
-        if (pc.hint) { foot = pc.hint + ' ' + foot; }
-        html += '<div class="ifp-foot"><span>' + esc(foot) + '</span>';
+        if (pc.single) { foot = ''; }
+        if (pc.hint) { foot = pc.hint + (foot ? ' ' + foot : ''); }
+        html += '<div class="ifp-foot"' + (foot || draft ? '' : ' hidden') + '><span>' + esc(foot) + '</span>';
         if (draft) {
             html += '<button type="button" class="btn btn-sm btn-primary" data-ifp-apply>' + esc(S(bar, 'apply')) + '</button>';
         }
@@ -478,9 +528,12 @@
         closePicker(true);
         var bar = barOf(picker);
         var pc = pickerCfg(picker);
-        var pop = build(bar, picker);
+        var local = !!pc.options && pc.options.length > LOCAL_MAX;
+        var pop = build(bar, picker, local);
         open = {
             bar: bar,
+            local: local,
+            term: '',
             picker: picker,
             pc: pc,
             pop: pop,
@@ -548,6 +601,13 @@
 
     /* ── wiring ───────────────────────────────────────────────────────── */
 
+    function applyValueMatch(bar, input, clear) {
+        if (!input) { return; }
+        var changes = {};
+        changes[input.getAttribute('name')] = clear ? null : input.value.trim();
+        load(bar, urlWith(bar, changes), true);
+    }
+
     function isPlainClick(event) {
         return !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0);
     }
@@ -603,6 +663,13 @@
             return;
         }
 
+        var vm = target.closest('.value-match-apply, .value-match-clear');
+        if (vm) {
+            applyValueMatch(bar, vm.closest('.input-group').querySelector('.value-match-input'),
+                vm.classList.contains('value-match-clear'));
+            return;
+        }
+
         var link = navLink(bar, target);
         if (link && isPlainClick(event)) {
             event.preventDefault();
@@ -633,6 +700,13 @@
                 event.preventDefault();
                 toggle(open.active.getAttribute('data-value'), false);
             }
+            return;
+        }
+        if (event.key === 'Enter' && event.target.matches('.value-match-input')) {
+            var vmBar = barOf(event.target);
+            if (!vmBar) { return; }
+            event.preventDefault();
+            applyValueMatch(vmBar, event.target, false);
             return;
         }
         if (event.key === 'Enter' && event.target.closest('.ifp-query')) {

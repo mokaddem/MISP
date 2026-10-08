@@ -15,6 +15,7 @@ $this->Paginator->options(['url' => $paginatorUrl]);
 
 <?php echo $this->element('EventReports/index', [
     'reports' => $reports,
+    'eventView' => true,
 ]); ?>
 
 <script>
