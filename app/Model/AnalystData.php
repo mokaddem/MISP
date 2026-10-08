@@ -515,21 +515,6 @@ class AnalystData extends AppModel
         ]);
     }
 
-    public function getAnalystDataTypeFromUUID($uuid)
-    {
-        foreach (self::TYPES as $type) {
-            $this->{$type} = ClassRegistry::init($type);
-            $result = $this->{$type}->find('first', [
-                'conditions' => [$type.'.uuid' => $uuid],
-                'recursive' => -1
-            ]);
-            if (!empty($result)) {
-                return $type;
-            }
-        }
-        throw new NotFoundException(__('Invalid UUID'));
-    }
-
     public function deduceAnalystDataType(array $analystData)
     {
         if (!empty($analystData['note_type_name']) && in_array($analystData['note_type_name'], self::TYPES)) {

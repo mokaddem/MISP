@@ -321,7 +321,7 @@ class AnalystDataController extends AppController
     {
         if ($type === 'all' && Validation::uuid($id)) {
             $this->loadModel('AnalystData');
-            $type = $this->AnalystData->getAnalystDataTypeFromUUID($id);
+            $type = $this->AnalystData->deduceType($this->Auth->user(), $id);
         }
         $this->__typeSelector($type);
         if (!is_numeric($id) && Validation::uuid($id)) {
