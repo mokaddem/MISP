@@ -18,7 +18,7 @@
                 "id": "reporting.self_reported_only",
                 "group": "Reporting",
                 "enabled": true,
-                "points": { "only_you": 0 }
+                "points": { "only_you": -4 }
             },
             {
                 "id": "reporting.published_ratio",
@@ -70,7 +70,9 @@
                 "id": "exposure.own_estate",
                 "group": "Sightings",
                 "enabled": true,
-                "points": { "own": 0, "others_only": 0 }
+                "points": { "own": 6, "own_stale": 2,
+                    "others_only": 0 },
+                "config": { "stale_days": 90 }
             },
             {
                 "id": "attribution.galaxy",

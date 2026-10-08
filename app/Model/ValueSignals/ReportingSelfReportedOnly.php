@@ -8,8 +8,9 @@
  * own reporting alone is one you cannot cite back to yourself as
  * corroboration.
  *
- * Worth nothing by default, so it adds a line without moving a number
- * that `independent_orgs` has already priced.
+ * It takes back part of what `independent_orgs` paid for that one
+ * organisation, leaving your own sole report worth less than an outside
+ * organisation's.
  */
 class ReportingSelfReportedOnly extends ValueSignalBase
 {
@@ -28,7 +29,7 @@ class ReportingSelfReportedOnly extends ValueSignalBase
         $this->points_schema = array(
             'only_you' => array(
                 'type' => 'int',
-                'default' => 0,
+                'default' => -4,
                 'label' => __('Points when only your organisation'
                     . ' reports it'),
             ),

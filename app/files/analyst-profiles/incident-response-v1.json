@@ -24,7 +24,7 @@
                 "group": "Reporting",
                 "enabled": true,
                 "points": {
-                    "only_you": 0
+                    "only_you": -4
                 }
             },
             {
@@ -93,8 +93,12 @@
                 "group": "Sightings",
                 "enabled": true,
                 "points": {
-                    "own": 0,
+                    "own": 6,
+                    "own_stale": 2,
                     "others_only": 0
+                },
+                "config": {
+                    "stale_days": 90
                 }
             },
             {

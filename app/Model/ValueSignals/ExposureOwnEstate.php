@@ -10,10 +10,10 @@
  * telemetry.
  *
  * Two poles: your organisation sighted it, or only others did. The
- * second stays silent when an exclusion or the evidence window removed
- * sightings, since your own could be among them. Both are worth
- * nothing by default, so the row adds a line without counting the
- * same sightings a second time.
+ * first pays less once your last sighting is past `stale_days`. The
+ * second is worth nothing by default — not being seen by you is not
+ * evidence against a value — and stays silent when an exclusion or the
+ * evidence window removed sightings, since yours could be among them.
  */
 class ExposureOwnEstate extends ValueSignalBase
 {
@@ -32,14 +32,28 @@ class ExposureOwnEstate extends ValueSignalBase
         $this->points_schema = array(
             'own' => array(
                 'type' => 'int',
-                'default' => 0,
-                'label' => __('Points when your organisation sighted it'),
+                'default' => 6,
+                'label' => __('Points when your organisation sighted it'
+                    . ' recently'),
+            ),
+            'own_stale' => array(
+                'type' => 'int',
+                'default' => 2,
+                'label' => __('Points when your organisation\'s last'
+                    . ' sighting is old'),
             ),
             'others_only' => array(
                 'type' => 'int',
                 'default' => 0,
                 'label' => __('Points when only other organisations'
                     . ' sighted it'),
+            ),
+        );
+        $this->config_schema = array(
+            'stale_days' => array(
+                'type' => 'int',
+                'default' => 90,
+                'label' => __('Age past which your sighting is old'),
             ),
         );
     }
@@ -78,19 +92,22 @@ class ExposureOwnEstate extends ValueSignalBase
         }
 
         $last = (int)($seen['by_org_last'][$own] ?? 0);
+        $ageDays = $last > 0
+            ? (int)floor((($context['now'] ?? time()) - $last) / 86400)
+            : null;
+        $stale = ($ageDays === null
+            || $ageDays > (int)$this->setting($config, 'stale_days'));
         $signal = sprintf(
             $mine === 1
                 ? __('Your organisation sighted it once, %s')
                 : __('Your organisation sighted it %2$d times, last %1$s'),
-            $last > 0
-                ? $this->agoPhrase((int)floor(
-                    (($context['now'] ?? time()) - $last) / 86400
-                ))
-                : __('at an unknown time'),
+            $ageDays === null
+                ? __('at an unknown time')
+                : $this->agoPhrase($ageDays),
             $mine
         );
         return $this->row(
-            $this->points($config, 'own'),
+            $this->points($config, $stale ? 'own_stale' : 'own'),
             $signal,
             $others === 0
                 ? __('No other organisation has sighted it')
