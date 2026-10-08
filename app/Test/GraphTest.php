@@ -429,6 +429,33 @@ class GraphTest extends TestCase
         $this->assertSame(array('neighbours' => false, 'chains' => true), $document['view']['rules']);
     }
 
+    public function testNotesAreNormalised()
+    {
+        list($document, $errors) = AnalystGraphDocumentTool::normalise(array(
+            'nodes' => array(self::node('Attribute', self::ATTRIBUTE)),
+            'notes' => array(
+                array('id' => self::uuid(1), 'content' => '**C2**', 'x' => 10, 'y' => -2.5, 'width' => 220, 'height' => 160,
+                      'color' => '#FDE68A', 'surface' => 'terminal', 'node' => 'Attribute:' . strtoupper(self::ATTRIBUTE), 'visible' => false),
+                array('id' => 'note-2', 'node' => self::valueNode(' 8.8.8.8 ')),
+                array('id' => 'note-3', 'content' => '', 'edge' => 'relationship:a'),
+            ),
+        ));
+
+        $this->assertSame(array(), $errors);
+        $this->assertSame(array(
+            array('id' => self::uuid(1), 'content' => '**C2**', 'x' => 10, 'y' => -2.5, 'width' => 220, 'height' => 160,
+                  'color' => '#FDE68A', 'surface' => 'terminal', 'node' => 'Attribute:' . strtolower(self::ATTRIBUTE)),
+            array('id' => 'note-2', 'content' => '', 'node' => 'Value:' . Value::uuidFor('8.8.8.8')),
+            array('id' => 'note-3', 'content' => '', 'edge' => 'relationship:a'),
+        ), $document['notes']);
+    }
+
+    public function testDocumentWithoutNotesLeavesThemOut()
+    {
+        list($document) = AnalystGraphDocumentTool::normalise(array('notes' => array()));
+        $this->assertArrayNotHasKey('notes', $document);
+    }
+
     public function testWithNodesNarrowsGroups()
     {
         list($document) = AnalystGraphDocumentTool::normalise(array(
@@ -507,6 +534,17 @@ class GraphTest extends TestCase
             'group position not a number' => array(array('groups' => array(array('members' => array(), 'x' => '1')))),
             'rules as a list' => array(array('view' => array('rules' => array(true)))),
             'rule not a boolean' => array(array('view' => array('rules' => array('neighbours' => 1)))),
+            'notes not a list' => array(array('notes' => array('a' => array('id' => 'n')))),
+            'note without id' => array(array('notes' => array(array('content' => 'x')))),
+            'note id with markup' => array(array('notes' => array(array('id' => '<b>')))),
+            'duplicate note' => array(array('notes' => array(array('id' => 'n'), array('id' => 'n')))),
+            'note content not a string' => array(array('notes' => array(array('id' => 'n', 'content' => array('x'))))),
+            'note content too large' => array(array('notes' => array(array('id' => 'n', 'content' => str_repeat('a', 65536))))),
+            'note size not positive' => array(array('notes' => array(array('id' => 'n', 'width' => 0)))),
+            'note colour not hex' => array(array('notes' => array(array('id' => 'n', 'color' => 'url(x)')))),
+            'unknown note surface' => array(array('notes' => array(array('id' => 'n', 'surface' => 'glass')))),
+            'note anchor not a node' => array(array('notes' => array(array('id' => 'n', 'node' => 'Tag:1')))),
+            'note on a node and an edge' => array(array('notes' => array(array('id' => 'n', 'node' => 'Event:' . self::EVENT, 'edge' => 'e')))),
         );
     }
 

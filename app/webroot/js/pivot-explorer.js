@@ -3196,6 +3196,26 @@
                 : { type: item.type, uuid: item.uuid };
         }
 
+        // A canvas note as a graph document keeps it. anchorOf(node) names
+        // the node it hangs on, or null for one the document does not keep.
+        function noteItem(note, anchorOf) {
+            var out = { id: note.id, content: note.content || '' };
+            ['x', 'y', 'width', 'height'].forEach(function (f) {
+                if (typeof note[f] === 'number' && isFinite(note[f])) out[f] = note[f];
+            });
+            if (note.color) out.color = note.color;
+            if (note.surface) out.surface = note.surface;
+            var at = note.getAttachedElement();
+            if (at && at.type === 'node') {
+                var node = _graph.getMutableNode(at.id);
+                var anchor = node && anchorOf(node);
+                if (anchor) out.node = anchor;
+            } else if (at && at.type === 'edge' && _graph.getMutableEdge(at.id)) {
+                out.edge = at.id;
+            }
+            return out;
+        }
+
         function refKey(item) {
             return item.type === 'Value' ? 'Value|' + item.value : item.type + ':' + String(item.uuid).toLowerCase();
         }
@@ -3273,10 +3293,12 @@
             var nodes = [], dropped = [], answerCount = 0, sizes = {};
             var into = enrichmentEdgesByTarget(_graph);
             var grouping = canvasGrouping();
+            var refOf = {};
             function keep(out, node) {
                 if (grouping.pulledOut[node.id]) out.pulled_out = true;
                 nodes.push(out);
                 measured(sizes, node, out);
+                refOf[node.id] = out;
             }
             _graph.getMutableNodes().forEach(function (node) {
                 var item = graphItemOf(node);
@@ -3298,6 +3320,10 @@
             });
             var doc = { version: 1, nodes: nodes, groups: grouping.groups };
             if (Object.keys(grouping.rules).length) doc.view = { rules: grouping.rules };
+            var notes = _graph.getNotes().map(function (note) {
+                return noteItem(note, function (node) { return refOf[node.id] || null; });
+            });
+            if (notes.length) doc.notes = notes;
             return { document: doc, dropped: dropped, answers: answerCount, sizes: sizes };
         }
 
@@ -5128,6 +5154,7 @@
             },
             canvasGrouping:   canvasGrouping,
             canvasPosition:   canvasPosition,
+            noteItem:         noteItem,
             sources:          SOURCES,
             eachAnalystRelationship: eachAnalystRelationship,
             eachRelationshipOn: eachRelationshipOn,

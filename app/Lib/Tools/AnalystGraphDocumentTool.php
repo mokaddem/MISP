@@ -17,8 +17,13 @@ App::uses('Value', 'Model');
  *                  "content": {"kind": "attribute", "type": "ip-dst", "value": "203.0.113.7", …}}],
  *       "groups": [{"title": "C2", "members": ["Attribute:<uuid>", "Value:<uuid>"], "x": 0, "y": 0}],
  *       "hidden_edges": ["relationship:<uuid>"],
- *       "view": {"layout": "force", "zoom": 1.0, "center": [0, 0], "rules": {"neighbours": false}}
+ *       "view": {"layout": "force", "zoom": 1.0, "center": [0, 0], "rules": {"neighbours": false}},
+ *       "notes": [{"id": "…", "content": "Markdown", "x": 0, "y": 0, "width": 220, "height": 160,
+ *                  "color": "#FDE68A", "surface": "jewel", "node": "Attribute:<uuid>"}]
  *     }
+ *
+ * A note is anchored to a node by its key, or to an edge by its id; `notes`
+ * is left out while there are none.
  */
 class AnalystGraphDocumentTool
 {
@@ -34,6 +39,11 @@ class AnalystGraphDocumentTool
     const MAX_TITLE_LENGTH = 255;
     const MAX_RULES = 32;
     const SUMMARY_LIST_LIMIT = 100;
+    const MAX_NOTES = 500;
+    const MAX_NOTE_BYTES = 65535;
+    const NOTE_SURFACES = ['jewel', 'terminal'];
+    const NOTE_ID_PATTERN = '/^[A-Za-z0-9_\-]{1,64}$/';
+    const NOTE_COLOR_PATTERN = '/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i';
 
     /** MISP's own attribute value limit: what MISP could not store, a graph cannot keep. */
     const MAX_ANSWER_STRING_BYTES = 65535;
@@ -185,6 +195,20 @@ class AnalystGraphDocumentTool
             $view = [];
         }
         $document['view'] = self::normaliseView($view, $errors);
+
+        $notes = $content['notes'] ?? [];
+        if (!self::isList($notes)) {
+            $errors[] = __('notes must be a list.');
+            $notes = [];
+        }
+        if (count($notes) > self::MAX_NOTES) {
+            $errors[] = __('A graph holds at most %s notes.', self::MAX_NOTES);
+            $notes = [];
+        }
+        $notes = self::normaliseNotes($notes, $errors);
+        if (!empty($notes)) {
+            $document['notes'] = $notes;
+        }
 
         if (!empty($errors)) {
             return [null, $errors];
@@ -940,6 +964,106 @@ class AnalystGraphDocumentTool
             $normalised[] = $out;
         }
         return $normalised;
+    }
+
+    /**
+     * @param array $notes
+     * @param string[] $errors
+     * @return array
+     */
+    private static function normaliseNotes(array $notes, array &$errors)
+    {
+        $normalised = [];
+        $seen = [];
+        foreach ($notes as $i => $note) {
+            $error = null;
+            $note = self::normaliseNote($note, $error);
+            if ($note === null) {
+                $errors[] = sprintf('notes[%s]: %s', $i, $error);
+                continue;
+            }
+            if (isset($seen[$note['id']])) {
+                $errors[] = sprintf('notes[%s]: %s', $i, __('duplicate of notes[%s].', $seen[$note['id']]));
+                continue;
+            }
+            $seen[$note['id']] = $i;
+            $normalised[] = $note;
+        }
+        return $normalised;
+    }
+
+    /**
+     * @param mixed $note
+     * @param string|null $error
+     * @return array|null
+     */
+    private static function normaliseNote($note, &$error)
+    {
+        if (!is_array($note) || (!empty($note) && self::isList($note))) {
+            $error = __('must be an object.');
+            return null;
+        }
+        $id = $note['id'] ?? null;
+        if (!is_string($id) || !preg_match(self::NOTE_ID_PATTERN, $id)) {
+            $error = __('id must be at most 64 letters, digits, dashes or underscores.');
+            return null;
+        }
+        $content = $note['content'] ?? '';
+        if (!is_string($content) || strlen($content) > self::MAX_NOTE_BYTES) {
+            $error = __('content must be a string of at most %s bytes.', self::MAX_NOTE_BYTES);
+            return null;
+        }
+        $out = ['id' => $id, 'content' => $content];
+        foreach (['x', 'y', 'width', 'height'] as $field) {
+            if (!isset($note[$field])) {
+                continue;
+            }
+            $value = $note[$field];
+            $isSize = $field === 'width' || $field === 'height';
+            if (!self::isFiniteNumber($value) || ($isSize && $value <= 0)) {
+                $error = $isSize ? __('%s must be a positive number.', $field) : __('%s must be a number.', $field);
+                return null;
+            }
+            $out[$field] = $value;
+        }
+        if (isset($note['color'])) {
+            if (!is_string($note['color']) || !preg_match(self::NOTE_COLOR_PATTERN, $note['color'])) {
+                $error = __('color must be a hex colour.');
+                return null;
+            }
+            $out['color'] = $note['color'];
+        }
+        if (isset($note['surface'])) {
+            if (!in_array($note['surface'], self::NOTE_SURFACES, true)) {
+                $error = __('surface is one of %s.', implode(', ', self::NOTE_SURFACES));
+                return null;
+            }
+            $out['surface'] = $note['surface'];
+        }
+        if (isset($note['node'], $note['edge'])) {
+            $error = __('a note is anchored to a node or to an edge, not both.');
+            return null;
+        }
+        if (isset($note['node'])) {
+            $nodeErrors = [];
+            $key = is_array($note['node']) ? self::normaliseNode($note['node'], $nodeErrors) : self::keyOf($note['node']);
+            if (is_array($key)) {
+                $key = self::nodeKey($key);
+            }
+            if (!is_string($key)) {
+                $error = __('node is not a node.');
+                return null;
+            }
+            $out['node'] = $key;
+        } elseif (isset($note['edge'])) {
+            $edge = $note['edge'];
+            if (!is_string($edge) || $edge === '' || strlen($edge) > self::MAX_EDGE_ID_LENGTH) {
+                $error = __('edge must be a non-empty string of at most %s characters.', self::MAX_EDGE_ID_LENGTH);
+                return null;
+            }
+            $out['edge'] = $edge;
+        }
+        return $out;
     }
 
     /**

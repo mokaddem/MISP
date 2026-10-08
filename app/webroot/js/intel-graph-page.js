@@ -78,7 +78,8 @@
 
         var REASONS = {
             moved: 'moved', kept: 'kept from a pivot', removed: 'removed',
-            hidden: 'links hidden', shown: 'links shown again', grouped: 'grouping changed'
+            hidden: 'links hidden', shown: 'links shown again', grouped: 'grouping changed',
+            noted: 'notes changed'
         };
 
         function dirty() { return !!handle && handle.isDirty(); }
