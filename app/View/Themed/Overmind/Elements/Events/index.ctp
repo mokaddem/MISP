@@ -77,12 +77,15 @@ foreach ($chooser as [$setting, $label, $chooserIcon]) {
 $chooserHtml = sprintf(
     '<div class="dropdown te-chooser"><button type="button" class="te-gear" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="%s" aria-label="%s"><i class="fas fa-table-columns"></i></button>'
         . '<div class="dropdown-menu dropdown-menu-end shadow te-cols" role="group" aria-label="%s"><h6>%s</h6>%s'
-        . '<div class="te-cols-foot"><span class="te-cols-note"></span><button type="button" data-te-reset>%s</button></div></div></div>',
+        . '<div class="te-cols-foot"><span class="te-cols-note"></span><span>'
+        . '<button type="button" data-te-reset-widths hidden>%s</button>'
+        . '<button type="button" data-te-reset>%s</button></span></div></div></div>',
     h(__('Choose columns')),
     h(__('Choose columns')),
     h(__('Columns')),
     h(__('Columns')),
     $chooserItems,
+    h(__('Reset widths')),
     h(__('Reset'))
 );
 

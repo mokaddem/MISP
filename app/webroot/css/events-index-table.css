@@ -24,6 +24,21 @@
 .te-index .te-table thead th.te-c-sel, .te-index .te-table thead th.te-c-act { overflow: visible; z-index: 6; }
 .te-index .te-table thead th .sortable-header { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .te-index .te-table thead th.te-num { text-align: right; }
+
+/* column resize handle on each header's right edge */
+.te-rsz {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 8px; z-index: 2;
+    cursor: col-resize; touch-action: none;
+}
+.te-rsz::after {
+    content: ''; position: absolute; top: 25%; bottom: 25%; right: 2px; width: 2px; border-radius: 1px;
+}
+.te-index .te-table thead th:hover > .te-rsz::after { background: var(--bs-border-color); }
+.te-index .te-table thead th > .te-rsz:hover::after,
+.te-rsz:focus-visible::after,
+.te-resizing .te-rsz:active::after { background: var(--dk-accent); }
+.te-rsz:focus-visible { outline: none; }
+.te-resizing, .te-resizing * { cursor: col-resize !important; user-select: none; }
 .te-hicon { display: inline-flex; align-items: center; gap: 3px; }
 .te-hicon .misp-icon { width: 15px; height: 15px; }
 .te-hicon i.fas { font-size: .85rem; }
@@ -169,3 +184,4 @@
     display: flex; justify-content: space-between; align-items: center; font-size: .72rem; color: var(--bs-secondary-color);
 }
 .te-cols .te-cols-foot button { border: 0; background: none; color: var(--dk-accent); font: inherit; padding: 0; }
+.te-cols .te-cols-foot > span:last-child { display: flex; gap: 12px; }
