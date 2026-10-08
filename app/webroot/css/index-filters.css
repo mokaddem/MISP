@@ -28,6 +28,10 @@
 .ifp-count:empty { display: none; }
 .ifp-count b { color: var(--bs-emphasis-color); }
 .ifp-row .index-filter-pager { margin-left: auto; }
+.ifp-bottom {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px;
+    margin: -.5rem 2px 1.5rem;
+}
 
 .ifp-picker { position: relative; }
 
@@ -109,7 +113,13 @@
     flex: none; width: 10px; height: 10px; border-radius: 3px;
     background: var(--ifp-swatch); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bs-body-color) 25%, transparent);
 }
-.ifp-gicon { flex: none; width: 14px; text-align: center; font-size: .74rem; color: var(--ifp-muted); }
+.ifp-badge {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 16px; border-radius: 4px; font-size: .6rem;
+    background: var(--dk-dbg); color: var(--dk-dfg); border: 1px solid var(--dk-dbd);
+}
+.ifp-badge .misp-icon { width: 10px; height: 10px; }
+.ifp-gicon {flex: none; width: 14px; text-align: center; font-size: .74rem; color: var(--ifp-muted); }
 
 .ifp-status { padding: 8px 6px 4px; color: var(--ifp-muted); }
 .ifp-status[hidden] { display: none; }

@@ -640,6 +640,17 @@ function toggleAllAttributeCheckboxes(selectAllEl) {
     });
 }
 
+function clearMultiSelect(button) {
+    const scope = (button && button.closest('.tab-pane')) || document;
+    scope.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
+        checkbox.checked = false;
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    scope.querySelectorAll('.select_all, #select_all').forEach(selectAll => {
+        selectAll.checked = false;
+    });
+}
+
 function isMobile() {
     return window.innerWidth < 1000;
 }

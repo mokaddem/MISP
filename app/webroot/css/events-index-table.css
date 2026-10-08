@@ -73,8 +73,18 @@
 
 /* select */
 .te-index .te-table .te-c-sel { padding-left: 12px; padding-right: 0; }
-.te-index .te-table .te-c-sel .checkbox-actions-wrapper { margin: 0; background: none; }
-.te-index .te-table .te-c-sel input[type="checkbox"] { width: 15px; height: 15px; margin: 0; vertical-align: middle; }
+.te-index .te-table .te-c-sel { vertical-align: middle; }
+.te-index .te-table .te-c-sel .checkbox-actions-wrapper { display: flex !important; margin: 0; background: none; }
+.te-index .te-table .te-c-sel input[type="checkbox"] {
+    width: 15px; height: 15px; margin: 0; cursor: pointer;
+    background-color: var(--bs-body-bg);
+    border-color: color-mix(in srgb, var(--bs-body-color) 34%, transparent); border-radius: 4px;
+}
+.te-index .te-table .te-c-sel input[type="checkbox"]::after { left: 4.5px; top: 1.5px; width: 4.5px; height: 8px; }
+.te-index .te-table .te-c-sel input[type="checkbox"]:hover:not(:checked) { border-color: var(--bs-primary); }
+.te-index .te-table .te-c-sel input[type="checkbox"]:checked,
+.te-index .te-table .te-c-sel input[type="checkbox"].select_all:checked { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+.te-index .te-table .te-c-sel input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--bs-primary) 30%, transparent); }
 .te-index .te-table thead .te-c-sel #select_all { margin-left: 0 !important; }
 
 /* rows */

@@ -5254,10 +5254,16 @@ tr.evt-extension-row td:first-child { position: relative; }
 }
 #multiSelectToolbar.ms-float > div,
 #multiSelectToolbar.ms-float > fieldset > div {
-    padding: 8px 12px !important;
+    padding: 8px 10px 8px 16px !important;
     background: var(--bs-body-bg) !important; color: var(--bs-body-color);
     border-color: var(--bs-card-border-color, var(--bs-border-color)) !important;
     border-radius: .7rem !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+    font-size: .86rem; white-space: nowrap;
 }
+#multiSelectToolbar .ms-count { color: var(--bs-secondary-color); }
+#multiSelectToolbar .ms-count b { color: var(--bs-emphasis-color); font-variant-numeric: tabular-nums; }
+#multiSelectToolbar .ms-sep { width: 1px; align-self: stretch; margin: 0 4px; background: var(--bs-border-color); }
+#multiSelectToolbar .ms-clear { padding-left: 4px; padding-right: 4px; text-decoration: none; }
+#multiSelectToolbar .ms-clear:hover { text-decoration: underline; }
 body.ms-float-open { padding-bottom: calc(var(--ms-float-h, 56px) + 32px); }

@@ -89,7 +89,13 @@
 .dk-lead > .misp-icon { width: 14px; height: 14px; color: var(--dk-accent); }
 .dk-sel { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; z-index: 2; }
 .dk-sel .checkbox-actions-wrapper { margin: 0; background: none; border-radius: 0; }
-.dk-sel .checkbox-index input[type="checkbox"] { margin: 0; width: 15px; height: 15px; border-radius: 4px; }
+.dk-sel .checkbox-index input[type="checkbox"] {
+    margin: 0; width: 15px; height: 15px; border-radius: 4px;
+    background-color: var(--bs-body-bg); border-color: color-mix(in srgb, var(--bs-body-color) 34%, transparent);
+}
+.dk-sel .checkbox-index input[type="checkbox"]:hover:not(:checked) { border-color: var(--bs-primary); }
+.dk-sel .checkbox-index input[type="checkbox"]:checked { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+.dk-sel .checkbox-index input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--bs-primary) 30%, transparent); }
 .dk-sel .checkbox-index input[type="checkbox"]::after { left: 4.5px; top: 1.5px; width: 4.5px; height: 8px; }
 .dk-card:hover .dk-sel, .dk-card:focus-within .dk-sel, .dk-selecting .dk-sel, .dk-card.is-selected .dk-sel { opacity: 1; }
 .dk-card:hover .dk-lead > .misp-icon, .dk-card:focus-within .dk-lead > .misp-icon, .dk-selecting .dk-lead > .misp-icon, .dk-card.is-selected .dk-lead > .misp-icon { visibility: hidden; }

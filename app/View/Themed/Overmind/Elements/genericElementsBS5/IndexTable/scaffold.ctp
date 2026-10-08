@@ -11,16 +11,17 @@ echo '<div id="' . $containerId . '_content">';
 
     <?= $scaffold_data['data']['before_filter_bar'] ?? '' ?>
 
+    <?php
+    $pickerBar = !empty(array_filter(
+        $scaffold_data['data']['filter_bar']['children'] ?? [],
+        function ($child) {
+            return ($child['type'] ?? '') === 'picker';
+        }
+    ));
+    ?>
+
     <!-- CARD 1 : FILTERS -->
     <?php if (!empty($scaffold_data['data']['filter_bar'])): ?>
-        <?php
-        $pickerBar = !empty(array_filter(
-            $scaffold_data['data']['filter_bar']['children'] ?? [],
-            function ($child) {
-                return ($child['type'] ?? '') === 'picker';
-            }
-        ));
-        ?>
         <div class="<?= $pickerBar ? 'ifp-card' : 'card shadow-sm mb-4' ?>">
             <div class="<?= $pickerBar ? '' : 'card-body' ?>">
                 <?= $this->element(
@@ -57,7 +58,28 @@ echo '<div id="' . $containerId . '_content">';
     </div>
 
     <!-- CARD 3 : PAGINATION -->
-    <?php if (empty($scaffold_data['data']['skip_pagination'])): ?>
+    <?php if (empty($scaffold_data['data']['skip_pagination']) && $pickerBar): ?>
+        <?php
+        $paging = $this->Paginator->params();
+        $first = ((int)$paging['page'] - 1) * (int)$paging['limit'] + 1;
+        ?>
+        <div class="ifp-bottom" data-tour="index-pagination">
+            <span class="ifp-count"><?php
+                if (!empty($paging['current'])) {
+                    echo sprintf(
+                        h(__('Showing %s–%s of %s')),
+                        h(number_format($first)),
+                        h(number_format($first + (int)$paging['current'] - 1)),
+                        '<b>' . h(number_format((int)$paging['count'])) . '</b>'
+                    );
+                }
+            ?></span>
+            <?= $this->element(
+                'genericElementsBS5/IndexTable/pagination_nav',
+                ['maxPages' => 5, 'size' => 'sm']
+            ) ?>
+        </div>
+    <?php elseif (empty($scaffold_data['data']['skip_pagination'])): ?>
         <div class="card shadow-sm mb-4">
             <div class="card-body">
                 <?= $this->element(

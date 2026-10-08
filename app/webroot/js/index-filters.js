@@ -216,6 +216,9 @@
         if (style.icon) {
             return '<i class="' + esc(style.icon) + ' ifp-gicon" aria-hidden="true"></i>';
         }
+        if (style.badge) {
+            return '<span class="ifp-badge" style="' + esc(style.css || '') + '" aria-hidden="true"><i class="' + esc(style.badge) + '"></i></span>';
+        }
         return '';
     }
 

@@ -291,6 +291,7 @@ $children[] = [
 
 App::uses('IndexFilterState', 'Tools');
 App::uses('IndexPicker', 'Tools');
+App::uses('EventCardTool', 'Tools/EventOverview');
 $filterState = new IndexFilterState($baseurl . '/events/index', $this->request->params['named'] ?? [], 'search');
 $canPickOrgs = IndexPicker::canPickOrgs($me);
 $filterLabels = $filterLabels ?? ['org' => [], 'tag' => [], 'galaxy' => []];
@@ -329,10 +330,11 @@ $children[] = [
 ];
 $distributionOptions = [];
 foreach ([0, 1, 2, 3, 4] as $level) {
+    $badge = EventCardTool::distribution($level);
     $distributionOptions[] = [
         'value' => (string)$level,
         'label' => $level === 4 ? __('Any sharing group') : ($distributionLevels[$level] ?? (string)$level),
-        'style' => null,
+        'style' => ['badge' => $badge['icon'], 'css' => $badge['style']],
     ];
 }
 $children[] = [
