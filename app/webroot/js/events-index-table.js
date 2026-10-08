@@ -31,7 +31,7 @@
         { k: 'attrs', w: 56, narrow: 54, opt: 'attribute_count' },
         { k: 'objs', w: 48, narrow: 46, opt: 'attribute_count' },
         { k: 'reps', w: 40, opt: 'report_count' },
-        { k: 'corr', w: 46, narrow: 44, opt: 'correlations' },
+        { k: 'corr', w: 52, narrow: 50, opt: 'correlations' },
         { k: 'extras', w: 100 },
         { k: 'ext', w: 76, opt: 'is_extension' },
         { k: 'dist', w: 44, narrow: 40 },

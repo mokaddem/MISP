@@ -13,6 +13,15 @@ if (!isset($event[$key])) {
     return;
 }
 $n = (int)$event[$key];
+// The correlation count stops at Event::INDEX_CORRELATION_LIMIT correlations.
+if ($key === 'correlation_count' && !empty($event['correlation_count_more'])) {
+    printf(
+        '<span title="%s">%s+</span>',
+        h(__('At least %s correlations', $n)),
+        EventCardTool::compactCount($n)
+    );
+    return;
+}
 printf(
     '<span title="%s">%s</span>',
     h($this->EventIndex->plural($n, $one, $many)),

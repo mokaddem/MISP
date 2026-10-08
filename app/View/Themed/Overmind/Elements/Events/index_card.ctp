@@ -53,14 +53,14 @@ $line = function ($lane, $count, array $chips, $empty) use ($ei) {
 };
 $rows = $card['rows'];
 
-$count = function ($n, $icon, $title) {
+$count = function ($n, $icon, $title, $more = false) {
     $n = (int)$n;
     return sprintf(
         '<span class="dk-n%s" title="%s">%s<b>%s</b></span>',
-        $n ? '' : ' is-zero',
+        $n || $more ? '' : ' is-zero',
         h($title),
         $icon,
-        EventCardTool::compactCount($n)
+        EventCardTool::compactCount($n) . ($more ? '+' : '')
     );
 };
 $counts = $count(
@@ -83,10 +83,14 @@ if (isset($event['report_count'])) {
     );
 }
 if (isset($event['correlation_count'])) {
+    $more = !empty($event['correlation_count_more']);
     $counts .= $count(
         $event['correlation_count'],
         '<i class="fas fa-link text-correlation"></i>',
-        $plural((int)$event['correlation_count'], '%s correlation', '%s correlations')
+        $more
+            ? __('At least %s correlations', (int)$event['correlation_count'])
+            : $plural((int)$event['correlation_count'], '%s correlation', '%s correlations'),
+        $more
     );
 }
 

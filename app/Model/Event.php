@@ -35,6 +35,9 @@ class Event extends AppModel
     const NO_PUSH_DISTRIBUTION = 'distribution',
         NO_PUSH_SERVER_RULES = 'push_rules';
 
+    // Correlations read each way per event for the index's correlation count
+    const INDEX_CORRELATION_LIMIT = 1000;
+
     public $actsAs = array(
         'AuditLog',
         'SysLogLogable.SysLogLogable' => array(
@@ -693,12 +696,30 @@ class Event extends AppModel
      * @param array $user
      * @param array $events
      * @param bool $excludeNonCorrelating Count only the related events that the
-     *      event view can actually show a correlation for
+     *      event view can actually show a correlation for, within
+     *      INDEX_CORRELATION_LIMIT correlations; `correlation_count_more` marks
+     *      a count that stopped there
      * @return array
      */
     public function attachCorrelationCountToEvents(array $user, array $events, bool $excludeNonCorrelating = false)
     {
         $sgids = $this->SharingGroup->authorizedIds($user);
+        if ($excludeNonCorrelating) {
+            if (empty($sgids)) {
+                $sgids = [-1];
+            }
+            foreach ($events as &$event) {
+                list($count, $more) = $this->Attribute->Correlation->countRelatedEvents(
+                    $user,
+                    (int)$event['Event']['id'],
+                    $sgids,
+                    self::INDEX_CORRELATION_LIMIT
+                );
+                $event['Event']['correlation_count'] = $count;
+                $event['Event']['correlation_count_more'] = $more;
+            }
+            return $events;
+        }
         foreach ($events as &$event) {
             $event['Event']['correlation_count'] = $this->getRelatedEventCount($user, $event['Event']['id'], $sgids, $excludeNonCorrelating);
         }
