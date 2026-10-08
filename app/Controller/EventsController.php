@@ -4593,6 +4593,10 @@ class EventsController extends AppController
             'events' => $list('events'),
         ], gmdate('Y-m-d'));
 
+        $mayModify = [];
+        foreach ($members as $member) {
+            $mayModify[(int)$member['id']] = $this->__canModifyEvent(['Event' => $member]);
+        }
         $timeline['events'] = [];
         foreach ($extensionSet['events'] as $memberId => $member) {
             $timeline['events'][(int)$memberId] = [
@@ -4601,6 +4605,7 @@ class EventsController extends AppController
                 'info' => $member['info'],
                 'role' => $member['role'],
                 'color' => $member['palette']['badgeBorder'] ?? null,
+                'may_modify' => $mayModify[(int)$memberId] ?? false,
             ];
         }
         return $this->RestResponse->viewData($timeline, 'json');

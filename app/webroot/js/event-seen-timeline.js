@@ -109,6 +109,43 @@
         return t % DAY === 0 ? isoDay(t) : isoDay(t) + ' ' + hms(t);
     }
 
+    // A seen date as a UTC datetime-local value, to the second.
+    function toInput(us) {
+        if (us == null) {
+            return '';
+        }
+        var t = ms(us);
+        return isoDay(t) + 'T' + hms(t);
+    }
+
+    // A datetime-local value read as UTC: null when empty, NaN when invalid.
+    function fromInput(value) {
+        if (!value) {
+            return null;
+        }
+        var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/
+            .exec(value);
+        return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0))
+            : NaN;
+    }
+
+    function toSecond(us) {
+        return us == null ? null : Math.floor(ms(us) / 1000) * 1000;
+    }
+
+    function errorText(body) {
+        var e = body && (body.errors || body.message || body.name);
+        if (!e) {
+            return 'The change could not be saved.';
+        }
+        if (typeof e === 'string') {
+            return e;
+        }
+        return Object.keys(e).map(function (k) {
+            return [].concat(e[k]).join(' ');
+        }).join(' ');
+    }
+
     function parseDay(s) {
         var p = s.split('-');
         return Date.UTC(+p[0], +p[1] - 1, +p[2]);
@@ -214,6 +251,7 @@
 
     // Forgets what was drawn from the last unfiltered answer.
     Tab.prototype.reset = function () {
+        this.closeSeen();
         this.ledger = null;
         this.overview = null;
         this.overviewShown = false;
@@ -451,6 +489,17 @@
                 self.clearFilters();
             }
         });
+        // Captured, so the ledger does not take it as a click on the row.
+        ledgerHost.addEventListener('click', function (e) {
+            var button = e.target.closest('[data-etl-seen]');
+            if (button) {
+                e.stopPropagation();
+                self.openSeen(button);
+            }
+        }, true);
+        ledgerHost.addEventListener('scroll', function () {
+            self.closeSeen();
+        }, true);
         this.bindToolbar();
         if (this.restoreFilters()) {
             this.load(false);
@@ -925,7 +974,7 @@
                 + '</span><span class="etl-chip etl-chip-obj">object</span>'
                 + this.originBadge(it.event_id)
                 + '<span class="etl-cat" title="' + esc(it.category) + '">'
-                + esc(it.category) + '</span>';
+                + esc(it.category) + '</span>' + this.seenButton(r);
         }
         var tail = ctx.depth > 0
             ? (it.relation ? 'as ' + it.relation : '')
@@ -935,7 +984,315 @@
             + ' title="' + esc(it.type) + '">' + esc(it.type) + '</span>'
             + (ctx.depth > 0 ? '' : this.originBadge(it.event_id))
             + '<span class="etl-cat" title="' + esc(tail) + '">' + esc(tail)
-            + '</span>';
+            + '</span>' + this.seenButton(r);
+    };
+
+    /* ── setting seen dates, on the timestamp basis ────────────────── */
+
+    Tab.prototype.canEditSeen = function (it) {
+        var e = this.events[it.event_id];
+        return this.state.basis === 'timestamp' && !!(e && e.may_modify);
+    };
+
+    Tab.prototype.seenButton = function (r) {
+        var it = r.data;
+        if (!this.canEditSeen(it)) {
+            return '';
+        }
+        var has = it.first_seen != null || it.last_seen != null;
+        var icon = r.edited ? 'fa-check'
+            : (has ? 'fa-calendar-check' : 'fa-calendar-plus');
+        return '<button type="button" class="etl-seen-btn'
+            + (has ? ' etl-seen-has' : '') + (r.edited ? ' etl-seen-done' : '')
+            + '" data-etl-seen aria-haspopup="dialog" aria-label="'
+            + (has ? 'Edit' : 'Set') + ' first and last seen of '
+            + esc(it.label) + '"><i class="fas ' + icon + '"></i></button>';
+    };
+
+    Tab.prototype.closeSeen = function (refocus) {
+        var pop = this.seen;
+        if (!pop) {
+            return;
+        }
+        this.seen = null;
+        document.removeEventListener('mousedown', pop.onDown, true);
+        document.removeEventListener('keydown', pop.onKey, true);
+        window.removeEventListener('resize', pop.onResize);
+        pop.anchor.classList.remove('etl-seen-active');
+        pop.anchor.setAttribute('aria-expanded', 'false');
+        pop.el.remove();
+        if (refocus) {
+            this.focusSeenButton(pop.row);
+        }
+    };
+
+    Tab.prototype.focusSeenButton = function (row) {
+        if (!this.ledger) {
+            return;
+        }
+        var i = this.ledger.flat.findIndex(function (entry) {
+            return entry.row === row;
+        });
+        var button = i < 0 ? null : this.root.querySelector(
+            '[data-timeline-row][data-i="' + i + '"] [data-etl-seen]');
+        if (button) {
+            button.focus();
+        }
+    };
+
+    Tab.prototype.openSeen = function (button) {
+        var self = this;
+        var entry = this.ledger.entryAt(button);
+        if (!entry || !entry.row) {
+            return;
+        }
+        var reopen = this.seen && this.seen.row === entry.row;
+        this.closeSeen();
+        if (reopen) {
+            return;
+        }
+        this.ledger.hideTip();
+        var r = entry.row;
+        var it = r.data;
+        var stamp = it.timestamp == null ? null : ms(it.timestamp);
+        function field(key, label) {
+            return '<div class="etl-seen-field">'
+                + '<label for="etl-seen-' + key + '">' + label + '</label>'
+                + '<div class="etl-seen-input">'
+                + '<input type="datetime-local" step="1" id="etl-seen-' + key
+                + '" class="form-control form-control-sm" name="' + key
+                + '" value="' + toInput(it[key]) + '">'
+                + (stamp == null ? ''
+                    : '<button type="button" class="btn btn-sm etl-seen-tool"'
+                        + ' data-etl-seen-fill="' + key + '" title="Use the'
+                        + ' modification time" aria-label="Use the modification'
+                        + ' time"><i class="fas ' + BASES.timestamp.icon
+                        + '"></i></button>')
+                + '<button type="button" class="btn btn-sm etl-seen-tool"'
+                + ' data-etl-seen-clear="' + key + '" title="Clear"'
+                + ' aria-label="Clear ' + label.toLowerCase() + '">'
+                + '<i class="fas fa-xmark"></i></button></div></div>';
+        }
+        var chip = r.envelope
+            ? '<span class="etl-chip etl-chip-obj">object</span>'
+            : '<span class="etl-chip etl-chip-attr">' + esc(it.type)
+                + '</span>';
+        var el = document.createElement('div');
+        el.className = 'etl-seen-pop';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'First and last seen of ' + it.label);
+        el.innerHTML = '<form novalidate>'
+            + '<div class="etl-seen-head"><span class="etl-seen-title">'
+            + 'Seen dates</span><button type="button" class="btn-close"'
+            + ' data-etl-seen-cancel aria-label="Close"></button></div>'
+            + '<div class="etl-seen-item"><span class="etl-seen-val" title="'
+            + esc(it.label) + '">' + esc(it.label) + '</span>' + chip + '</div>'
+            + field('first_seen', 'First seen') + field('last_seen', 'Last seen')
+            + (stamp == null ? ''
+                : '<div class="etl-seen-stamp"><i class="fas '
+                    + BASES.timestamp.icon + '"></i>Modified ' + full(stamp)
+                    + ' UTC</div>')
+            + '<div class="etl-seen-error" role="alert" hidden></div>'
+            + '<div class="etl-seen-foot"><span class="etl-seen-note">In UTC;'
+            + ' saving counts as a modification.</span>'
+            + '<button type="button" class="btn btn-sm btn-link"'
+            + ' data-etl-seen-cancel>Cancel</button>'
+            + '<button type="submit" class="btn btn-sm btn-primary">Save'
+            + '</button></div></form>';
+        document.body.appendChild(el);
+        var form = el.querySelector('form');
+
+        var pop = {
+            el: el,
+            row: r,
+            anchor: button,
+            onDown: function (e) {
+                if (!el.contains(e.target)
+                    && !e.target.closest('[data-etl-seen]')) {
+                    self.closeSeen();
+                }
+            },
+            onKey: function (e) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    self.closeSeen(true);
+                }
+            },
+            onResize: function () {
+                self.closeSeen();
+            }
+        };
+        this.seen = pop;
+        button.classList.add('etl-seen-active');
+        button.setAttribute('aria-expanded', 'true');
+        document.addEventListener('mousedown', pop.onDown, true);
+        document.addEventListener('keydown', pop.onKey, true);
+        window.addEventListener('resize', pop.onResize);
+
+        el.addEventListener('click', function (e) {
+            var fill = e.target.closest('[data-etl-seen-fill]');
+            var clear = e.target.closest('[data-etl-seen-clear]');
+            if (fill) {
+                form.elements[fill.getAttribute('data-etl-seen-fill')].value =
+                    toInput(it.timestamp);
+            } else if (clear) {
+                var input = form.elements[clear.getAttribute('data-etl-seen-clear')];
+                input.value = '';
+                input.focus();
+            } else if (e.target.closest('[data-etl-seen-cancel]')) {
+                self.closeSeen(true);
+            }
+        });
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            self.saveSeen(pop, form);
+        });
+
+        this.placeSeen(el, button.getBoundingClientRect());
+        form.elements.first_seen.focus();
+    };
+
+    // Under the button, its right edge on the button's; above it when there
+    // is no room below.
+    Tab.prototype.placeSeen = function (el, anchor) {
+        var w = el.offsetWidth;
+        var h = el.offsetHeight;
+        var left = Math.min(Math.max(8, anchor.right - w),
+            window.innerWidth - w - 8);
+        var top = anchor.bottom + 6;
+        if (top + h > window.innerHeight - 8 && anchor.top - h - 6 >= 8) {
+            top = anchor.top - h - 6;
+            el.classList.add('etl-seen-above');
+        }
+        el.style.left = left + 'px';
+        el.style.top = Math.max(8, top) + 'px';
+    };
+
+    Tab.prototype.saveSeen = function (pop, form) {
+        var self = this;
+        var r = pop.row;
+        var it = r.data;
+        var errorEl = form.querySelector('.etl-seen-error');
+        function fail(text) {
+            errorEl.textContent = text;
+            errorEl.hidden = false;
+        }
+        var next = {};
+        var changes = [];
+        var invalid = false;
+        ['first_seen', 'last_seen'].forEach(function (key) {
+            var value = fromInput(form.elements[key].value);
+            if (value !== value) {
+                invalid = true;
+                return;
+            }
+            next[key] = value;
+            if (value !== toSecond(it[key])) {
+                changes.push(key);
+            }
+        });
+        if (invalid) {
+            fail('Enter a full date and time.');
+            return;
+        }
+        if (next.first_seen != null && next.last_seen != null
+            && next.first_seen > next.last_seen) {
+            fail('Last seen cannot be before first seen.');
+            return;
+        }
+        if (!changes.length) {
+            this.closeSeen(true);
+            return;
+        }
+
+        function wire(key) {
+            return next[key] == null ? '' : isoDay(next[key]) + 'T'
+                + hms(next[key]) + '+00:00';
+        }
+        var base = this.url.replace(/\/events\/viewEventTimeline\/.*$/, '');
+        var steps;
+        if (r.envelope) {
+            // One field per call; the order keeps first ≤ last valid after
+            // each of them.
+            var lastFirst = changes.length === 2 && next.first_seen != null
+                && it.last_seen != null && next.first_seen > ms(it.last_seen);
+            steps = (lastFirst ? changes.slice().reverse() : changes)
+                .map(function (key) {
+                    var body = {};
+                    body[key] = wire(key);
+                    return { path: '/objects/editField/', body: { Object: body } };
+                });
+        } else {
+            var body = {};
+            changes.forEach(function (key) {
+                body[key] = wire(key);
+            });
+            steps = [{ path: '/attributes/editField/', body: { Attribute: body } }];
+        }
+
+        form.querySelectorAll('input, button').forEach(function (c) {
+            c.disabled = true;
+        });
+        form.classList.add('etl-seen-saving');
+        errorEl.hidden = true;
+        var done = 0;
+        steps.reduce(function (chain, step) {
+            return chain.then(function () {
+                return fetch(base + step.path + encodeURIComponent(it.id)
+                    + '.json', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-Token': window.csrfToken || ''
+                    },
+                    body: JSON.stringify(step.body)
+                }).then(function (res) {
+                    return res.json().catch(function () {
+                        return null;
+                    }).then(function (body) {
+                        if (!res.ok || !body || body.saved === false
+                            || (body.errors && !body.success)) {
+                            throw new Error(errorText(body));
+                        }
+                        done += 1;
+                    });
+                });
+            });
+        }, Promise.resolve()).then(function () {
+            self.applySeen(r, next);
+            if (self.seen === pop) {
+                self.closeSeen(true);
+            }
+        }, function (error) {
+            if (done > 0) {
+                // Part of an object's change landed: show what is saved.
+                self.applySeen(r, next, changes.slice(0, done));
+            }
+            if (self.seen !== pop) {
+                return;
+            }
+            form.classList.remove('etl-seen-saving');
+            form.querySelectorAll('input, button').forEach(function (c) {
+                c.disabled = false;
+            });
+            fail(error.message);
+            form.querySelector('button[type="submit"]').focus();
+        });
+    };
+
+    // Keeps the row where it is: a refetch would move it to now.
+    Tab.prototype.applySeen = function (r, next, only) {
+        var it = r.data;
+        (only || ['first_seen', 'last_seen']).forEach(function (key) {
+            it[key] = next[key] == null ? null : next[key] * 1000;
+        });
+        it.timestamp = Date.now() * 1000;
+        r.edited = true;
+        this.ledger.refresh();
     };
 
     Tab.prototype.datesHtml = function (r) {
@@ -1018,8 +1375,13 @@
                 + '</dd>';
         }
         var tab = r.envelope || ctx.parent ? 'Objects' : 'Attributes';
-        return out + '</dl><div class="tl-tip-hint">Click to open it in the '
-            + tab + ' tab</div>';
+        return out + '</dl><div class="tl-tip-hint">'
+            + (r.edited ? 'Seen dates saved. ' : '')
+            + 'Click to open it in the ' + tab + ' tab'
+            + (this.canEditSeen(it)
+                ? '; <i class="fas fa-calendar-plus"></i> sets its seen dates'
+                : '')
+            + '</div>';
     };
 
     Tab.prototype.open = function (r, ctx) {

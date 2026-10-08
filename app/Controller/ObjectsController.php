@@ -25,10 +25,11 @@ class ObjectsController extends AppController
         if (!$this->_isRest()) {
             $this->Security->unlockedActions = array('revise_object', 'get_row', 'similar_objects');
         }
-        // The delete confirmation posts an empty body through fetch(), so there is
-        // no field hash for _validatePost() to compare and it can only blackhole.
+        // The delete confirmation posts an empty body through fetch(), and the
+        // event Timeline posts editField as JSON, so there is no field hash for
+        // _validatePost() to compare and it can only blackhole.
         // CSRF is still enforced, through the X-CSRF-Token header.
-        $this->_csrfTokenHeaderOnly(['delete']);
+        $this->_csrfTokenHeaderOnly(['delete', 'editField']);
     }
 
     public function revise_object($action, $event_id, $template_id, $object_id = false, $update_template_available = false, $similar_objects_display_threshold=15)
