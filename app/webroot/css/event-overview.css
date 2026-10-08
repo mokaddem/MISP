@@ -381,6 +381,25 @@
 .etl-toolbar .form-select { max-width: 13rem; }
 .etl-search { width: 15rem; max-width: 100%; }
 .etl-kind .btn { white-space: nowrap; }
+.etl-basis {
+    gap: 2px; padding: 2px;
+    border: 1px solid var(--bs-border-color); border-radius: 999px;
+    background: var(--bs-tertiary-bg);
+}
+.etl-basis > .btn {
+    display: inline-flex; align-items: center; gap: .35rem;
+    margin: 0 !important; padding: .12rem .7rem;
+    border: 0; border-radius: 999px !important;
+    font-size: .78rem; white-space: nowrap;
+    color: var(--bs-secondary-color);
+}
+.etl-basis > .btn > i { font-size: .72rem; }
+.etl-basis > .btn:hover { color: var(--bs-body-color); }
+.etl-basis > .btn.active {
+    background: var(--etl-tile-bg); color: var(--etl-tile-fg); font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+.etl-basis > .btn:focus-visible { box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--etl-tile-fg) 35%, transparent); }
 .etl-kind .etl-kind-n {
     font-variant-numeric: tabular-nums; opacity: .7; margin-left: .25rem;
 }
@@ -448,3 +467,13 @@
 .etl-empty p { margin: 0; font-size: .82rem; color: var(--bs-secondary-color); max-width: 62ch; }
 .etl-empty .etl-undated { margin-top: .6rem; color: var(--bs-body-color); }
 .etl-empty-box { background: var(--bs-body-bg); padding: .6rem .8rem; border-radius: 4px; justify-self: start; }
+.etl-empty-switch {
+    display: inline-flex; align-items: center; gap: .45rem; margin-top: .75rem;
+    border-color: color-mix(in srgb, var(--etl-tile-fg) 45%, transparent);
+    background: var(--etl-tile-bg); color: var(--etl-tile-fg); font-weight: 600;
+}
+.etl-empty-switch:hover, .etl-empty-switch:focus-visible {
+    border-color: var(--etl-tile-fg);
+    background: color-mix(in srgb, var(--etl-tile-fg) 18%, var(--etl-tile-bg));
+    color: var(--etl-tile-fg);
+}

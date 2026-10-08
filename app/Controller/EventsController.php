@@ -4565,7 +4565,9 @@ class EventsController extends AppController
         $query = $this->request->query;
 
         if (isset($query['object'])) {
-            $children = $tool->objectChildren($user, $members, (int)$query['object']);
+            $children = $tool->objectChildren($user, $members, (int)$query['object'], [
+                'basis' => $query['basis'] ?? null,
+            ]);
             if ($children === null) {
                 throw new NotFoundException(__('Invalid object'));
             }
@@ -4580,6 +4582,7 @@ class EventsController extends AppController
             ));
         };
         $timeline = $tool->timeline($user, $members, [
+            'basis' => $query['basis'] ?? null,
             'from' => $query['from'] ?? null,
             'to' => $query['to'] ?? null,
             'q' => isset($query['q']) ? (string)$query['q'] : null,

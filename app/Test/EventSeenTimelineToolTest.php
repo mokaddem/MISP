@@ -241,4 +241,36 @@ class EventSeenTimelineToolTest extends TestCase
             $attribute['first_seen'], $attribute['last_seen'], $attribute['to_ids'], $attribute['relation'],
         ]);
     }
+
+    public function testTheBasisIsSeenUnlessTheTimestampIsAsked()
+    {
+        $this->assertSame('seen', EventSeenTimelineTool::basis([]));
+        $this->assertSame('seen', EventSeenTimelineTool::basis(['basis' => 'created']));
+        $this->assertSame('timestamp', EventSeenTimelineTool::basis(['basis' => 'timestamp']));
+    }
+
+    public function testTheTimestampBasisPlacesARowAtOneInstant()
+    {
+        $start = EventSeenTimelineTool::dateSql('timestamp', 'Attribute', 's');
+        $this->assertSame($start, EventSeenTimelineTool::dateSql('timestamp', 'Attribute', 'e'));
+        $this->assertStringContainsString('NULLIF(Attribute.timestamp, 0)', $start);
+        $this->assertSame('Attribute.timestamp > 0', EventSeenTimelineTool::datedSql('timestamp', 'Attribute'));
+        $this->assertStringContainsString('first_seen', EventSeenTimelineTool::dateSql('seen', 'Object', 's'));
+    }
+
+    public function testItemsCarryTheirTimestampInMicroseconds()
+    {
+        $attribute = EventSeenTimelineTool::attributeItem([
+            'id' => '6', 'uuid' => 'v', 'event_id' => '7', 'type' => 'md5', 'category' => 'Payload delivery',
+            'to_ids' => '0', 'value1' => 'abc', 'value2' => '', 'first_seen' => null, 'last_seen' => null,
+            'timestamp' => '1700000000', 's' => '1700000000000000', 'e' => '1700000000000000',
+        ]);
+        $object = EventSeenTimelineTool::objectItem([
+            'id' => '5', 'uuid' => 'u', 'event_id' => '7', 'name' => 'file', 'category' => 'file',
+            'ofs' => null, 'ols' => null, 'ots' => '0', 's' => null, 'e' => null, 'dated_children' => '0',
+        ]);
+
+        $this->assertSame(1700000000000000, $attribute['timestamp']);
+        $this->assertNull($object['timestamp']);
+    }
 }

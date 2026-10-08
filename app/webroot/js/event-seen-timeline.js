@@ -1,6 +1,7 @@
 // The event page's Timeline tab: events/viewEventTimeline drawn with
 // MispTimeline, built the first time the tab is shown. Filters and the
 // brushed window are asked of the server, which caps what it returns.
+// Rows are placed by their seen dates or by their timestamp, the basis.
 (function () {
     'use strict';
 
@@ -8,6 +9,53 @@
     var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
         'Sep', 'Oct', 'Nov', 'Dec'];
     var SEARCH_DELAY = 250;
+    var BASIS_KEY = 'misp.eventTimeline.basis';
+
+    var BASES = {
+        seen: {
+            button: 'Seen',
+            icon: 'fa-eye',
+            title: 'Place rows by their first and last seen dates',
+            item: ['dated item', 'dated items'],
+            datesHead: 'First seen → last seen, UTC',
+            perBar: 'rows seen per ',
+            order: 'by start',
+            emptyTitle: ' has a first or last seen date',
+            emptyText: 'An attribute or object appears here once it records'
+                + ' when it was first or last seen.',
+            undated: ' no seen dates'
+        },
+        timestamp: {
+            button: 'Modified',
+            icon: 'fa-pen-to-square',
+            title: 'Place rows by when they were last modified',
+            item: ['item', 'items'],
+            datesHead: 'Last modified, UTC',
+            perBar: 'rows last modified per ',
+            order: 'by modification time',
+            emptyTitle: ' has a modification time',
+            emptyText: 'Attributes and objects appear here at the time they'
+                + ' were last modified.',
+            undated: ' no modification time'
+        }
+    };
+
+    function storedBasis() {
+        try {
+            return window.localStorage.getItem(BASIS_KEY) === 'timestamp'
+                ? 'timestamp' : 'seen';
+        } catch (e) {
+            return 'seen';
+        }
+    }
+
+    function storeBasis(basis) {
+        try {
+            window.localStorage.setItem(BASIS_KEY, basis);
+        } catch (e) {
+            // Remembering the choice is a convenience only
+        }
+    }
 
     function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -46,6 +94,11 @@
             + pad(d.getUTCSeconds());
     }
 
+    function hm(t) {
+        var d = new Date(t);
+        return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+    }
+
     function longDay(t) {
         var d = new Date(t);
         return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' '
@@ -80,14 +133,20 @@
         return c && /^[\w#(),.%\s-]+$/.test(c) ? c : null;
     }
 
-    function attrShape(a) {
+    function attrShape(a, basis) {
+        if (basis === 'timestamp') {
+            return 'point';
+        }
         if (a.first_seen != null && a.last_seen != null) {
             return 'range';
         }
         return a.first_seen != null ? 'first' : 'last';
     }
 
-    function objShape(o, children) {
+    function objShape(o, children, basis) {
+        if (basis === 'timestamp') {
+            return o.end > o.start ? 'range' : 'point';
+        }
         if (o.end > o.start) {
             return 'range';
         }
@@ -106,7 +165,11 @@
         return 'range';
     }
 
-    function ownDates(o) {
+    function ownDates(o, basis) {
+        if (basis === 'timestamp') {
+            var ts = ms(o.timestamp);
+            return ts == null ? null : { start: ts, end: ts, shape: 'point' };
+        }
         var fs = ms(o.first_seen);
         var ls = ms(o.last_seen);
         if (fs != null && ls != null) {
@@ -128,20 +191,68 @@
     }
 
     function Tab(root) {
+        var self = this;
         this.root = root;
         this.url = root.getAttribute('data-url');
         this.state = {
-            q: '', kind: '', facet: '', category: '', event: '', win: null
+            basis: storedBasis(), q: '', kind: '', facet: '', category: '',
+            event: '', win: null
         };
         this.request = null;
-        this.overview = null;
-        this.overviewShown = false;
+        this.reset();
+        root.addEventListener('click', function (e) {
+            var basis = e.target.closest('[data-etl-basis]');
+            if (basis) {
+                self.setBasis(basis.getAttribute('data-etl-basis'));
+            }
+        });
+        window.addEventListener('resize', function () {
+            self.syncOverview();
+        });
         this.load(true);
     }
+
+    // Forgets what was drawn from the last unfiltered answer.
+    Tab.prototype.reset = function () {
+        this.ledger = null;
+        this.overview = null;
+        this.overviewShown = false;
+        this.domain = null;
+        this.response = null;
+    };
+
+    Tab.prototype.words = function () {
+        return BASES[this.state.basis];
+    };
+
+    Tab.prototype.setBasis = function (basis) {
+        if (!BASES[basis] || basis === this.state.basis) {
+            return;
+        }
+        this.state.basis = basis;
+        this.state.win = null;
+        storeBasis(basis);
+        this.markBasis();
+        this.reset();
+        this.load(true);
+    };
+
+    Tab.prototype.markBasis = function () {
+        var basis = this.state.basis;
+        this.root.querySelectorAll('.etl-basis [data-etl-basis]')
+            .forEach(function (b) {
+                var on = b.getAttribute('data-etl-basis') === basis;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+    };
 
     Tab.prototype.query = function () {
         var s = this.state;
         var params = new URLSearchParams();
+        if (s.basis !== 'seen') {
+            params.set('basis', s.basis);
+        }
         if (s.win) {
             params.set('from', isoDay(s.win.from));
             params.set('to', isoDay(s.win.to - DAY));
@@ -259,6 +370,7 @@
             });
 
         var dated = this.counts.dated || 0;
+        var words = this.words();
         this.root.innerHTML = '<div class="p-3 border-bottom">'
             + '<div class="d-flex flex-wrap align-items-center gap-2">'
             + '<div class="etl-tile rounded-2 d-flex align-items-center'
@@ -266,6 +378,7 @@
             + '<div class="me-2"><div class="fw-bold lh-1">Timeline</div>'
             + '<div class="small text-muted mt-1">' + this.subLine(dated)
             + '</div></div>'
+            + this.basisHtml()
             + (dated ? this.toolbar(data.facets || {}) : '')
             + '</div></div><div class="etl-body"></div>';
         var body = this.root.querySelector('.etl-body');
@@ -281,6 +394,12 @@
         });
 
         if (!dated) {
+            var other = this.state.basis === 'seen' && this.counts.undated
+                ? '<button type="button" class="btn btn-sm etl-empty-switch"'
+                    + ' data-etl-basis="timestamp"><i class="fas '
+                    + BASES.timestamp.icon + '"></i>Place them by when they'
+                    + ' were last modified</button>'
+                : '';
             body.innerHTML = '<div class="etl-empty" data-timeline-empty>'
                 + '<div class="etl-empty-ico">'
                 + '<i class="fas fa-calendar-xmark"></i></div>'
@@ -288,10 +407,9 @@
                 + (this.extended
                     ? 'these ' + this.eventIds.length + ' events'
                     : 'this event')
-                + ' has a first or last seen date</h3>'
-                + '<p>An attribute or object appears here once it records'
-                + ' when it was first or last seen.</p>'
-                + this.undatedHtml() + '</div></div>';
+                + words.emptyTitle + '</h3>'
+                + '<p>' + words.emptyText + '</p>'
+                + this.undatedHtml() + other + '</div></div>';
             return;
         }
 
@@ -310,7 +428,7 @@
         this.ledger = new window.MispTimeline.Ledger(ledgerHost, {
             rowHeight: 32,
             labelHead: 'Item',
-            datesHead: 'First seen → last seen, UTC',
+            datesHead: words.datesHead,
             label: this.labelHtml.bind(this),
             dates: this.datesHtml.bind(this),
             tooltip: this.tooltipHtml.bind(this),
@@ -334,9 +452,49 @@
             }
         });
         this.bindToolbar();
-        window.addEventListener('resize', function () {
-            self.syncOverview();
+        if (this.restoreFilters()) {
+            this.load(false);
+        }
+    };
+
+    // After a rebuild, puts the kept filters back on the new toolbar, and
+    // drops those it no longer offers. True when one was dropped.
+    Tab.prototype.restoreFilters = function () {
+        var s = this.state;
+        var root = this.root;
+        var dropped = false;
+        root.querySelector('[data-timeline-search]').value = s.q;
+        var kind = root.querySelector('[data-etl-kind="' + s.kind + '"]');
+        if (!kind || kind.disabled) {
+            dropped = true;
+            s.kind = '';
+        }
+        this.markKind();
+        root.querySelectorAll('select[data-etl-filter]').forEach(function (el) {
+            var key = el.getAttribute('data-etl-filter');
+            el.value = s[key];
+            if (el.value !== s[key]) {
+                dropped = true;
+                s[key] = '';
+                el.value = '';
+            }
         });
+        return dropped;
+    };
+
+    Tab.prototype.basisHtml = function () {
+        var basis = this.state.basis;
+        return '<div class="btn-group btn-group-sm etl-basis" role="group"'
+            + ' aria-label="Place rows by">'
+            + Object.keys(BASES).map(function (key) {
+                var b = BASES[key];
+                var on = key === basis;
+                return '<button type="button" class="btn'
+                    + (on ? ' active' : '') + '" data-etl-basis="' + key
+                    + '" aria-pressed="' + on + '" title="' + esc(b.title)
+                    + '"><i class="fas ' + b.icon + '"></i>' + esc(b.button)
+                    + '</button>';
+            }).join('') + '</div>';
     };
 
     Tab.prototype.subLine = function (dated) {
@@ -346,7 +504,8 @@
         if (!dated) {
             return 'Nothing dated' + across;
         }
-        return plural(dated, 'dated item', 'dated items') + ', '
+        var item = this.words().item;
+        return plural(dated, item[0], item[1]) + ', '
             + rangeText(this.span.from, this.span.to) + ' UTC'
             + '<span class="etl-sub-events">' + across + '</span>';
     };
@@ -454,13 +613,15 @@
             return '';
         }
         var links = [];
-        if (c.undated_attributes) {
+        // The tabs filter on seen dates only.
+        var linkable = this.state.basis === 'seen';
+        if (linkable && c.undated_attributes) {
             links.push('<button type="button" class="btn btn-link"'
                 + ' data-etl-undated="attributes">'
                 + plural(c.undated_attributes, 'attribute', 'attributes')
                 + '</button>');
         }
-        if (c.undated_objects) {
+        if (linkable && c.undated_objects) {
             links.push('<button type="button" class="btn btn-link"'
                 + ' data-etl-undated="objects">'
                 + plural(c.undated_objects, 'object', 'objects')
@@ -470,7 +631,7 @@
             + '<i class="fas fa-calendar-xmark"></i><span><b>'
             + num(c.undated) + '</b> '
             + (c.undated === 1 ? 'item has' : 'items have')
-            + ' no seen dates and ' + (c.undated === 1 ? 'is' : 'are')
+            + this.words().undated + ' and ' + (c.undated === 1 ? 'is' : 'are')
             + ' not on the timeline.</span>'
             + (links.length ? '<span>List them: ' + links.join(' · ')
                 + '</span>' : '')
@@ -491,7 +652,7 @@
             key: 'a' + a.id,
             start: ms(a.start),
             end: ms(a.end),
-            shape: attrShape(a),
+            shape: attrShape(a, this.state.basis),
             data: a,
             cue: this.cue(a)
         };
@@ -510,10 +671,10 @@
             children: o.children
                 ? o.children.map(function (c) { return self.attrRow(c); })
                 : (o.children_count ? null : []),
-            shape: objShape(o, o.children)
+            shape: objShape(o, o.children, this.state.basis)
         };
         if (row.childCount > 0) {
-            row.own = ownDates(o);
+            row.own = ownDates(o, this.state.basis);
         }
         return row;
     };
@@ -586,7 +747,8 @@
         return '<div class="etl-notice" data-timeline-capped>'
             + '<i class="fas fa-triangle-exclamation"></i><div><b>This window'
             + ' holds ' + num(data.in_window) + ' rows; the first '
-            + num(data.items.length) + ' by start are listed</b>, up to '
+            + num(data.items.length) + ' ' + this.words().order
+            + ' are listed</b>, up to '
             + full(this.lastStart) + ' UTC. Rows starting later are not'
             + ' drawn. <span class="etl-muted">' + how + '</span></div></div>';
     };
@@ -649,8 +811,8 @@
             maxLabels: 12,
             tickLabel: this.barLabel.bind(this),
             selected: this.barsFor(this.state.win),
-            head: '<strong>Activity across the event</strong><span>rows seen'
-                + ' per ' + esc(h.unit) + ', tallest ' + num(h.max)
+            head: '<strong>Activity across the event</strong><span>'
+                + this.words().perBar + esc(h.unit) + ', tallest ' + num(h.max)
                 + ', square-root scale. Drag to set the window below; click'
                 + ' to reset it.</span>',
             onRange: function (a, b) {
@@ -781,7 +943,19 @@
         var it = r.data;
         var a;
         var b;
-        if (r.envelope) {
+        if (this.state.basis === 'timestamp') {
+            var at;
+            if (this.shortWindow) {
+                at = hms(r.start) + (r.end > r.start ? ' – ' + hms(r.end) : '');
+            } else if (isoDay(r.start) === isoDay(r.end)) {
+                at = isoDay(r.start) + ' ' + hm(r.start)
+                    + (hm(r.end) !== hm(r.start) ? '–' + hm(r.end) : '');
+            }
+            if (at) {
+                return '<span class="tl-d-at">' + at + '</span>';
+            }
+        }
+        if (r.envelope || this.state.basis === 'timestamp') {
             a = r.shape === 'last' ? null : r.start;
             b = r.shape === 'first' ? null : r.end;
         } else {
@@ -826,13 +1000,18 @@
                     + esc(ctx.parent.data.label);
             }
         }
+        var seenRows = '<dt>First seen</dt><dd>' + seen(it.first_seen)
+            + '</dd><dt>Last seen</dt><dd>' + seen(it.last_seen) + '</dd>';
+        var modified = '<dt>Last modified</dt><dd>' + seen(it.timestamp)
+            + '</dd>';
+        var byTimestamp = this.state.basis === 'timestamp';
         var out = '<div class="tl-tip-title">' + esc(it.label) + '</div>'
             + '<div class="tl-tip-sub">' + sub + '</div><dl>'
-            + '<dt>First seen</dt><dd>' + seen(it.first_seen) + '</dd>'
-            + '<dt>Last seen</dt><dd>' + seen(it.last_seen) + '</dd>';
+            + (byTimestamp ? modified + seenRows : seenRows + modified);
         if (r.envelope) {
-            out += '<dt>With its attributes</dt><dd>' + full(r.start) + ' → '
-                + full(r.end) + '</dd>';
+            out += '<dt>' + (byTimestamp ? 'Modified, with its attributes'
+                : 'With its attributes') + '</dt><dd>' + full(r.start)
+                + ' → ' + full(r.end) + '</dd>';
         }
         if (this.extended && e) {
             out += '<dt>Event</dt><dd>#' + esc(e.id) + ' ' + esc(e.info)
@@ -850,9 +1029,11 @@
 
     Tab.prototype.loadChildren = function (r) {
         var self = this;
-        var suffix = '?object=' + encodeURIComponent(r.data.id);
+        var basis = this.state.basis;
+        var suffix = '?object=' + encodeURIComponent(r.data.id)
+            + (basis === 'seen' ? '' : '&basis=' + basis);
         return this.fetch(suffix).then(function (res) {
-            r.shape = objShape(r.data, res.children);
+            r.shape = objShape(r.data, res.children, basis);
             return res.children.map(function (c) { return self.attrRow(c); });
         });
     };

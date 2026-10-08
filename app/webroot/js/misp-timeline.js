@@ -147,7 +147,8 @@
      * item, only the rows on screen in the DOM.
      *
      * A row is `{key, start, end, shape}` with `shape` one of `range`,
-     * `first` (only the start is known) or `last` (only the end). A row
+     * `first` (only the start is known), `last` (only the end) or `point`
+     * (a single instant, at `start`). A row
      * with `envelope: true` spans its `children` (rows, or `null` until
      * `loadChildren` fetches them) and may carry `own`, its own dates as
      * `{start, end, shape}`; `childCount` says whether it can unfold.
@@ -437,7 +438,7 @@
     Ledger.prototype.placement = function (r, minWidth) {
         var x = this.pct(r.start);
         var x2 = this.pct(r.end);
-        if (r.shape === 'first') {
+        if (r.shape === 'first' || r.shape === 'point') {
             return 'left:' + x + '%';
         }
         if (r.shape === 'last') {
