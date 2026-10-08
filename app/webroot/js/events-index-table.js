@@ -152,9 +152,7 @@
         if (!table || !table.parentNode.clientWidth) return;
         $$('.te-marks', table).forEach(fitMarks);
         if (!this.hidden.clusters && window.eventIndexCards) {
-            $$('tr.te-row', table).forEach(function (tr) {
-                $$('.te-lane .te-ctx[data-dk-lane]', tr).forEach(window.eventIndexCards.fitLane);
-            });
+            window.eventIndexCards.fitLanes($$('tr.te-row .te-lane .te-ctx[data-dk-lane]', table));
         }
     };
 

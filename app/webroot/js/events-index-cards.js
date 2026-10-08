@@ -14,27 +14,45 @@
     function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
 
     /* ---------- a lane's chips to its width, the rest behind +N ---------- */
-    function fitLane(lane) {
-        var more = lane.querySelector('.dk-more');
-        if (!more) {
-            return;
-        }
-        var chips = $$('.dk-chip', lane);
-        chips.forEach(function (c) { c.hidden = false; c.style.maxWidth = ''; });
-        more.hidden = true;
-        var width = lane.clientWidth;
-        if (!width || lane.scrollWidth <= width) {
-            return;
-        }
-        more.textContent = '+' + chips.length;
-        more.hidden = false;
-        var reserve = more.offsetWidth + GAP;
-        more.hidden = true;
-        var lead = lane.querySelector('.te-tn');
-        var leadWidth = lead ? lead.offsetWidth + GAP : 0;
+    // Every lane is reset, then every lane measured: interleaving the two
+    // forces a layout of the whole page per lane.
+    function fitLanes(lanes) {
+        var todo = [];
+        lanes.forEach(function (lane) {
+            var more = lane.querySelector('.dk-more');
+            if (!more) {
+                return;
+            }
+            var chips = $$('.dk-chip', lane);
+            chips.forEach(function (c) { c.hidden = false; c.style.maxWidth = ''; });
+            more.hidden = true;
+            todo.push({ lane: lane, more: more, chips: chips });
+        });
+        todo = todo.filter(function (t) {
+            t.width = t.lane.clientWidth;
+            if (!t.width || t.lane.scrollWidth <= t.width) {
+                return false;
+            }
+            var lead = t.lane.querySelector('.te-tn');
+            t.leadWidth = lead ? lead.offsetWidth + GAP : 0;
+            t.widths = t.chips.map(function (c) { return c.offsetWidth; });
+            return true;
+        });
+        todo.forEach(function (t) {
+            t.more.textContent = '+' + t.chips.length;
+            t.more.hidden = false;
+        });
+        todo.forEach(function (t) { t.reserve = t.more.offsetWidth + GAP; });
+        todo.forEach(function (t) {
+            t.more.hidden = true;
+            placeChips(t.more, t.chips, t.widths, t.width, t.leadWidth, t.reserve);
+        });
+    }
+
+    function placeChips(more, chips, widths, width, leadWidth, reserve) {
         var used = leadWidth, keep = 0;
         for (var i = 0; i < chips.length; i++) {
-            var w = chips[i].offsetWidth;
+            var w = widths[i];
             if (i > 0 && used + w + reserve > width) {
                 break;
             }
@@ -61,7 +79,7 @@
     }
 
     function fitAll(scope) {
-        $$('.dk-ctx[data-dk-lane]', scope).forEach(fitLane);
+        fitLanes($$('.dk-ctx[data-dk-lane]', scope));
     }
 
     function syncSelection(root) {
@@ -430,7 +448,7 @@
         });
     }
 
-    window.eventIndexCards = { scan: scan, fit: fitAll, fitLane: fitLane, closePop: function () { closePop(); } };
+    window.eventIndexCards = { scan: scan, fit: fitAll, fitLanes: fitLanes, closePop: function () { closePop(); } };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', scan);
