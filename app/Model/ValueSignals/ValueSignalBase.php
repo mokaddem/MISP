@@ -68,6 +68,7 @@
  * value        string        the value itself
  * now          int           assembly time, unix seconds
  * as_of        'Y-m-d'       the date a row stamps with no better one
+ * viewer       ['org_id']    whose page this is; 0 when unknown
  * types        [['type','count'], …]                     aggregate
  * occurrences  ['total','events','orgs','oldest','newest']  aggregate
  * orgs         [['id','name','occurrences','to_ids_yes',
@@ -82,7 +83,7 @@
  *               'recent','recent_days','by_org_fp',
  *               'by_org_fp_last','anonymous_fp','anonymous_fp_last',
  *               'seen' => ['total','orgs','last_stamp','recent',
- *                          'by_org','anonymous']]                row
+ *                          'by_org','by_org_last','anonymous']]  row
  * galaxies     ['clusters' => ['APT28' => 2],
  *               'techniques' => ['T1071.001' => 3]]              row
  * warninglist  ['hits' => [['name','category'], …],

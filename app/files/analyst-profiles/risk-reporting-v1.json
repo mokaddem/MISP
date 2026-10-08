@@ -2,7 +2,7 @@
     "uuid": "7701d271-fd42-45fd-b680-b5b137a96fe3",
     "name": "Risk & Reporting",
     "description": "For an analyst who will be asked to explain the number. It changes no number at all - only what the page shows first - so a band read here is the instance's band and not this profile's opinion of it.",
-    "version": 8,
+    "version": 9,
     "parameters": {
         "format": 1,
         "signals": [
@@ -17,6 +17,14 @@
                 },
                 "config": {
                     "named": 4
+                }
+            },
+            {
+                "id": "reporting.self_reported_only",
+                "group": "Reporting",
+                "enabled": true,
+                "points": {
+                    "only_you": 0
                 }
             },
             {
@@ -78,6 +86,15 @@
                     "per": -3,
                     "per_extra_org": -4,
                     "cap": -26
+                }
+            },
+            {
+                "id": "exposure.own_estate",
+                "group": "Sightings",
+                "enabled": true,
+                "points": {
+                    "own": 0,
+                    "others_only": 0
                 }
             },
             {

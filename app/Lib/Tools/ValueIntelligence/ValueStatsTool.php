@@ -1144,6 +1144,7 @@ class ValueStatsTool
      *
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @return array `by_org` and `by_org_fp` (orgId => count),
+     *               `by_org_last` (orgId => newest report),
      *               `by_org_fp_last` (orgId => newest false positive),
      *               `names` (orgId => name), plus `anonymous`,
      *               `anonymous_fp` and `anonymous_fp_last` for the rest
@@ -1153,6 +1154,7 @@ class ValueStatsTool
         $byOrg = array();
         $byOrgFp = array();
         $names = array();
+        $last = array();
         $fpLast = array();
         $anonymous = 0;
         $anonymousFp = 0;
@@ -1170,6 +1172,7 @@ class ValueStatsTool
             }
             $id = (int)$row['Sighting']['org_id'];
             $byOrg[$id] = ($byOrg[$id] ?? 0) + 1;
+            $last[$id] = max($last[$id] ?? 0, $stamp);
             $names[$id] = $row['Organisation']['name'];
             if ($isFp) {
                 $byOrgFp[$id] = ($byOrgFp[$id] ?? 0) + 1;
@@ -1179,6 +1182,7 @@ class ValueStatsTool
         return array(
             'by_org' => $byOrg,
             'by_org_fp' => $byOrgFp,
+            'by_org_last' => $last,
             'by_org_fp_last' => $fpLast,
             'names' => $names,
             'anonymous' => $anonymous,
@@ -1201,7 +1205,8 @@ class ValueStatsTool
      * @param int $now
      * @param int $recentDays What the row calls recent
      * @return array `total`, `orgs`, `last_stamp`, `recent`, `by_org`
-     *               (orgId => count) and `anonymous`
+     *               (orgId => count), `by_org_last` (orgId => stamp)
+     *               and `anonymous`
      */
     public static function seenFacts(array $rows, $now, $recentDays)
     {
@@ -1220,6 +1225,7 @@ class ValueStatsTool
             'last_stamp' => $totals['last_stamp'],
             'recent' => $signals['recent'],
             'by_org' => $attributed['by_org'],
+            'by_org_last' => $attributed['by_org_last'],
             'anonymous' => $attributed['anonymous'],
         );
     }

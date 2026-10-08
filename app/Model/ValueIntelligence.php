@@ -16762,6 +16762,7 @@ class ValueIntelligence extends AppModel
             'value' => $value,
             'now' => $now,
             'as_of' => date('Y-m-d', $now),
+            'viewer' => array('org_id' => (int)($user['org_id'] ?? 0)),
             'types' => $types,
             'occurrences' => array(
                 'total' => $record['occurrences'],
