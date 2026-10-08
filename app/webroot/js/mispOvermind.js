@@ -680,6 +680,17 @@ function setView(view, save = true, scope = document) {
     if (save) localStorage.setItem('indexViewMode', view);
 }
 
+// The bar floats over the bottom of the page; while it shows, the page gets
+// room for it so the last rows and the pager stay reachable.
+function syncMultiSelectFloat(toolbar) {
+    const shown = !!toolbar && toolbar.classList.contains('ms-float')
+        && !toolbar.classList.contains('d-none') && toolbar.getClientRects().length > 0;
+    document.body.classList.toggle('ms-float-open', shown);
+    if (shown) {
+        document.body.style.setProperty('--ms-float-h', toolbar.offsetHeight + 'px');
+    }
+}
+
 function updateMultiSelectToolbar() {
     // When multiple tabs each contain a mass-action toolbar (e.g. Attributes
     // and Reports), getElementById would return the first one in DOM order
@@ -711,11 +722,13 @@ function updateMultiSelectToolbar() {
 
     if (count === 0) {
         toolbar?.classList.add('d-none');
+        syncMultiSelectFloat(toolbar);
         return;
     }
 
     toolbar?.classList.remove('d-none');
     if (selectedCount) selectedCount.textContent = count;
+    syncMultiSelectFloat(toolbar);
 
     let canDeleteAll = true;
     let allEnabled = true;

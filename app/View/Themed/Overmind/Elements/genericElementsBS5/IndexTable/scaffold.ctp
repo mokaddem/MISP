@@ -9,6 +9,8 @@ echo '<div id="' . $containerId . '_content">';
 
 <div class="container-fluid">
 
+    <?= $scaffold_data['data']['before_filter_bar'] ?? '' ?>
+
     <!-- CARD 1 : FILTERS -->
     <?php if (!empty($scaffold_data['data']['filter_bar'])): ?>
         <div class="card shadow-sm mb-4">

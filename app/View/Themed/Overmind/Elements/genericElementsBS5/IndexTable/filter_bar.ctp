@@ -64,6 +64,31 @@ $hasActiveFilters = !empty($currentFilters);
 $filterId = 'filter-bar-' . uniqid();
 
 /*
+ * A bar with `picker` children drives its filters through index-filters.js:
+ * pickers apply when they close, chips and toggles are links the server has
+ * already built, and the results are swapped in place.
+ */
+$pickers = [];
+foreach ($filter_bar['children'] as $child) {
+    if (($child['type'] ?? '') === 'picker') {
+        $pickers[$child['name']] = $child;
+    }
+}
+$pickerMode = !empty($pickers);
+if ($pickerMode) {
+    App::uses('IndexFilterState', 'Tools');
+    $filterState = new IndexFilterState(
+        $baseurl . $item_url . '/' . $filterAction,
+        $this->request->params['named'] ?? [],
+        $stripSearchPrefix ? 'search' : ''
+    );
+    echo $this->element('genericElements/assetLoader', [
+        'css' => ['index-filters'],
+        'js' => ['index-filters'],
+    ]);
+}
+
+/*
  * The advanced filters are pulled out of the bar's flex row: the button stays
  * in the row as a collapse toggle, the grid of controls and the summary that
  * runs them are rendered underneath it.
@@ -139,9 +164,42 @@ $activeTotal = count(array_diff_key(
 ));
 ?>
 
-<div id="<?= h($filterId) ?>" class="d-flex flex-wrap gap-2 align-items-center">
+<div id="<?= h($filterId) ?>" class="d-flex flex-wrap gap-2 align-items-center<?= $pickerMode ? ' ifp-bar' : '' ?>"<?php
+    if ($pickerMode): ?> data-ifp-bar="<?= h(json_encode([
+        'base' => $baseurl . $item_url . '/' . $filterAction,
+        'prefix' => $stripSearchPrefix ? 'search' : '',
+        'searchField' => $searchChild['name'] ?? null,
+        'idField' => $searchChild['id_field'] ?? null,
+        'results' => '#index-results',
+        'apply' => $filter_bar['apply'] ?? 'close',
+        'strings' => [
+            'typeToSearch' => __('Type 2 characters to search'),
+            'searching' => __('Searching…'),
+            'noMatch' => __('Nothing matches'),
+            'searchFailed' => __('The search failed'),
+            'search' => __('Search'),
+            'selected' => __('Selected'),
+            'include' => __('Include'),
+            'exclude' => __('Exclude'),
+            'excluded' => __('Excluded'),
+            'remove' => __('Remove'),
+            'apply' => __('Apply'),
+            'applyOnClose' => __('Any of these. Applies when you close the picker.'),
+            'applyDraft' => __('Any of these.'),
+            'allOf' => __('This link asks for events with all of these. Changing the selection here switches to any of them.'),
+            'unresolved' => __('Not found on this instance'),
+            'loadError' => __('The filtered list could not be loaded.'),
+        ],
+    ], JSON_UNESCAPED_UNICODE)) ?>"<?php endif; ?>>
 
     <?php foreach ($filter_bar['children'] as $child): ?>
+
+        <?php if ($child['type'] === 'picker'): ?>
+            <?= $this->element('genericElementsBS5/IndexTable/filter_picker', [
+                'child' => $child,
+                'state' => $filterState,
+            ]) ?>
+        <?php endif; ?>
 
         <?php if ($child['type'] === 'search'): ?>
             <?php
@@ -251,8 +309,18 @@ $activeTotal = count(array_diff_key(
         <?php endif; ?>
 
         <?php if ($child['type'] === 'button'): ?>
+            <?php // `pressed` makes a toggle: the url is then where pressing it leads, on or off. ?>
             <a href="<?= h($child['url']) ?>"
-               class="<?= h($child['class']) ?> flex-shrink-0"<?php
+               class="<?= h($child['class']) ?> flex-shrink-0<?= !empty($child['pressed']) ? ' active' : '' ?>"<?php
+               if (array_key_exists('pressed', $child)): ?>
+               aria-pressed="<?= !empty($child['pressed']) ? 'true' : 'false' ?>"<?php
+               endif; ?><?php
+               if (!empty($child['id'])): ?>
+               id="<?= h($child['id']) ?>"<?php
+               endif; ?><?php
+               if ($pickerMode): ?>
+               data-ifp-nav data-ifp-swap<?php
+               endif; ?><?php
                if (!empty($child['title'])): ?>
                title="<?= h($child['title']) ?>"<?php
                endif; ?><?php
@@ -427,9 +495,17 @@ if ($explicitActive !== null) {
     $clearHref = $item_url . '/' . $filterAction;
 }
 ?>
+<?php if ($pickerMode): ?>
+    <?= $this->element('genericElementsBS5/IndexTable/filter_chips', [
+        'state' => $filterState,
+        'pickers' => $pickers,
+        'chips' => $filter_bar['chips'] ?? [],
+        'searchChild' => $searchChild,
+    ]) ?>
+<?php endif; ?>
 <div class="index-active-filters">
 <?php // With a draft in play the chips live in its summary, buttons included. ?>
-<?php if (!empty($activeToShow) && empty($moreFiltersChild)): ?>
+<?php if (!empty($activeToShow) && empty($moreFiltersChild) && !$pickerMode): ?>
     <div class="mt-2 d-flex align-items-center flex-wrap gap-2">
 
         <strong class="me-1"><?= __('Active filters') ?>:</strong>
@@ -688,7 +764,9 @@ var filterBarConfig = <?= json_encode([
         }
     }
 
-    if (ajaxContainer) {
+    if (filterBarEl && filterBarEl.hasAttribute('data-ifp-bar')) {
+        // index-filters.js owns the search box and every link of a picker bar.
+    } else if (ajaxContainer) {
         // With a draft in play the search box goes through it, so a search
         // never reloads the index out from under half-filled advanced filters.
         scope.querySelector('#filterButton')?.addEventListener('click', () => draft ? draft.apply() : go(buildScopedUrl()));

@@ -172,6 +172,91 @@ class EventsController extends AppController
     }
 
     /**
+     * Labels and styles for the org, tag and galaxy values the URL filters on.
+     *
+     * @param array $passedArgs
+     * @return array kind => value => {value, label, style}
+     */
+    private function __indexFilterLabels(array $passedArgs)
+    {
+        $values = [];
+        foreach (['org', 'tag', 'galaxy'] as $kind) {
+            $raw = $passedArgs['search' . $kind] ?? null;
+            if ($raw === null || $raw === '') {
+                continue;
+            }
+            $pieces = is_array($raw) ? $raw : preg_split('/[|&]/', (string)$raw);
+            foreach ($pieces as $piece) {
+                $piece = ltrim(trim((string)$piece), '!');
+                if ($piece !== '') {
+                    $values[$kind][] = $piece;
+                }
+            }
+        }
+        if (empty($values)) {
+            return ['org' => [], 'tag' => [], 'galaxy' => []];
+        }
+        App::uses('IndexPicker', 'Tools');
+        return IndexPicker::resolve($this->Auth->user(), $values);
+    }
+
+    /**
+     * Event-level cluster filter: any of the included cluster tags, none of
+     * the excluded ones, as semi-joins on event_tags.
+     *
+     * @param array $pieces cluster tag names, `!` to exclude
+     * @return array|false conditions, false when nothing included resolves
+     */
+    private function __galaxyFilterConditions(array $pieces)
+    {
+        $include = $exclude = [];
+        foreach ($pieces as $piece) {
+            $piece = trim((string)$piece);
+            if ($piece === '' || $piece === '!') {
+                continue;
+            }
+            if ($piece[0] === '!') {
+                $exclude[] = substr($piece, 1);
+            } else {
+                $include[] = $piece;
+            }
+        }
+        $idsFor = function (array $names) {
+            if (empty($names)) {
+                return [];
+            }
+            return array_map('intval', $this->Event->EventTag->Tag->find('column', [
+                'conditions' => ['Tag.name' => array_values(array_unique($names))],
+                'fields' => ['Tag.id'],
+            ]));
+        };
+        $table = $this->Event->EventTag->table;
+        $semiJoin = function (array $tagIds, $operator) use ($table) {
+            return sprintf(
+                'Event.id %s (SELECT %s.event_id FROM %s WHERE %s.tag_id IN (%s))',
+                $operator,
+                $table,
+                $table,
+                $table,
+                implode(',', $tagIds)
+            );
+        };
+        $conditions = [];
+        if (!empty($include)) {
+            $includeIds = $idsFor($include);
+            if (empty($includeIds)) {
+                return false;
+            }
+            $conditions[] = $semiJoin($includeIds, 'IN');
+        }
+        $excludeIds = $idsFor($exclude);
+        if (!empty($excludeIds)) {
+            $conditions[] = $semiJoin($excludeIds, 'NOT IN');
+        }
+        return $conditions;
+    }
+
+    /**
      * @param string|array $value
      * @return array Event ID that match filter
      */
@@ -736,6 +821,38 @@ class EventsController extends AppController
                         }
                     }
                     break;
+                case 'galaxy':
+                    if ($v === '' || $v === [] || !Configure::read('MISP.tagging')) {
+                        continue 2;
+                    }
+                    $galaxyConditions = $this->__galaxyFilterConditions(is_array($v) ? $v : explode('|', $v));
+                    if ($galaxyConditions === false) {
+                        $nothing = true;
+                        break;
+                    }
+                    foreach ($galaxyConditions as $galaxyCondition) {
+                        $this->paginate['conditions']['AND'][] = $galaxyCondition;
+                    }
+                    break;
+                case 'pending':
+                    if ($v === '' || !in_array((string)$v, ['0', '1'], true)) {
+                        continue 2;
+                    }
+                    $this->paginate['conditions']['AND'][] = $v == 1
+                        ? ['Event.publish_timestamp >' => 0, 'Event.timestamp > Event.publish_timestamp']
+                        : ['OR' => ['Event.publish_timestamp' => 0, 'Event.timestamp <= Event.publish_timestamp']];
+                    break;
+                case 'firstpublished':
+                    if ($v == "") {
+                        continue 2;
+                    }
+                    if (is_array($v) && isset($v[0]) && isset($v[1])) {
+                        $this->paginate['conditions']['AND'][] = ['Event.first_publication >=' => $this->Event->resolveTimeDelta($v[0])];
+                        $this->paginate['conditions']['AND'][] = ['Event.first_publication <=' => $this->Event->resolveTimeDelta($v[1])];
+                    } else {
+                        $this->paginate['conditions']['AND'][] = ['Event.first_publication >=' => $this->Event->resolveTimeDelta($v)];
+                    }
+                    break;
                 default:
                     continue 2;
             }
@@ -757,7 +874,7 @@ class EventsController extends AppController
         }
         // list the events
         $urlparams = "";
-        $overrideAbleParams = array('all', 'attribute', 'published', 'eventid', 'datefrom', 'dateuntil', 'org', 'eventinfo', 'tag', 'tags', 'distribution', 'sharinggroup', 'analysis', 'threatlevel', 'email', 'hasproposal', 'timestamp', 'publishtimestamp', 'publish_timestamp', 'minimal', 'value', 'is_extension', 'is_extended', 'include_event_tags_fingerprint');
+        $overrideAbleParams = array('all', 'attribute', 'published', 'eventid', 'datefrom', 'dateuntil', 'org', 'eventinfo', 'tag', 'tags', 'distribution', 'sharinggroup', 'analysis', 'threatlevel', 'email', 'hasproposal', 'timestamp', 'publishtimestamp', 'publish_timestamp', 'minimal', 'value', 'is_extension', 'is_extended', 'include_event_tags_fingerprint', 'galaxy', 'pending', 'firstpublished');
         $paginationParams = array('limit', 'page', 'sort', 'direction', 'order');
         $passedArgs = $this->passedArgs;
 
@@ -814,14 +931,23 @@ class EventsController extends AppController
         }
         $this->Event->includeAnalystData = isset($passedArgs['includeAnalystData']) ? $passedArgs['includeAnalystData'] : false;
         $this->paginate['includeAnalystData'] = isset($passedArgs['includeAnalystData']) ? $passedArgs['includeAnalystData'] : false;
+        $withCards = $this->theme === 'Overmind';
+        if ($withCards) {
+            $this->Event->Behaviors->load('EventIndexStats', [
+                'lastLogin' => (int)$this->Auth->user('last_login'),
+            ]);
+        }
         $events = $this->paginate();
+        if ($withCards) {
+            $this->set('indexStats', $this->Event->indexStats());
+            $this->Event->Behaviors->unload('EventIndexStats');
+        }
 
         if (count($events) === 1 && isset($this->passedArgs['searchall'])) {
             $this->redirect(array('controller' => 'events', 'action' => 'view', $events[0]['Event']['id']));
         }
 
         list($possibleColumns, $enabledColumns, $savedHiddenColumns) = $this->__indexColumns();
-        $withCards = $this->theme === 'Overmind';
         $attachColumns = $enabledColumns;
         if ($withCards) {
             // The cards ignore the table's hidden columns; the optional counts
@@ -870,24 +996,9 @@ class EventsController extends AppController
             );
         }
         $this->set('events', $events);
-
-        $orgs = $this->Event->Orgc->find('list', [
-            'fields' => ['Orgc.name', 'Orgc.name'],
-            'order' => ['Orgc.name' => 'ASC']
-        ]);
-        $this->set('orgOptions', ['' => ''] + $orgs);
-
-        $tags = $this->Event->EventTag->Tag->find('list', [
-            'fields' => ['Tag.name', 'Tag.name'],
-            'order' => ['Tag.name' => 'ASC']
-        ]);
-        $this->set('tagOptions', ['' => ''] + $tags);
-
-        $galaxies = $this->GalaxyCluster->Galaxy->find('list', [
-            'fields' => ['Galaxy.name', 'Galaxy.name'],
-            'order' => ['Galaxy.name' => 'ASC']
-        ]);
-        $this->set('galaxyOptions', ['' => ''] + $galaxies);
+        if ($withCards) {
+            $this->set('filterLabels', $this->__indexFilterLabels($passedArgs));
+        }
 
         if ($this->request->is('ajax')) {
             $this->autoRender = false;

@@ -27,7 +27,7 @@ $massOpen = function ($key, $size = 'xl') use ($filter_bar, $baseurl) {
 };
 ?>
 <div id="multiSelectToolbar"
-     class="mt-2 d-none">
+     class="ms-float d-none" role="region" aria-label="<?= h(__('Selected items')) ?>">
 <?php if ($disabledReason !== null): ?>
     <fieldset disabled class="border-0 p-0 m-0" title="<?= h($disabledReason) ?>">
 <?php endif; ?>

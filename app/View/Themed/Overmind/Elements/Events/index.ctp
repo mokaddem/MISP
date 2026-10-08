@@ -289,73 +289,157 @@ $children[] = [
     'id_field'    => 'eventid',
 ];
 
-if(!empty($show_user_button)) {
+App::uses('IndexFilterState', 'Tools');
+App::uses('IndexPicker', 'Tools');
+$filterState = new IndexFilterState($baseurl . '/events/index', $this->request->params['named'] ?? [], 'search');
+$canPickOrgs = IndexPicker::canPickOrgs($me);
+$filterLabels = $filterLabels ?? ['org' => [], 'tag' => [], 'galaxy' => []];
+
+if ($canPickOrgs) {
+    $children[] = [
+        'type' => 'picker',
+        'name' => 'org',
+        'label' => __('Creator org'),
+        'icon' => 'misp-icon misp-icon-organisation misp-simple',
+        'source' => $baseurl . '/organisations/pickerSearch',
+        'exclude' => true,
+        'resolved' => $filterLabels['org'],
+    ];
+}
+$children[] = [
+    'type' => 'picker',
+    'name' => 'tag',
+    'label' => __('Tag'),
+    'icon' => 'fas fa-tag',
+    'source' => $baseurl . '/tags/pickerSearch',
+    'exclude' => true,
+    'all_of' => true,
+    'resolved' => $filterLabels['tag'],
+    'hint' => __('Event or attribute tags.'),
+];
+$children[] = [
+    'type' => 'picker',
+    'name' => 'galaxy',
+    'label' => __('Galaxy'),
+    'icon' => 'misp-icon misp-icon-galaxy misp-simple',
+    'source' => $baseurl . '/galaxy_clusters/pickerSearch',
+    'exclude' => true,
+    'resolved' => $filterLabels['galaxy'],
+    'hint' => __('Clusters attached to the event.'),
+];
+$distributionOptions = [];
+foreach ([0, 1, 2, 3, 4] as $level) {
+    $distributionOptions[] = [
+        'value' => (string)$level,
+        'label' => $level === 4 ? __('Any sharing group') : ($distributionLevels[$level] ?? (string)$level),
+        'style' => null,
+    ];
+}
+$children[] = [
+    'type' => 'picker',
+    'name' => 'distribution',
+    'label' => __('Distribution'),
+    'icon' => 'fas fa-share-nodes',
+    'options' => $distributionOptions,
+];
+$children[] = [
+    'type' => 'picker',
+    'name' => 'published',
+    'label' => __('Published'),
+    'icon' => 'fas fa-upload',
+    'options' => [
+        ['value' => '1', 'label' => __('Published'), 'style' => null],
+        ['value' => '0', 'label' => __('Unpublished'), 'style' => null],
+    ],
+];
+
+if (!empty($show_user_button)) {
+    $mine = strtolower((string)$filterState->get('email')) === strtolower($me['email']);
     $children[] = [
         'type' => 'button',
+        'id' => 'ifp-my-events',
         'label' => __('My events'),
         'icon' => 'misp-icon misp-icon-user1 misp-simple',
-        'class' => 'btn btn-primary',
-        'url' => $baseurl . '/events/index/searchemail:' . urlencode($me['email'])
+        'class' => 'btn btn-outline-primary',
+        'pressed' => $mine,
+        'url' => $filterState->url(['email' => $mine ? null : $me['email']]),
     ];
 }
 
-if(!empty($show_org_button)) {
+if (!empty($show_org_button)) {
+    $ours = $filterState->get('org') === (string)$me['org_id'];
     $children[] = [
         'type' => 'button',
+        'id' => 'ifp-org-events',
         'label' => __('Org events'),
         'icon' => 'misp-icon misp-icon-organisation misp-simple',
-        'class' => 'btn btn-primary',
-        'url' => $baseurl . '/events/index/searchorg:' . urlencode($me['org_id'])
+        'class' => 'btn btn-outline-primary',
+        'pressed' => $ours,
+        'url' => $filterState->url(['org' => $ours ? null : (string)$me['org_id']]),
     ];
 }
 
-
-$children[] = [
-    'type' => 'more_filters',
-    'label' => __('More filters'),
-    'children' => [
-        [
-            'type' => 'dropdown',
-            'label' => __('Distribution'),
-            'name' => 'distribution',
-            'options' => [
-                '' => '',
-                '0' => 'Your organisation only',
-                '1' => 'Community',
-                '2' => 'Connected communities',
-                '3' => 'All communities'
-            ]
-        ],
-        [
-            'type' => 'dropdown',
-            'label' => __('Published'),
-            'name' => 'published',
-            'options' => [
-                '' => '',
-                '1' => 'Published',
-                '0' => 'Not published'
-            ]
-        ],
-        [
-            'type' => 'dropdown',
-            'label' => __('Creator Org'),
-            'name' => 'org',
-            'options' => $orgOptions
-        ],
-        [
-            'type' => 'dropdown',
-            'label' => __('Tags'),
-            'name' => 'tag',
-            'options' => $tagOptions
-        ],
-        [
-            'type' => 'dropdown',
-            'label' => __('Galaxy'),
-            'name' => 'galaxy',
-            'options' => $galaxyOptions
-        ]
-    ]
+$timeLabel = function ($value) {
+    if (preg_match('/^(\d+)([dhms])$/i', $value, $m)) {
+        $units = ['d' => __('days'), 'h' => __('hours'), 'm' => __('minutes'), 's' => __('seconds')];
+        return sprintf(__('last %s %s'), $m[1], $units[strtolower($m[2])]);
+    }
+    if (ctype_digit($value)) {
+        return sprintf(__('since %s'), date('Y-m-d H:i', (int)$value));
+    }
+    return $value;
+};
+$threatLevels = null;
+$chips = [
+    'scope' => ['email'],
+    'labels' => [
+        'org' => __('Creator org'),
+        'all' => __('Anything'),
+        'attribute' => __('Attribute'),
+        'value' => __('Attribute value'),
+        'datefrom' => __('Date from'),
+        'dateuntil' => __('Date until'),
+        'tags' => __('Tags'),
+        'sharinggroup' => __('Sharing group'),
+        'analysis' => __('Analysis'),
+        'threatlevel' => __('Threat level'),
+        'hasproposal' => __('Proposals'),
+        'timestamp' => __('Changed'),
+        'publishtimestamp' => __('Published'),
+        'publish_timestamp' => __('Published'),
+        'firstpublished' => __('First published'),
+        'pending' => __('Changes pending'),
+        'is_extension' => __('Extension'),
+        'is_extended' => __('Extended'),
+        'minimal' => __('Minimal'),
+    ],
+    'values' => [
+        'analysis' => array_map('strval', $analysisLevels ?? []),
+        'threatlevel' => function ($value) use (&$threatLevels) {
+            if ($threatLevels === null) {
+                $threatLevels = ClassRegistry::init('ThreatLevel')->listThreatLevels();
+            }
+            return implode(', ', array_map(function ($piece) use ($threatLevels) {
+                return ($piece[1] ? '≠ ' : '') . ($threatLevels[$piece[0]] ?? $piece[0]);
+            }, IndexFilterState::pieces($value)));
+        },
+        'hasproposal' => ['1' => __('some'), '0' => __('none')],
+        'pending' => function ($value) {
+            return $value === '1' ? '' : __('none');
+        },
+        'is_extension' => ['1' => __('yes'), '0' => __('no')],
+        'is_extended' => ['1' => __('yes'), '0' => __('no')],
+        'timestamp' => $timeLabel,
+        'publishtimestamp' => $timeLabel,
+        'publish_timestamp' => $timeLabel,
+        'firstpublished' => $timeLabel,
+    ],
 ];
+$statsHtml = isset($indexStats) ? $this->element('Events/index_stats', [
+    'stats' => $indexStats,
+    'state' => $filterState,
+    'canPickOrgs' => $canPickOrgs,
+]) : '';
 
 /**
  * ==============================================================
@@ -387,9 +471,12 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
             // The grid itself is events-index-cards.css: auto-fill, 330px minimum.
             'cards_per_row' => 1,
             'card_element' => 'Events/index_card',
+            'before_filter_bar' => $statsHtml,
             'filter_bar' => [
                 'pull' => 'right',
                 'children' => $children,
+                'chips' => $chips,
+                'apply' => 'close',
                 'export' => 1,
                 'delete' => '/delete'
             ],

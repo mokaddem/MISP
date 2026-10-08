@@ -5246,3 +5246,18 @@ tr.evt-extension-row td:first-child { position: relative; }
 .set-bootstrap-theme.is-secret:focus-visible .secret-mask { display: none; }
 .set-bootstrap-theme.is-secret:hover .secret-name,
 .set-bootstrap-theme.is-secret:focus-visible .secret-name { display: inline; }
+
+/* Index bulk-action bar (genericElementsBS5/IndexTable/multi_select_toolbar.ctp), floating over the page */
+#multiSelectToolbar.ms-float {
+    position: fixed; z-index: 1040; left: 50%; bottom: 16px; transform: translateX(-50%);
+    width: max-content; max-width: calc(100vw - 32px); margin: 0;
+}
+#multiSelectToolbar.ms-float > div,
+#multiSelectToolbar.ms-float > fieldset > div {
+    padding: 8px 12px !important;
+    background: var(--bs-body-bg) !important; color: var(--bs-body-color);
+    border-color: var(--bs-card-border-color, var(--bs-border-color)) !important;
+    border-radius: .7rem !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+}
+body.ms-float-open { padding-bottom: calc(var(--ms-float-h, 56px) + 32px); }
