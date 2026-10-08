@@ -160,7 +160,10 @@ $ownerDiffers = !empty($org['id']) && (int)$org['id'] !== (int)($orgc['id'] ?? 0
             <div class="eo-band-label"><?= __('Marking') ?></div>
             <div class="d-flex align-items-center gap-1 flex-wrap">
                 <?php foreach ($markings['present'] as $item): ?>
-                    <?= $this->TagChip->chip($item['tag'], ['searchUrl' => '']) ?>
+                    <?= $this->TagChip->chip($item['tag'], [
+                        'searchUrl' => '',
+                        'inline' => true,
+                    ]) ?>
                     <?= $this->element('Events/View/extension_origin', [
                         'event_id' => $item['tag']['event_id'] ?? 0,
                         'compact' => true,

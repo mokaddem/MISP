@@ -5,8 +5,8 @@ App::uses('GalaxyColour', 'Tools');
 App::uses('FontAwesomeHelper', 'View/Helper');
 
 /**
- * Renders tags as chips: the path on a first row and the leaf always on a
- * second. Two or more tags of a collection sharing a namespace fuse into a
+ * Renders tags as chips: the path on a first row and the leaf on a second,
+ * or both on one row for a lone namespace:value tag when asked. Two or more tags of a collection sharing a namespace fuse into a
  * block that prints the namespace once, each member keeping its predicate.
  * Colour means taxonomy: a taxonomy whose declared palette tells its
  * values apart (TLP, PAP) keeps its colours, every other one gets a hue
@@ -30,6 +30,8 @@ class TagChipHelper extends AppHelper
      *   canModifyAll       may remove any tag
      *   canModifyLocal     may remove local tags
      *   display            'full' (default), 'leaf' or 'swatch'
+     *   inline             a namespace:value tag keeps its leaf on the
+     *                      namespace's row, unboxed (default false)
      *   group              fuse shared namespaces into blocks (default true)
      *   minGroup           members before a namespace earns a block (2)
      *   wideAt             members before a block takes its own line (8)
@@ -422,6 +424,8 @@ class TagChipHelper extends AppHelper
         $showPath = $display === 'full'
             && ($member ? !empty($p['above']) : $p['namespace'] !== null);
         $stacked = $display !== 'swatch' && ($showPath || $rel);
+        $inline = $stacked && !empty($options['inline']) && !$member
+            && empty($p['above']);
 
         $nv = $tag['Tag']['numerical_value'] ?? null;
         $hasNv = $nv !== null && $nv !== '' && is_numeric($nv) && $display !== 'swatch';
@@ -440,6 +444,8 @@ class TagChipHelper extends AppHelper
             $classes[] = 'is-swatch';
         } elseif (!$stacked) {
             $classes[] = $member || $display !== 'full' ? 'is-tight' : 'is-single';
+        } elseif ($inline) {
+            $classes[] = 'is-inline';
         } elseif (!$member) {
             $classes[] = 'is-stacked';
         }
@@ -476,14 +482,14 @@ class TagChipHelper extends AppHelper
                     }
                     $rail .= sprintf('<span class="hg-path">%s</span>', $path);
                 }
-                if ($hasNv) {
+                if ($hasNv && !$inline) {
                     $rail .= $this->numeral($nv, $over);
                 }
                 $inner .= sprintf('<span class="hg-rail">%s</span>', $rail);
             }
 
             $tail = sprintf('<span class="hg-leaf">%s</span>', h($p['leaf']));
-            if ($hasNv && !$stacked) {
+            if ($hasNv && (!$stacked || $inline)) {
                 $tail .= $this->numeral($nv, $over);
             }
             if ($isLocal) {

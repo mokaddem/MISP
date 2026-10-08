@@ -201,6 +201,19 @@
     border-radius: 4px;
     box-shadow: var(--hg-raised-shadow);
 }
+/* Namespace and value on one row: the row itself is the value's box. */
+.hinge-tags .hg-chip.is-inline {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+.hinge-tags .hg-chip.is-inline .hg-rail {
+    flex: none;
+}
+.hinge-tags .hg-chip.is-inline .hg-n {
+    margin-left: 0;
+    padding-left: 0;
+}
 /* Outlined, not inverted: an inverted pill would need the page background. */
 .hinge-tags .hg-rel {
     flex: none;
