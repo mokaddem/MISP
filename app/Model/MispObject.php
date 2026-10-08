@@ -1168,7 +1168,8 @@ class MispObject extends AppModel
                     if ($attribute['object_relation'] == 'first-seen') {
                         $attributes[$i]['value'] = $forcedSeenOnElements['first_seen'];
                     }
-                } elseif (isset($forcedSeenOnElements['last_seen'])) {
+                }
+                if (isset($forcedSeenOnElements['last_seen'])) {
                     $attributes[$i]['last_seen'] = $forcedSeenOnElements['last_seen'];
                     if ($attribute['object_relation'] == 'last-seen') {
                         $attributes[$i]['value'] = $forcedSeenOnElements['last_seen'];
