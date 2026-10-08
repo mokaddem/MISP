@@ -315,8 +315,9 @@
     function serialize(pc, selection) {
         if (!selection.length) { return null; }
         var included = selection.filter(function (s) { return !s.exclude; });
-        // Every fixed option ticked is the same as no filter.
-        if (pc.options && !pc.exclude && included.length === pc.options.length) { return null; }
+        // Every fixed option ticked is the same as no filter. A single pick is
+        // a choice, even from a list of one (warninglist: No).
+        if (!pc.single && pc.options && !pc.exclude && included.length === pc.options.length) { return null; }
         return selection.map(function (s) { return (s.exclude ? '!' : '') + s.value; }).join(pc.sep || '|');
     }
 
