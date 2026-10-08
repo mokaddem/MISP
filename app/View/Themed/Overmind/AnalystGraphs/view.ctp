@@ -112,7 +112,7 @@ echo $this->element('genericElements/assetLoader', [
         </div>
     <?php endif; ?>
 
-    <div class="ig-page-bar d-flex flex-wrap align-items-center gap-2 mb-2" data-ig-page-bar>
+    <div class="ig-page-bar d-flex flex-wrap align-items-center gap-2 mb-2" data-ig-page-bar data-tour="graph-bar">
         <div class="ig-page-status me-auto small text-body-secondary" data-ig-page-status role="status" aria-live="polite"></div>
         <div class="dropdown" data-ig-page-size-wrap hidden>
             <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"
@@ -144,7 +144,7 @@ echo $this->element('genericElements/assetLoader', [
     </div>
     <div class="alert alert-danger py-2" data-ig-page-conflict hidden role="alert"></div>
 
-    <div class="card shadow-sm" id="ig-page-card">
+    <div class="card shadow-sm" id="ig-page-card" data-tour="graph-canvas">
         <div class="position-relative">
             <div id="ig-page-loader" class="text-center py-5 text-muted">
                 <div class="misp-loader mb-2" role="status"></div>

@@ -196,7 +196,7 @@ $this->set('headerActions', array(array(
                 <span><?= h(__('Where you stand')) ?></span>
             </div>
 
-            <nav class="wb-rail">
+            <nav class="wb-rail" data-tour="ap-resolution">
                 <div class="wb-rail-title"><?= h(__('Resolution order')) ?></div>
                 <?php $step = 1; ?>
                 <?php foreach ($scopes as $scope => $label): ?>
@@ -298,7 +298,7 @@ $this->set('headerActions', array(array(
                         </p>
                     <?php endforeach; ?>
                 <?php endif; ?>
-                <table class="wb-tbl ap-index-tbl">
+                <table class="wb-tbl ap-index-tbl" data-tour="ap-profiles">
                     <thead>
                         <tr>
                             <th style="width:38%"><?= h(__('Profile')) ?></th>
@@ -473,7 +473,7 @@ $this->set('headerActions', array(array(
                 </table>
             </div>
 
-            <aside class="wb-bench">
+            <aside class="wb-bench" data-tour="ap-standing">
                 <div class="wb-bench-inner">
                     <?php if ($scoring_off): ?>
                         <div class="wb-empty">

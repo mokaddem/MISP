@@ -94,7 +94,7 @@ if ($m === 'Note') {
         // The graph's picture (intel-graph-thumbs.js) beside its name
         'function' => function ($row) {
             return sprintf(
-                '<div class="igt-cell"><span data-intel-graph-thumb="%s" data-revision="%s" data-surface="index" data-name="%s"></span><span>%s</span></div>',
+                '<div class="igt-cell" data-tour="graph-row"><span data-intel-graph-thumb="%s" data-revision="%s" data-surface="index" data-name="%s"></span><span>%s</span></div>',
                 h($row['Graph']['uuid']),
                 h($row['Graph']['revision'] ?? ''),
                 h($row['Graph']['name']),

@@ -10,7 +10,7 @@
  */
 ?>
 <div class="container-fluid">
-    <div class="vp-fact-strip">
+    <div class="vp-fact-strip" data-tour="value-facts">
         <?php foreach ($facts as $fact): ?>
             <?php
             $tag = empty($fact['tab']) ? 'div' : 'a';

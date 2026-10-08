@@ -64,7 +64,7 @@
     ]);
 ?>
 
-<div class="card shadow-sm mb-3" id="pe-card"
+<div class="card shadow-sm mb-3" id="pe-card" data-tour="event-pivot-explorer"
      data-pe-event-id="<?= h($eventId) ?>"
      data-pe-baseurl="<?= h($baseurl ?? '') ?>"
      data-pe-can-edit="<?= $canEdit ? '1' : '0' ?>"

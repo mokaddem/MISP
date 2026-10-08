@@ -127,7 +127,7 @@ echo $this->Form->create('Value', array(
         <span class="vi-count" data-vi-count
               data-vi-cap="<?= h(ValueInputTool::CAP) ?>"
               aria-live="polite"><b>0</b>/<?= h(ValueInputTool::CAP) ?></span>
-        <button type="submit" class="btn btn-primary vi-run" data-vi-go="1">
+        <button type="submit" class="btn btn-primary vi-run" data-vi-go="1" data-tour="values-run">
             <?php
             /*
              * Both wordings travel with the markup rather than living

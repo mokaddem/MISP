@@ -64,7 +64,7 @@ $useConfirm = ($in_force !== null && $in_force['name'] !== $profile['name'])
     )
     : false;
 ?>
-<div class="ap-acts">
+<div class="ap-acts" data-tour="ap-row-actions">
     <?php if (!empty($profile['selectable'])): ?>
         <?= $this->Form->postLink(
             __('Use this'),
