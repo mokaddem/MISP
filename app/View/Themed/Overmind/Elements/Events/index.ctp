@@ -51,7 +51,7 @@ $chooser = [
     'user' => ['creator_user', __('Creator user'), ''],
     'ext' => ['is_extension', __('Extension'), '<i class="fas fa-code-branch"></i>'],
     'ctx' => ['clusters', __('Tags & galaxies'), '<i class="misp-icon misp-icon-galaxy misp-simple"></i>'],
-    'attrs' => ['attribute_count', __('Attributes'), '<i class="misp-icon misp-icon-attribute misp-simple text-attribute"></i>'],
+    'attrs' => ['attribute_count', __('Attributes & objects'), '<i class="misp-icon misp-icon-attribute misp-simple text-attribute"></i>'],
     'corr' => ['correlations', __('Correlations'), '<i class="fas fa-link text-correlation"></i>'],
     'reps' => ['report_count', __('Reports'), '<i class="misp-icon misp-icon-report misp-simple text-report"></i>'],
     'sight' => ['sightings', __('Sightings'), '<i class="misp-icon misp-icon-sighting misp-simple text-sighting"></i>'],
