@@ -108,6 +108,38 @@ class EventCardToolTest extends TestCase
         }
     }
 
+    public function testUnheldAttributionTagsJoinTheAttributionRow(): void
+    {
+        $held = $this->cluster(3, 'Sandworm', 'threat-actor');
+        $held['Galaxy'] = ['id' => 7, 'name' => 'Threat Actor', 'icon' => 'user-secret'] + $held['Galaxy'];
+        $tags = [
+            $this->galaxyTag(1, 'threat-actor', 'ELECTRUM'),
+            $this->galaxyTag(2, 'Threat-Actor', 'TeleBots'),
+            $this->galaxyTag(3, 'threat-actor', 'Sandworm'),
+            $this->galaxyTag(4, 'threat-actor', 'a5a2b1f3-0000-4000-8000-000000000000'),
+            $this->galaxyTag(5, 'sector', 'Energy'),
+        ];
+        $context = EventContextTool::rows($tags, [$held], null, [], [], null, ['taxonomies' => []]);
+        $this->assertSame(['cluster', 'unheld', 'unheld'], array_column($context['attribution'], 'kind'));
+        $this->assertSame('Threat Actor', $context['attribution'][1]['galaxy']['name']);
+
+        $rows = EventCardTool::rows($context);
+        $this->assertSame(
+            ['cluster:Sandworm', 'unheld:ELECTRUM', 'unheld:TeleBots'],
+            $this->labels($rows['attribution']),
+            'held clusters first'
+        );
+        $this->assertTrue($rows['attribution'][1]['attribution']);
+        $this->assertSame('Threat Actor', $rows['attribution'][1]['galaxy']);
+        $this->assertSame('Threat Actor', $rows['attribution'][1]['source']['unheld']['galaxy']);
+        $this->assertSame(3, $rows['attribution_count']);
+        $this->assertSame(['unheld:Energy', 'fold:1'], $this->labels($rows['classification']));
+
+        $narrow = ['galaxies' => ['attribution' => ['mitre-intrusion-set']]];
+        $context = EventContextTool::rows($tags, [], null, [], [], $narrow, ['taxonomies' => []]);
+        $this->assertSame([], $context['attribution'], 'the profile decides which galaxies count');
+    }
+
     public function testChipsCarryTheRowsTheirPopoverLists(): void
     {
         $held = $this->cluster(10, 'Valid Accounts - T1078', 'mitre-attack-pattern', ['external_id' => 'T1078']);

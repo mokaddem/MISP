@@ -56,6 +56,7 @@ class EventContextTool
         ];
 
         $seenTagIds = [];
+        $unheldAttribution = [];
         $clusterTagIds = [];
         foreach ($eventClusters as $cluster) {
             if (!empty($cluster['tag_id'])) {
@@ -71,6 +72,18 @@ class EventContextTool
             $tagId = (int)$tag['id'];
             $seenTagIds[$tagId] = true;
             if (!empty($tag['is_galaxy']) && isset($clusterTagIds[$tagId])) {
+                continue;
+            }
+            $unheld = self::attributionTag($tag['name'], $attribution);
+            if ($unheld !== null) {
+                $unheldAttribution[] = [
+                    'kind' => 'unheld',
+                    'tag' => $eventTag,
+                    'key' => $unheld['type'],
+                    'name' => $unheld['value'],
+                    'level' => 'event',
+                    'count' => $rollup[$tagId] ?? 0,
+                ];
                 continue;
             }
             $namespace = ValueLabelPriority::namespaceOf($tag['name']);
@@ -92,6 +105,16 @@ class EventContextTool
         foreach ($eventClusters as $cluster) {
             $tagId = (int)($cluster['tag_id'] ?? 0);
             self::placeCluster($rows, $cluster, 'event', $rollup[$tagId] ?? 0, $attribution);
+        }
+        $galaxies = [];
+        foreach ($eventClusters as $cluster) {
+            $type = mb_strtolower((string)($cluster['Galaxy']['type'] ?? ''));
+            if ($type !== '' && !isset($galaxies[$type])) {
+                $galaxies[$type] = $cluster['Galaxy'];
+            }
+        }
+        foreach ($unheldAttribution as $item) {
+            $rows['attribution'][] = $item + ['galaxy' => $galaxies[$item['key']] ?? null];
         }
 
         foreach ($rollup as $tagId => $count) {
@@ -173,6 +196,25 @@ class EventContextTool
         }
 
         return $rows;
+    }
+
+    /**
+     * A galaxy tag of an attribution galaxy, for when the instance holds no
+     * cluster for it — typically a value the galaxy has since folded into
+     * another cluster's synonyms.
+     *
+     * @return array|null type, value
+     */
+    private static function attributionTag($name, array $attribution)
+    {
+        if (!preg_match('/^misp-galaxy:([^=]+)="(.*)"$/s', trim($name), $m)) {
+            return null;
+        }
+        $type = mb_strtolower($m[1]);
+        if (!isset($attribution[$type]) || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-/i', $m[2])) {
+            return null;
+        }
+        return ['type' => $type, 'value' => $m[2]];
     }
 
     private static function placeCluster(array &$rows, array $cluster, $level, $count, array $attribution)

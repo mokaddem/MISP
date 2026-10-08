@@ -38,7 +38,20 @@ class EventCardTool
         $galaxies = self::galaxiesByType($context);
 
         foreach ($context['attribution'] ?? [] as $item) {
-            if ($once('a|' . $item['name'])) {
+            if (!$once('a|' . $item['name'])) {
+                continue;
+            }
+            if ($item['kind'] === 'unheld') {
+                $galaxyTag = ['type' => $item['key'], 'value' => $item['name']];
+                $rows['attribution'][] = [
+                    'kind' => 'unheld',
+                    'label' => $item['name'],
+                    'galaxy' => $item['galaxy']['name'] ?? $item['key'],
+                    'attribution' => true,
+                    'source' => ['unheld' => self::unheldCluster($galaxyTag, $galaxies)],
+                    'priority' => $item['priority'] ?? null,
+                ];
+            } else {
                 $rows['attribution'][] = self::clusterChip($item, true);
             }
         }

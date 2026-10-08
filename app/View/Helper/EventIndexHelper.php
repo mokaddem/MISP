@@ -181,7 +181,8 @@ class EventIndexHelper extends AppHelper
                 );
             case 'unheld':
                 return sprintf(
-                    '<span class="dk-chip is-gx is-unheld%s" title="%s"><i class="fas fa-circle-dot"></i><span>%s</span></span>',
+                    '<span class="dk-chip is-gx is-unheld%s%s" title="%s"><i class="fas fa-circle-dot"></i><span>%s</span></span>',
+                    empty($c['attribution']) ? '' : ' is-attr',
                     $pref['class'],
                     h($c['galaxy'] . ' › ' . $c['label'] . ' ' . __('(cluster not available here)') . $pref['note']),
                     h($c['label'])
