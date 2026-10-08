@@ -729,14 +729,9 @@ class Event extends AppModel
     public function attachSightingsCountToEvents(array $user, array $events)
     {
         $eventIds = array_column(array_column($events, 'Event'), 'id');
-        $this->Sighting->virtualFields['count'] = 'count(Sighting.id)';
-        $sightings = $this->Sighting->find('list', array(
-            'fields' => array('Sighting.event_id', 'Sighting.count'),
-            'conditions' => array('event_id' => $eventIds),
-            'group' => array('event_id')
-        ));
+        $sightings = $this->Sighting->countForEvents($user, $eventIds);
         foreach ($events as $key => $event) {
-            $events[$key]['Event']['sightings_count'] = isset($sightings[$event['Event']['id']]) ? $sightings[$event['Event']['id']] : 0;
+            $events[$key]['Event']['sightings_count'] = $sightings[$event['Event']['id']] ?? 0;
         }
         return $events;
     }
