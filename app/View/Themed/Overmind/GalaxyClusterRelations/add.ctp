@@ -29,7 +29,7 @@ echo $this->element('genericElementsBS5/Forms/modal_header', [
         ? __('Edit Galaxy Cluster Relationship')
         : __('Add Galaxy Cluster Relationship'),
     'description' => __('Relationships link two galaxy clusters together and explain the context of their connection.'),
-    'icon' => 'fas fa-circle-nodes',
+    'icon' => 'fas fa-diagram-project',
     'isEdit' => $isEdit,
 ]);
 ?>
@@ -171,15 +171,24 @@ echo $this->element('genericElementsBS5/Forms/modal_header', [
                 'accent' => 'galaxy',
                 'label' => __('Tags'),
             ]) ?>
-            <?= $this->Form->textarea('tags', [
-                'id' => 'GalaxyClusterRelationTags',
-                'class' => 'form-control font-monospace',
-                'style' => 'border-color:var(--misp-field-line, #d8dde3);',
-                'rows' => 3,
-                'placeholder' => 'estimative-language:likelihood-probability="very-likely", false-positive:risk="low"',
+            <?= $this->element('genericElementsBS5/Forms/tag_picker_field', [
+                'field' => 'GalaxyClusterRelation.tags',
+                'uid' => 'galaxy-cluster-relation-tags',
+                'categories' => [
+                    'all' => [
+                        'label' => __('All Tags'),
+                        'tags' => $pickerAllTags ?? [],
+                    ],
+                    'custom' => [
+                        'label' => __('Custom Tags'),
+                        'tags' => $pickerCustomTags ?? [],
+                    ],
+                ],
+                'selected' => $currentTags ?? [],
+                'emptyText' => __('No tags on this relationship.'),
             ]) ?>
             <?= $this->element('genericElementsBS5/Forms/field_hint', [
-                'text' => __('Comma separated list of tag names to attach to the relationship.'),
+                'text' => __('Qualify the relationship, e.g. how likely it is.'),
             ]) ?>
         </div>
 
@@ -234,7 +243,7 @@ echo $this->element('genericElementsBS5/Forms/modal_header', [
         };
         var row = function (item) {
             return '<div>' + esc(item.text)
-                + (item.galaxy ? ' <span class="text-muted small">' + esc(item.galaxy) + '</span>' : '')
+                + (item.galaxy ? '<span class="text-muted small ms-2">' + esc(item.galaxy) + '</span>' : '')
                 + '</div>';
         };
         new TomSelect(targetEl, {

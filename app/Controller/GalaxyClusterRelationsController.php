@@ -157,13 +157,7 @@ class GalaxyClusterRelationsController extends AppController
                 $errors[] = __('Galaxy Cluster Relation could not be saved: The user has to have access to the sharing group in order to be able to use it.');
             }
 
-            if (!empty($relation['GalaxyClusterRelation']['tags'])) {
-                $tags = explode(',', $relation['GalaxyClusterRelation']['tags']);
-                $tags = array_map('trim', $tags);
-                $relation['GalaxyClusterRelation' ]['tags'] = $tags;
-            } else {
-                $relation['GalaxyClusterRelation' ]['tags'] = array();
-            }
+            $relation['GalaxyClusterRelation']['tags'] = $this->__postedTagNames($relation['GalaxyClusterRelation']['tags'] ?? '');
 
             if (empty($errors)) {
                 $errors = $this->GalaxyClusterRelation->saveRelation($this->Auth->user(), $clusterSource['GalaxyCluster'], $relation);
@@ -203,6 +197,7 @@ class GalaxyClusterRelationsController extends AppController
         } elseif ($sourceCluster !== null) {
             $this->request->data['GalaxyClusterRelation']['galaxy_cluster_uuid'] = $sourceCluster['uuid'];
         }
+        $this->__setTagPicker(isset($relation) ? $relation['GalaxyClusterRelation']['tags'] : []);
         $this->set('existingRelations', $this->GalaxyClusterRelation->getExistingRelationships());
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', $initialDistribution);
@@ -268,13 +263,7 @@ class GalaxyClusterRelationsController extends AppController
                 $relation['GalaxyClusterRelation']['galaxy_cluster_id'] = $clusterSource['GalaxyCluster']['id'];
             }
 
-            if (!empty($relation['GalaxyClusterRelation']['tags'])) {
-                $tags = explode(',', $relation['GalaxyClusterRelation']['tags']);
-                $tags = array_map('trim', $tags);
-                $relation['GalaxyClusterRelation' ]['tags'] = $tags;
-            } else {
-                $relation['GalaxyClusterRelation' ]['tags'] = array();
-            }
+            $relation['GalaxyClusterRelation']['tags'] = $this->__postedTagNames($relation['GalaxyClusterRelation']['tags'] ?? '');
 
             if (empty($errors)) {
                 $errors = $this->GalaxyClusterRelation->editRelation($this->Auth->user(), $relation);
@@ -311,6 +300,7 @@ class GalaxyClusterRelationsController extends AppController
         if (isset($targetCluster['GalaxyCluster'])) {
             $this->set('targetCluster', $targetCluster['GalaxyCluster']);
         }
+        $this->__setTagPicker(Hash::extract($existingRelation, 'GalaxyClusterRelationTag.{n}.Tag.name'));
         $this->set('existingRelations', $this->GalaxyClusterRelation->getExistingRelationships());
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', $initialDistribution);
@@ -320,6 +310,57 @@ class GalaxyClusterRelationsController extends AppController
             $this->layout = false;
         }
         $this->render('add');
+    }
+
+    /**
+     * Tag names from a posted `tags`: a comma separated string, or a list of
+     * tag ids (the tag picker) and names.
+     *
+     * @param mixed $posted
+     * @return string[]
+     */
+    private function __postedTagNames($posted)
+    {
+        if (!is_array($posted)) {
+            return array_values(array_filter(array_map('trim', explode(',', (string)$posted)), 'strlen'));
+        }
+        $posted = array_filter(array_map('trim', $posted), 'strlen');
+        $ids = array_filter($posted, 'ctype_digit');
+        $names = array_values(array_diff($posted, $ids));
+        if (!empty($ids)) {
+            $this->loadModel('Tag');
+            $names = array_merge($names, $this->Tag->find('column', [
+                'conditions' => ['AND' => [$this->Tag->createConditions($this->Auth->user()), ['Tag.id' => array_values($ids)]]],
+                'fields' => ['Tag.name'],
+            ]));
+        }
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * @param string[] $selectedNames tags shown as already picked
+     */
+    private function __setTagPicker(array $selectedNames)
+    {
+        if ($this->theme !== 'Overmind') {
+            return;
+        }
+        $this->loadModel('Tag');
+        $user = $this->Auth->user();
+        $selected = [];
+        if (!empty($selectedNames)) {
+            $rows = $this->Tag->find('all', [
+                'conditions' => ['AND' => [$this->Tag->createConditions($user), ['Tag.name' => $selectedNames]]],
+                'fields' => ['Tag.id', 'Tag.name', 'Tag.colour'],
+                'recursive' => -1,
+            ]);
+            foreach ($rows as $row) {
+                $selected[] = ['id' => (int)$row['Tag']['id'], 'name' => $row['Tag']['name'], 'colour' => $row['Tag']['colour']];
+            }
+        }
+        $this->set('pickerAllTags', $this->Tag->getAllTagsForPicker($user));
+        $this->set('pickerCustomTags', $this->Tag->getCustomTagsForPicker($user));
+        $this->set('currentTags', $selected);
     }
 
     /**
