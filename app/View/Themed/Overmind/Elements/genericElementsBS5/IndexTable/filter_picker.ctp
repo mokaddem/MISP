@@ -12,6 +12,7 @@
  * - resolved : value => {label, style} for the values a URL may carry
  * - all_of   : whether `a&b` in the URL means all of them
  * - hint     : line under the list
+ * - separator: between values in the URL, '|' unless the index splits on '||'
  *
  * @var array $child
  * @var IndexFilterState $state
@@ -21,7 +22,7 @@ $raw = (string)$state->get($name);
 $allOf = !empty($child['all_of']) && strpos($raw, '&') !== false && strpos($raw, '|') === false;
 $pieces = $allOf
     ? array_map(function ($v) { return [$v, false]; }, array_values(array_filter(explode('&', $raw), 'strlen')))
-    : IndexFilterState::pieces($raw);
+    : IndexFilterState::pieces($raw, $child['separator'] ?? '|');
 
 $known = [];
 foreach (($child['options'] ?? []) as $option) {
@@ -51,10 +52,11 @@ $config = [
     'selected' => $selected,
     'allOf' => $allOf,
     'hint' => $child['hint'] ?? null,
+    'sep' => $child['separator'] ?? '|',
 ];
 $count = count($selected);
 ?>
-<div class="ifp-picker flex-shrink-0" id="ifp-picker-<?= h($name) ?>" data-ifp-swap data-ifp-picker="<?= h(json_encode($config, JSON_UNESCAPED_UNICODE)) ?>">
+<div class="ifp-picker flex-shrink-0" data-ifp-swap="picker-<?= h($name) ?>" data-ifp-picker="<?= h(json_encode($config, JSON_UNESCAPED_UNICODE)) ?>">
     <button type="button" class="btn btn-sm btn-outline-secondary ifp-btn<?= $count ? ' is-set' : '' ?>" aria-expanded="false" aria-haspopup="dialog" data-tour="index-picker-<?= h($name) ?>">
         <?php if (!empty($child['icon'])): ?>
             <i class="<?= h($child['icon']) ?>" aria-hidden="true"></i>

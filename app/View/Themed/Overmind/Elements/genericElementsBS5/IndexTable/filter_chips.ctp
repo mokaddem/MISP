@@ -35,6 +35,7 @@ foreach ($state->filters() as $name => $value) {
         if ($allOf) {
             $names = array_values(array_filter(explode('&', $value), 'strlen'));
             $items[] = [
+                'key' => $state->key($name),
                 'label' => sprintf(__('%s (all of)'), $picker['label']),
                 'op' => ':',
                 'value' => implode(', ', array_map(function ($v) use ($known) {
@@ -44,15 +45,17 @@ foreach ($state->filters() as $name => $value) {
             ];
             continue;
         }
-        $pieces = IndexFilterState::pieces($value);
+        $sep = $picker['separator'] ?? '|';
+        $pieces = IndexFilterState::pieces($value, $sep);
         foreach ($pieces as $i => [$v, $excluded]) {
             $rest = $pieces;
             unset($rest[$i]);
             $items[] = [
+                'key' => $state->key($name),
                 'label' => $picker['label'],
                 'op' => $excluded ? ' ≠' : ':',
                 'value' => $known[$v] ?? $v,
-                'href' => $state->url([$name => IndexFilterState::join(array_values($rest))]),
+                'href' => $state->url([$name => IndexFilterState::join(array_values($rest), $sep)]),
             ];
         }
         continue;
@@ -74,6 +77,7 @@ foreach ($state->filters() as $name => $value) {
         $display = $value;
     }
     $items[] = [
+        'key' => $state->key($name),
         'label' => $label,
         'op' => $display === '' ? '' : ':',
         'value' => $display,
@@ -81,9 +85,9 @@ foreach ($state->filters() as $name => $value) {
     ];
 }
 ?>
-<div class="ifp-chips" id="ifp-chips" data-ifp-swap<?= $items ? '' : ' hidden' ?>>
+<div class="ifp-chips" data-ifp-swap="chips"<?= $items ? '' : ' hidden' ?>>
     <?php foreach ($items as $item): ?>
-        <span class="ifp-chip">
+        <span class="ifp-chip" data-ifp-key="<?= h($item['key']) ?>">
             <span class="ifp-chip-label"><?= h($item['label']) ?><?php if ($item['op'] !== ''): ?><span class="ifp-chip-op"><?= h($item['op']) ?></span> <span class="ifp-chip-value"><?= h($item['value']) ?></span><?php endif; ?></span>
             <a href="<?= h($item['href']) ?>" class="ifp-chip-x" data-ifp-nav title="<?= h(__('Remove this filter')) ?>" aria-label="<?= h(sprintf(__('Remove %s'), $item['label'] . ($item['op'] !== '' ? $item['op'] . ' ' . $item['value'] : ''))) ?>"><i class="fas fa-times" aria-hidden="true"></i></a>
         </span>

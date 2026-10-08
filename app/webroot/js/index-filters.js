@@ -2,14 +2,21 @@
  * Picker filter bars (genericElementsBS5/IndexTable/filter_bar.ctp with
  * `picker` children).
  *
- * The URL is the state. Pickers edit one filter and apply when they close;
- * chips, toggles, stat cards, the pager and the sort links are links the
- * server already built. Applying fetches the page at the new URL and swaps
- * in the results and every `[data-ifp-swap][id]` node, so all wiring here is
- * delegated and survives the swap.
+ * The URL is the state: the page's, or inside an ajax tab the tab's own
+ * `data-url`. Pickers edit one filter and apply when they close; chips,
+ * toggles, stat cards, the pager and the sort links are links the server
+ * already built. On a page, applying fetches the page at the new URL and
+ * swaps in the results and every `[data-ifp-swap]` node of that bar's index;
+ * in a tab, the tab reloads its fragment and the browser URL is left alone.
+ * Every lookup is scoped to the bar's index (`[data-ifp-scope]`), so a page
+ * can hold several bars, and all wiring is delegated so swaps need no
+ * rebinding.
  */
 (function () {
     'use strict';
+
+    // A tab reload brings this script along again.
+    if (window.IndexFilters) { return; }
 
     var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     var MIN_TERM = 2;
@@ -18,16 +25,35 @@
     var open = null;
     var inFlight = null;
 
-    function bar() { return document.querySelector('[data-ifp-bar]'); }
+    /* ── the bar a node belongs to ────────────────────────────────────── */
 
-    function cfg() {
-        var el = bar();
-        if (!el) { return null; }
-        if (!el.__ifp) { el.__ifp = JSON.parse(el.getAttribute('data-ifp-bar')); }
-        return el.__ifp;
+    function scopeOf(node) { return node && node.closest ? node.closest('[data-ifp-scope]') : null; }
+
+    function barOf(node) {
+        var scope = scopeOf(node);
+        return scope ? scope.querySelector('[data-ifp-bar]') : null;
     }
 
-    function S(key) { var c = cfg(); return (c && c.strings && c.strings[key]) || ''; }
+    function cfg(bar) {
+        if (!bar.__ifp) { bar.__ifp = JSON.parse(bar.getAttribute('data-ifp-bar')); }
+        return bar.__ifp;
+    }
+
+    function tabOf(bar) { return bar.closest('.ajax-tab-content'); }
+
+    function resultsOf(bar) { return scopeOf(bar).querySelector('[data-ifp-results]'); }
+
+    function S(bar, key) { var c = cfg(bar); return (c.strings && c.strings[key]) || ''; }
+
+    function swapKey(el) { return el.getAttribute('data-ifp-swap') || el.id; }
+
+    function swapNode(scope, key) {
+        var hit = null;
+        scope.querySelectorAll('[data-ifp-swap]').forEach(function (el) {
+            if (!hit && swapKey(el) === key && scopeOf(el) === scope) { hit = el; }
+        });
+        return hit;
+    }
 
     function pathOf(url) { return (url || '').replace(/^[a-z]+:\/\/[^/]+/i, ''); }
 
@@ -40,15 +66,15 @@
 
     /* ── URLs ─────────────────────────────────────────────────────────── */
 
-    function currentParts() {
-        var c = cfg();
-        return parseIndexUrl(window.location.pathname + window.location.search, pathOf(c.base));
+    function currentUrl(bar) {
+        var tab = tabOf(bar);
+        return tab ? (tab.dataset.url || '') : window.location.pathname + window.location.search;
     }
 
     // changes: unprefixed name => value, null removes it. Paging restarts.
-    function urlWith(changes) {
-        var c = cfg();
-        var parts = currentParts();
+    function urlWith(bar, changes) {
+        var c = cfg(bar);
+        var parts = parseIndexUrl(currentUrl(bar), pathOf(c.base));
         var named = parts.named;
         delete named.page;
         Object.keys(changes).forEach(function (name) {
@@ -60,12 +86,12 @@
                 named[key] = value;
             }
         });
-        return formatIndexUrl(c.base, { positional: parts.positional, named: named });
+        return formatIndexUrl(c.base, { positional: parts.positional, named: named, query: parts.query });
     }
 
-    function searchUrl() {
-        var c = cfg();
-        var field = bar().querySelector('#filterField');
+    function searchUrl(bar) {
+        var c = cfg(bar);
+        var field = bar.querySelector('.ifp-query input');
         var term = field ? field.value.trim() : '';
         var changes = {};
         if (c.searchField) { changes[c.searchField] = null; }
@@ -74,13 +100,55 @@
             var key = (c.idField && (UUID_RE.test(term) || /^[0-9]+$/.test(term))) ? c.idField : c.searchField;
             changes[key] = term;
         }
-        return urlWith(changes);
+        return urlWith(bar, changes);
+    }
+
+    /* ── a tab's own scope ────────────────────────────────────────────── */
+
+    /*
+     * The filters a tab was opened with (`searchorg:` on an organisation's
+     * Events tab) are what the tab is about: no chip, no picker, and Clear all
+     * returns to them.
+     */
+    function originKeys(tab) {
+        if (!tab.dataset.ifpOrigin) { tab.dataset.ifpOrigin = tab.dataset.url || ''; }
+        return pathOf(tab.dataset.ifpOrigin).split('?')[0].split('/').filter(function (segment) {
+            return segment.indexOf(':') > 0;
+        }).map(function (segment) { return segment.slice(0, segment.indexOf(':')); });
+    }
+
+    function applyTabScope(bar) {
+        var tab = tabOf(bar);
+        if (!tab) { return; }
+        var keys = originKeys(tab);
+        var prefix = cfg(bar).prefix;
+        var scope = scopeOf(bar);
+        scope.querySelectorAll('[data-ifp-key]').forEach(function (el) {
+            if (keys.indexOf(el.getAttribute('data-ifp-key')) !== -1) { el.hidden = true; }
+        });
+        scope.querySelectorAll('[data-ifp-picker]').forEach(function (el) {
+            var name = JSON.parse(el.getAttribute('data-ifp-picker')).name;
+            if (keys.indexOf(prefix + name) !== -1) { el.hidden = true; }
+        });
+        var chips = swapNode(scope, 'chips');
+        if (chips && !chips.querySelector('.ifp-chip:not([hidden])')) { chips.hidden = true; }
+        var clear = scope.querySelector('.ifp-clear');
+        if (clear) {
+            var origin = parseIndexUrl(tab.dataset.ifpOrigin, pathOf(cfg(bar).base));
+            var sort = parseIndexUrl(currentUrl(bar), pathOf(cfg(bar).base)).named;
+            ['sort', 'direction', 'limit'].forEach(function (k) { if (sort[k]) { origin.named[k] = sort[k]; } });
+            clear.setAttribute('href', formatIndexUrl(cfg(bar).base, origin));
+        }
+    }
+
+    function applyAllTabScopes(root) {
+        (root || document).querySelectorAll('[data-ifp-bar]').forEach(applyTabScope);
     }
 
     /* ── loading ──────────────────────────────────────────────────────── */
 
-    function setBusy(busy) {
-        var results = document.querySelector(cfg().results);
+    function setBusy(bar, busy) {
+        var results = resultsOf(bar);
         if (!results) { return; }
         results.classList.toggle('is-busy', busy);
         var overlay = results.querySelector(':scope > .index-results-overlay');
@@ -94,72 +162,82 @@
         }
     }
 
-    function showError() {
-        var b = bar();
-        var old = document.querySelector('.ifp-error');
+    function clearError(bar) {
+        var old = scopeOf(bar).querySelector('.ifp-error');
         if (old) { old.remove(); }
-        var alert = document.createElement('div');
-        alert.className = 'alert alert-danger alert-dismissible fade show mb-3 ifp-error';
-        alert.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + esc(S('loadError'))
-            + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
-        var row = document.querySelector('.ifp-row');
-        (row || b).insertAdjacentElement('afterend', alert);
     }
 
-    function swapIn(doc) {
-        var c = cfg();
-        var results = document.querySelector(c.results);
-        var fresh = doc.querySelector(c.results);
-        if (!results || !fresh) { throw new Error('no results container'); }
-        results.innerHTML = fresh.innerHTML;
+    function showError(bar) {
+        clearError(bar);
+        var alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show mb-3 ifp-error';
+        alert.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + esc(S(bar, 'loadError'))
+            + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+        var row = scopeOf(bar).querySelector('.ifp-row');
+        (row || bar).insertAdjacentElement('afterend', alert);
+    }
+
+    function swapIn(bar, doc) {
+        var scope = scopeOf(bar);
+        var key = scope.getAttribute('data-ifp-scope');
+        var fresh = null;
+        doc.querySelectorAll('[data-ifp-scope]').forEach(function (el) {
+            if (!fresh && el.getAttribute('data-ifp-scope') === key && el.querySelector('[data-ifp-bar]')) { fresh = el; }
+        });
+        var results = resultsOf(bar);
+        var freshResults = fresh && fresh.querySelector('[data-ifp-results]');
+        if (!results || !freshResults) { throw new Error('no results container'); }
+        results.innerHTML = freshResults.innerHTML;
 
         // A picker opened while this page was loading reopens on its new node,
         // and a focused toggle or picker button keeps the focus.
         var reopen = null;
         var refocus = null;
-        document.querySelectorAll('[data-ifp-swap][id]').forEach(function (el) {
-            var next = doc.getElementById(el.id);
+        scope.querySelectorAll('[data-ifp-swap]').forEach(function (el) {
+            if (scopeOf(el) !== scope) { return; }
+            var k = swapKey(el);
+            var next = swapNode(fresh, k);
             if (!next) { return; }
             if (open && open.picker === el) {
-                reopen = el.id;
+                reopen = k;
                 closePicker(false);
             }
-            if (el.contains(document.activeElement)) { refocus = el.id; }
+            if (el.contains(document.activeElement)) { refocus = k; }
             el.replaceWith(document.importNode(next, true));
         });
         if (reopen) {
-            openPicker(document.getElementById(reopen));
+            openPicker(swapNode(scope, reopen));
         } else if (refocus) {
-            var node = document.getElementById(refocus);
+            var node = swapNode(scope, refocus);
             var target = node.matches('a, button') ? node : node.querySelector('.ifp-btn, a, button');
             if (target) { target.focus(); }
         }
-        ['#headerCountBadge', '.index-filter-pager'].forEach(function (selector) {
-            var target = document.querySelector(selector);
-            var next = doc.querySelector(selector);
-            if (target && next) { target.innerHTML = next.innerHTML; }
-        });
-        var field = bar().querySelector('#filterField');
-        var nextField = doc.querySelector('[data-ifp-bar] #filterField');
+        var pager = scope.querySelector('.index-filter-pager');
+        var nextPager = fresh.querySelector('.index-filter-pager');
+        if (pager && nextPager) { pager.innerHTML = nextPager.innerHTML; }
+        var badge = document.getElementById('headerCountBadge');
+        var nextBadge = doc.getElementById('headerCountBadge');
+        if (badge && nextBadge) { badge.innerHTML = nextBadge.innerHTML; }
+        var field = bar.querySelector('.ifp-query input');
+        var nextField = fresh.querySelector('[data-ifp-bar] .ifp-query input');
         if (field && nextField && document.activeElement !== field) { field.value = nextField.value; }
     }
 
-    function afterSwap() {
+    function afterSwap(bar) {
         if (window.selectedItems && typeof selectedItems.clear === 'function') {
             selectedItems.clear();
             if (typeof updateMultiSelectToolbar === 'function') { updateMultiSelectToolbar(); }
         }
-        var scope = document;
+        var scope = scopeOf(bar);
         if (scope.querySelector('#viewCard') && typeof setView === 'function') {
             var mobile = typeof isMobile === 'function' && isMobile();
             setView(mobile ? 'card' : (localStorage.getItem('indexViewMode') || 'table'), false, scope);
         }
-        var old = document.querySelector('.ifp-error');
-        if (old) { old.remove(); }
+        clearError(bar);
     }
 
-    function revealTop() {
-        var results = document.querySelector(cfg().results);
+    function revealTop(bar) {
+        var results = resultsOf(bar);
         if (!results) { return; }
         var navHeight = 56;
         var top = results.getBoundingClientRect().top;
@@ -167,12 +245,18 @@
         window.scrollTo({ top: Math.max(0, top + window.pageYOffset - navHeight - 8), behavior: 'smooth' });
     }
 
-    function load(url, push) {
-        if (!bar()) { window.location.href = url; return; }
+    function load(bar, url, push) {
+        var tab = tabOf(bar);
+        if (tab) {
+            originKeys(tab);
+            var over = tab.__indexFilterOverride;
+            if (over && over.reload && over.reload(url)) { return; }
+            if (typeof reloadAjaxTabIndex === 'function') { reloadAjaxTabIndex(tab, url); return; }
+        }
         if (inFlight) { inFlight.abort(); }
         var controller = new AbortController();
         inFlight = controller;
-        setBusy(true);
+        setBusy(bar, true);
         fetch(url, { credentials: 'same-origin', signal: controller.signal })
             .then(function (response) {
                 if (!response.ok) { throw new Error('HTTP ' + response.status); }
@@ -180,16 +264,16 @@
             })
             .then(function (html) {
                 var doc = new DOMParser().parseFromString(html, 'text/html');
-                swapIn(doc);
+                swapIn(bar, doc);
                 if (push) { history.pushState({ ifp: true }, '', url); }
-                afterSwap();
-                revealTop();
+                afterSwap(bar);
+                revealTop(bar);
             })
             .catch(function (error) {
-                if (error.name !== 'AbortError') { showError(); }
+                if (error.name !== 'AbortError') { showError(bar); }
             })
             .finally(function () {
-                if (inFlight === controller) { inFlight = null; setBusy(false); }
+                if (inFlight === controller) { inFlight = null; setBusy(bar, false); }
             });
     }
 
@@ -205,7 +289,7 @@
         var included = selection.filter(function (s) { return !s.exclude; });
         // Every fixed option ticked is the same as no filter.
         if (pc.options && !pc.exclude && included.length === pc.options.length) { return null; }
-        return selection.map(function (s) { return (s.exclude ? '!' : '') + s.value; }).join('|');
+        return selection.map(function (s) { return (s.exclude ? '!' : '') + s.value; }).join(pc.sep || '|');
     }
 
     function swatch(style) {
@@ -230,8 +314,9 @@
     function rowHtml(item) {
         var state = stateOf(item.value);
         var pc = open.pc;
+        var bar = open.bar;
         var sub = item.style && item.style.galaxy ? ' <small>' + esc(item.style.galaxy) + '</small>' : '';
-        var title = item.unresolved ? ' title="' + esc(S('unresolved')) + '"' : '';
+        var title = item.unresolved ? ' title="' + esc(S(bar, 'unresolved')) + '"' : '';
         var html = '<li class="ifp-opt" role="option" tabindex="-1" data-state="' + state + '"'
             + ' aria-selected="' + (state === 'include') + '" data-value="' + esc(item.value) + '"' + title + '>'
             + '<span class="ifp-opt-check" aria-hidden="true"><i class="fas ' + (state === 'exclude' ? 'fa-ban' : 'fa-check') + '"></i></span>'
@@ -239,8 +324,8 @@
             + '<span class="ifp-opt-name' + (item.unresolved ? ' is-unresolved' : '') + '">' + esc(item.label) + sub + '</span>';
         if (pc.exclude) {
             html += '<button type="button" class="ifp-opt-ex" data-ifp-exclude aria-pressed="' + (state === 'exclude') + '"'
-                + ' title="' + esc(state === 'exclude' ? S('include') : S('exclude')) + '"'
-                + ' aria-label="' + esc((state === 'exclude' ? S('include') : S('exclude')) + ' ' + item.label) + '">'
+                + ' title="' + esc(state === 'exclude' ? S(bar, 'include') : S(bar, 'exclude')) + '"'
+                + ' aria-label="' + esc((state === 'exclude' ? S(bar, 'include') : S(bar, 'exclude')) + ' ' + item.label) + '">'
                 + '<i class="fas fa-ban" aria-hidden="true"></i></button>';
         }
         return html + '</li>';
@@ -257,6 +342,7 @@
 
     function renderLists() {
         var pc = open.pc;
+        var bar = open.bar;
         var pop = open.pop;
         var sel = pop.querySelector('.ifp-sel');
         var res = pop.querySelector('.ifp-res');
@@ -277,13 +363,13 @@
             res.innerHTML = shown.map(rowHtml).join('');
             status.hidden = false;
             if (open.status === 'idle') {
-                status.textContent = S('typeToSearch');
+                status.textContent = S(bar, 'typeToSearch');
             } else if (open.status === 'loading') {
-                status.textContent = S('searching');
+                status.textContent = S(bar, 'searching');
             } else if (open.status === 'error') {
-                status.textContent = S('searchFailed');
+                status.textContent = S(bar, 'searchFailed');
             } else if (!open.results.length) {
-                status.textContent = S('noMatch');
+                status.textContent = S(bar, 'noMatch');
             } else {
                 status.hidden = true;
             }
@@ -357,29 +443,30 @@
         }, THROTTLE);
     }
 
-    function build(picker) {
+    function build(bar, picker) {
         var pc = pickerCfg(picker);
+        var draft = cfg(bar).apply === 'draft';
         var pop = picker.querySelector('.ifp-pop');
         var html = '';
         if (pc.source) {
             html += '<div class="ifp-search"><i class="fas fa-search" aria-hidden="true"></i>'
                 + '<input type="search" class="form-control form-control-sm" autocomplete="off" spellcheck="false"'
-                + ' placeholder="' + esc(S('search')) + '" aria-label="' + esc(S('search') + ' ' + pc.label) + '"></div>';
+                + ' placeholder="' + esc(S(bar, 'search')) + '" aria-label="' + esc(S(bar, 'search') + ' ' + pc.label) + '"></div>';
         }
         if (pc.allOf) {
-            html += '<p class="ifp-note"><i class="fas fa-circle-info" aria-hidden="true"></i> ' + esc(S('allOf')) + '</p>';
+            html += '<p class="ifp-note"><i class="fas fa-circle-info" aria-hidden="true"></i> ' + esc(S(bar, 'allOf')) + '</p>';
         }
         if (!pc.options) {
-            html += '<div class="ifp-head" hidden>' + esc(S('selected')) + '</div>'
+            html += '<div class="ifp-head" hidden>' + esc(S(bar, 'selected')) + '</div>'
                 + '<ul class="ifp-opts ifp-sel" role="listbox" aria-multiselectable="true"></ul>';
         }
         html += '<ul class="ifp-opts ifp-res" role="listbox" aria-multiselectable="true"></ul>';
         if (!pc.options) { html += '<div class="ifp-status" role="status"></div>'; }
-        var foot = cfg().apply === 'draft' ? S('applyDraft') : S('applyOnClose');
+        var foot = draft ? S(bar, 'applyDraft') : S(bar, 'applyOnClose');
         if (pc.hint) { foot = pc.hint + ' ' + foot; }
         html += '<div class="ifp-foot"><span>' + esc(foot) + '</span>';
-        if (cfg().apply === 'draft') {
-            html += '<button type="button" class="btn btn-sm btn-primary" data-ifp-apply>' + esc(S('apply')) + '</button>';
+        if (draft) {
+            html += '<button type="button" class="btn btn-sm btn-primary" data-ifp-apply>' + esc(S(bar, 'apply')) + '</button>';
         }
         html += '</div>';
         pop.innerHTML = html;
@@ -387,11 +474,13 @@
     }
 
     function openPicker(picker) {
-        if (open && open.picker === picker) { return; }
+        if (!picker || (open && open.picker === picker)) { return; }
         closePicker(true);
+        var bar = barOf(picker);
         var pc = pickerCfg(picker);
-        var pop = build(picker);
+        var pop = build(bar, picker);
         open = {
+            bar: bar,
             picker: picker,
             pc: pc,
             pop: pop,
@@ -405,7 +494,7 @@
             request: null,
         };
         pop.hidden = false;
-        placePop(picker, pop);
+        placePop(pop);
         picker.querySelector('.ifp-btn').setAttribute('aria-expanded', 'true');
         renderLists();
         var input = pop.querySelector('input');
@@ -418,7 +507,7 @@
     }
 
     // Open to the right of the button unless that runs off the viewport.
-    function placePop(picker, pop) {
+    function placePop(pop) {
         pop.classList.remove('is-end');
         var rect = pop.getBoundingClientRect();
         if (rect.right > document.documentElement.clientWidth - 8) { pop.classList.add('is-end'); }
@@ -434,12 +523,12 @@
         state.pop.innerHTML = '';
         state.picker.querySelector('.ifp-btn').setAttribute('aria-expanded', 'false');
         if (!apply || !state.dirty) { return; }
-        if (cfg().apply === 'draft' && apply !== 'draft') { return; }
+        if (cfg(state.bar).apply === 'draft' && apply !== 'draft') { return; }
         var next = serialize(state.pc, state.selection);
         if (next === state.initial) { return; }
         var changes = {};
         changes[state.pc.name] = next;
-        load(urlWith(changes), true);
+        load(state.bar, urlWith(state.bar, changes), true);
     }
 
     function setActive(row) {
@@ -463,23 +552,27 @@
         return !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0);
     }
 
-    function navLink(target) {
+    // A link this bar loads in place. In a tab the pager and the sort links
+    // are the tab's own (bindAjaxTabIndexNav), so only the bar's are taken.
+    function navLink(bar, target) {
         var link = target.closest('a[href]');
-        if (!link) { return null; }
+        if (!link || scopeOf(link) !== scopeOf(bar)) { return null; }
         if (link.hasAttribute('data-ifp-nav')) { return link; }
-        var c = cfg();
+        if (tabOf(bar)) { return null; }
         if (link.closest('.index-filter-pager')) { return link; }
-        var results = link.closest(c.results);
+        var results = link.closest('[data-ifp-results]');
         if (results && (link.closest('.pagination') || link.closest('thead'))) { return link; }
         return null;
     }
 
     document.addEventListener('click', function (event) {
-        if (!bar()) { return; }
         var target = event.target;
 
         // A click elsewhere closes the open picker, then still does its own job.
         if (open && !open.picker.contains(target)) { closePicker(true); }
+
+        var bar = barOf(target);
+        if (!bar) { return; }
 
         var btn = target.closest('.ifp-btn');
         if (btn) {
@@ -490,7 +583,7 @@
 
         var opener = target.closest('[data-ifp-open]');
         if (opener) {
-            var named = document.getElementById('ifp-picker-' + opener.getAttribute('data-ifp-open'));
+            var named = swapNode(scopeOf(bar), 'picker-' + opener.getAttribute('data-ifp-open'));
             if (named) {
                 event.preventDefault();
                 named.scrollIntoView({ block: 'nearest' });
@@ -510,15 +603,10 @@
             return;
         }
 
-        if (target.closest('#filterButton') && bar().contains(target)) {
-            load(searchUrl(), true);
-            return;
-        }
-
-        var link = navLink(target);
+        var link = navLink(bar, target);
         if (link && isPlainClick(event)) {
             event.preventDefault();
-            load(link.getAttribute('href'), true);
+            load(bar, link.getAttribute('href'), true);
         }
     });
 
@@ -529,7 +617,6 @@
     });
 
     document.addEventListener('keydown', function (event) {
-        if (!bar()) { return; }
         if (open && event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
@@ -548,9 +635,11 @@
             }
             return;
         }
-        if (event.key === 'Enter' && event.target.id === 'filterField' && bar().contains(event.target)) {
+        if (event.key === 'Enter' && event.target.closest('.ifp-query')) {
+            var bar = barOf(event.target);
+            if (!bar) { return; }
             event.preventDefault();
-            load(searchUrl(), true);
+            load(bar, searchUrl(bar), true);
         }
     }, true);
 
@@ -561,12 +650,21 @@
         if (next && !open.picker.contains(next)) { closePicker(true); }
     });
 
+    // Only a bar on the page itself follows Back / Forward.
     window.addEventListener('popstate', function () {
-        var c = cfg();
-        if (!c || window.location.pathname.indexOf(pathOf(c.base)) !== 0) { return; }
-        closePicker(false);
-        load(window.location.pathname + window.location.search, false);
+        document.querySelectorAll('[data-ifp-bar]').forEach(function (bar) {
+            if (tabOf(bar) || window.location.pathname.indexOf(pathOf(cfg(bar).base)) !== 0) { return; }
+            closePicker(false);
+            load(bar, window.location.pathname + window.location.search, false);
+        });
     });
 
-    window.IndexFilters = { load: load, urlWith: urlWith };
+    document.addEventListener('misp:container-loaded', function (event) { applyAllTabScopes(event.target); });
+    applyAllTabScopes(document);
+
+    window.IndexFilters = {
+        load: function (node, url, push) { var bar = barOf(node); if (bar) { load(bar, url, push); } },
+        urlWith: function (node, changes) { var bar = barOf(node); return bar ? urlWith(bar, changes) : null; },
+        applyTabScope: applyAllTabScopes,
+    };
 }());

@@ -77,8 +77,28 @@ foreach ($filter_bar['children'] as $child) {
 $pickerMode = !empty($pickers);
 if ($pickerMode) {
     App::uses('IndexFilterState', 'Tools');
+    /*
+     * The URL this bar's links start from. A bar drawn for the request's own
+     * action keeps its positional arguments (`auth_keys/index/<user>`); a tab
+     * whose URL is not `<item_url>/<action>` names it with `base_url`.
+     */
+    $filterBase = $filter_bar['base_url'] ?? null;
+    if ($filterBase === null) {
+        $filterBase = $baseurl . $item_url . '/' . $filterAction;
+        $requestPrefix = (string)($this->request->params['prefix'] ?? '');
+        $requestAction = $requestPrefix === ''
+            ? $this->request->params['action']
+            : preg_replace('/^' . preg_quote($requestPrefix, '/') . '_/', '', $this->request->params['action']);
+        $sameAction = $requestAction === $filterAction
+            && basename($item_url) === Inflector::underscore($this->request->params['controller']);
+        if ($sameAction) {
+            foreach (($this->request->params['pass'] ?? []) as $pass) {
+                $filterBase .= '/' . rawurlencode($pass);
+            }
+        }
+    }
     $filterState = new IndexFilterState(
-        $baseurl . $item_url . '/' . $filterAction,
+        $filterBase,
         $this->request->params['named'] ?? [],
         $stripSearchPrefix ? 'search' : ''
     );
@@ -166,11 +186,10 @@ $activeTotal = count(array_diff_key(
 
 <div id="<?= h($filterId) ?>" class="d-flex flex-wrap gap-2 align-items-center<?= $pickerMode ? ' ifp-bar' : '' ?>"<?php
     if ($pickerMode): ?> data-ifp-bar="<?= h(json_encode([
-        'base' => $baseurl . $item_url . '/' . $filterAction,
+        'base' => $filterBase,
         'prefix' => $stripSearchPrefix ? 'search' : '',
         'searchField' => $searchChild['name'] ?? null,
         'idField' => $searchChild['id_field'] ?? null,
-        'results' => '#index-results',
         'apply' => $filter_bar['apply'] ?? 'close',
         'strings' => [
             'typeToSearch' => __('Type 2 characters to search'),
@@ -508,7 +527,7 @@ if ($explicitActive !== null) {
 <?php if ($pickerMode): ?>
     <?php $pageParams = $this->Paginator->params(); ?>
     <div class="ifp-row">
-        <span class="ifp-count" id="ifp-count" data-ifp-swap><?php
+        <span class="ifp-count" data-ifp-swap="count"><?php
             if (!empty($pageParams['current'])) {
                 echo sprintf(
                     __('%s shown, page %s of %s'),

@@ -72,4 +72,16 @@ class IndexFilterStateTest extends TestCase
         $state = $this->state(['searchdistribution' => ['0', '3']]);
         $this->assertSame('0|3', $state->get('distribution'));
     }
+
+    public function testDoublePipeSeparator()
+    {
+        $pieces = IndexFilterState::pieces('csv||misp||', '||');
+        $this->assertSame([['csv', false], ['misp', false]], $pieces);
+        $this->assertSame('csv||misp', IndexFilterState::join($pieces, '||'));
+    }
+
+    public function testKeyCarriesThePrefix()
+    {
+        $this->assertSame('searchorg', $this->state([])->key('org'));
+    }
 }

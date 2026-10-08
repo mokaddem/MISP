@@ -68,6 +68,15 @@ class IndexFilterState
     }
 
     /**
+     * @param string $name unprefixed
+     * @return string the key the URL carries
+     */
+    public function key($name)
+    {
+        return $this->prefix . $name;
+    }
+
+    /**
      * A URL with these filters changed; null removes one. Paging restarts.
      *
      * @param array $changes unprefixed name => value|null
@@ -111,12 +120,13 @@ class IndexFilterState
      * Split a picker value (`a|!b`) into its parts.
      *
      * @param string|null $value
+     * @param string $separator
      * @return array [value, excluded][]
      */
-    public static function pieces($value)
+    public static function pieces($value, $separator = '|')
     {
         $out = [];
-        foreach (explode('|', (string)$value) as $piece) {
+        foreach (explode($separator, (string)$value) as $piece) {
             $piece = trim($piece);
             if ($piece === '' || $piece === '!') {
                 continue;
@@ -129,15 +139,16 @@ class IndexFilterState
 
     /**
      * @param array $pieces [value, excluded][]
+     * @param string $separator
      * @return string|null
      */
-    public static function join(array $pieces)
+    public static function join(array $pieces, $separator = '|')
     {
         $parts = [];
         foreach ($pieces as [$value, $excluded]) {
             $parts[] = ($excluded ? '!' : '') . $value;
         }
-        return $parts ? implode('|', $parts) : null;
+        return $parts ? implode($separator, $parts) : null;
     }
 
     private function format(array $named)

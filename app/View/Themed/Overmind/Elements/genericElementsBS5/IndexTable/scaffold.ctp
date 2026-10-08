@@ -4,7 +4,7 @@ $containerId = empty($scaffold_data['containerId'])
     ? 'index' . $randomId
     : $scaffold_data['containerId'];
 
-echo '<div id="' . $containerId . '_content">';
+echo '<div id="' . $containerId . '_content" data-ifp-scope="' . h($item_url) . '">';
 ?>
 
 <div class="container-fluid">
@@ -35,7 +35,7 @@ echo '<div id="' . $containerId . '_content">';
     <?php endif; ?>
 
     <!-- CARD 2 + 3 : DATA AND PAGINATION -->
-    <div id="index-results" class="index-results">
+    <div id="index-results" class="index-results" data-ifp-results>
 
     <div class="card shadow-sm mb-4">
         <div class="card-body p-0">
