@@ -263,7 +263,7 @@ echo $this->element('genericElementsBS5/IndexTable/scaffold', [
                         'button' => __('Search'),
                         'placeholder' => __('Search by name, UUID, or description'),
                         'name' => 'searchall',
-                        'mode' => 'quickFilter',
+                        'mode' => 'legacy',
                     ],
                 ],
                 'delete' => $this->Acl->canAccess('eventTemplates', 'delete')
