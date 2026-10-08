@@ -1188,7 +1188,10 @@ class EventsController extends AppController
         }
 
         if (in_array('attribute_count', $columns, true)) {
-            $events = $this->Event->attachObjectAndAttributeCountToEvents($events);
+            $events = $this->Event->attachObjectCountToEvents(
+                $events,
+                Event::INDEX_OBJECT_LIMIT
+            );
         }
 
         if (in_array('correlations', $columns, true)) {

@@ -69,10 +69,14 @@ $counts = $count(
     $plural((int)($event['attribute_count'] ?? 0), '%s attribute', '%s attributes')
 );
 if (isset($event['object_count'])) {
+    $more = !empty($event['object_count_more']);
     $counts .= $count(
         $event['object_count'],
         '<i class="misp-icon misp-icon-object misp-simple text-object"></i>',
-        $plural((int)$event['object_count'], '%s object', '%s objects')
+        $more
+            ? __('At least %s objects', (int)$event['object_count'])
+            : $plural((int)$event['object_count'], '%s object', '%s objects'),
+        $more
     );
 }
 if (isset($event['report_count'])) {

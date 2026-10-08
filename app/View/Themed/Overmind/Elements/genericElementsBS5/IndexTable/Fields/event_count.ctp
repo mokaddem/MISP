@@ -13,11 +13,16 @@ if (!isset($event[$key])) {
     return;
 }
 $n = (int)$event[$key];
-// The correlation count stops at Event::INDEX_CORRELATION_LIMIT correlations.
-if ($key === 'correlation_count' && !empty($event['correlation_count_more'])) {
+// Correlations and objects stop at Event::INDEX_CORRELATION_LIMIT and
+// Event::INDEX_OBJECT_LIMIT.
+$atLeast = [
+    'correlation_count' => __('At least %s correlations', $n),
+    'object_count' => __('At least %s objects', $n),
+];
+if (isset($atLeast[$key]) && !empty($event[$key . '_more'])) {
     printf(
         '<span title="%s">%s+</span>',
-        h(__('At least %s correlations', $n)),
+        h($atLeast[$key]),
         EventCardTool::compactCount($n)
     );
     return;
