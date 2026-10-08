@@ -30,7 +30,6 @@
         { k: 'classif', ctx: true, min: 148, nmin: 116, wt: 0.38, opt: 'clusters' },
         { k: 'attrs', w: 56, narrow: 54, opt: 'attribute_count' },
         { k: 'objs', w: 48, narrow: 46, opt: 'attribute_count' },
-        { k: 'reps', w: 40, opt: 'report_count' },
         { k: 'corr', w: 52, narrow: 50, opt: 'correlations' },
         { k: 'extras', w: 100 },
         { k: 'ext', w: 76, opt: 'is_extension' },
@@ -40,12 +39,12 @@
         { k: 'changed', w: 92, narrow: 84, opt: 'timestamp' },
         { k: 'act', w: 40, narrow: 36 }
     ];
-    var SUBS = ['sightings', 'proposals', 'discussion'];
+    var SUBS = ['report_count', 'sightings', 'proposals', 'discussion'];
     var COL = {};
     COLS.forEach(function (c) { COL[c.k] = c; });
     var LANES = ['attrib', 'behav', 'classif'];
     // Dropped in this order while the columns do not fit; 'narrow' tightens the rest.
-    var STEPS = ['ext', 'date', 'user', 'owner', 'pub', 'narrow', 'extras', 'reps'];
+    var STEPS = ['ext', 'date', 'user', 'owner', 'pub', 'narrow', 'extras'];
     // Graded org names keep about nine characters; the lanes give way.
     var GRADED = { w: 150, narrow: 136 };
 

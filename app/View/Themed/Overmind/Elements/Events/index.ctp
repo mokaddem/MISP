@@ -43,8 +43,8 @@ $hiddenColumns = array_values(array_diff($possible, $columns ?? []));
 
 /*
  * The chooser, in the order it lists them: column key => setting name in
- * `event_index_hide_columns`, label, icon. Sightings, proposals and
- * discussions are parts of the extras column.
+ * `event_index_hide_columns`, label, icon. Reports, sightings, proposals
+ * and discussions are parts of the extras column.
  */
 $chooser = [
     'owner' => ['owner_org', __('Owner org'), ''],
@@ -167,12 +167,11 @@ $fields = [
     $lane('classif', 'classification', __('Other clusters, then tags')),
     $count('attrs', 'attributes', 'attribute_count', '<i class="misp-icon misp-icon-attribute misp-simple text-attribute"></i>', __('Attributes')),
     $count('objs', 'objects', 'attribute_count', '<i class="misp-icon misp-icon-object misp-simple text-object"></i>', __('Objects')),
-    $count('reps', 'reports', 'report_count', '<i class="misp-icon misp-icon-report misp-simple text-report"></i>', __('Reports')),
     $count('corr', 'correlations', 'correlations', '<i class="fas fa-link text-correlation"></i>', __('Correlations')),
     $col('extras', [
         'element' => 'event_extras',
-        'header_html' => '<span class="te-hicon te-hx"><i class="misp-icon misp-icon-analyst-graph misp-simple text-analystGraph"></i><i class="misp-icon misp-icon-sighting misp-simple text-sighting"></i><i class="fas fa-comments"></i></span>',
-        'header_title' => __('Analyst graphs, sightings, proposals and discussions, when there are any'),
+        'header_html' => '<span class="te-hicon te-hx"><i class="misp-icon misp-icon-analyst-graph misp-simple text-analystGraph"></i><i class="misp-icon misp-icon-report misp-simple text-report"></i><i class="misp-icon misp-icon-sighting misp-simple text-sighting"></i><i class="fas fa-comments"></i></span>',
+        'header_title' => __('Analyst graphs, reports, sightings, proposals and discussions, when there are any'),
     ]),
     $col('ext', [
         'name' => __('Extension'),
@@ -261,7 +260,7 @@ foreach ($chooser as $key => [$setting]) {
     if (!in_array($setting, $hiddenColumns, true)) {
         continue;
     }
-    if (in_array($key, ['sight', 'prop', 'disc'], true)) {
+    if (in_array($key, ['reps', 'sight', 'prop', 'disc'], true)) {
         $hiddenRules[] = '.te-index .te-table .dk-x-' . $setting;
         continue;
     }

@@ -307,9 +307,9 @@
 .dk-xtra { display: inline-flex; gap: 7px; margin-left: auto; padding-left: 4px; min-width: 0; overflow: hidden; color: var(--dk-ink2); font-variant-numeric: tabular-nums; }
 .dk-xtra span { position: relative; z-index: 2; cursor: default; }
 .dk-xtra .misp-icon { width: 12px; height: 12px; vertical-align: -1px; }
-.dk-xtra .dk-graph { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 3px; color: var(--dk-ink2); text-decoration: none; font-weight: 600; }
-.dk-xtra .dk-graph .misp-icon { width: 14px; height: 14px; }
-.dk-xtra .dk-graph:hover { color: var(--dk-accent); }
+.dk-xtra .dk-graph, .dk-xtra .dk-report { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 3px; color: var(--dk-ink2); text-decoration: none; font-weight: 600; }
+.dk-xtra .dk-graph .misp-icon, .dk-xtra .dk-report .misp-icon { width: 14px; height: 14px; }
+.dk-xtra .dk-graph:hover, .dk-xtra .dk-report:hover { color: var(--dk-accent); }
 .dk-dist {
     position: relative; z-index: 2; margin-left: auto; flex: none; cursor: default;
     width: 26px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;

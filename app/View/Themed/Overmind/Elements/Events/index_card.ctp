@@ -79,13 +79,6 @@ if (isset($event['object_count'])) {
         $more
     );
 }
-if (isset($event['report_count'])) {
-    $counts .= $count(
-        $event['report_count'],
-        '<i class="misp-icon misp-icon-report misp-simple text-report"></i>',
-        $plural((int)$event['report_count'], '%s report', '%s reports')
-    );
-}
 if (isset($event['correlation_count'])) {
     $more = !empty($event['correlation_count_more']);
     $counts .= $count(

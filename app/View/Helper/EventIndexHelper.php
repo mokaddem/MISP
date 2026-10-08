@@ -294,6 +294,16 @@ class EventIndexHelper extends AppHelper
                 $n
             );
         }
+        $n = (int)($event['report_count'] ?? 0);
+        if ($n) {
+            $extras[] = sprintf(
+                '<a class="dk-x-report_count dk-report" href="%s" title="%s">'
+                    . '<i class="misp-icon misp-icon-report misp-simple text-report"></i> %s</a>',
+                h($this->baseurl() . '/events/view2/' . (int)$event['id'] . '#tab-reports'),
+                h($this->plural($n, '%s event report', '%s event reports')),
+                EventCardTool::compactCount($n)
+            );
+        }
         foreach ([
             ['sightings_count', 'sightings', '<i class="misp-icon misp-icon-sighting misp-simple text-sighting"></i>', '%s sighting', '%s sightings'],
             ['proposals_count', 'proposals', '<i class="fas fa-comment-medical"></i>', '%s proposal', '%s proposals'],

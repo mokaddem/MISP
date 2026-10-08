@@ -1,5 +1,5 @@
 <?php
-// Overmind events index: analyst graphs, sightings, proposals, discussions — when there are some.
+// Overmind events index: analyst graphs, reports, sightings, proposals, discussions — when there are some.
 if (empty($row['EventCard'])) {
     return;
 }

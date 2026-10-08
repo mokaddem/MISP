@@ -1132,7 +1132,8 @@ class EventsController extends AppController
             $possibleColumns[] = 'correlations';
         }
 
-        if (Configure::read('MISP.showEventReportCountOnIndex')) {
+        // Overmind marks the events holding reports, as it does analyst graphs
+        if (Configure::read('MISP.showEventReportCountOnIndex') || $this->theme === 'Overmind') {
             $possibleColumns[] = 'report_count';
         }
 
