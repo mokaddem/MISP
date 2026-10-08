@@ -24,6 +24,8 @@ class EventCardTool
     public static function rows(array $context, $profile = null)
     {
         $rows = ['attribution' => [], 'behaviour' => [], 'classification' => []];
+        // Pinned taxonomies have their own slot in the markings.
+        $pinned = array_flip(self::pinned($profile));
         $seen = [];
         $once = function ($key) use (&$seen) {
             if (isset($seen[$key])) {
@@ -125,6 +127,9 @@ class EventCardTool
                 }
                 continue;
             }
+            if ($item['key'] !== null && isset($pinned[$item['key']])) {
+                continue;
+            }
             $tag = $item['tag']['Tag'] ?? [];
             $parts = self::tagParts($item['name']);
             $rows['classification'][] = [
@@ -149,14 +154,17 @@ class EventCardTool
     }
 
     /**
-     * One slot per marking namespace of the profile, present or absent, and
-     * the left rail drawn from the first namespace.
+     * One slot per marking namespace of the profile, present or absent, then
+     * the profile's other pinned taxonomies when the event carries them, and
+     * the left rail drawn from the first marking namespace.
      *
      * @param array $context EventContextTool::rows() output
      * @param array $namespaces ValueLabelPriority::markings($profile)
+     * @param array $pinned the plan's pinned taxonomies, in order
+     * @param array $descriptions tag name => tagDescription()
      * @return array slots, rail (class, colour)
      */
-    public static function markings(array $context, array $namespaces)
+    public static function markings(array $context, array $namespaces, array $pinned = [], array $descriptions = [])
     {
         $present = [];
         foreach ($context['markings'] ?? [] as $item) {
@@ -169,8 +177,25 @@ class EventCardTool
             $absent[$missing['key']] = true;
         }
 
+        $pinnedTags = [];
+        foreach ($context['classification'] ?? [] as $item) {
+            if ($item['kind'] === 'tag' && $item['key'] !== null && in_array($item['key'], $pinned, true)) {
+                $pinnedTags[$item['key']][] = $item;
+            }
+        }
+
         $slots = [];
-        foreach ($namespaces as $namespace) {
+        $order = array_merge(array_values(array_diff($namespaces, $pinned)), $pinned);
+        foreach ($order as $namespace) {
+            if (!in_array($namespace, $namespaces, true)) {
+                if (empty($pinnedTags[$namespace])) {
+                    continue;
+                }
+                $slots[] = $namespace === 'admiralty-scale'
+                    ? self::admiralty($pinnedTags[$namespace], $descriptions)
+                    : self::pinnedSlot($namespace, $pinnedTags[$namespace], $descriptions);
+                continue;
+            }
             if (isset($present[$namespace])) {
                 $item = $present[$namespace];
                 $colour = $item['tag']['Tag']['colour'] ?? null;
@@ -198,6 +223,43 @@ class EventCardTool
                 : ['class' => '', 'colour' => $colour];
         }
         return ['slots' => $slots, 'rail' => $rail];
+    }
+
+    /**
+     * @param array|null $profile
+     * @return array the plan's pinned taxonomy namespaces, in order
+     */
+    public static function pinned($profile)
+    {
+        return ValueLabelPriority::planFor($profile)[ValueLabelPriority::TAXONOMIES][ValueLabelPriority::PINNED] ?? [];
+    }
+
+    /**
+     * The reader's grade of an organisation.
+     *
+     * @param array $org uuid
+     * @param array $grades ValueTrustTool::planFor($profile)['grades']
+     * @return string|null A…G, null when ungraded
+     */
+    public static function grade(array $org, array $grades)
+    {
+        $uuid = strtolower(trim((string)($org['uuid'] ?? '')));
+        $grade = $uuid === '' ? null : ($grades[$uuid] ?? null);
+        return is_string($grade) && preg_match('/^[A-G]$/', $grade) ? $grade : null;
+    }
+
+    /**
+     * @param array|false|null $taxonomy Taxonomy::getTaxonomyForTag() for one tag
+     * @return array predicate, entry: their expanded names, null when unknown
+     */
+    public static function tagDescription($taxonomy)
+    {
+        $predicate = $taxonomy['TaxonomyPredicate'][0] ?? [];
+        $entry = $predicate['TaxonomyEntry'][0] ?? [];
+        return [
+            'predicate' => ($predicate['expanded'] ?? '') !== '' ? $predicate['expanded'] : null,
+            'entry' => ($entry['expanded'] ?? '') !== '' ? $entry['expanded'] : null,
+        ];
     }
 
     /**
@@ -324,6 +386,56 @@ class EventCardTool
             return __('%s mo ago', round($d / 30.4));
         }
         return __('%s y ago', self::trimZero(round($d / 365.25, 1)));
+    }
+
+    /**
+     * The admiralty-scale tags as one code: source reliability upper-cased,
+     * information credibility as its digit, `·` for a missing half.
+     */
+    private static function admiralty(array $items, array $descriptions)
+    {
+        $halves = ['source-reliability' => null, 'information-credibility' => null];
+        $says = [];
+        foreach ($items as $item) {
+            if (!preg_match('/^admiralty-scale:([a-z-]+)="?([^"]*)"?$/i', trim($item['name']), $m)) {
+                continue;
+            }
+            $predicate = strtolower($m[1]);
+            if (!array_key_exists($predicate, $halves) || $halves[$predicate] !== null) {
+                continue;
+            }
+            $value = $predicate === 'source-reliability' ? strtoupper($m[2]) : $m[2];
+            $halves[$predicate] = $value;
+            $description = $descriptions[$item['name']] ?? [];
+            $says[$predicate] = ($description['predicate'] ?? $predicate) . ' ' . $value
+                . (empty($description['entry']) ? '' : ' — ' . $description['entry']);
+        }
+        if ($halves['source-reliability'] === null && $halves['information-credibility'] === null) {
+            return self::pinnedSlot('admiralty-scale', $items, $descriptions);
+        }
+        return [
+            'key' => 'admiralty-scale',
+            'present' => true,
+            'kind' => 'admiralty',
+            'code' => ($halves['source-reliability'] ?? '·') . ($halves['information-credibility'] ?? '·'),
+            'title' => implode(' · ', array_filter(array_replace(array_fill_keys(array_keys($halves), null), $says))),
+        ];
+    }
+
+    private static function pinnedSlot($namespace, array $items, array $descriptions)
+    {
+        $tags = [];
+        foreach ($items as $item) {
+            $parts = self::tagParts($item['name']);
+            $description = $descriptions[$item['name']] ?? [];
+            $tags[] = [
+                'name' => $item['name'],
+                'value' => $parts['value'],
+                'colour' => $item['tag']['Tag']['colour'] ?? null,
+                'title' => $item['name'] . (empty($description['entry']) ? '' : ' — ' . $description['entry']),
+            ];
+        }
+        return ['key' => $namespace, 'present' => true, 'kind' => 'pinned', 'tags' => $tags];
     }
 
     private static function clusterChip(array $item, $attribution)

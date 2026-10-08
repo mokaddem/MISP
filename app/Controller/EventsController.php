@@ -72,6 +72,14 @@ class EventsController extends AppController
         'publish_timestamp'
     ];
 
+    // Overmind's table shows and sorts by the last change.
+    const OVERMIND_HIDDEN_INDEX_COLUMNS = [
+        'is_extension',
+        'publish_timestamp',
+        'owner_org',
+        'creator_user'
+    ];
+
     public function beforeFilter()
     {
         parent::beforeFilter();
@@ -812,7 +820,7 @@ class EventsController extends AppController
             $this->redirect(array('controller' => 'events', 'action' => 'view', $events[0]['Event']['id']));
         }
 
-        list($possibleColumns, $enabledColumns) = $this->__indexColumns();
+        list($possibleColumns, $enabledColumns, $savedHiddenColumns) = $this->__indexColumns();
         $withCards = $this->theme === 'Overmind';
         $attachColumns = $enabledColumns;
         if ($withCards) {
@@ -833,6 +841,7 @@ class EventsController extends AppController
         $this->set('labelPlan', $labelPlan);
         $this->set('possibleColumns', $possibleColumns);
         $this->set('columns', $enabledColumns);
+        $this->set('savedHiddenColumns', $savedHiddenColumns);
         $this->set('eventDescriptions', $this->Event->fieldDescriptions);
         $this->set('analysisLevels', $this->Event->analysisLevels);
         $this->set('distributionLevels', $this->Event->distributionLevels);
@@ -1147,13 +1156,16 @@ class EventsController extends AppController
         $possibleColumns[] = 'publish_timestamp';
 
         $userDisabledColumns = $this->User->UserSetting->getValueForUser($this->Auth->user()['id'], 'event_index_hide_columns');
-        if ($userDisabledColumns === null) {
-            $userDisabledColumns = self::DEFAULT_HIDDEN_INDEX_COLUMNS;
+        $saved = $userDisabledColumns !== null;
+        if (!$saved) {
+            $userDisabledColumns = $this->theme === 'Overmind'
+                ? self::OVERMIND_HIDDEN_INDEX_COLUMNS
+                : self::DEFAULT_HIDDEN_INDEX_COLUMNS;
         }
 
         $enabledColumns = array_diff($possibleColumns, $userDisabledColumns);
 
-        return [$possibleColumns, $enabledColumns];
+        return [$possibleColumns, $enabledColumns, $saved ? array_values($userDisabledColumns) : null];
     }
 
     private function __attachInfoToEvents(array $columns, array $events)
@@ -1280,9 +1292,15 @@ class EventsController extends AppController
             $extendedBy[$row['Event']['extends_uuid']] = (int)$row[0]['children'];
         }
 
+        App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
+        $grades = ValueTrustTool::planFor($profile)['grades'];
+        $pinned = EventCardTool::pinned($profile);
+        $pinnedExtras = array_diff($pinned, $markingNamespaces);
+
+        $contexts = [];
+        $pinnedTagNames = [];
         foreach ($events as $k => $event) {
-            $e = $event['Event'];
-            $context = EventContextTool::rows(
+            $contexts[$k] = EventContextTool::rows(
                 $event['EventTag'] ?? [],
                 $event['GalaxyCluster'] ?? [],
                 null,
@@ -1291,6 +1309,24 @@ class EventsController extends AppController
                 $profile,
                 $permitted
             );
+            foreach ($contexts[$k]['classification'] as $item) {
+                if ($item['kind'] === 'tag' && in_array($item['key'], $pinnedExtras, true)) {
+                    $pinnedTagNames[$item['name']] = true;
+                }
+            }
+        }
+        // Redis-cached, and bounded by the distinct pinned tags on the page.
+        $descriptions = [];
+        if ($pinnedTagNames) {
+            $Taxonomy = ClassRegistry::init('Taxonomy');
+            foreach (array_keys($pinnedTagNames) as $tagName) {
+                $descriptions[$tagName] = EventCardTool::tagDescription($Taxonomy->getTaxonomyForTag($tagName));
+            }
+        }
+
+        foreach ($events as $k => $event) {
+            $e = $event['Event'];
+            $context = $contexts[$k];
             $extends = null;
             if (!empty($e['extends_uuid'])) {
                 $parent = $extendedEvents[$e['extends_uuid']] ?? null;
@@ -1301,7 +1337,8 @@ class EventsController extends AppController
             $sharingGroupId = (int)($e['sharing_group_id'] ?? 0);
             $events[$k]['EventCard'] = [
                 'rows' => EventCardTool::rows($context, $profile),
-                'markings' => EventCardTool::markings($context, $markingNamespaces),
+                'markings' => EventCardTool::markings($context, $markingNamespaces, $pinned, $descriptions),
+                'grade' => EventCardTool::grade($event['Orgc'] ?? [], $grades),
                 'state' => EventCardTool::state($e),
                 'distribution' => EventCardTool::distribution(
                     $e['distribution'],

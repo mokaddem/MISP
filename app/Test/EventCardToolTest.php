@@ -159,7 +159,7 @@ class EventCardToolTest extends TestCase
     public function testClassificationFollowsTheProfileAcrossTagsAndClusters(): void
     {
         $profile = ['context' => [
-            'taxonomies' => ['pinned' => ['tlp', 'admiralty-scale']],
+            'taxonomies' => ['pinned' => ['tlp', 'admiralty-scale'], 'preferred' => ['type']],
             'galaxies' => ['preferred' => ['sector']],
         ]];
         $tags = [
@@ -174,10 +174,10 @@ class EventCardToolTest extends TestCase
         $context = EventContextTool::rows($tags, $clusters, null, [], [], $profile, ['taxonomies' => ['tlp', 'admiralty-scale']]);
         $rows = EventCardTool::rows($context, $profile);
         $this->assertSame(
-            ['tag:b', 'cluster:Academia - University', 'cluster:Kali365', 'tag:OSINT', 'fold:1'],
+            ['cluster:Academia - University', 'tag:OSINT', 'cluster:Kali365', 'fold:1'],
             $this->labels($rows['classification'])
         );
-        $this->assertSame('pinned', $rows['classification'][0]['priority']);
+        $this->assertSame('preferred', $rows['classification'][0]['priority']);
         $this->assertSame('preferred', $rows['classification'][1]['priority']);
         $this->assertNull($rows['classification'][2]['priority']);
 
@@ -225,6 +225,130 @@ class EventCardToolTest extends TestCase
 
         $none = EventCardTool::markings(['markings' => [], 'markings_absent' => [['key' => 'tlp']]], ['tlp', 'pap']);
         $this->assertSame('dk-m-none', $none['rail']['class']);
+    }
+
+    private function profileContext(array $tags, array $profile)
+    {
+        $permitted = ['taxonomies' => ['tlp', 'pap', 'admiralty-scale', 'estimative-language']];
+        return EventContextTool::rows($tags, [], null, [], [], $profile, $permitted);
+    }
+
+    private function irProfile(array $pinned = ['tlp', 'pap', 'admiralty-scale'])
+    {
+        return ['context' => ['markings' => ['tlp', 'pap'], 'taxonomies' => ['pinned' => $pinned]]];
+    }
+
+    private function slot(array $markings, $key)
+    {
+        foreach ($markings['slots'] as $slot) {
+            if ($slot['key'] === $key) {
+                return $slot;
+            }
+        }
+        $this->fail("no $key slot");
+    }
+
+    public function testPinnedSlotsFollowTheProfileOrder(): void
+    {
+        $profile = $this->irProfile(['tlp', 'estimative-language', 'admiralty-scale', 'pap']);
+        $context = $this->profileContext([
+            $this->eventTag(1, 'tlp:amber', ['colour' => '#FFC000']),
+            $this->eventTag(2, 'admiralty-scale:source-reliability="b"'),
+            $this->eventTag(3, 'estimative-language:likelihood-probability="likely"', ['colour' => '#123456']),
+        ], $profile);
+        $markings = EventCardTool::markings($context, ['tlp', 'pap'], EventCardTool::pinned($profile));
+        $this->assertSame(
+            ['tlp', 'estimative-language', 'admiralty-scale', 'pap'],
+            array_column($markings['slots'], 'key')
+        );
+        $this->assertSame('pinned', $markings['slots'][1]['kind']);
+        $this->assertSame('likely', $markings['slots'][1]['tags'][0]['value']);
+        $this->assertSame('#123456', $markings['slots'][1]['tags'][0]['colour']);
+        $this->assertSame(['key' => 'pap', 'present' => false], $markings['slots'][3]);
+        $this->assertSame(['class' => '', 'colour' => '#FFC000'], $markings['rail']);
+    }
+
+    public function testAdmiraltyIsOneCode(): void
+    {
+        $profile = $this->irProfile();
+        $pinned = EventCardTool::pinned($profile);
+        $full = $this->profileContext([
+            $this->eventTag(1, 'admiralty-scale:information-credibility="2"'),
+            $this->eventTag(2, 'admiralty-scale:source-reliability="b"'),
+        ], $profile);
+        $descriptions = [
+            'admiralty-scale:source-reliability="b"' => ['predicate' => 'Source Reliability', 'entry' => 'Usually reliable'],
+            'admiralty-scale:information-credibility="2"' => ['predicate' => 'Information Credibility', 'entry' => 'Probably true'],
+        ];
+        $slot = $this->slot(EventCardTool::markings($full, ['tlp', 'pap'], $pinned, $descriptions), 'admiralty-scale');
+        $this->assertSame('admiralty', $slot['kind']);
+        $this->assertSame('B2', $slot['code']);
+        $this->assertSame('Source Reliability B — Usually reliable · Information Credibility 2 — Probably true', $slot['title']);
+
+        $source = $this->profileContext([$this->eventTag(2, 'admiralty-scale:source-reliability="b"')], $profile);
+        $this->assertSame('B·', $this->slot(EventCardTool::markings($source, ['tlp', 'pap'], $pinned), 'admiralty-scale')['code']);
+        $credibility = $this->profileContext([$this->eventTag(1, 'admiralty-scale:information-credibility="2"')], $profile);
+        $slot = $this->slot(EventCardTool::markings($credibility, ['tlp', 'pap'], $pinned), 'admiralty-scale');
+        $this->assertSame('·2', $slot['code']);
+        $this->assertSame('information-credibility 2', $slot['title'], 'without a description, the predicate as written');
+    }
+
+    public function testAbsentPinnedTaxonomyHasNoSlot(): void
+    {
+        $profile = $this->irProfile();
+        $context = $this->profileContext([$this->eventTag(1, 'tlp:clear', ['colour' => '#ffffff'])], $profile);
+        $markings = EventCardTool::markings($context, ['tlp', 'pap'], EventCardTool::pinned($profile));
+        $this->assertSame(['tlp', 'pap'], array_column($markings['slots'], 'key'));
+        $this->assertFalse($markings['slots'][1]['present']);
+    }
+
+    public function testPinnedTagsLeaveTheClassificationRow(): void
+    {
+        $profile = $this->irProfile();
+        $context = $this->profileContext([
+            $this->eventTag(1, 'admiralty-scale:source-reliability="b"'),
+            $this->eventTag(2, 'type:OSINT'),
+        ], $profile);
+        $rows = EventCardTool::rows($context, $profile);
+        $this->assertSame(['tag:OSINT'], $this->labels($rows['classification']));
+        $this->assertSame(
+            ['tag:b', 'tag:OSINT'],
+            $this->labels(EventCardTool::rows($context)['classification']),
+            'without a profile nothing is pinned'
+        );
+    }
+
+    public function testNoPinnedExtrasKeepsTodaysMarkings(): void
+    {
+        $profile = $this->irProfile(['tlp', 'pap']);
+        $context = $this->profileContext([
+            $this->eventTag(1, 'tlp:amber', ['colour' => '#FFC000']),
+            $this->eventTag(2, 'type:OSINT'),
+        ], $profile);
+        $this->assertSame(
+            EventCardTool::markings($context, ['tlp', 'pap']),
+            EventCardTool::markings($context, ['tlp', 'pap'], EventCardTool::pinned($profile))
+        );
+        $this->assertSame([], EventCardTool::pinned(null));
+    }
+
+    public function testGrade(): void
+    {
+        $grades = ['55f6ea5e-2c60-40e5-964f-47a8950d210f' => 'B', '5cf66e53-b5f8-43e7-be9a-49880a3b4631' => 'unrated'];
+        $this->assertSame('B', EventCardTool::grade(['uuid' => '55F6EA5E-2c60-40e5-964f-47a8950d210f'], $grades));
+        $this->assertNull(EventCardTool::grade(['uuid' => '5cf66e53-b5f8-43e7-be9a-49880a3b4631'], $grades), 'unrated draws nothing');
+        $this->assertNull(EventCardTool::grade(['uuid' => '00000000-0000-0000-0000-000000000000'], $grades));
+        $this->assertNull(EventCardTool::grade([], $grades));
+    }
+
+    public function testTagDescription(): void
+    {
+        $taxonomy = ['Taxonomy' => ['namespace' => 'admiralty-scale'], 'TaxonomyPredicate' => [[
+            'value' => 'source-reliability', 'expanded' => 'Source Reliability',
+            'TaxonomyEntry' => [['value' => 'b', 'expanded' => 'Usually reliable']],
+        ]]];
+        $this->assertSame(['predicate' => 'Source Reliability', 'entry' => 'Usually reliable'], EventCardTool::tagDescription($taxonomy));
+        $this->assertSame(['predicate' => null, 'entry' => null], EventCardTool::tagDescription(false));
     }
 
     public function testState(): void
