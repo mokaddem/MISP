@@ -45,6 +45,21 @@ class PivotGraphTool
         $this->linkReferences($user, $eventId, $seed);
         $this->linkRelationships($user, $event, $seed);
 
+        // Too much linked to draw: say what, rather than load it.
+        if ($seed->linksFit()) {
+            $this->countChildren($user, $eventId, $seed);
+        }
+        if (!$seed->linksFit()) {
+            $payload = $this->fetch($user, $eventId, [], []);
+            $payload['meta'] = [
+                'feed_hits' => 'pivot',
+                'linked' => $seed->linkedSummary(),
+                'budget' => PivotSeed::NODE_BUDGET,
+                'feed_scan_limit' => PivotSeed::FEED_SCAN_LIMIT,
+            ];
+            return $payload;
+        }
+
         if (!PivotSeed::scansFeedHits($event['attribute_count'])) {
             $feedHits = 'pivot';
         } else {
@@ -445,7 +460,8 @@ class PivotGraphTool
     {
         $refs = ClassRegistry::init('ObjectReference')->find('all', [
             'conditions' => ['ObjectReference.event_id' => $eventId, 'ObjectReference.deleted' => 0],
-            'fields' => ['ObjectReference.object_id', 'ObjectReference.referenced_uuid', 'ObjectReference.referenced_type'],
+            'fields' => ['ObjectReference.object_id', 'ObjectReference.referenced_uuid', 'ObjectReference.referenced_type',
+                         'ObjectReference.relationship_type'],
             'recursive' => -1,
             'callbacks' => false,
         ]);
@@ -486,6 +502,7 @@ class PivotGraphTool
                 $seed->linkAttribute($target['id'], $target['object_id']);
             }
             $seed->linkObject($ref['object_id']);
+            $seed->countReference($ref['relationship_type']);
         }
     }
 
@@ -499,22 +516,25 @@ class PivotGraphTool
         $Relationship = ClassRegistry::init('Relationship');
         $acl = $Relationship->buildConditions($user);
         $eventUuid = $event['uuid'];
-        $ends = [];   // [this end: [type, id, object id] | null for the event, far type, far uuid]
+        // [this end: [type, id, object id] | null for the event, far type, far uuid, uuid, type]
+        $ends = [];
 
         foreach (['object_uuid' => 'related_object', 'related_object_uuid' => 'object'] as $near => $far) {
             $rows = $Relationship->find('all', [
                 'conditions' => [$acl, "Relationship.$near" => $eventUuid],
-                'fields' => ["Relationship.{$far}_type", "Relationship.{$far}_uuid"],
+                'fields' => ["Relationship.{$far}_type", "Relationship.{$far}_uuid", 'Relationship.uuid', 'Relationship.relationship_type'],
                 'recursive' => -1,
                 'callbacks' => false,
             ]);
             foreach ($rows as $row) {
-                $ends[] = [null, $row['Relationship']["{$far}_type"], $row['Relationship']["{$far}_uuid"]];
+                $rel = $row['Relationship'];
+                $ends[] = [null, $rel["{$far}_type"], $rel["{$far}_uuid"], $rel['uuid'], $rel['relationship_type']];
             }
             foreach (['Attribute', 'Object'] as $alias) {
                 $fields = $alias === 'Attribute' ? ['Attribute.id', 'Attribute.object_id'] : ['Object.id'];
                 $rows = $this->elementFind($user, $event['id'], $alias, [
-                    'fields' => array_merge($fields, ["Relationship.{$far}_type", "Relationship.{$far}_uuid"]),
+                    'fields' => array_merge($fields, ["Relationship.{$far}_type", "Relationship.{$far}_uuid",
+                                                      'Relationship.uuid', 'Relationship.relationship_type']),
                     'joins' => [[
                         'table' => 'relationships', 'alias' => 'Relationship', 'type' => 'INNER',
                         'conditions' => ["Relationship.$near = $alias.uuid"],
@@ -523,8 +543,9 @@ class PivotGraphTool
                 ]);
                 foreach ($rows as $row) {
                     $objectId = $alias === 'Attribute' ? (int)$row['Attribute']['object_id'] : 0;
+                    $rel = $row['Relationship'];
                     $ends[] = [[$alias, (int)$row[$alias]['id'], $objectId],
-                               $row['Relationship']["{$far}_type"], $row['Relationship']["{$far}_uuid"]];
+                               $rel["{$far}_type"], $rel["{$far}_uuid"], $rel['uuid'], $rel['relationship_type']];
                 }
             }
         }
@@ -545,9 +566,15 @@ class PivotGraphTool
         $ownAttributes = $this->visibleAttributes($user, $event['id'], array_keys($farAttributes));
         $ownObjects = $this->visibleObjects($user, $event['id'], 'Object.uuid', array_keys($farObjects));
 
-        foreach ($ends as [$near, $farType, $farUuid]) {
+        // Between two of the event's own elements, one is read from each end.
+        $counted = [];
+        foreach ($ends as [$near, $farType, $farUuid, $uuid, $type]) {
             if (!in_array($farType, self::DRAWN_TARGETS, true)) {
                 continue;
+            }
+            if (!isset($counted[$uuid])) {
+                $counted[$uuid] = true;
+                $seed->countRelationship($type);
             }
             if ($near === null) {
                 $seed->linkFarEnd('event:' . $eventUuid);

@@ -102,4 +102,47 @@ class PivotSeedTest extends TestCase
         $this->assertFalse(PivotSeed::scansFeedHits(PivotSeed::FEED_SCAN_LIMIT + 1));
         $this->assertTrue(PivotSeed::scansFeedHits('0'));
     }
+
+    public function testLinksOverTheBudgetDoNotFitBeforeAnyCount(): void
+    {
+        $seed = new PivotSeed(3);
+        foreach ([1, 2, 3, 4] as $objectId) {
+            $seed->linkObject($objectId);
+        }
+
+        $this->assertFalse($seed->linksFit());
+        $this->assertSame([1, 2, 3, 4], $seed->uncountedObjectIds());
+    }
+
+    public function testLinksThatFitUntilChildrenAreCounted(): void
+    {
+        $seed = new PivotSeed(5);
+        $seed->linkObject(1);
+        $seed->linkObject(2);
+        $this->assertTrue($seed->linksFit());
+
+        $seed->addChildCounts([1 => 2, 2 => 2]);
+        $this->assertFalse($seed->linksFit());
+    }
+
+    public function testTheSummaryNamesTheLeadingTypes(): void
+    {
+        $seed = new PivotSeed(1);
+        $seed->linkObject(1);
+        $seed->linkObject(2);
+        $seed->linkAttribute(9);
+        foreach (['analysed-with', 'analysed-with', 'drops', null, 'drops', 'analysed-with'] as $type) {
+            $seed->countReference($type);
+        }
+        $seed->countRelationship('related-to');
+        $seed->countRelationship('uses');
+
+        $summary = $seed->linkedSummary();
+        $this->assertSame(2, $summary['objects']);
+        $this->assertSame(1, $summary['attributes']);
+        $this->assertSame(6, $summary['references']);
+        $this->assertSame(2, $summary['relationships']);
+        $this->assertSame(3, $summary['nodes']);
+        $this->assertSame([['analysed-with', 3], ['drops', 2], ['related-to', 2]], $summary['types']);
+    }
 }

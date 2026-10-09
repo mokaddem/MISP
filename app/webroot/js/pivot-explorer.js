@@ -87,6 +87,8 @@
         // What /events/graph said about the seed; null when the host handed
         // its own payload, which then holds the whole event.
         var _meta        = null;
+        // What the links hold when they are too many to open on; null otherwise.
+        var _linked      = null;
 
         /* ── helpers ───────────────────────────────────────────── */
         // data-misp-mode on <html> is dark under Overmind's dark toggle and dark-only themes.
@@ -468,6 +470,13 @@
                 l2Cost += cost;
             });
 
+            if (l1 > NODE_BUDGET) {
+                return {
+                    linkedAttrUuids: {}, connectedObjUuids: {}, eventNodes: [], foreignNodes: [],
+                    clusterNodes: [], l2Uuids: {}, l2AttrUuids: {}, linked: linkedSummary(ev, conn)
+                };
+            }
+
             var l2Fits = (l1 + l2Cost) <= NODE_BUDGET;
 
             return {
@@ -480,6 +489,36 @@
                 // "is this on the canvas?" is one lookup for every caller.
                 l2Uuids:           l2Fits ? l2Uuids : {},
                 l2AttrUuids:       l2Fits ? l2AttrUuids : {}
+            };
+        }
+
+        // As the graph endpoint's meta.linked: what the links would draw.
+        function linkedSummary(ev, conn) {
+            var types = {}, references = 0, relationships = 0, seen = {};
+            function tally(type) { type = type || 'related-to'; types[type] = (types[type] || 0) + 1; }
+            (ev.Object || []).forEach(function (obj) {
+                if (isDeleted(obj) || !conn.connectedObjUuids[obj.uuid]) return;
+                (obj.ObjectReference || []).forEach(function (ref) {
+                    if (isDeleted(ref)) return;
+                    references++;
+                    tally(ref.relationship_type);
+                });
+            });
+            eachAnalystRelationship(ev, function (rel, fromId, toId) {
+                if (!fromId || !toId || seen[rel.uuid]) return;
+                seen[rel.uuid] = true;
+                relationships++;
+                tally(rel.relationship_type);
+            });
+            var attributes = 0;
+            (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a) && conn.linkedAttrUuids[a.uuid]) attributes++; });
+            return {
+                objects: Object.keys(conn.connectedObjUuids).length,
+                attributes: attributes,
+                references: references,
+                relationships: relationships,
+                types: Object.keys(types).sort(function (a, b) { return types[b] - types[a] || a.localeCompare(b); })
+                    .slice(0, 3).map(function (t) { return [t, types[t]]; })
             };
         }
 
@@ -995,6 +1034,7 @@
             /* The seed decides what each resolution level contributes (D12); this
                builder only lays it out. */
             var seed                = computeSeed(ev);
+            _linked = seed.linked || null;
             var linkedAttrUuids     = seed.linkedAttrUuids;
             var connectedObjUuids   = seed.connectedObjUuids;
 
@@ -2745,6 +2785,7 @@
         // `seededEmpty`: the seed drew nothing. Otherwise the analyst emptied the
         // canvas, and "nothing is related" would be false.
         function emptyStatement(ev, seededEmpty) {
+            if (_linked && seededEmpty) return linkedStatement(_linked);
             if (_meta) return seededStatement(ev, seededEmpty);
             var attrs = 0, objs = 0;
             (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a)) attrs++; });
@@ -2765,6 +2806,29 @@
             } : {
                 title:  'The canvas is empty',
                 detail: 'The event\'s ' + listed,
+                action: true
+            };
+        }
+
+        function formatCount(n) { return Number(n || 0).toLocaleString(); }
+
+        // The links are more than the canvas opens on: what they hold.
+        function linkedStatement(linked) {
+            var what = [];
+            if (linked.objects) what.push(formatCount(linked.objects) + (linked.objects === 1 ? ' object' : ' objects'));
+            if (linked.attributes) what.push(formatCount(linked.attributes) + (linked.attributes === 1 ? ' attribute' : ' attributes'));
+            var links = (linked.references || 0) + (linked.relationships || 0);
+            var noun = !linked.relationships ? 'references' : (!linked.references ? 'analyst relationships' : 'links');
+            var types = linked.types || [];
+            var by = types.length === 1
+                ? formatCount(links) + ' ' + types[0][0] + ' ' + noun
+                : formatCount(links) + ' ' + noun + (types.length ? ', mostly ' + types.map(function (t) {
+                    return t[0] + ' (' + formatCount(t[1]) + ')';
+                }).join(', ') : '');
+            return {
+                title:  'Too much is linked to draw at once',
+                detail: what.join(' and ') + ' linked by ' + by + ' — more than the canvas opens on.'
+                        + ' Pick some from Event elements.',
                 action: true
             };
         }
@@ -4925,6 +4989,10 @@
                     _meta = payload.meta || {};
                     var event = { Event: payload.Event };
                     _event = event;
+                    if (_meta.linked) {
+                        _linked = _meta.linked;
+                        return { event: event, data: { nodes: [], edges: [] } };
+                    }
                     return { event: event, data: buildGraphData(event) };
                 });
         }

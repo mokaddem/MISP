@@ -2,8 +2,9 @@
 
 /**
  * Which of an event's elements the Pivot Explorer opens on: everything an
- * object reference or analyst relationship touches, always, and the
- * elements a feed or server has seen when all of them fit the budget.
+ * object reference or analyst relationship touches, and the elements a feed
+ * or server has seen when all of them fit the budget. When the links alone
+ * do not fit, the canvas opens on nothing and says what was left out.
  *
  * An object is drawn with its children, so it costs one node plus one per
  * live attribute it holds.
@@ -37,6 +38,15 @@ class PivotSeed
 
     /** @var array object id => true */
     private $hitObjects = [];
+
+    /** @var array relationship type => links of that type */
+    private $types = [];
+
+    /** @var int */
+    private $references = 0;
+
+    /** @var int */
+    private $relationships = 0;
 
     public function __construct($budget = self::NODE_BUDGET)
     {
@@ -86,6 +96,74 @@ class PivotSeed
     public function linkFarEnd($key)
     {
         $this->farEnds[(string)$key] = true;
+    }
+
+    /**
+     * A drawable object reference, for the summary of what the links hold.
+     *
+     * @param string|null $type
+     */
+    public function countReference($type)
+    {
+        $this->references++;
+        $this->countType($type);
+    }
+
+    /**
+     * A drawable analyst relationship, as countReference().
+     *
+     * @param string|null $type
+     */
+    public function countRelationship($type)
+    {
+        $this->relationships++;
+        $this->countType($type);
+    }
+
+    /**
+     * Whether everything the links touch fits the budget. An object whose
+     * children are not counted yet costs one node, so a false here is final
+     * before any count is read.
+     *
+     * @return bool
+     */
+    public function linksFit()
+    {
+        return $this->linkedCost() <= $this->budget;
+    }
+
+    /**
+     * What the links hold, for a canvas that does not open on them.
+     *
+     * @param int $top how many relationship types to name
+     * @return array objects, attributes (outside objects), references,
+     *               relationships, nodes (a floor while children are
+     *               uncounted), types [[type, count]]
+     */
+    public function linkedSummary($top = 3)
+    {
+        $types = $this->types;
+        uksort($types, function ($a, $b) use ($types) {
+            return $types[$b] <=> $types[$a] ?: strcmp($a, $b);
+        });
+        $out = [];
+        foreach (array_slice($types, 0, $top, true) as $type => $n) {
+            $out[] = [(string)$type, $n];
+        }
+        return [
+            'objects' => count($this->objects),
+            'attributes' => count($this->attributes),
+            'references' => $this->references,
+            'relationships' => $this->relationships,
+            'nodes' => $this->linkedCost(),
+            'types' => $out,
+        ];
+    }
+
+    private function countType($type)
+    {
+        $type = (string)($type ?? '') === '' ? 'related-to' : (string)$type;
+        $this->types[$type] = ($this->types[$type] ?? 0) + 1;
     }
 
     /**
