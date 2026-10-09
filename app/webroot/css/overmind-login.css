@@ -104,6 +104,21 @@
     --oml-c-pulse: 13, 166, 200;
     --oml-c-link-alpha: 0.28;
     --oml-c-node-alpha: 0.55;
+    --oml-c-corr: 24, 146, 177;
+    --oml-c-badge: 240, 249, 252;
+    --oml-c-inst-alpha: 0.88;
+    --oml-c-facets: 51,195,238 | 13,166,200 | 24,146,177 | 12,58,74 | 19,113,142 | 24,146,177;
+    --oml-c-sat-left: 51, 195, 238;
+    --oml-c-sat-right: 19, 113, 142;
+
+    --oml-port-ring: #0DA6C8;
+    --oml-port-lit: #0C3A4A;
+    --oml-port-stroke: #13718E;
+    --oml-rule-1: #33C3EE;
+    --oml-rule-2: #0DA6C8;
+    --oml-rule-3: #1892B1;
+    --oml-rule-4: #13718E;
+    --oml-rule-5: #0C3A4A;
 }
 
 [data-misp-mode="dark"] .oml {
@@ -157,6 +172,21 @@
     --oml-c-pulse: 190, 240, 255;
     --oml-c-link-alpha: 0.22;
     --oml-c-node-alpha: 0.7;
+    --oml-c-corr: 111, 214, 244;
+    --oml-c-badge: 8, 40, 52;
+    --oml-c-inst-alpha: 0.92;
+    --oml-c-facets: 170,232,250 | 51,195,238 | 13,166,200 | 24,146,177 | 13,166,200 | 111,214,244;
+    --oml-c-sat-left: 170, 232, 250;
+    --oml-c-sat-right: 51, 195, 238;
+
+    --oml-port-ring: #AAE8FA;
+    --oml-port-lit: #ffffff;
+    --oml-port-stroke: #33C3EE;
+    --oml-rule-1: #AAE8FA;
+    --oml-rule-2: #33C3EE;
+    --oml-rule-3: #0DA6C8;
+    --oml-rule-4: #1892B1;
+    --oml-rule-5: #13718E;
 }
 
 .oml {
@@ -215,17 +245,47 @@
     }
 }
 
-/* the logo's satellite hexagon, pinned to the panel's corner */
-.oml-panel::before {
-    content: "";
+/* the panel's ports into the canvas graph; overmind-login.js lights them */
+.oml-port {
     position: absolute;
-    top: -7px;
-    right: 34px;
-    width: 14px;
-    height: 16px;
-    background: var(--oml-sky);
-    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-    opacity: 0.9;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    overflow: visible;
+    pointer-events: none;
+}
+.oml-port-hub { top: -12px; right: 27px; }
+.oml-port-side { top: 118px; left: -12px; }
+.oml-port-core { fill: var(--oml-sky); opacity: 0.95; transition: fill .6s ease-out; }
+.oml-port-side .oml-port-core { fill: var(--oml-panel-solid); stroke: var(--oml-port-stroke); stroke-width: 1.6; }
+.oml-port-ring {
+    fill: none;
+    stroke: var(--oml-port-ring);
+    stroke-width: 1.4;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(2.4);
+    transition: opacity .9s ease-out, transform .9s ease-out;
+}
+.oml-port.oml-lit .oml-port-ring { opacity: .95; transform: scale(1); transition: none; }
+.oml-port.oml-lit .oml-port-core { fill: var(--oml-port-lit); transition: none; }
+.oml-port-side.oml-lit .oml-port-core { fill: var(--oml-port-stroke); }
+
+.oml-rule {
+    position: absolute;
+    top: -1px;
+    right: 24px;
+    left: 24px;
+    height: 3px;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(90deg,
+        var(--oml-rule-1) 0 20%, var(--oml-rule-2) 20% 40%, var(--oml-rule-3) 40% 60%,
+        var(--oml-rule-4) 60% 80%, var(--oml-rule-5) 80% 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .oml-port-core, .oml-port-ring { transition: none; }
 }
 
 .oml-brand {
