@@ -980,10 +980,16 @@
                     var d = (node && node.getData && node.getData()) || {};
                     var el = document.createElement('div');
                     el.className = 'pe-node-chip';
-                    el.innerHTML = entity === 'cluster'
-                        ? window.TagChips.cluster({ value: d.value || d.label, galaxy: d.galaxy_name || d.galaxy_type || '',
-                                                    local: d.local }, { display: 'full', href: function () { return null; } })
-                        : window.TagChips.chip({ name: d.name || d.label, colour: d.colour, local: d.local }, { searchUrl: '' });
+                    if (entity === 'cluster') {
+                        el.innerHTML = window.TagChips.cluster({ value: d.value || d.label, galaxy: d.galaxy_name || d.galaxy_type || '',
+                                                                 local: d.local }, { display: 'full', href: function () { return null; } });
+                        return el;
+                    }
+                    var name = d.name || d.label;
+                    // namespace:value (tlp:white) fits on one row
+                    var p = window.TagChips.parse(name);
+                    el.innerHTML = window.TagChips.chip({ name: name, colour: d.colour, local: d.local },
+                                                        { searchUrl: '', inline: p.namespace !== null && !p.above.length });
                     return el;
                 }
             };
