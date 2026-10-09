@@ -347,6 +347,15 @@ $children[] = [
     'label' => __('Distribution'),
     'icon' => 'fas fa-share-nodes',
     'options' => $distributionOptions,
+    'sub' => [
+        'option' => '4',
+        'name' => 'sharinggroup',
+        'label' => __('Sharing group'),
+        'source' => $baseurl . '/sharing_groups/pickerSearch',
+        'exclude' => true,
+        'resolved' => $filterLabels['sharinggroup'] ?? [],
+        'hint' => __('Including a group keeps only events shared with it.'),
+    ],
 ];
 $children[] = [
     'type' => 'picker',
@@ -357,6 +366,24 @@ $children[] = [
         ['value' => '1', 'label' => __('Published'), 'style' => null],
         ['value' => '0', 'label' => __('Unpublished'), 'style' => null],
     ],
+];
+$timePresets = [
+    ['value' => '1d', 'label' => __('24h'), 'title' => __('last 24 hours')],
+    ['value' => '7d', 'label' => __('7d'), 'title' => __('last 7 days')],
+    ['value' => '30d', 'label' => __('30d'), 'title' => __('last 30 days')],
+    ['value' => '90d', 'label' => __('90d'), 'title' => __('last 90 days')],
+    ['value' => '365d', 'label' => __('1y'), 'title' => __('last year')],
+];
+$children[] = [
+    'type' => 'time',
+    'name' => 'time',
+    'label' => __('Time'),
+    'icon' => 'far fa-clock',
+    'fields' => [
+        ['name' => 'timestamp', 'label' => __('Changed')],
+        ['name' => 'publish_timestamp', 'label' => __('Published'), 'aliases' => ['publishtimestamp']],
+    ],
+    'presets' => $timePresets,
 ];
 
 if (!empty($show_user_button)) {
@@ -386,13 +413,29 @@ if (!empty($show_org_button) && !$canPickOrgs) {
     ];
 }
 
-$timeLabel = function ($value) {
+$timeTitles = array_column($timePresets, 'title', 'value');
+$timeDay = function ($value) {
+    return ctype_digit($value) ? date('Y-m-d', (int)$value) : substr($value, 0, 10);
+};
+$timeLabel = function ($value) use ($timeTitles, $timeDay) {
+    if (isset($timeTitles[$value])) {
+        return $timeTitles[$value];
+    }
+    if (strpos($value, '|') !== false) {
+        [$from, $to] = explode('|', $value, 2);
+        return $from === '' || $from === '0'
+            ? sprintf(__('until %s'), $timeDay($to))
+            : $timeDay($from) . ' – ' . $timeDay($to);
+    }
     if (preg_match('/^(\d+)([dhms])$/i', $value, $m)) {
         $units = ['d' => __('days'), 'h' => __('hours'), 'm' => __('minutes'), 's' => __('seconds')];
         return sprintf(__('last %s %s'), $m[1], $units[strtolower($m[2])]);
     }
     if (ctype_digit($value)) {
         return sprintf(__('since %s'), date('Y-m-d H:i', (int)$value));
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}/', $value)) {
+        return sprintf(__('since %s'), $value);
     }
     return $value;
 };

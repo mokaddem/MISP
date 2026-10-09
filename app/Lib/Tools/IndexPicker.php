@@ -175,16 +175,53 @@ class IndexPicker
     }
 
     /**
+     * The sharing groups the reader may see, by name; the picker narrows the
+     * whole list itself.
+     *
+     * @param array $user
+     * @param array|null $ids only these
+     * @return array
+     */
+    public static function sharingGroups(array $user, $ids = null)
+    {
+        $SharingGroup = ClassRegistry::init('SharingGroup');
+        $authorised = array_diff($SharingGroup->authorizedIds($user), [-1]);
+        if ($ids !== null) {
+            $authorised = array_intersect($authorised, array_map('intval', $ids));
+        }
+        if (empty($authorised)) {
+            return [];
+        }
+        $rows = $SharingGroup->find('all', [
+            'conditions' => ['SharingGroup.id' => array_values($authorised)],
+            'fields' => ['SharingGroup.id', 'SharingGroup.name', 'SharingGroup.active'],
+            'order' => ['SharingGroup.name' => 'ASC'],
+            'recursive' => -1,
+        ]);
+        return array_map(function (array $r) {
+            return [
+                'value' => (string)$r['SharingGroup']['id'],
+                'label' => $r['SharingGroup']['name'],
+                'note' => $r['SharingGroup']['active'] ? null : __('inactive'),
+            ];
+        }, $rows);
+    }
+
+    /**
      * The chips' labels for the values a URL carries, under the same ACL as
      * the searches; a value the reader may not resolve stays as given.
      *
      * @param array $user
-     * @param array $values kind (org, tag, galaxy) => raw values, `!` stripped
+     * @param array $values kind (org, tag, galaxy, sharinggroup) => raw values, `!` stripped
      * @return array kind => value => {value, label, style}
      */
     public static function resolve(array $user, array $values)
     {
-        $out = ['org' => [], 'tag' => [], 'galaxy' => []];
+        $out = ['org' => [], 'tag' => [], 'galaxy' => [], 'sharinggroup' => []];
+        $sharingGroups = array_values(array_filter($values['sharinggroup'] ?? [], 'is_numeric'));
+        if ($sharingGroups) {
+            $out['sharinggroup'] = array_column(self::sharingGroups($user, $sharingGroups), null, 'value');
+        }
         $orgs = array_values(array_filter($values['org'] ?? [], 'is_numeric'));
         if ($orgs && self::canPickOrgs($user)) {
             $Organisation = ClassRegistry::init('Organisation');

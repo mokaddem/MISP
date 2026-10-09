@@ -907,6 +907,7 @@ class ACLComponent extends Component
             'deleteSelection' => ['AND'=> ['perm_sharing_group', 'theming_enabled']],
             'edit' => array('perm_sharing_group'),
             'index' => array('*'),
+            'pickerSearch' => array('*'),
             'railCard' => array('*'),
             'removeServer' => array('perm_sharing_group'),
             'removeOrg' => array('perm_sharing_group'),

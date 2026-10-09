@@ -87,7 +87,7 @@
         var plain = path.split('/').filter(function (segment) {
             var colon = segment.indexOf(':');
             if (colon <= 0) { return true; }
-            named[segment.slice(0, colon)] = decodeURIComponent(segment.slice(colon + 1));
+            named[decodeURIComponent(segment.slice(0, colon))] = decodeURIComponent(segment.slice(colon + 1));
             return false;
         }).join('/');
         var norm = function (s) { return s.toLowerCase().replace(/_/g, '').replace(/\/+$/, ''); };
@@ -95,7 +95,8 @@
         return { base: base, named: named, query: new URLSearchParams(cut === -1 ? '' : url.slice(cut + 1)) };
     }
 
-    // changes: unprefixed name => value, null removes it. Paging restarts.
+    // changes: unprefixed name => value or list, null removes it. A list
+    // goes in the path as `key[0]:a/key[1]:b`. Paging restarts.
     function urlWith(bar, changes) {
         var c = cfg(bar);
         var parts = splitUrl(bar, currentUrl(bar));
@@ -105,11 +106,18 @@
         Object.keys(changes).forEach(function (name) {
             var key = c.prefix + name;
             var value = changes[name];
-            var gone = value === null || value === undefined || value === '';
+            Object.keys(named).forEach(function (k) {
+                if (k.indexOf(key + '[') === 0) { delete named[k]; }
+            });
+            var gone = value === null || value === undefined || value === ''
+                || (Array.isArray(value) && !value.length);
             if (c.transport === 'query') {
-                if (gone) { parts.query.delete(key); } else { parts.query.set(key, value); }
+                if (gone) { parts.query.delete(key); } else { parts.query.set(key, [].concat(value).join('|')); }
             } else if (gone) {
                 delete named[key];
+            } else if (Array.isArray(value)) {
+                delete named[key];
+                value.forEach(function (v, i) { named[key + '[' + i + ']'] = v; });
             } else {
                 named[key] = value;
             }
@@ -351,18 +359,30 @@
         var pc = open.pc;
         var bar = open.bar;
         var subText = (item.style && item.style.galaxy) || item.note;
+        var drill = open.view === 'main' && pc.sub && String(item.value) === pc.sub.option;
+        var label = item.label;
+        if (drill && open.subSelection.some(function (s) { return !s.exclude; })) { label = pc.sub.label; }
+        if (drill && open.subSelection.length) {
+            var picked = open.subSelection.map(function (s) { return (s.exclude ? '≠ ' : '') + s.label; });
+            subText = picked.slice(0, 2).join(', ') + (picked.length > 2 ? ' +' + (picked.length - 2) : '');
+        }
         var sub = subText ? ' <small>' + esc(subText) + '</small>' : '';
         var title = item.unresolved ? ' title="' + esc(S(bar, 'unresolved')) + '"' : '';
         var html = '<li class="ifp-opt" role="option" tabindex="-1" data-state="' + state + '"'
             + ' aria-selected="' + (state === 'include') + '" data-value="' + esc(item.value) + '"' + title + '>'
             + '<span class="ifp-opt-check" aria-hidden="true"><i class="fas ' + (state === 'exclude' ? 'fa-ban' : 'fa-check') + '"></i></span>'
             + swatch(item.style)
-            + '<span class="ifp-opt-name' + (item.unresolved ? ' is-unresolved' : '') + '">' + esc(item.label) + sub + '</span>';
+            + '<span class="ifp-opt-name' + (item.unresolved ? ' is-unresolved' : '') + '">' + esc(label) + sub + '</span>';
         if (pc.exclude) {
             html += '<button type="button" class="ifp-opt-ex" data-ifp-exclude aria-pressed="' + (state === 'exclude') + '"'
                 + ' title="' + esc(state === 'exclude' ? S(bar, 'include') : S(bar, 'exclude')) + '"'
                 + ' aria-label="' + esc((state === 'exclude' ? S(bar, 'include') : S(bar, 'exclude')) + ' ' + item.label) + '">'
                 + '<i class="fas fa-ban" aria-hidden="true"></i></button>';
+        }
+        if (drill) {
+            var drillLabel = S(bar, 'drill').replace('%s', pc.sub.label);
+            html += '<button type="button" class="ifp-opt-drill" data-ifp-drill title="' + esc(drillLabel) + '"'
+                + ' aria-label="' + esc(drillLabel) + '"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>';
         }
         return html + '</li>';
     }
@@ -465,6 +485,8 @@
             open.selection.push({ value: item.value, label: item.label, style: item.style || null, note: item.note || null,
                 exclude: next === 'exclude', unresolved: !!item.unresolved });
         }
+        if (open.view === 'sub') { open.subSelection = open.selection; } else { open.mainSelection = open.selection; }
+        reconcile(open.view === 'sub');
         open.dirty = true;
         if (open.pc.single) {
             var btn = open.picker.querySelector('.ifp-btn');
@@ -520,11 +542,234 @@
         }, THROTTLE);
     }
 
-    function build(bar, picker, local) {
-        var pc = pickerCfg(picker);
+    /*
+     * The index ANDs the sub filter with its parent, so a sub value included
+     * narrows the parent to the option it hangs from. Picking another option
+     * widens back to the whole option: the included sub values go.
+     */
+    function reconcile(fromSub) {
+        var sub = open.root.sub;
+        if (!sub || !open.subSelection.some(function (s) { return !s.exclude; })) { return; }
+        var main = open.mainSelection;
+        if (main.length === 1 && main[0].value === sub.option && !main[0].exclude) { return; }
+        if (fromSub) {
+            var option = (open.root.options || []).find(function (o) { return String(o.value) === sub.option; });
+            main.splice(0, main.length, { value: sub.option, label: option ? option.label : sub.option,
+                style: (option && option.style) || null, note: null, exclude: false, unresolved: false });
+        } else {
+            open.subSelection = open.subSelection.filter(function (s) { return s.exclude; });
+        }
+    }
+
+    function changesOf(state) {
+        var root = state.root;
+        var changes = {};
+        if (root.kind === 'time') {
+            state.fields.forEach(function (f) {
+                changes[f.name] = timeValue(f);
+                f.aliases.forEach(function (alias) { changes[alias] = null; });
+            });
+            return changes;
+        }
+        changes[root.name] = serialize(root, state.mainSelection);
+        if (root.sub) { changes[root.sub.name] = serialize(root.sub, state.subSelection); }
+        return changes;
+    }
+
+    // The sub list comes whole, once, the first time it is opened.
+    function loadSub() {
+        var state = open;
+        var controller = new AbortController();
+        state.request = controller;
+        fetch(state.root.sub.source, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+            signal: controller.signal
+        })
+            .then(function (r) {
+                if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                return r.json();
+            })
+            .then(function (rows) {
+                state.request = null;
+                state.subPc = Object.assign({}, state.root.sub, { options: Array.isArray(rows) ? rows : [], source: null });
+                if (open === state && state.view === 'sub') { showView(); }
+            })
+            .catch(function (error) {
+                if (error.name === 'AbortError' || open !== state) { return; }
+                state.request = null;
+                state.subFailed = true;
+                if (state.view === 'sub') { showView(); }
+            });
+    }
+
+    // Draw the open picker's current level: its own list, or the sub list.
+    function showView() {
+        var bar = open.bar;
+        var pop = open.pop;
+        var head = '';
+        open.term = '';
+        open.results = [];
+        open.status = 'idle';
+        open.active = null;
+        if (open.view === 'sub') {
+            var sub = open.root.sub;
+            open.selection = open.subSelection;
+            var back = S(bar, 'back').replace('%s', open.root.label);
+            head = '<div class="ifp-subhead"><button type="button" class="ifp-back" data-ifp-back title="' + esc(back) + '"'
+                + ' aria-label="' + esc(back) + '"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>'
+                + '<span>' + esc(sub.label) + '</span></div>';
+            if (!open.subPc) {
+                open.pc = Object.assign({}, sub, { options: [], source: null });
+                open.local = false;
+                pop.innerHTML = head + '<div class="ifp-status" role="status">'
+                    + esc(open.subFailed ? S(bar, 'listFailed') : S(bar, 'loading')) + '</div>';
+                pop.querySelector('.ifp-back').focus();
+                return;
+            }
+            open.pc = open.subPc;
+            open.local = open.pc.options.length > LOCAL_MAX;
+        } else {
+            open.selection = open.mainSelection;
+            open.pc = open.root;
+            open.local = !!open.pc.options && open.pc.options.length > LOCAL_MAX;
+        }
+        build(bar, pop, open.pc, open.local, head);
+        renderLists();
+        var input = pop.querySelector('.ifp-search input');
+        if (input) {
+            input.focus();
+            return;
+        }
+        var first = open.view === 'main' && open.root.sub
+            ? pop.querySelector('.ifp-opt[data-value="' + CSS.escape(open.root.sub.option) + '"]') : null;
+        first = first && open.cameBack ? first : pop.querySelector('.ifp-opt');
+        open.cameBack = false;
+        if (first) { setActive(first); first.focus(); }
+    }
+
+    function drill(into) {
+        open.view = into ? 'sub' : 'main';
+        open.cameBack = !into;
+        showView();
+        if (into && !open.subPc && !open.request) { loadSub(); }
+    }
+
+    /* ── time pickers ─────────────────────────────────────────────────── */
+
+    var timeIds = 0;
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+    function isoDay(date) { return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()); }
+
+    // The calendar day a filter value points at: a timestamp, a delta, a date.
+    function dayOf(value) {
+        value = String(value == null ? '' : value).trim();
+        if (value === '' || value === '0') { return ''; }
+        if (/^[0-9]+$/.test(value)) { return isoDay(new Date(parseInt(value, 10) * 1000)); }
+        var delta = value.match(/^([0-9]+)([dhms])$/i);
+        if (delta) {
+            var unit = { d: 86400, h: 3600, m: 60, s: 1 }[delta[2].toLowerCase()];
+            return isoDay(new Date(Date.now() - delta[1] * unit * 1000));
+        }
+        var day = value.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}/);
+        return day ? day[0] : '';
+    }
+
+    function timeField(field, presets) {
+        var value = field.value;
+        var f = { name: field.name, label: field.label, aliases: field.aliases || [], raw: value,
+            touched: false, mode: 'any', from: '', to: '' };
+        if (value === null || value === undefined || value === '') { return f; }
+        if (!Array.isArray(value) && presets.some(function (p) { return p.value === value; })) {
+            f.mode = value;
+            return f;
+        }
+        f.mode = 'custom';
+        if (Array.isArray(value)) {
+            f.from = dayOf(value[0]);
+            f.to = dayOf(value[1]);
+        } else {
+            f.from = dayOf(value);
+        }
+        return f;
+    }
+
+    // Untouched, a field keeps the URL's value as it was spelled.
+    function timeValue(f) {
+        if (!f.touched) { return f.raw === null || f.raw === undefined || f.raw === '' ? null : f.raw; }
+        if (f.mode === 'any') { return null; }
+        if (f.mode !== 'custom') { return f.mode; }
+        var to = f.to ? f.to + 'T23:59:59' : '';
+        if (f.from && to) { return [f.from, to]; }
+        if (f.from) { return f.from; }
+        if (to) { return ['0', to]; }
+        return null;
+    }
+
+    function timeHtml() {
+        var pc = open.root;
+        var s = pc.strings;
+        var today = isoDay(new Date());
+        var segments = [{ value: 'any', label: s.any, title: s.anyTitle }]
+            .concat(pc.presets)
+            .concat([{ value: 'custom', label: s.custom, title: s.customTitle }]);
+        return open.fields.map(function (f, i) {
+            var id = 'ifp-time-' + open.timeId + '-' + i;
+            var html = '<section class="ifp-tf" data-ifp-field="' + i + '">'
+                + '<div class="ifp-head" id="' + id + '">' + esc(f.label) + '</div>'
+                + '<div class="ifp-seg" role="group" aria-labelledby="' + id + '">'
+                + segments.map(function (p) {
+                    return '<button type="button" class="ifp-seg-btn" data-ifp-preset="' + esc(p.value) + '"'
+                        + ' aria-pressed="' + (f.mode === p.value) + '"' + (p.title ? ' title="' + esc(p.title) + '"' : '') + '>'
+                        + esc(p.label) + '</button>';
+                }).join('')
+                + '</div>';
+            if (f.mode === 'custom') {
+                html += '<div class="ifp-range">'
+                    + '<label><span>' + esc(s.from) + '</span><input type="date" class="form-control form-control-sm" data-ifp-from'
+                    + ' value="' + esc(f.from) + '" max="' + esc(f.to || today) + '"></label>'
+                    + '<span class="ifp-range-dash" aria-hidden="true">–</span>'
+                    + '<label><span>' + esc(s.to) + '</span><input type="date" class="form-control form-control-sm" data-ifp-to'
+                    + ' value="' + esc(f.to) + '" min="' + esc(f.from) + '" max="' + esc(today) + '"></label>'
+                    + '</div>';
+            }
+            return html + '</section>';
+        }).join('') + '<div class="ifp-foot"><span>' + esc(s.hint) + '</span></div>';
+    }
+
+    function setPreset(button) {
+        var section = button.closest('[data-ifp-field]');
+        var index = parseInt(section.getAttribute('data-ifp-field'), 10);
+        var f = open.fields[index];
+        var mode = button.getAttribute('data-ifp-preset');
+        if (mode === 'custom' && f.mode !== 'custom' && !f.from && !f.to && f.mode !== 'any') {
+            f.from = dayOf(f.mode);
+        }
+        f.mode = mode;
+        f.touched = true;
+        open.dirty = true;
+        open.pop.innerHTML = timeHtml();
+        var again = open.pop.querySelector('[data-ifp-field="' + index + '"] '
+            + (mode === 'custom' ? '[data-ifp-from]' : '[data-ifp-preset="' + CSS.escape(mode) + '"]'));
+        if (again) { again.focus(); }
+    }
+
+    function setDay(input) {
+        var section = input.closest('[data-ifp-field]');
+        var f = open.fields[parseInt(section.getAttribute('data-ifp-field'), 10)];
+        var isFrom = input.hasAttribute('data-ifp-from');
+        f[isFrom ? 'from' : 'to'] = input.value;
+        f.touched = true;
+        open.dirty = true;
+        var other = section.querySelector(isFrom ? '[data-ifp-to]' : '[data-ifp-from]');
+        if (isFrom) { other.min = input.value; } else { other.max = input.value || isoDay(new Date()); }
+    }
+
+    function build(bar, pop, pc, local, head) {
         var draft = cfg(bar).apply === 'draft';
-        var pop = picker.querySelector('.ifp-pop');
-        var html = '';
+        var html = head || '';
         if (pc.source || local) {
             html += '<div class="ifp-search"><i class="fas fa-search" aria-hidden="true"></i>'
                 + '<input type="search" class="form-control form-control-sm" autocomplete="off" spellcheck="false"'
@@ -558,17 +803,20 @@
         closePicker(true);
         var bar = barOf(picker);
         var pc = pickerCfg(picker);
-        var local = !!pc.options && pc.options.length > LOCAL_MAX;
-        var pop = build(bar, picker, local);
+        var pop = picker.querySelector('.ifp-pop');
+        var copy = function (s) { return Object.assign({}, s); };
         open = {
             bar: bar,
-            local: local,
+            local: false,
             term: '',
             picker: picker,
+            root: pc,
             pc: pc,
             pop: pop,
-            selection: pc.selected.map(function (s) { return Object.assign({}, s); }),
-            initial: pc.allOf ? null : serialize(pc, pc.selected),
+            view: 'main',
+            selection: (pc.selected || []).map(copy),
+            subSelection: pc.sub ? pc.sub.selected.map(copy) : [],
+            subPc: null,
             dirty: false,
             results: [],
             status: 'idle',
@@ -576,17 +824,23 @@
             timer: null,
             request: null,
         };
+        open.mainSelection = open.selection;
         pop.hidden = false;
-        placePop(pop);
         picker.querySelector('.ifp-btn').setAttribute('aria-expanded', 'true');
-        renderLists();
-        var input = pop.querySelector('input');
-        if (input) {
-            input.focus();
-        } else {
-            var first = pop.querySelector('.ifp-opt');
-            if (first) { setActive(first); first.focus(); }
+        if (pc.kind === 'time') {
+            open.timeId = ++timeIds;
+            open.fields = pc.fields.map(function (f) { return timeField(f, pc.presets); });
+            open.initial = JSON.stringify(changesOf(open));
+            pop.innerHTML = timeHtml();
+            placePop(pop);
+            var pressed = pop.querySelector('.ifp-seg-btn[aria-pressed="true"]');
+            if (pressed) { pressed.focus(); }
+            return;
         }
+        reconcile(true);
+        open.initial = pc.allOf ? null : JSON.stringify(changesOf(open));
+        showView();
+        placePop(pop);
     }
 
     // Open to the right of the button unless that runs off the viewport.
@@ -607,10 +861,8 @@
         state.picker.querySelector('.ifp-btn').setAttribute('aria-expanded', 'false');
         if (!apply || !state.dirty) { return; }
         if (cfg(state.bar).apply === 'draft' && apply !== 'draft') { return; }
-        var next = serialize(state.pc, state.selection);
-        if (next === state.initial) { return; }
-        var changes = {};
-        changes[state.pc.name] = next;
+        var changes = changesOf(state);
+        if (JSON.stringify(changes) === state.initial) { return; }
         load(state.bar, urlWith(state.bar, changes), true);
     }
 
@@ -684,6 +936,10 @@
 
         if (open && open.picker.contains(target)) {
             if (target.closest('[data-ifp-apply]')) { closePicker('draft'); return; }
+            if (target.closest('[data-ifp-drill]')) { drill(true); return; }
+            if (target.closest('[data-ifp-back]')) { drill(false); return; }
+            var preset = target.closest('[data-ifp-preset]');
+            if (preset) { setPreset(preset); return; }
             var row = target.closest('.ifp-opt');
             if (row) {
                 toggle(row.getAttribute('data-value'), !!target.closest('[data-ifp-exclude]'));
@@ -710,6 +966,8 @@
     document.addEventListener('input', function (event) {
         if (open && event.target.matches('.ifp-search input')) {
             search(event.target.value.trim());
+        } else if (open && event.target.matches('[data-ifp-from], [data-ifp-to]')) {
+            setDay(event.target);
         }
     });
 
@@ -717,13 +975,24 @@
         if (open && event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
+            if (open.view === 'sub') {
+                drill(false);
+                return;
+            }
             var btn = open.picker.querySelector('.ifp-btn');
             closePicker(true);
             btn.focus();
             return;
         }
         if (open && open.picker.contains(event.target)) {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            var typing = event.target.matches('input');
+            if (event.key === 'ArrowRight' && !typing && open.active && open.active.querySelector('[data-ifp-drill]')) {
+                event.preventDefault();
+                drill(true);
+            } else if (event.key === 'ArrowLeft' && !typing && open.view === 'sub') {
+                event.preventDefault();
+                drill(false);
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
                 move(event.key === 'ArrowDown' ? 1 : -1);
             } else if (event.key === 'Enter' && open.active && !event.target.closest('[data-ifp-exclude]')) {

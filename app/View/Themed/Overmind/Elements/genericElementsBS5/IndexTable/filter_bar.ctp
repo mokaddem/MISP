@@ -131,6 +131,9 @@ $pickers = [];
 foreach ($filter_bar['children'] as $child) {
     if (($child['type'] ?? '') === 'picker') {
         $pickers[$child['name']] = $child;
+        if (!empty($child['sub'])) {
+            $pickers[$child['sub']['name']] = $child['sub'];
+        }
     }
 }
 $pickerMode = $pickerBarOn || !empty($pickers);
@@ -256,6 +259,10 @@ $activeTotal = count(array_diff_key(
         'strings' => [
             'typeToSearch' => __('Type 2 characters to search'),
             'searching' => __('Searching…'),
+            'loading' => __('Loading…'),
+            'listFailed' => __('The list could not be loaded'),
+            'back' => __('Back to %s'),
+            'drill' => __('Choose %s'),
             'noMatch' => __('Nothing matches'),
             'more' => __('%s more: type to narrow'),
             'searchFailed' => __('The search failed'),
@@ -278,6 +285,13 @@ $activeTotal = count(array_diff_key(
 
         <?php if ($child['type'] === 'picker'): ?>
             <?= $this->element('genericElementsBS5/IndexTable/filter_picker', [
+                'child' => $child,
+                'state' => $filterState,
+            ]) ?>
+        <?php endif; ?>
+
+        <?php if ($child['type'] === 'time'): ?>
+            <?= $this->element('genericElementsBS5/IndexTable/filter_time', [
                 'child' => $child,
                 'state' => $filterState,
             ]) ?>

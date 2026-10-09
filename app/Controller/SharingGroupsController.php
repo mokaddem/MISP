@@ -581,6 +581,16 @@ class SharingGroupsController extends AppController
     }
 
     /**
+     * Every sharing group the reader may see, for an index filter picker.
+     */
+    public function pickerSearch()
+    {
+        $this->request->allowMethod(['get']);
+        App::uses('IndexPicker', 'Tools');
+        return $this->RestResponse->viewData(IndexPicker::sharingGroups($this->Auth->user()), 'json');
+    }
+
+    /**
      * One of the sharing group page's lazy rail cards.
      *
      * @param int $id

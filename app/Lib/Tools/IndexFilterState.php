@@ -18,6 +18,9 @@ class IndexFilterState
     /** @var array raw key => value, in URL order */
     private $named;
 
+    /** @var array raw key => values, for the keys the URL carries as `key[i]:` */
+    private $lists = [];
+
     /** @var array|null sort / direction / limit named segments, in query mode */
     private $paging = null;
 
@@ -38,6 +41,7 @@ class IndexFilterState
         }
         foreach ($named as $key => $value) {
             if (is_array($value)) {
+                $this->lists[(string)$key] = array_map('strval', array_values($value));
                 $value = implode('|', $value);
             }
             if ((string)$value !== '') {
@@ -78,6 +82,15 @@ class IndexFilterState
 
     /**
      * @param string $name unprefixed
+     * @return array|null the values of a filter the URL carries as a list
+     */
+    public function getList($name)
+    {
+        return $this->lists[$this->prefix . $name] ?? null;
+    }
+
+    /**
+     * @param string $name unprefixed
      * @return string the key the URL carries
      */
     public function key($name)
@@ -88,22 +101,27 @@ class IndexFilterState
     /**
      * A URL with these filters changed; null removes one. Paging restarts.
      *
-     * @param array $changes unprefixed name => value|null
+     * @param array $changes unprefixed name => value|list|null
      * @return string
      */
     public function url(array $changes)
     {
         $named = $this->named;
+        $lists = $this->lists;
         unset($named['page']);
         foreach ($changes as $name => $value) {
             $key = $this->prefix . $name;
-            if ($value === null || (string)$value === '') {
+            unset($lists[$key]);
+            if (is_array($value)) {
+                $lists[$key] = array_map('strval', array_values($value));
+                $named[$key] = implode('|', $value);
+            } elseif ($value === null || (string)$value === '') {
                 unset($named[$key]);
             } else {
                 $named[$key] = (string)$value;
             }
         }
-        return $this->format($named);
+        return $this->format($named, $lists);
     }
 
     /**
@@ -122,7 +140,7 @@ class IndexFilterState
                 $named[$key] = $value;
             }
         }
-        return $this->format($named);
+        return $this->format($named, $this->lists);
     }
 
     /**
@@ -160,7 +178,7 @@ class IndexFilterState
         return $parts ? implode($separator, $parts) : null;
     }
 
-    private function format(array $named)
+    private function format(array $named, array $lists = [])
     {
         $url = $this->base;
         if ($this->paging !== null) {
@@ -171,6 +189,12 @@ class IndexFilterState
             return $url . ($query === '' ? '' : '?' . $query);
         }
         foreach ($named as $key => $value) {
+            if (isset($lists[$key])) {
+                foreach ($lists[$key] as $i => $item) {
+                    $url .= '/' . $key . '[' . $i . ']:' . rawurlencode($item);
+                }
+                continue;
+            }
             $url .= '/' . $key . ':' . rawurlencode($value);
         }
         return $url;
