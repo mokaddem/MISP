@@ -17,6 +17,44 @@
         });
     }
 
+    // A page left open outlives its CSRF token: fetch a fresh one just before submitting.
+    var form = document.getElementById('UserLoginForm');
+    if (form && window.fetch && window.DOMParser) {
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            var submit = form.querySelector('[type="submit"]');
+            if (submit) {
+                submit.disabled = true;
+            }
+            fetch(form.action, {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(function (response) {
+                return response.text();
+            }).then(function (html) {
+                var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('UserLoginForm');
+                if (!fresh) {
+                    window.location = form.action;
+                    return;
+                }
+                form.querySelectorAll('input[type="hidden"]').forEach(function (input) {
+                    input.remove();
+                });
+                fresh.querySelectorAll('input[type="hidden"]').forEach(function (input) {
+                    form.appendChild(document.importNode(input, true));
+                });
+                form.submit();
+            }).catch(function () {
+                form.submit();
+            });
+        });
+    }
+
     var canvas = document.getElementById('omlSky');
     var ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     if (!ctx) {
