@@ -63,6 +63,13 @@ echo $this->element('genericElements/assetLoader', [
     <canvas class="oml-sky" id="omlSky" aria-hidden="true"></canvas>
     <div class="oml-stage">
         <section class="oml-panel" aria-labelledby="omlTitle">
+            <div class="oml-rule" aria-hidden="true"></div>
+            <?php foreach (['omlPortHub' => 'oml-port-hub', 'omlPortSide' => 'oml-port-side'] as $portId => $portClass): ?>
+                <svg class="oml-port <?= $portClass ?>" id="<?= $portId ?>" viewBox="-12 -12 24 24" aria-hidden="true" focusable="false">
+                    <polygon class="oml-port-ring" points="0,-7 6.06,-3.5 6.06,3.5 0,7 -6.06,3.5 -6.06,-3.5"/>
+                    <polygon class="oml-port-core" points="0,-7 6.06,-3.5 6.06,3.5 0,7 -6.06,3.5 -6.06,-3.5"/>
+                </svg>
+            <?php endforeach; ?>
             <header class="oml-brand<?= $partnerLogos ? ' oml-has-partners' : '' ?>">
                 <div class="oml-brand-main">
                     <?php if ($mainLogo): ?>
