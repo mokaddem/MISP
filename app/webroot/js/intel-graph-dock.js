@@ -215,6 +215,7 @@
         html.style.setProperty('--ig-so-w', w + 'px');
         html.style.setProperty('--ig-so-top', measureNav() + 'px');
         panel.classList.toggle('is-floating', float);
+        html.classList.toggle('ig-so-docked', opened && !float);
         if (float) {
             var rect = drag || winRect();
             panel.style.setProperty('--ig-fw-left', rect.left + 'px');
