@@ -14,12 +14,11 @@
     var SPINE_W = 40;
     var MID_W = 196;
     var VAL_W = 236;
+    var VAL_ID_W = 300;
     var RICH_W = 360;
     var LETTER_W = 54;
-    // search bar + column heads + tray + list padding + borders
-    var CHROME = 56 + 34 + 52 + 12 + 2;
-    var NAV_H = 64;
     var MIN_ROWS = 12;
+    var MIN_BELOW = 8;
     var MIN_W = 800;
     var MAX_W = 1400;
     var DEBOUNCE = 200;
@@ -27,6 +26,9 @@
     var GLOBAL = 80;
 
     var st = null;
+    // Height of everything but the lists (search bar, column heads, tray),
+    // measured after each render; this is the first guess.
+    var chrome = 156;
     var models = {};
     var trees = {};
     var strings = {};
@@ -767,6 +769,8 @@
         var rows = d.rows || [];
         if (scope.kind === 'galaxy') {
             col.lines = rows.map(function (r) { return clusterVal(r, term); });
+            // ATT&CK-style ids take a column of their own; keep room for the name.
+            if (col.lines.some(function (l) { return l.idb; })) { col.baseW = VAL_ID_W; }
             if (!term && !sub && rows.length) {
                 var total = st.inUse ? scope.inUse : scope.size;
                 if (total > rows.length) { col.lines.push({ t: 'more', n: total - rows.length }); }
@@ -990,17 +994,29 @@
         return { subs: subs, n: subs.length, cut: cut !== -1, usedLast: used };
     }
 
+    // Bottom of a navbar that stays on screen; the panel never goes under it.
+    function navBottom() {
+        var nav = document.querySelector('.rc-nav');
+        if (!nav) { return 0; }
+        var pos = getComputedStyle(nav).position;
+        return pos === 'fixed' || pos === 'sticky' ? Math.max(0, nav.getBoundingClientRect().bottom) : 0;
+    }
+
     function geometry(cols) {
         var vw = document.documentElement.clientWidth;
         var vh = window.innerHeight;
         var Wmax = Math.min(vw - 24, MAX_W);
-        var Hcap = Math.floor((vh - 12 - NAV_H - CHROME) / ROW) * ROW;
         var fixed = 0;
         var full = [];
         cols.forEach(function (c) {
             if (c.key === 'side') { c.w = SIDE_W; fixed += SIDE_W; } else if (c.spine) { c.w = SPINE_W; fixed += SPINE_W; } else { full.push(c); }
         });
         var sideH = cols[0].lines.reduce(function (n, l) { return n + lineH(l, false); }, 0);
+        // Stay under the button and grow wider rather than taller; only a
+        // window too short for that lets the panel rise over the bar.
+        var rows = function (room) { return Math.floor((room - chrome) / ROW) * ROW; };
+        var below = rows(vh - 12 - (st.btn.getBoundingClientRect().bottom + 6));
+        var Hcap = below >= Math.max(MIN_BELOW * ROW, sideH) ? below : rows(vh - 12 - navBottom() - 8);
         var Hmin = Math.min(Hcap, Math.max(MIN_ROWS * ROW, sideH));
         var prev = st.geo || { H: 0, W: 0 };
         var val = full.filter(function (c) { return c.isVal; })[0];
@@ -1011,7 +1027,7 @@
             var ok = true;
             if (val) {
                 val.rich = false;
-                val.subW = VAL_W;
+                val.subW = val.baseW || VAL_W;
                 if (val.canRich && val.lines.some(function (l) { return l.sub || l.desc; })) {
                     var nr = pack(val.lines, H, Infinity, true).n;
                     if (nr === 1 || (nr === 2 && val.lines.length <= 24)) { val.rich = true; val.subW = RICH_W; }
@@ -1046,12 +1062,19 @@
         var grow = full.length ? full[full.length - 1] : cols[0];
         grow.w += W - p.W;
         st.geo = { H: H, W: W };
+        return { H: H, W: W };
+    }
+
+    // Under the button when it fits, otherwise as low as it fits; never
+    // under the navbar. Follows the button when the page scrolls.
+    function place() {
+        var p = st.panel;
         var rect = st.btn.getBoundingClientRect();
-        var panelH = CHROME + H;
         var top = rect.bottom + 6;
-        if (top + panelH > vh - 12) { top = Math.max(NAV_H - 8, vh - 12 - panelH); }
-        var left = Math.max(12, Math.min(rect.left, vw - 12 - W));
-        return { H: H, W: W, top: top, left: left };
+        var bottom = window.innerHeight - 12;
+        if (top + p.offsetHeight > bottom) { top = bottom - p.offsetHeight; }
+        p.style.top = Math.max(navBottom() + 8, top) + 'px';
+        p.style.left = Math.max(12, Math.min(rect.left, document.documentElement.clientWidth - 12 - p.offsetWidth)) + 'px';
     }
 
     /* ── rendering ────────────────────────────────────────────────────── */
@@ -1206,12 +1229,18 @@
             html += colHtml(c, ci, g, term);
         });
         st.cols.innerHTML = html;
-        var p = st.panel;
-        p.style.left = g.left + 'px';
-        p.style.top = g.top + 'px';
-        p.style.width = g.W + 'px';
+        st.panel.style.width = g.W + 'px';
         renderTop();
         renderTray();
+        var measured = st.panel.offsetHeight - g.H;
+        if (measured !== chrome && !st.remeasured) {
+            chrome = measured;
+            st.remeasured = true;
+            render();
+            st.remeasured = false;
+            return;
+        }
+        place();
         // put the keyboard cursor back where it was
         st.active = null;
         if (activeKey) {
@@ -1589,6 +1618,13 @@
     window.addEventListener('resize', function () {
         if (st && st.model) { st.geo = null; render(); }
     });
+
+    var placing = false;
+    window.addEventListener('scroll', function () {
+        if (!st || placing) { return; }
+        placing = true;
+        requestAnimationFrame(function () { placing = false; if (st) { place(); } });
+    }, true);
 
     window.addEventListener('popstate', function () { closePicker(false); });
 
