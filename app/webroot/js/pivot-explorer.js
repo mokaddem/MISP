@@ -971,6 +971,24 @@
             };
         }
 
+        // Zoomed in, a tag or cluster is the chip the event page draws for it.
+        function labelChipStyle(entity) {
+            if (!window.TagChips) return null;
+            return {
+                shape: 'none', size: 22, color: 'transparent', strokeWidth: 0, text: '',
+                html: function (node) {
+                    var d = (node && node.getData && node.getData()) || {};
+                    var el = document.createElement('div');
+                    el.className = 'pe-node-chip';
+                    el.innerHTML = entity === 'cluster'
+                        ? window.TagChips.cluster({ value: d.value || d.label, galaxy: d.galaxy_name || d.galaxy_type || '',
+                                                    local: d.local }, { display: 'full', href: function () { return null; } })
+                        : window.TagChips.chip({ name: d.name || d.label, colour: d.colour, local: d.local }, { searchUrl: '' });
+                    return el;
+                }
+            };
+        }
+
         function mispNodeStyles() {
             var N = window.MispPivotNodes;
             var rest = N.options({
@@ -979,6 +997,10 @@
                 fontUrl: baseurl + '/webfonts/misp-iconify.woff2'
             }).nodeStyleMap;
             var chip = N.styleMap('M'), focus = N.styleMap('XL');
+            ['taxonomy', 'cluster'].forEach(function (entity) {
+                var label = labelChipStyle(entity);
+                if (label) chip[entity] = focus[entity] = label;
+            });
             var map = {};
             Object.keys(rest).forEach(function (entity) {
                 map[entity] = Object.assign(withBadges(rest[entity]), {
@@ -1603,26 +1625,25 @@
         }
 
         function annotateMenu() {
+            var context = [];
+            if (canTag) context.push({ text: 'Tags…', iconClass: TAG_ICON, edit: editTags });
+            if (canCluster) context.push({ text: 'Galaxy clusters…', iconClass: CLUSTER_ICON, edit: editClusters });
             return [
                 {
-                    text:          'Edit tags…',
+                    text:          'Edit context',
                     iconClass:     TAG_ICON,
                     dividerBefore: true,
                     visible:       function (el) {
-                        var t = canTag && annotateTarget(el);
+                        var t = context.length && annotateTarget(el);
                         return !!t && t.type !== 'Object';
                     },
-                    onclick:       function (e, el) { var t = annotateTarget(el); if (t) editTags(t); }
-                },
-                {
-                    text:          'Edit galaxy clusters…',
-                    iconClass:     CLUSTER_ICON,
-                    dividerBefore: !canTag,
-                    visible:       function (el) {
-                        var t = canCluster && annotateTarget(el);
-                        return !!t && t.type !== 'Object';
-                    },
-                    onclick:       function (e, el) { var t = annotateTarget(el); if (t) editClusters(t); }
+                    submenu:       context.map(function (c) {
+                        return {
+                            text:      c.text,
+                            iconClass: c.iconClass,
+                            onclick:   function (e, el) { var t = annotateTarget(el); if (t) c.edit(t); }
+                        };
+                    })
                 },
                 {
                     text:      'Add analyst data',

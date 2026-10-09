@@ -142,3 +142,12 @@
 .pivotick .pvt-modal-overlay {
     z-index: 1055;
 }
+
+/* A tag or cluster node zoomed in: the event page's chip, kept to a node's width. */
+.pe-node-chip {
+    display: inline-block;
+    line-height: normal;
+}
+.pe-node-chip .hinge-tags .hg-chip {
+    max-width: 240px;
+}
