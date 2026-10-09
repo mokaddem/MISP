@@ -1738,6 +1738,97 @@ class AnalystProfile extends AppModel
     }
 
     /**
+     * The grades a page shows beside organisations, and where a grade
+     * written from that page would land.
+     *
+     * @param array $user
+     * @return array OrgGradeTool::reading()
+     */
+    public function gradingFor(array $user)
+    {
+        App::uses('OrgGradeTool', 'Tools/AnalystProfile');
+        return OrgGradeTool::reading($this->resolutionFor($user));
+    }
+
+    /**
+     * Grade one organisation in the reader's own profile, forking the
+     * profile in force first when it is not theirs.
+     *
+     * @param array $user
+     * @param string $orgUuid
+     * @param string|null $grade A…G, null for no opinion
+     * @param bool $fork Whether the caller agreed to a fork
+     * @return array `ok`; on success `previous`, `changed`, `forked`,
+     *               `profile` (the row written); on refusal `error` and
+     *               `needs_fork`
+     */
+    public function gradeOrganisation(array $user, $orgUuid, $grade, $fork)
+    {
+        App::uses('OrgGradeTool', 'Tools/AnalystProfile');
+        $target = OrgGradeTool::target($this->resolutionFor($user));
+        if ($target['mode'] === OrgGradeTool::MODE_NONE) {
+            return [
+                'ok' => false,
+                'needs_fork' => false,
+                'error' => __('No analyst profile is in force for you, so there is nothing to grade in.'),
+            ];
+        }
+        $forked = false;
+        if ($target['mode'] === OrgGradeTool::MODE_FORK) {
+            if (!$fork) {
+                return [
+                    'ok' => false,
+                    'needs_fork' => true,
+                    'target' => $target,
+                    'error' => __('The profile in force is not yours. Grading makes your own copy of it first.'),
+                ];
+            }
+            $copy = $this->forkProfile($user, $target['profile']['id']);
+            if (empty($copy)) {
+                return [
+                    'ok' => false,
+                    'needs_fork' => false,
+                    'error' => __('Your copy of the profile could not be saved.'),
+                ];
+            }
+            $row = $copy['AnalystProfile'];
+            $forked = true;
+        } else {
+            $row = $this->find('first', [
+                'conditions' => ['AnalystProfile.id' => $target['profile']['id']],
+                'recursive' => -1,
+            ])['AnalystProfile'];
+        }
+        $parameters = is_array($row['parameters']) ? $row['parameters'] : [];
+        $applied = OrgGradeTool::apply($parameters, $orgUuid, $grade);
+        if ($applied['changed']) {
+            $this->id = $row['id'];
+            if (!$this->save(['AnalystProfile' => [
+                'id' => $row['id'],
+                'parameters' => $applied['parameters'],
+            ]])) {
+                return [
+                    'ok' => false,
+                    'needs_fork' => false,
+                    'error' => __('The grade could not be saved.'),
+                ];
+            }
+            $this->bumpRevision($row['id']);
+        }
+        $saved = $this->find('first', [
+            'conditions' => ['AnalystProfile.id' => $row['id']],
+            'recursive' => -1,
+        ]);
+        return [
+            'ok' => true,
+            'previous' => $applied['previous'],
+            'changed' => $applied['changed'],
+            'forked' => $forked,
+            'profile' => $saved['AnalystProfile'],
+        ];
+    }
+
+    /**
      * `revision` is the local edit counter and `version` the upstream match
      * key, and the two are separate columns on purpose: a site admin editing
      * the default moves `revision` while `version` keeps tracking the shipped

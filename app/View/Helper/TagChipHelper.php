@@ -6,7 +6,7 @@ App::uses('FontAwesomeHelper', 'View/Helper');
 
 /**
  * Renders tags as chips: the path on a first row and the leaf on a second,
- * or both on one row for a lone namespace:value tag when asked. Two or more tags of a collection sharing a namespace fuse into a
+ * or both on one row for a lone tag when asked. Two or more tags of a collection sharing a namespace fuse into a
  * block that prints the namespace once, each member keeping its predicate.
  * Colour means taxonomy: a taxonomy whose declared palette tells its
  * values apart (TLP, PAP) keeps its colours, every other one gets a hue
@@ -30,8 +30,8 @@ class TagChipHelper extends AppHelper
      *   canModifyAll       may remove any tag
      *   canModifyLocal     may remove local tags
      *   display            'full' (default), 'leaf' or 'swatch'
-     *   inline             a namespace:value tag keeps its leaf on the
-     *                      namespace's row, unboxed (default false)
+     *   inline             a lone tag keeps its leaf on the path's row,
+     *                      unboxed (default false)
      *   group              fuse shared namespaces into blocks (default true)
      *   minGroup           members before a namespace earns a block (2)
      *   wideAt             members before a block takes its own line (8)
@@ -424,8 +424,7 @@ class TagChipHelper extends AppHelper
         $showPath = $display === 'full'
             && ($member ? !empty($p['above']) : $p['namespace'] !== null);
         $stacked = $display !== 'swatch' && ($showPath || $rel);
-        $inline = $stacked && !empty($options['inline']) && !$member
-            && empty($p['above']);
+        $inline = $stacked && !empty($options['inline']) && !$member;
 
         $nv = $tag['Tag']['numerical_value'] ?? null;
         $hasNv = $nv !== null && $nv !== '' && is_numeric($nv) && $display !== 'swatch';

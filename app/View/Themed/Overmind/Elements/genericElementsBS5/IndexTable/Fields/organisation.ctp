@@ -57,7 +57,7 @@ $description = $showDescription && !empty($org['description']) ? trim($org['desc
 
     <div class="d-inline-flex align-items-center gap-2 text-nowrap">
 
-        <?= $this->OrgImg->getOrgLogoV2($org, 24)?>
+        <?= isset($field['grading']) ? $this->OrgGrade->mark($org, $field['grading']) : $this->OrgImg->getOrgLogoV2($org, 24) ?>
 
         <?php if (!empty($id)): ?>
             <a href="<?= $baseurl ?>/organisations/view/<?= h($id) ?>"

@@ -8,6 +8,7 @@
 //   [data-pe-event-id]     event whose graph is fetched from /events/graph/{id}.json
 //   [data-pe-baseurl]      MISP $baseurl, prefixed onto every request
 //   [data-pe-can-edit]     "1" when the viewer may add object references
+//   [data-pe-can-tag]      "1" when the viewer may edit the event's tags
 //   [data-pe-value-card]   "1" when MISP.value_hover_card is on
 //   [data-pe-can-enrich]   "1" when the viewer may run enrichment modules
 //   [data-pe-lib-missing]  translated error: pivotick failed to load
@@ -53,6 +54,8 @@
         // Analyst relationships are gated on role alone, not on the event (D8);
         // deleting one needs its creator org, or site admin.
         var canAnalyst = !!cfg.canAnalyst;
+        // The viewer may edit the tags of the event and of its attributes.
+        var canTag     = !!cfg.canTag;
         var orgUuid    = cfg.orgUuid || '';
         var siteAdmin  = !!cfg.siteAdmin;
         // What an analyst relationship can be shared with: [[level, name]],
@@ -1331,6 +1334,254 @@
 
         function analystPanel() {
             return { id: 'analyst-data', title: analystPanelTitle, render: renderAnalystPanel };
+        }
+
+        /* ── annotating: tags and analyst data on this event's records ── */
+        // The forms are MISP's own, opened in the page's #mainModal. The canvas
+        // stays as the analyst built it: what a save changed is read back into
+        // the record and the nodes standing for it are repainted.
+        var ANALYST_KINDS = {
+            Note:         { label: 'Note',         icon: 'misp-icon misp-icon-analyst-note misp-simple' },
+            Opinion:      { label: 'Opinion',      icon: 'misp-icon misp-icon-analyst-opinion misp-simple' },
+            Relationship: { label: 'Relationship', icon: 'fas fa-diagram-project' }
+        };
+        var TAG_ICON = 'misp-icon misp-icon-tag misp-simple';
+
+        // The seeded event, or one of its live attributes or objects, behind a
+        // node: { type, uuid, rec }. Anything else is not this page's to annotate.
+        function ownRecordOf(d) {
+            var ev = (_event && _event.Event) || null;
+            if (!d || !d.uuid || !ev || !eventId) return null;
+            if (d.type === 'event') return d.uuid === ev.uuid ? { type: 'Event', uuid: d.uuid, rec: ev } : null;
+            var index = ownAttributeIndex();
+            if (d.type === 'attribute' && index.byUuid[d.uuid]) {
+                return { type: 'Attribute', uuid: d.uuid, rec: index.byUuid[d.uuid] };
+            }
+            if (d.type === 'object' && index.byObject[d.uuid]) {
+                var obj = (ev.Object || []).filter(function (o) { return o.uuid === d.uuid; })[0];
+                return obj ? { type: 'Object', uuid: d.uuid, rec: obj } : null;
+            }
+            return null;
+        }
+
+        function annotateTarget(element) {
+            if (!element || Array.isArray(element) || isEdge(element) || typeof element.getData !== 'function') return null;
+            return ownRecordOf(element.getData());
+        }
+
+        function notify(kind, title, message) {
+            var notifier = _graph && _graph.notifier;
+            if (notifier && typeof notifier[kind] === 'function') notifier[kind](title, message);
+        }
+
+        function pageModal() {
+            return document.getElementById('mainModal');
+        }
+
+        // What the open modal was opened for; its form is saved in place.
+        var _annotating = null;
+
+        function openPageModal(path, job, onClosed) {
+            var modal = pageModal();
+            if (!modal || typeof window.openModal !== 'function') {
+                notify('error', 'Cannot open the form', 'This page has no dialog to open it in.');
+                return;
+            }
+            // A fullscreen canvas would cover the dialog.
+            var leave = document.fullscreenElement && document.exitFullscreen
+                ? document.exitFullscreen().catch(function () {}) : Promise.resolve();
+            leave.then(function () {
+                _annotating = job;
+                modal.addEventListener('hidden.bs.modal', function () {
+                    _annotating = null;
+                    if (onClosed) onClosed();
+                }, { once: true });
+                window.openModal(baseurl + path);
+            });
+        }
+
+        function closePageModal() {
+            var modal = pageModal();
+            var bs = modal && window.bootstrap && window.bootstrap.Modal.getInstance(modal);
+            if (bs) bs.hide();
+        }
+
+        function repaintRecord(uuid, fields) {
+            var g = _graph;
+            if (!g) return;
+            var touched = [];
+            g.getMutableNodes().forEach(function (node) {
+                var hit = false;
+                [node].concat(node.children || []).forEach(function (n) {
+                    var d = n.getData ? n.getData() : null;
+                    if (!d || d.uuid !== uuid || !ANNOTATABLE[d.type]) return;
+                    n.updateData(fields);
+                    hit = true;
+                });
+                if (hit) touched.push(node);
+            });
+            _ownLabels = null;
+            if (touched.length) g.updateData(touched);
+            refreshSidebar();
+        }
+        var ANNOTATABLE = { event: true, attribute: true, object: true };
+
+        function tagSignature(list) {
+            return (list || []).map(function (t) { return t.name + (t.local ? '|l' : ''); }).sort().join('\n');
+        }
+
+        // The tag picker saves on its own; once it is closed the record's tags
+        // are read back, and only a change is repainted.
+        function rereadTags(target) {
+            var read = target.type === 'Event'
+                ? postJson('/events/restSearch', { returnFormat: 'json', uuid: target.uuid, metadata: 1 })
+                    .then(function (b) { return b && b.response && b.response[0] && b.response[0].Event; })
+                : postJson('/attributes/restSearch', { returnFormat: 'json', uuid: target.uuid, includeEventTags: 0 })
+                    .then(function (b) { return b && b.response && b.response.Attribute && b.response.Attribute[0]; });
+            read.then(function (fresh) {
+                if (!fresh || tagSignature(fresh.Tag) === tagSignature(target.rec.Tag)) return;
+                target.rec.Tag = fresh.Tag || [];
+                if (fresh.Galaxy) target.rec.Galaxy = fresh.Galaxy;
+                repaintRecord(target.uuid, tagFields(target.rec));
+            }).catch(function (err) {
+                console.error('[pivot-explorer] reading tags back failed:', err);
+                notify('warning', 'Tags saved', 'The canvas could not read them back; reload the page to see them.');
+            });
+        }
+
+        function editTags(target) {
+            if (target.type === 'Object') {
+                notify('info', 'Objects carry no tags', 'In MISP an object is tagged through its attributes: select one of them.');
+                return;
+            }
+            var path = target.type === 'Event'
+                ? '/events/editEventTags/' + encodeURIComponent(eventId)
+                : '/attributes/editAttributeTags/' + encodeURIComponent(target.uuid);
+            openPageModal(path, null, function () { rereadTags(target); });
+        }
+
+        function addAnalystData(target, kind) {
+            openPageModal('/analystData/add/' + kind + '/' + encodeURIComponent(target.uuid) + '/' + target.type,
+                          { kind: kind, target: target }, null);
+        }
+
+        function saveFailure(body) {
+            if (body && body.errors && typeof body.errors === 'object') {
+                var lines = [];
+                Object.keys(body.errors).forEach(function (field) {
+                    [].concat(body.errors[field]).forEach(function (m) { lines.push(String(m)); });
+                });
+                if (lines.length) return lines.join(' ');
+            }
+            return (body && (body.message || body.errors)) || 'The save failed.';
+        }
+
+        function analystSaved(job, saved) {
+            var rec = job.target.rec;
+            rec[job.kind] = (rec[job.kind] || []).concat([saved]);
+            if (job.kind === 'Relationship') {
+                if (joinsLinks) {
+                    _linksAsked = {};
+                    joinLinks();
+                }
+                refreshSidebar();
+            } else {
+                repaintRecord(job.target.uuid, analystFields(rec));
+            }
+            notify('success', ANALYST_KINDS[job.kind].label + ' added', null);
+        }
+
+        // The form posts as a page navigation, which would lose the canvas: the
+        // same fields go to its JSON form instead. The required-field guard runs
+        // in the capture phase, so a form it held back arrives prevented.
+        function saveAnalystForm(e) {
+            var form = e.target;
+            var job = _annotating;
+            if (!job || e.defaultPrevented || !form || form.id !== 'analystDataForm'
+                    || !form.closest('#mainModal')) return;
+            e.preventDefault();
+            var url = new URL(form.getAttribute('action') || '', window.location.href);
+            url.hash = '';
+            url.pathname = url.pathname.replace(/\/+$/, '') + '.json';
+            var buttons = form.querySelectorAll('[type="submit"]');
+            [].forEach.call(buttons, function (b) { b.disabled = true; });
+            fetch(url.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept':           'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token':     window.csrfToken || ''
+                },
+                body: new FormData(form)
+            }).then(function (r) {
+                return r.json().catch(function () { return null; }).then(function (body) {
+                    var saved = body && body[job.kind];
+                    if (!r.ok || !saved || !saved.uuid) throw new Error(saveFailure(body));
+                    return saved;
+                });
+            }).then(function (saved) {
+                closePageModal();
+                analystSaved(job, saved);
+            }).catch(function (err) {
+                [].forEach.call(buttons, function (b) { b.disabled = false; });
+                if (typeof window.showToast === 'function') window.showToast(err.message, 'danger');
+                else notify('error', 'Not saved', err.message);
+            });
+        }
+        if (canAnalyst) document.addEventListener('submit', saveAnalystForm);
+
+        // The sidebar's row of actions for one selected element.
+        function annotateActions(element) {
+            var target = annotateTarget(element);
+            if (!target) return [];
+            var out = [];
+            if (canTag) {
+                var noTags = target.type === 'Object';
+                out.push({
+                    label: 'Tags', icon: TAG_ICON, hue: 'tag', muted: noTags,
+                    title: noTags ? 'MISP objects carry no tags: tag one of its attributes'
+                                  : 'Add or remove its tags',
+                    run: function () { editTags(target); }
+                });
+            }
+            if (canAnalyst) {
+                Object.keys(ANALYST_KINDS).forEach(function (kind) {
+                    out.push({
+                        label: ANALYST_KINDS[kind].label, icon: ANALYST_KINDS[kind].icon, hue: kind.toLowerCase(),
+                        title: 'Add ' + (kind === 'Opinion' ? 'an ' : 'a ') + kind.toLowerCase() + ' about it',
+                        run: function () { addAnalystData(target, kind); }
+                    });
+                });
+            }
+            return out;
+        }
+
+        function annotateMenu() {
+            return [
+                {
+                    text:          'Edit tags…',
+                    iconClass:     TAG_ICON,
+                    dividerBefore: true,
+                    visible:       function (el) {
+                        var t = canTag && annotateTarget(el);
+                        return !!t && t.type !== 'Object';
+                    },
+                    onclick:       function (e, el) { var t = annotateTarget(el); if (t) editTags(t); }
+                },
+                {
+                    text:      'Add analyst data',
+                    iconClass: 'fas fa-comment-dots',
+                    visible:   function (el) { return canAnalyst && !!annotateTarget(el); },
+                    submenu:   Object.keys(ANALYST_KINDS).map(function (kind) {
+                        return {
+                            text:      ANALYST_KINDS[kind].label + '…',
+                            iconClass: ANALYST_KINDS[kind].icon,
+                            onclick:   function (e, el) { var t = annotateTarget(el); if (t) addAnalystData(t, kind); }
+                        };
+                    })
+                }
+            ];
         }
 
         /* ── pivot: correlations (R1) ──────────────────────────── */
@@ -3095,7 +3346,7 @@
             return mountSidebar(session, 'header', function () {
                 return window.MispPivotSidebarView.header(session.vm, function (section) {
                     if (session.fold) session.fold.reveal(section);
-                });
+                }, annotateActions(selection));
             });
         }
 
@@ -3349,7 +3600,7 @@
                     visible:   function (el) { var d = menuData(el); return !!d && d.type === 'attribute' && d.value !== ''; },
                     onclick:   function (e, el) { copyValue(menuData(el).value); }
                 }
-            ];
+            ].concat(annotateMenu());
         }
 
         /* ── canvas menu: taking fetched correlations back off ─── */
@@ -5525,6 +5776,7 @@
                 baseurl:        d.peBaseurl || '',
                 canEdit:        d.peCanEdit === '1',
                 canAnalyst:     d.peCanAnalyst === '1',
+                canTag:         d.peCanTag === '1',
                 analystSharing: readJson(d.peAnalystSharing, '{}', 'analyst sharing options'),
                 graphSharing:   readJson(d.peGraphSharing, 'null', 'graph sharing options'),
                 uiPriorities:   readJson(d.peUiPriorities, '{}', 'object template priorities'),

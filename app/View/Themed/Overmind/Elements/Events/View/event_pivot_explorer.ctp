@@ -6,6 +6,11 @@
     // Analyst relationships are gated on role alone, as analystData/add is.
     $canAnalyst = !empty($me['Role']['perm_add'])
         && !empty($me['Role']['perm_analyst_data']);
+    // Tagging is offered as the event page's tag card offers it; the
+    // event's own attributes answer the same as the event.
+    $canTag = $this->Acl->canModifyTag($data)
+        && $this->Acl->canAccess('events', 'editEventTags')
+        && $this->Acl->canAccess('attributes', 'editAttributeTags');
     $canGraph = $this->Acl->canAccess('analystData', 'add')
         && $this->Acl->canAccess('analystGraphs', 'save');
 
@@ -69,6 +74,7 @@
      data-pe-baseurl="<?= h($baseurl ?? '') ?>"
      data-pe-can-edit="<?= $canEdit ? '1' : '0' ?>"
      data-pe-can-analyst="<?= $canAnalyst ? '1' : '0' ?>"
+     data-pe-can-tag="<?= $canTag ? '1' : '0' ?>"
      data-pe-analyst-sharing="<?= h(json_encode($analystSharing)) ?>"
      data-pe-graph-sharing="<?= h(json_encode($graphSharing)) ?>"
      data-pe-ui-priorities="<?= h(json_encode((object)$uiPriorities)) ?>"
