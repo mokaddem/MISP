@@ -51,10 +51,11 @@ class OrgGradeHelper extends AppHelper
      *
      * @param array $org id, uuid, name
      * @param array|null $grading
-     * @param bool $large The event band's logo tile
+     * @param string|null $variant `large` on the event band's logo tile,
+     *                             `square` standing alone beside the name
      * @return string
      */
-    public function badge(array $org, $grading, $large = false)
+    public function badge(array $org, $grading, $variant = null)
     {
         if (!$this->enabled($grading) || empty($org['uuid'])) {
             return '';
@@ -73,7 +74,7 @@ class OrgGradeHelper extends AppHelper
         return sprintf(
             '<button type="button" class="og-badge%s%s" data-grade-open="%s" data-grade-for="%s" data-grade="%s"'
             . ' data-org-id="%d" data-org-name="%s" aria-haspopup="menu" aria-expanded="false" title="%s" aria-label="%s">%s</button>',
-            $large ? ' is-large' : '',
+            $variant ? ' is-' . h($variant) : '',
             $grade === null ? ' is-empty' : ' og-tone-' . $this->tone($grade, $grading['scale']),
             h($uuid),
             h($uuid),

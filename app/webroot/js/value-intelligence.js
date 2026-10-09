@@ -9353,6 +9353,30 @@
         initTimeline(document);
         initHistory(document);
         initRelationSummary(document);
+        initGrading();
+    }
+
+    /**
+     * A grade changes how much an organisation counts, so the assessment
+     * panels already drawn are read again (org-grade.js).
+     */
+    function initGrading() {
+        document.addEventListener('og:graded', function () {
+            if (typeof window.reloadAjaxTabIndex !== 'function') {
+                return;
+            }
+            document.querySelectorAll('[data-url*="/values/viewVerdict"]')
+                .forEach(function (box) {
+                    if (!box.dataset.loaded) {
+                        return;
+                    }
+                    // Past the page's memo of shared panel responses.
+                    var url = box.dataset.url.replace(/[?&]og=\d+$/, '');
+                    window.reloadAjaxTabIndex(box, url
+                        + (url.indexOf('?') < 0 ? '?' : '&')
+                        + 'og=' + Date.now());
+                });
+        });
     }
 
     if (document.readyState === 'loading') {

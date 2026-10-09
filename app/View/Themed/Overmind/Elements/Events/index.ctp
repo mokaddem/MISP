@@ -276,7 +276,7 @@ $tableConfig = [
     'hidden' => $hiddenColumns,
     'saved' => $savedHiddenColumns ?? null,
     'defaults' => array_values(array_intersect(['is_extension', 'publish_timestamp', 'owner_org', 'creator_user'], $possible)),
-    'graded' => !empty(array_filter(array_map(function ($event) {
+    'graded' => $this->OrgGrade->enabled($orgGrading ?? null) || !empty(array_filter(array_map(function ($event) {
         return $event['EventCard']['grade'] ?? null;
     }, $events))),
 ];
@@ -460,9 +460,11 @@ $statsHtml = isset($indexStats) ? $this->element('Events/index_stats', [
  */
 
 echo $this->element('genericElements/assetLoader', [
-    'css' => ['events-index-cards', 'events-index-table', 'intel-graph-thumbs'],
+    'css' => ['org-tile', 'events-index-cards', 'events-index-table', 'intel-graph-thumbs'],
     'js' => ['events-index-cards', 'events-index-table', 'intel-graph-thumb', 'intel-graph-thumbs'],
 ]);
+
+echo $this->OrgGrade->config($orgGrading ?? null);
 
 printf(
     '<style class="te-colstyle">%s</style><div class="dk-index te-index" data-te="%s">',
