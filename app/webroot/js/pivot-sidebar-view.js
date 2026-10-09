@@ -703,6 +703,7 @@
         if (strip && strip.childNodes.length) add(root, strip);
         if (vm.entity === 'edge') add(root, edgeEnds(vm));
         if (vm.entity === 'object') add(root, objectTop(vm));
+        if (hooks.actions && hooks.actions.length) add(root, actionRow(hooks.actions));
 
         drawNotices(root, N, hooks);
 
@@ -716,6 +717,28 @@
             });
         }
         return root;
+    }
+
+    // What the viewer may do to the element: { label, icon, hue, title, muted, run }.
+    function actionRow(actions) {
+        var row = h('div', 'pes-actions');
+        actions.forEach(function (a) {
+            var b = add(row, h('button', 'pes-action'));
+            b.type = 'button';
+            if (a.hue) b.setAttribute('data-act', a.hue);
+            if (a.title) {
+                b.title = a.title;
+                b.setAttribute('aria-label', a.title);
+            }
+            if (a.muted) b.setAttribute('aria-disabled', 'true');
+            add(b, icon(a.icon));
+            add(b, h('span', '', a.label));
+            b.addEventListener('click', function (e) {
+                e.stopPropagation();
+                a.run();
+            });
+        });
+        return row;
     }
 
     function subtitle(vm) {
@@ -1578,12 +1601,13 @@
 
     root.MispPivotSidebarView = {
         // The node's identity and card, then what to notice about it. `jump`
-        // opens the detail at the section a notice points to.
-        header: function (vm, jump) {
+        // opens the detail at the section a notice points to; `actions` are
+        // drawn as a row of buttons under the card.
+        header: function (vm, jump, actions) {
             if (vm.entity === 'multi') return Q.header(vm);
             var N = new Notices();
             (NOTICES[vm.entity] || function () {})(vm, N);
-            return drawHeader(h('div'), vm, N, { jump: jump || function () {} });
+            return drawHeader(h('div'), vm, N, { jump: jump || function () {}, actions: actions || [] });
         },
         // Everything else, below one fold.
         detail: function (vm) {
