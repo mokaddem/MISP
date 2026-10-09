@@ -9,7 +9,7 @@ App::uses('EventCardTool', 'Tools/EventOverview');
  */
 class EventIndexHelper extends AppHelper
 {
-    public $helpers = ['FontAwesome', 'TagChip', 'OrgImg'];
+    public $helpers = ['FontAwesome', 'TagChip', 'OrgImg', 'OrgGrade'];
 
     const LANES = [
         'attribution' => ['Attribution', 'fas fa-user-secret'],
@@ -77,14 +77,22 @@ class EventIndexHelper extends AppHelper
 
     /**
      * The reader's own grade of the creator org: a filled square, nothing
-     * when ungraded.
+     * when ungraded. With a profile to write to, the square opens the grade
+     * menu instead.
+     *
+     * @param string|null $grade
+     * @param array $org
+     * @param array|null $grading OrgGradeTool::reading()
      */
-    public function grade($grade, $orgName)
+    public function grade($grade, array $org, $grading = null)
     {
+        if ($this->OrgGrade->enabled($grading)) {
+            return $this->OrgGrade->badge($org, $grading, 'square');
+        }
         if ($grade === null) {
             return '';
         }
-        $title = __('Your grade for %s: %s (analyst profile)', $orgName, $grade);
+        $title = __('Your grade for %s: %s (analyst profile)', $org['name'] ?? '', $grade);
         return sprintf(
             '<span class="dk-grade is-mine" role="img" title="%s" aria-label="%s">%s</span>',
             h($title),

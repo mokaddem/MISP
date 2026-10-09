@@ -498,6 +498,7 @@ if (!$inEventView && IndexPicker::canPickOrgs($me)) {
         'separator' => '||',
         'exclude' => true,
         'resolved' => $filterLabels['org'],
+        'suggest' => IndexPicker::orgSuggestions($me, Hash::extract($attributes ?? [], '{n}.Event.Orgc')),
     ];
 }
 $remotePickers[] = [

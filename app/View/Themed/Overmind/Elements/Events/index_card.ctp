@@ -114,7 +114,7 @@ $extras = $ei->extras($event, $card['graphs']);
     <div class="dk-org">
         <?= $ei->orgTile($orgc) ?>
         <a class="dk-orgname" href="<?= h($baseurl . '/organisations/view/' . ($orgc['id'] ?? '')) ?>" title="<?= h($ei->orgTitle($row)) ?>"><?= h($orgc['name'] ?? '') ?></a>
-        <?= $ei->grade($card['grade'] ?? null, $orgc['name'] ?? '') ?>
+        <?= $ei->grade($card['grade'] ?? null, $orgc, $orgGrading ?? null) ?>
         <span class="dk-marks"><?= $ei->markings($card['markings']) ?></span>
     </div>
     <div class="dk-meta">

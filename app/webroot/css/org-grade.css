@@ -110,8 +110,23 @@ tr:hover .og-mark > .og-monogram,
     border-radius: 5px;
     font-size: .75rem;
 }
+.og-badge.is-square {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    z-index: 2;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    box-shadow: none;
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+}
 .og-badge:hover,
 .og-badge[aria-expanded="true"] { transform: scale(1.12); }
+.og-badge.is-square:hover,
+.og-badge.is-square[aria-expanded="true"] { transform: scale(1.06); }
 .og-badge:focus-visible {
     outline: 2px solid var(--bs-primary);
     outline-offset: 2px;
@@ -132,8 +147,10 @@ tr:hover .og-mark > .og-monogram,
     font-size: .5rem;
 }
 .og-badge.is-empty.is-large { font-size: .5625rem; }
+.og-badge.is-empty.is-square { font-size: .625rem; }
 tr:hover .og-badge.is-empty,
 .idx-card:hover .og-badge.is-empty,
+.dk-card:hover .og-badge.is-empty,
 .eo-band-org:hover .og-badge.is-empty,
 .og-badge.is-empty:focus-visible,
 .og-badge.is-empty[aria-expanded="true"] { opacity: 1; }
@@ -141,6 +158,16 @@ tr:hover .og-badge.is-empty,
 
 .og-badge.is-saving { animation: og-breathe .9s ease-in-out infinite; }
 .og-badge.is-fresh { animation: og-land .42s cubic-bezier(.3, 1.6, .5, 1); }
+
+/* the square beside the name: events index, the Value page's organisations */
+.te-org .og-badge.is-square { margin-left: auto; }
+.vp-grade {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.vp-grade .og-badge.is-empty { order: 1; }
+.vp-grade .og-badge:not(.is-empty) + .vp-grade-none { display: none; }
 
 /* the menu: an Overmind dropdown, dressed as the navbar's panels */
 .dropdown-menu.og-menu {

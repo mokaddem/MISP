@@ -19,8 +19,6 @@
     --dk-gx-wash: #f5f0fe;
     --dk-gx-hair: #dacbfc;
     --dk-rail-clear: #c9ccd1;
-    --dk-mono-0: #655B8A; --dk-mono-1: #885159; --dk-mono-2: #835836;
-    --dk-mono-3: #41704E; --dk-mono-4: #33715A; --dk-mono-5: #865163;
 }
 [data-misp-mode="dark"] .dk-index {
     --dk-amber-ink: #f0a02a;
@@ -30,8 +28,6 @@
     --dk-gx-wash: #2a223c;
     --dk-gx-hair: #4b367c;
     --dk-rail-clear: #5d6168;
-    --dk-mono-0: #766C9D; --dk-mono-1: #9B6269; --dk-mono-2: #966947;
-    --dk-mono-3: #52815E; --dk-mono-4: #45836B; --dk-mono-5: #996274;
 }
 [data-misp-mode="dark"] .dk-index .dk-card { --dk-surface: color-mix(in srgb, var(--bs-body-color) 5%, var(--bs-body-bg)); }
 
@@ -128,11 +124,6 @@
 
 /* org + marking */
 .dk-org { display: flex; align-items: center; gap: 7px; margin-top: 7px; height: 24px; min-width: 0; }
-.dk-logo { width: 22px; height: 22px; flex: none; border-radius: 5px; display: grid; place-items: center; overflow: hidden; }
-.dk-logo img { max-width: 22px; max-height: 22px; width: auto; height: auto; }
-.dk-logo.is-mono { color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; background: var(--dk-mono-0); }
-.dk-logo.m1 { background: var(--dk-mono-1); } .dk-logo.m2 { background: var(--dk-mono-2); }
-.dk-logo.m3 { background: var(--dk-mono-3); } .dk-logo.m4 { background: var(--dk-mono-4); } .dk-logo.m5 { background: var(--dk-mono-5); }
 .dk-orgname {
     position: relative; z-index: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-size: .84rem; font-weight: 600; color: var(--dk-ink); text-decoration: none;

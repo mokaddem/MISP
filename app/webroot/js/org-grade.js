@@ -4,6 +4,10 @@
 (function () {
     'use strict';
 
+    // The events index brings this script again with every reload.
+    if (window.mispOrgGrade) return;
+    window.mispOrgGrade = true;
+
     var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     var GROUPS = [
         { tone: 'more', label: 'Counts more' },
@@ -24,8 +28,21 @@
     };
 
     var C = null;
-    var grades = {};
-    var picker = { el: null, trigger: null, org: null, busy: false };
+    var configNode = null;
+    var picker = { el: null, trigger: null, org: null, grade: '', busy: false, changed: null };
+
+    function config() {
+        var node = document.getElementById('og-config');
+        if (node && node !== configNode) {
+            try {
+                C = JSON.parse(node.textContent);
+                configNode = node;
+            } catch (e) {
+                return C;
+            }
+        }
+        return C;
+    }
 
     function tone(g) {
         var s = C.scale[g];
@@ -61,12 +78,11 @@
         return Array.prototype.slice.call(document.querySelectorAll('.og-badge[data-grade-for="' + uuid + '"]'));
     }
 
-    function paint(b) {
+    function paint(b, g) {
         var org = orgOf(b);
-        var g = grades[org.uuid] || '';
+        var variant = ['is-large', 'is-square'].filter(function (c) { return b.classList.contains(c); });
         b.setAttribute('data-grade', g);
-        b.className = 'og-badge' + (b.classList.contains('is-large') ? ' is-large' : '') +
-            (g ? ' og-tone-' + tone(g) : ' is-empty');
+        b.className = ['og-badge'].concat(variant, g ? 'og-tone-' + tone(g) : 'is-empty').join(' ');
         b.innerHTML = g ? g : '<i class="fas fa-plus" aria-hidden="true"></i>';
         var via = C.target.mode === 'fork' && g ? ' (from ' + C.target.profile.name + ')' : '';
         var label = g ? 'Graded ' + gradeWords(g) + via + '. Change the grade' : 'Grade ' + org.name;
@@ -92,14 +108,14 @@
         var name = '<strong>' + esc(t.profile.name) + '</strong>';
         if (t.mode === 'own') return 'Saved in your profile ' + name + '.';
         var via = esc(VIA[t.profile.via] || 'a shared profile');
-        if (grades[org.uuid]) {
+        if (picker.grade) {
             return 'The grade shown comes from ' + name + ', ' + via + '. A grade you pick goes into your own copy of it.';
         }
         return 'Your first grade makes your own copy of ' + name + ', ' + via + '.';
     }
 
     function listPane(org) {
-        var cur = grades[org.uuid] || '';
+        var cur = picker.grade;
         var h = '<div class="og-pane" data-pane="list">' +
             '<div class="og-head"><span class="og-head-text">' +
             '<span class="og-head-title">How reliable is ' + esc(org.name) + '?</span>' +
@@ -180,6 +196,7 @@
         if (!picker.el) build();
         picker.trigger = trigger;
         picker.org = orgOf(trigger);
+        picker.grade = trigger.getAttribute('data-grade') || '';
         picker.el.setAttribute('aria-label', 'Grade ' + picker.org.name);
         trigger.setAttribute('aria-expanded', 'true');
         picker.el.hidden = false;
@@ -197,6 +214,11 @@
         picker.trigger = null;
         picker.org = null;
         if (returnFocus) t.focus();
+        if (picker.changed) {
+            var detail = picker.changed;
+            picker.changed = null;
+            document.dispatchEvent(new CustomEvent('og:graded', { detail: detail }));
+        }
     }
 
     function place() {
@@ -264,7 +286,7 @@
     function choose(letter, item) {
         if (picker.busy) return;
         var want = letter === 'unrated' ? null : letter;
-        if (want === (grades[picker.org.uuid] || null)) { close(true); return; }
+        if (want === (picker.grade || null)) { close(true); return; }
         if (C.target.mode === 'fork') {
             show(confirmPane(picker.org, letter));
             var go = picker.el.querySelector('[data-grade-confirm-fork]');
@@ -294,7 +316,7 @@
         var box = picker.el.querySelector('.og-pane .og-error');
         if (!box) return;
         var org = picker.org;
-        var cur = grades[org.uuid] || '';
+        var cur = picker.grade;
         var why = (body && body.errors && body.errors[0]) || (body && (body.message || body.name)) ||
             'The grade could not be saved.';
         box.innerHTML = '<i class="fas fa-circle-exclamation" aria-hidden="true"></i><span>' + esc(why) + ' ' +
@@ -337,18 +359,21 @@
                 return;
             }
             if (res.status !== 200 || !res.body) { showError(res.body); return; }
-            if (res.body.grade) grades[org.uuid] = res.body.grade; else delete grades[org.uuid];
+            picker.grade = res.body.grade || '';
+            picker.changed = { uuid: org.uuid, grade: res.body.grade || null };
             if (res.body.forked) {
                 C.target = { mode: 'own', profile: { id: res.body.profile.id, name: res.body.profile.name, via: 'user' } };
             }
             badgesFor(org.uuid).forEach(function (b) {
-                paint(b);
+                paint(b, picker.grade);
                 b.classList.remove('is-fresh');
                 void b.offsetWidth;
                 if (res.body.grade) b.classList.add('is-fresh');
             });
             if (res.body.forked) {
-                document.querySelectorAll('.og-badge').forEach(paint);
+                document.querySelectorAll('.og-badge').forEach(function (b) {
+                    paint(b, b.getAttribute('data-grade') || '');
+                });
                 show(donePane(org, res.body));
                 var done = picker.el.querySelector('[data-og-done]');
                 if (done) done.focus({ preventScroll: true });
@@ -359,20 +384,9 @@
     }
 
     function init() {
-        var node = document.getElementById('og-config');
-        if (!node) return;
-        try {
-            C = JSON.parse(node.textContent);
-        } catch (e) {
-            return;
-        }
-        document.querySelectorAll('.og-badge').forEach(function (b) {
-            var g = b.getAttribute('data-grade');
-            if (g) grades[b.getAttribute('data-grade-for')] = g;
-        });
         document.addEventListener('click', function (e) {
             var b = e.target.closest('.og-badge');
-            if (b) {
+            if (b && config()) {
                 e.preventDefault();
                 e.stopPropagation();
                 if (picker.trigger === b) close(true); else open(b);

@@ -14,6 +14,10 @@
  * - hint     : line under the list
  * - separator: between values in the URL, '|' unless the index splits on '||'
  * - single   : one value at a time, applied as soon as it is picked
+ * - suggest  : groups listed before anything is typed, [{label, rows, more}]
+ * - sub      : a second filter one option drills into, {option, name, label,
+ *              source answering with the whole list, exclude, resolved, hint};
+ *              including any of its values narrows the picker to that option
  * - browser  : open as a column browser (index-filter-browser.js) instead of
  *              a list: {kind: 'tag'|'galaxy', scopes: URL, tree: URL (tags)}
  *
@@ -21,29 +25,59 @@
  * @var IndexFilterState $state
  */
 $name = $child['name'];
-$raw = (string)$state->get($name);
-$allOf = !empty($child['all_of']) && strpos($raw, '&') !== false && strpos($raw, '|') === false;
-$pieces = $allOf
-    ? array_map(function ($v) { return [$v, false]; }, array_values(array_filter(explode('&', $raw), 'strlen')))
-    : IndexFilterState::pieces($raw, $child['separator'] ?? '|');
+$selectedOf = function (array $child) use ($state) {
+    $raw = (string)$state->get($child['name']);
+    $allOf = !empty($child['all_of']) && strpos($raw, '&') !== false && strpos($raw, '|') === false;
+    $pieces = $allOf
+        ? array_map(function ($v) { return [$v, false]; }, array_values(array_filter(explode('&', $raw), 'strlen')))
+        : IndexFilterState::pieces($raw, $child['separator'] ?? '|');
 
-$known = [];
-foreach (($child['options'] ?? []) as $option) {
-    $known[(string)$option['value']] = $option;
-}
-foreach (($child['resolved'] ?? []) as $value => $row) {
-    $known[(string)$value] = $row;
-}
-$selected = [];
-foreach ($pieces as [$value, $excluded]) {
-    $row = $known[$value] ?? null;
-    $selected[] = [
-        'value' => $value,
-        'label' => $row['label'] ?? $value,
-        'style' => $row['style'] ?? null,
-        'exclude' => $excluded && !empty($child['exclude']),
-        'unresolved' => $row === null,
+    $known = [];
+    foreach (($child['options'] ?? []) as $option) {
+        $known[(string)$option['value']] = $option;
+    }
+    foreach (($child['resolved'] ?? []) as $value => $row) {
+        $known[(string)$value] = $row;
+    }
+    foreach (($child['suggest'] ?? []) as $group) {
+        foreach ($group['rows'] as $row) {
+            $known[(string)$row['value']] = $row;
+        }
+    }
+    $selected = [];
+    foreach ($pieces as [$value, $excluded]) {
+        $row = $known[$value] ?? null;
+        $selected[] = [
+            'value' => $value,
+            'label' => $row['label'] ?? $value,
+            'style' => $row['style'] ?? null,
+            'note' => $row['note'] ?? null,
+            'exclude' => $excluded && !empty($child['exclude']),
+            'unresolved' => $row === null,
+        ];
+    }
+    return [$selected, $allOf];
+};
+[$selected, $allOf] = $selectedOf($child);
+$count = count($selected);
+
+$sub = null;
+if (!empty($child['sub'])) {
+    [$subSelected] = $selectedOf($child['sub']);
+    $sub = [
+        'option' => (string)$child['sub']['option'],
+        'name' => $child['sub']['name'],
+        'label' => $child['sub']['label'],
+        'source' => $child['sub']['source'],
+        'exclude' => !empty($child['sub']['exclude']),
+        'selected' => $subSelected,
+        'hint' => $child['sub']['hint'] ?? null,
     ];
+    $narrowed = array_filter($subSelected, function ($s) { return !$s['exclude']; });
+    $count += count($subSelected);
+    if ($narrowed && in_array($sub['option'], array_column($selected, 'value'), true)) {
+        $count--;
+    }
 }
 
 $config = [
@@ -57,9 +91,10 @@ $config = [
     'hint' => $child['hint'] ?? null,
     'sep' => $child['separator'] ?? '|',
     'single' => !empty($child['single']),
+    'suggest' => $child['suggest'] ?? null,
+    'sub' => $sub,
     'browser' => $child['browser'] ?? null,
 ];
-$count = count($selected);
 ?>
 <div class="ifp-picker flex-shrink-0" data-ifp-swap="picker-<?= h($name) ?>" data-ifp-picker="<?= h(json_encode($config, JSON_UNESCAPED_UNICODE)) ?>">
     <button type="button" class="btn btn-sm btn-outline-secondary ifp-btn<?= $count ? ' is-set' : '' ?>" aria-expanded="false" aria-haspopup="dialog" data-tour="index-picker-<?= h($name) ?>">

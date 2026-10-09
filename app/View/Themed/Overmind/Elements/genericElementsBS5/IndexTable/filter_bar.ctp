@@ -135,6 +135,9 @@ foreach ($filter_bar['children'] as $child) {
         if (!empty($child['browser'])) {
             $browserStrings = [];
         }
+        if (!empty($child['sub'])) {
+            $pickers[$child['sub']['name']] = $child['sub'];
+        }
     }
 }
 $pickerMode = $pickerBarOn || !empty($pickers);
@@ -167,7 +170,7 @@ if ($pickerMode) {
         ($filter_bar['transport'] ?? 'path') === 'query' ? ($this->request->query ?? []) : null
     );
     echo $this->element('genericElements/assetLoader', [
-        'css' => ['index-filters'],
+        'css' => ['org-tile', 'index-filters'],
         'js' => ['index-filters'],
     ]);
     if ($browserStrings !== null) {
@@ -359,6 +362,10 @@ $activeTotal = count(array_diff_key(
         'strings' => [
             'typeToSearch' => __('Type 2 characters to search'),
             'searching' => __('Searching…'),
+            'loading' => __('Loading…'),
+            'listFailed' => __('The list could not be loaded'),
+            'back' => __('Back to %s'),
+            'drill' => __('Choose %s'),
             'noMatch' => __('Nothing matches'),
             'more' => __('%s more: type to narrow'),
             'searchFailed' => __('The search failed'),
@@ -382,6 +389,13 @@ $activeTotal = count(array_diff_key(
 
         <?php if ($child['type'] === 'picker'): ?>
             <?= $this->element('genericElementsBS5/IndexTable/filter_picker', [
+                'child' => $child,
+                'state' => $filterState,
+            ]) ?>
+        <?php endif; ?>
+
+        <?php if ($child['type'] === 'time'): ?>
+            <?= $this->element('genericElementsBS5/IndexTable/filter_time', [
                 'child' => $child,
                 'state' => $filterState,
             ]) ?>

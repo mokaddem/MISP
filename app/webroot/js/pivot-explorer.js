@@ -9,6 +9,7 @@
 //   [data-pe-baseurl]      MISP $baseurl, prefixed onto every request
 //   [data-pe-can-edit]     "1" when the viewer may add object references
 //   [data-pe-can-tag]      "1" when the viewer may edit the event's tags
+//   [data-pe-can-cluster]  "1" when the viewer may edit its galaxy clusters
 //   [data-pe-value-card]   "1" when MISP.value_hover_card is on
 //   [data-pe-can-enrich]   "1" when the viewer may run enrichment modules
 //   [data-pe-lib-missing]  translated error: pivotick failed to load
@@ -54,8 +55,10 @@
         // Analyst relationships are gated on role alone, not on the event (D8);
         // deleting one needs its creator org, or site admin.
         var canAnalyst = !!cfg.canAnalyst;
-        // The viewer may edit the tags of the event and of its attributes.
+        // The viewer may edit the tags and galaxy clusters of the event and of
+        // its attributes.
         var canTag     = !!cfg.canTag;
+        var canCluster = !!cfg.canCluster;
         var orgUuid    = cfg.orgUuid || '';
         var siteAdmin  = !!cfg.siteAdmin;
         // What an analyst relationship can be shared with: [[level, name]],
@@ -968,6 +971,30 @@
             };
         }
 
+        // Zoomed in, a tag or cluster is the chip the event page draws for it.
+        function labelChipStyle(entity) {
+            if (!window.TagChips) return null;
+            return {
+                shape: 'none', size: 22, color: 'transparent', strokeWidth: 0, text: '',
+                html: function (node) {
+                    var d = (node && node.getData && node.getData()) || {};
+                    var el = document.createElement('div');
+                    el.className = 'pe-node-chip';
+                    if (entity === 'cluster') {
+                        el.innerHTML = window.TagChips.cluster({ value: d.value || d.label, galaxy: d.galaxy_name || d.galaxy_type || '',
+                                                                 local: d.local }, { display: 'full', href: function () { return null; } });
+                        return el;
+                    }
+                    var name = d.name || d.label;
+                    // namespace:value (tlp:white) fits on one row
+                    var p = window.TagChips.parse(name);
+                    el.innerHTML = window.TagChips.chip({ name: name, colour: d.colour, local: d.local },
+                                                        { searchUrl: '', inline: p.namespace !== null && !p.above.length });
+                    return el;
+                }
+            };
+        }
+
         function mispNodeStyles() {
             var N = window.MispPivotNodes;
             var rest = N.options({
@@ -976,6 +1003,10 @@
                 fontUrl: baseurl + '/webfonts/misp-iconify.woff2'
             }).nodeStyleMap;
             var chip = N.styleMap('M'), focus = N.styleMap('XL');
+            ['taxonomy', 'cluster'].forEach(function (entity) {
+                var label = labelChipStyle(entity);
+                if (label) chip[entity] = focus[entity] = label;
+            });
             var map = {};
             Object.keys(rest).forEach(function (entity) {
                 map[entity] = Object.assign(withBadges(rest[entity]), {
@@ -1346,6 +1377,7 @@
             Relationship: { label: 'Relationship', icon: 'fas fa-diagram-project' }
         };
         var TAG_ICON = 'misp-icon misp-icon-tag misp-simple';
+        var CLUSTER_ICON = 'misp-icon misp-icon-galaxy misp-simple';
 
         // The seeded event, or one of its live attributes or objects, behind a
         // node: { type, uuid, rec }. Anything else is not this page's to annotate.
@@ -1430,8 +1462,19 @@
             return (list || []).map(function (t) { return t.name + (t.local ? '|l' : ''); }).sort().join('\n');
         }
 
-        // The tag picker saves on its own; once it is closed the record's tags
-        // are read back, and only a change is repainted.
+        // A record's galaxies, less the clusters whose tag it no longer carries.
+        function keptGalaxies(galaxies, tags) {
+            var carried = {};
+            (tags || []).forEach(function (t) { if (t && t.name) carried[t.name] = true; });
+            return (galaxies || []).map(function (g) {
+                return Object.assign({}, g, { GalaxyCluster: (g.GalaxyCluster || []).filter(function (c) {
+                    return carried[c.tag_name];
+                }) });
+            }).filter(function (g) { return g.GalaxyCluster.length; });
+        }
+
+        // The tag and cluster pickers save on their own; once one is closed
+        // the record's tags are read back, and only a change is repainted.
         function rereadTags(target) {
             var read = target.type === 'Event'
                 ? postJson('/events/restSearch', { returnFormat: 'json', uuid: target.uuid, metadata: 1 })
@@ -1441,7 +1484,8 @@
             read.then(function (fresh) {
                 if (!fresh || tagSignature(fresh.Tag) === tagSignature(target.rec.Tag)) return;
                 target.rec.Tag = fresh.Tag || [];
-                if (fresh.Galaxy) target.rec.Galaxy = fresh.Galaxy;
+                target.rec.Galaxy = fresh.Galaxy && fresh.Galaxy.length ? fresh.Galaxy
+                    : keptGalaxies(target.rec.Galaxy, target.rec.Tag);
                 repaintRecord(target.uuid, tagFields(target.rec));
             }).catch(function (err) {
                 console.error('[pivot-explorer] reading tags back failed:', err);
@@ -1458,6 +1502,21 @@
                 ? '/events/editEventTags/' + encodeURIComponent(eventId)
                 : '/attributes/editAttributeTags/' + encodeURIComponent(target.uuid);
             openPageModal(path, null, function () { rereadTags(target); });
+        }
+
+        function editClusters(target) {
+            if (target.type === 'Object') {
+                notify('info', 'Objects carry no clusters', 'In MISP an object is tagged through its attributes: select one of them.');
+                return;
+            }
+            var path = target.type === 'Event'
+                ? '/events/editEventGalaxies/' + encodeURIComponent(eventId)
+                : '/attributes/editAttributeGalaxies/' + encodeURIComponent(target.uuid);
+            openPageModal(path, null, function () { rereadTags(target); });
+        }
+
+        function attachedHint(n, one) {
+            return n ? n + ' ' + one + (n === 1 ? '' : 's') : 'None yet';
         }
 
         function addAnalystData(target, kind) {
@@ -1536,14 +1595,28 @@
             var target = annotateTarget(element);
             if (!target) return [];
             var out = [];
-            if (canTag) {
+            if (canTag || canCluster) {
                 var noTags = target.type === 'Object';
-                out.push({
+                var labels = noTags ? {} : tagFields(target.rec);
+                var both = canTag && canCluster;
+                var action = {
                     label: 'Tags', icon: TAG_ICON, hue: 'tag', muted: noTags,
                     title: noTags ? 'MISP objects carry no tags: tag one of its attributes'
-                                  : 'Add or remove its tags',
-                    run: function () { editTags(target); }
-                });
+                         : both   ? 'Edit its tags or galaxy clusters'
+                         : canTag ? 'Add or remove its tags' : 'Add or remove its galaxy clusters',
+                    run: function () { if (canTag) editTags(target); else editClusters(target); }
+                };
+                if (both && !noTags) {
+                    action.menu = [
+                        { label: 'Tags', icon: TAG_ICON, hue: 'tag',
+                          hint: attachedHint((labels.tags || []).length, 'tag'),
+                          run: function () { editTags(target); } },
+                        { label: 'Galaxy clusters', icon: CLUSTER_ICON, hue: 'galaxy',
+                          hint: attachedHint((labels.clusters || []).length, 'cluster'),
+                          run: function () { editClusters(target); } }
+                    ];
+                }
+                out.push(action);
             }
             if (canAnalyst) {
                 Object.keys(ANALYST_KINDS).forEach(function (kind) {
@@ -1558,16 +1631,25 @@
         }
 
         function annotateMenu() {
+            var context = [];
+            if (canTag) context.push({ text: 'Tags…', iconClass: TAG_ICON, edit: editTags });
+            if (canCluster) context.push({ text: 'Galaxy clusters…', iconClass: CLUSTER_ICON, edit: editClusters });
             return [
                 {
-                    text:          'Edit tags…',
+                    text:          'Edit context',
                     iconClass:     TAG_ICON,
                     dividerBefore: true,
                     visible:       function (el) {
-                        var t = canTag && annotateTarget(el);
+                        var t = context.length && annotateTarget(el);
                         return !!t && t.type !== 'Object';
                     },
-                    onclick:       function (e, el) { var t = annotateTarget(el); if (t) editTags(t); }
+                    submenu:       context.map(function (c) {
+                        return {
+                            text:      c.text,
+                            iconClass: c.iconClass,
+                            onclick:   function (e, el) { var t = annotateTarget(el); if (t) c.edit(t); }
+                        };
+                    })
                 },
                 {
                     text:      'Add analyst data',
@@ -3346,7 +3428,7 @@
             return mountSidebar(session, 'header', function () {
                 return window.MispPivotSidebarView.header(session.vm, function (section) {
                     if (session.fold) session.fold.reveal(section);
-                }, annotateActions(selection));
+                }, annotateActions(selection), sidebarNav(selection));
             });
         }
 
@@ -3357,9 +3439,28 @@
             var session = sidebarSession(selection);
             if (!session) return undefined;
             return mountSidebar(session, 'detail', function () {
-                session.fold = window.MispPivotSidebarView.detail(session.vm);
+                session.fold = window.MispPivotSidebarView.detail(session.vm, sidebarNav(selection));
                 return session.fold.el;
             });
+        }
+
+        // An object's attributes and an attribute's object, as nodes.
+        function sidebarNav(selection) {
+            function find(uuid) {
+                if (!selection || Array.isArray(selection) || isEdge(selection)) return null;
+                var near = (selection.children || []).concat(selection.parentNode ? [selection.parentNode] : []);
+                return near.filter(function (n) {
+                    var d = n.getData ? n.getData() : null;
+                    return d && d.uuid === uuid;
+                })[0] || null;
+            }
+            return {
+                selectable: function (uuid) { return !!find(uuid); },
+                select: function (uuid) {
+                    var n = find(uuid);
+                    if (n && _graph) _graph.selectElement(n);
+                }
+            };
         }
 
         function sidebarRows(node) {
@@ -5777,6 +5878,7 @@
                 canEdit:        d.peCanEdit === '1',
                 canAnalyst:     d.peCanAnalyst === '1',
                 canTag:         d.peCanTag === '1',
+                canCluster:     d.peCanCluster === '1',
                 analystSharing: readJson(d.peAnalystSharing, '{}', 'analyst sharing options'),
                 graphSharing:   readJson(d.peGraphSharing, 'null', 'graph sharing options'),
                 uiPriorities:   readJson(d.peUiPriorities, '{}', 'object template priorities'),

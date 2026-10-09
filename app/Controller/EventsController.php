@@ -172,7 +172,8 @@ class EventsController extends AppController
     }
 
     /**
-     * Labels and styles for the org, tag and galaxy values the URL filters on.
+     * Labels and styles for the org, tag, galaxy and sharing group values the
+     * URL filters on.
      *
      * @param array $passedArgs
      * @return array kind => value => {value, label, style}
@@ -180,7 +181,7 @@ class EventsController extends AppController
     private function __indexFilterLabels(array $passedArgs)
     {
         $values = [];
-        foreach (['org', 'tag', 'galaxy'] as $kind) {
+        foreach (['org', 'tag', 'galaxy', 'sharinggroup'] as $kind) {
             $raw = $passedArgs['search' . $kind] ?? null;
             if ($raw === null || $raw === '') {
                 continue;
@@ -194,7 +195,7 @@ class EventsController extends AppController
             }
         }
         if (empty($values)) {
-            return ['org' => [], 'tag' => [], 'galaxy' => []];
+            return ['org' => [], 'tag' => [], 'galaxy' => [], 'sharinggroup' => []];
         }
         App::uses('IndexPicker', 'Tools');
         return IndexPicker::resolve($this->Auth->user(), $values);
@@ -1070,6 +1071,7 @@ class EventsController extends AppController
         $this->set('events', $events);
         if ($withCards) {
             $this->set('filterLabels', $this->__indexFilterLabels($passedArgs));
+            $this->set('orgGrading', ClassRegistry::init('AnalystProfile')->gradingFor($this->Auth->user()));
         }
 
         if ($this->request->is('ajax')) {

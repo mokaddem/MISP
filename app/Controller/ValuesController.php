@@ -699,6 +699,7 @@ class ValuesController extends AppController
         // Re-encoded rather than passed through, so the panel URLs the page
         // builds are well-formed whichever alphabet the caller arrived with.
         $this->set('valueB64', ValueUrlTool::encode($profile['value']));
+        $this->__setOrgGrading();
         /*
          * And the one write this page makes: `/values/index` carries
          * the last ten values a reader opened, so opening one is what
@@ -1835,6 +1836,7 @@ class ValuesController extends AppController
          */
         $profile = $this->__verdictFor($b64value,
             array('with_opinions' => true));
+        $this->__setOrgGrading();
         /*
          * `ValueLean` rather than a condition here, because
          * `value_verdict_aside.ctp` picks the same branch for the rail
@@ -1894,6 +1896,19 @@ class ValuesController extends AppController
             $this->__decodeValue($b64value),
             $options
         );
+    }
+
+    /**
+     * The reader's grades and where a new one would land, for the badges
+     * on *Who says what*.
+     *
+     * @return void
+     */
+    private function __setOrgGrading()
+    {
+        $this->loadModel('AnalystProfile');
+        $this->set('orgGrading',
+            $this->AnalystProfile->gradingFor($this->Auth->user()));
     }
 
     /**

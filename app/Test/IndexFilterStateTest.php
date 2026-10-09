@@ -73,6 +73,22 @@ class IndexFilterStateTest extends TestCase
         $this->assertSame('0|3', $state->get('distribution'));
     }
 
+    public function testListValuesKeepTheirShapeInUrls()
+    {
+        $state = $this->state(['searchtimestamp' => ['2026-09-01', '2026-09-30T23:59:59'], 'searchorg' => '9']);
+        $this->assertSame(['2026-09-01', '2026-09-30T23:59:59'], $state->getList('timestamp'));
+        $this->assertNull($state->getList('org'));
+        $this->assertSame(
+            '/events/index/searchtimestamp[0]:2026-09-01/searchtimestamp[1]:2026-09-30T23%3A59%3A59',
+            $state->url(['org' => null])
+        );
+        $this->assertSame('/events/index/searchtimestamp:7d/searchorg:9', $state->url(['timestamp' => '7d']));
+        $this->assertSame(
+            '/events/index/searchorg:9/searchpublish_timestamp[0]:0/searchpublish_timestamp[1]:1700000000',
+            $state->url(['timestamp' => null, 'publish_timestamp' => ['0', '1700000000']])
+        );
+    }
+
     public function testDoublePipeSeparator()
     {
         $pieces = IndexFilterState::pieces('csv||misp||', '||');

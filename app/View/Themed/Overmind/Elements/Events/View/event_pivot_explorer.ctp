@@ -11,6 +11,9 @@
     $canTag = $this->Acl->canModifyTag($data)
         && $this->Acl->canAccess('events', 'editEventTags')
         && $this->Acl->canAccess('attributes', 'editAttributeTags');
+    $canCluster = $this->Acl->canModifyTag($data)
+        && $this->Acl->canAccess('events', 'editEventGalaxies')
+        && $this->Acl->canAccess('attributes', 'editAttributeGalaxies');
     $canGraph = $this->Acl->canAccess('analystData', 'add')
         && $this->Acl->canAccess('analystGraphs', 'save');
 
@@ -75,6 +78,7 @@
      data-pe-can-edit="<?= $canEdit ? '1' : '0' ?>"
      data-pe-can-analyst="<?= $canAnalyst ? '1' : '0' ?>"
      data-pe-can-tag="<?= $canTag ? '1' : '0' ?>"
+     data-pe-can-cluster="<?= $canCluster ? '1' : '0' ?>"
      data-pe-analyst-sharing="<?= h(json_encode($analystSharing)) ?>"
      data-pe-graph-sharing="<?= h(json_encode($graphSharing)) ?>"
      data-pe-ui-priorities="<?= h(json_encode((object)$uiPriorities)) ?>"

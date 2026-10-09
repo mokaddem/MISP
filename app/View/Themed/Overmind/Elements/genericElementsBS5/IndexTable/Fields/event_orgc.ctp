@@ -8,5 +8,5 @@ printf(
     h($baseurl . '/organisations/view/' . ($orgc['id'] ?? '')),
     h($ei->orgTitle($row)),
     h($orgc['name'] ?? ''),
-    $ei->grade($row['EventCard']['grade'] ?? null, $orgc['name'] ?? '')
+    $ei->grade($row['EventCard']['grade'] ?? null, $orgc, $orgGrading ?? null)
 );
