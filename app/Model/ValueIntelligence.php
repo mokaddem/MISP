@@ -16431,12 +16431,21 @@ class ValueIntelligence extends AppModel
         $byOrgFp = isset($context['sightings']['by_org_fp'])
             ? $context['sightings']['by_org_fp']
             : array();
+        $uuids = $this->model('Organisation')->find('list', array(
+            'recursive' => -1,
+            'fields' => array('Organisation.id', 'Organisation.uuid'),
+            'conditions' => array(
+                'Organisation.id' => array_column($orgs, 'id'),
+            ),
+        ));
 
         $rows = array();
         foreach ($orgs as $org) {
             $id = (int)$org['id'];
             $rows[] = array(
                 'org' => $org['name'],
+                'org_id' => $id,
+                'org_uuid' => isset($uuids[$id]) ? $uuids[$id] : null,
                 'occurrences' => (int)$org['occurrences'],
                 'sightings' => isset($byOrg[$id]) ? (int)$byOrg[$id] : 0,
                 'fp' => isset($byOrgFp[$id]) ? (int)$byOrgFp[$id] : 0,

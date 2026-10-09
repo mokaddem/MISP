@@ -952,6 +952,8 @@ foreach ($tabRegistry as $tab) {
     );
 }
 
+echo $this->OrgGrade->config($orgGrading ?? null);
+
 echo $this->element('genericElementsBS5/Layout/view_layout', array(
     'data' => $profile,
     'tabs' => $tabs,

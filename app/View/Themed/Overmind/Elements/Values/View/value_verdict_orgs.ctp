@@ -16,6 +16,7 @@
  * @var array $orgColumns  Any of `to_ids`, `reliability`
  * @var string $orgsSub    The subtitle: why this table is here for
  *                         this particular value
+ * @var array|null $orgGrading OrgGradeTool::reading()
  */
 App::uses('ValueTrustTool', 'Tools/ValueIntelligence');
 
@@ -125,8 +126,26 @@ $headings = array(
                                      * column to the left of this one.
                                      */
                                     ?>
+                                    <?php
+                                    $gradeBadge = $this->OrgGrade->badge(
+                                        array(
+                                            'id' => $org['org_id'] ?? 0,
+                                            'uuid' => $org['org_uuid'] ?? '',
+                                            'name' => $org['org'],
+                                        ),
+                                        $orgGrading ?? null,
+                                        'square'
+                                    );
+                                    ?>
                                     <td>
-                                        <?php if ($org['reliability']
+                                        <?php if ($gradeBadge !== ''): ?>
+                                            <span class="vp-grade">
+                                                <?= $gradeBadge ?>
+                                                <span class="text-muted vp-grade-none">
+                                                    <?= h(__('unrated')) ?>
+                                                </span>
+                                            </span>
+                                        <?php elseif ($org['reliability']
                                             === ValueTrustTool::UNRATED
                                         ): ?>
                                             <span class="text-muted">

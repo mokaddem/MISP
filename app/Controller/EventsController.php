@@ -1070,6 +1070,7 @@ class EventsController extends AppController
         $this->set('events', $events);
         if ($withCards) {
             $this->set('filterLabels', $this->__indexFilterLabels($passedArgs));
+            $this->set('orgGrading', ClassRegistry::init('AnalystProfile')->gradingFor($this->Auth->user()));
         }
 
         if ($this->request->is('ajax')) {
