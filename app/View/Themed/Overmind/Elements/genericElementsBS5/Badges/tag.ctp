@@ -7,6 +7,7 @@
  * - $showFavourite (bool) optional
  * - $relationship (string) optional, EventTag/AttributeTag.relationship_type
  * - $searchUrl (string) optional link prefix, no link by default
+ * - $inline (bool) optional, path and value on one row
  */
 $showFavourite = $showFavourite ?? false;
 $chip = $this->TagChip->chip([
@@ -16,6 +17,7 @@ $chip = $this->TagChip->chip([
 ], [
     'searchUrl' => $searchUrl ?? '',
     'class' => $hiddenClass ?? '',
+    'inline' => !empty($inline),
 ]);
 if ($showFavourite && !empty($tag['id'])): ?>
 <span class="d-inline-flex align-items-center <?= h($hiddenClass ?? '') ?>">

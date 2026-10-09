@@ -12,7 +12,7 @@
  * tag_id?, local?, relationship_type?, description?}; hue is
  * GalaxyColour::hue() and is derived here when missing.
  * opts: searchUrl (prefix, '' for no link), display ('full'|'leaf'|'swatch'),
- * inline (a namespace:value tag on one row), group, minGroup, wideAt, cls.
+ * inline (a lone tag on one row), group, minGroup, wideAt, cls.
  */
 (function (root) {
     'use strict';
@@ -168,7 +168,7 @@
         var showPath = display === 'full' &&
             (member ? p.above.length > 0 : p.namespace !== null);
         var stacked = display !== 'swatch' && !!(showPath || rel);
-        var inline = stacked && !!opts.inline && !member && p.above.length === 0;
+        var inline = stacked && !!opts.inline && !member;
         var nvRaw = tag.numerical_value;
         var hasNv = nvRaw !== null && nvRaw !== undefined && nvRaw !== '' && !isNaN(Number(nvRaw)) &&
             display !== 'swatch';

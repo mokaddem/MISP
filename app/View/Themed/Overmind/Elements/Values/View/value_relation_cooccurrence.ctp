@@ -855,7 +855,7 @@ $labelCell = function (array $row) use ($view) {
             'id' => $cluster['id'] ?? null,
             'value' => $row['label'],
             'galaxy' => $row['family'],
-        ]);
+        ], ['inline' => true]);
     }
     return empty($row['tag'])
         ? '<span class="vp-rel-cell">' . h($row['label']) . '</span>'
@@ -866,6 +866,7 @@ $labelCell = function (array $row) use ($view) {
                 'local' => !empty($row['tag']['local']),
                 'hiddenClass' => '',
                 'showFavourite' => false,
+                'inline' => true,
             )
         );
 };
