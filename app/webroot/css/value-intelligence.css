@@ -2043,6 +2043,16 @@ tr.vp-occ-deleted td {
     padding-right: 22px;
 }
 
+.vp-org {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    vertical-align: middle;
+}
+.vp-org .dk-logo { width: 20px; height: 20px; border-radius: 4px; }
+.vp-org .dk-logo img { max-width: 20px; max-height: 20px; }
+.vp-org .dk-logo.is-mono { font-size: 8.5px; }
+
 .vp-reliability {
     display: inline-flex;
     align-items: center;

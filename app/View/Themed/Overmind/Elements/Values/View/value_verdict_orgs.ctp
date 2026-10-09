@@ -65,7 +65,16 @@ $headings = array(
                 <tbody>
                     <?php foreach ($orgs as $org): ?>
                         <tr>
-                            <td class="fw-semibold"><?= h($org['org']) ?></td>
+                            <td class="fw-semibold">
+                                <span class="vp-org">
+                                    <?= $this->EventIndex->orgTile(array(
+                                        'id' => $org['org_id'] ?? null,
+                                        'uuid' => $org['org_uuid'] ?? null,
+                                        'name' => $org['org'],
+                                    ), 20) ?>
+                                    <span><?= h($org['org']) ?></span>
+                                </span>
+                            </td>
                             <td class="text-end">
                                 <?= h($org['occurrences']) ?>
                             </td>

@@ -460,7 +460,7 @@ $statsHtml = isset($indexStats) ? $this->element('Events/index_stats', [
  */
 
 echo $this->element('genericElements/assetLoader', [
-    'css' => ['events-index-cards', 'events-index-table', 'intel-graph-thumbs'],
+    'css' => ['org-tile', 'events-index-cards', 'events-index-table', 'intel-graph-thumbs'],
     'js' => ['events-index-cards', 'events-index-table', 'intel-graph-thumb', 'intel-graph-thumbs'],
 ]);
 

@@ -17,7 +17,7 @@ App::uses('ValueLean', 'Tools/ValueIntelligence');
 echo $this->element('genericElements/assetLoader', array(
     'css' => array(
         'value-palette', 'value-widgets', 'misp-brush', 'misp-matrix',
-        'value-intelligence',
+        'org-tile', 'value-intelligence',
     ),
     'js' => array(
         'Chart.min', 'misp-brush', 'misp-matrix', 'value-intelligence',
