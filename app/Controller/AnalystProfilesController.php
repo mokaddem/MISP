@@ -4,6 +4,7 @@ App::uses('MispTheme', 'MispTheme');
 App::uses('ValueUrlTool', 'Tools/ValueIntelligence');
 App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
 App::uses('ModuleCredentials', 'Tools/AnalystProfile');
+App::uses('OrgGradeTool', 'Tools/AnalystProfile');
 App::uses('ValueSignalLoader', 'Tools/ValueIntelligence');
 App::uses('ValueVerdictTool', 'Tools/ValueIntelligence');
 App::uses('ValueVerdictDiffTool', 'Tools/ValueIntelligence');
@@ -105,6 +106,7 @@ class AnalystProfilesController extends AppController
         ) {
             $this->Security->validatePost = false;
         }
+        $this->_csrfTokenHeaderOnly(['grade']);
         /*
          * The editor posts more than once per page: every field change
          * recomputes the bench, and a pin posts beside it. A single-use
@@ -1321,6 +1323,84 @@ class AnalystProfilesController extends AppController
             'comparison_set' => $this->__comparisonSet($user),
             'context_builds' => $builds,
         );
+    }
+
+    /**
+     * Grade an organisation in the reader's own profile.
+     *
+     * Posted `grade` is A…G or `unrated`; `fork=1` agrees to copying the
+     * profile in force when it is not the reader's, which is otherwise
+     * answered with 409 and the target to ask about.
+     *
+     * @param int|string|null $orgId id or uuid
+     * @return CakeResponse
+     */
+    public function grade($orgId = null)
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'This endpoint only accepts POST requests.'
+            ));
+        }
+        $user = $this->Auth->user();
+        $this->loadModel('Organisation');
+        $org = $this->Organisation->find('first', [
+            'conditions' => Validation::uuid($orgId)
+                ? ['Organisation.uuid' => $orgId]
+                : ['Organisation.id' => (int)$orgId],
+            'fields' => ['id', 'uuid', 'name'],
+            'recursive' => -1,
+        ]);
+        if (empty($org)
+            || !$this->Organisation->canSee($user, $org['Organisation']['id'])
+        ) {
+            throw new NotFoundException(__('Invalid organisation'));
+        }
+        $org = $org['Organisation'];
+        $posted = isset($this->request->data['AnalystProfile'])
+            ? $this->request->data['AnalystProfile']
+            : $this->request->data;
+        $parsed = OrgGradeTool::parse($posted['grade'] ?? null);
+        if (!$parsed['ok']) {
+            throw new BadRequestException(__(
+                'A grade is A to G, or "unrated" to remove one.'
+            ));
+        }
+        $written = $this->AnalystProfile->gradeOrganisation(
+            $user,
+            $org['uuid'],
+            $parsed['grade'],
+            !empty($posted['fork'])
+        );
+        $orgSummary = [
+            'id' => (int)$org['id'],
+            'uuid' => $org['uuid'],
+            'name' => $org['name'],
+        ];
+        if (empty($written['ok'])) {
+            if (!empty($written['needs_fork'])) {
+                $response = $this->RestResponse->viewData([
+                    'needs_fork' => true,
+                    'message' => $written['error'],
+                    'org' => $orgSummary,
+                    'target' => $written['target'],
+                ], 'json');
+                $response->statusCode(409);
+                return $response;
+            }
+            return $this->RestResponse->saveFailResponse(
+                'AnalystProfiles', 'grade', $org['id'],
+                [$written['error']], 'json'
+            );
+        }
+        return $this->RestResponse->viewData([
+            'org' => $orgSummary,
+            'grade' => $parsed['grade'],
+            'previous' => $written['previous'],
+            'changed' => $written['changed'],
+            'forked' => $written['forked'],
+            'profile' => $this->AnalystProfile->summarise($written['profile']),
+        ], 'json');
     }
 
     /**

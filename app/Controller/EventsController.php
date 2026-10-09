@@ -2473,6 +2473,7 @@ class EventsController extends AppController
 
         $this->loadModel('AnalystProfile');
         $profile = $this->AnalystProfile->resolveFor($user);
+        $this->set('orgGrading', $this->AnalystProfile->gradingFor($user));
         $pivotLabels = $this->AnalystProfile->pivotLabels(
             $user, ValueLabelPriority::planFor($profile)
         );

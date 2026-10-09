@@ -268,6 +268,7 @@ class ACLComponent extends Component
             'simulate' => array('*'),
             'pin' => array('*'),
             'unpin' => array('*'),
+            'grade' => array('*'),
             'update' => array(),
         ),
         'decayingModel' => array(

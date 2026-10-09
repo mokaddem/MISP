@@ -78,6 +78,10 @@ class OrganisationsController extends AppController
         $this->set('orgs', $this->viewVars['data']);
         $this->set('passedArgs', json_encode($this->passedArgs));
         $this->set('viewall', isset($this->params['named']['viewall']) && $this->params['named']['viewall']);
+        if ($this->theme === 'Overmind') {
+            $this->loadModel('AnalystProfile');
+            $this->set('orgGrading', $this->AnalystProfile->gradingFor($this->Auth->user()));
+        }
     }
 
     public function admin_add()
