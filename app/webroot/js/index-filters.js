@@ -329,6 +329,12 @@
         if (style.icon) {
             return '<i class="' + esc(style.icon) + ' ifp-gicon" aria-hidden="true"></i>';
         }
+        if (style.logo) {
+            return '<span class="dk-logo" aria-hidden="true"><img src="' + esc(style.logo) + '" alt="" loading="lazy"></span>';
+        }
+        if (style.mono) {
+            return '<span class="dk-logo is-mono m' + (parseInt(style.tint, 10) || 0) + '" aria-hidden="true">' + esc(style.mono) + '</span>';
+        }
         if (style.badge) {
             return '<span class="ifp-badge" style="' + esc(style.css || '') + '" aria-hidden="true"><i class="' + esc(style.badge) + '"></i></span>';
         }

@@ -78,16 +78,10 @@ class IndexPicker
         $Organisation = ClassRegistry::init('Organisation');
         return self::search($Organisation, [
             'conditions' => ['AND' => [$Organisation->createConditions($user)]],
-            'fields' => ['Organisation.id', 'Organisation.name'],
+            'fields' => ['Organisation.id', 'Organisation.name', 'Organisation.uuid'],
             'order' => ['Organisation.name' => 'ASC'],
             'recursive' => -1,
-        ], 'LOWER(Organisation.name)', $term, function ($r) {
-            return [
-                'value' => (string)$r['Organisation']['id'],
-                'label' => $r['Organisation']['name'],
-                'style' => null,
-            ];
-        });
+        ], 'LOWER(Organisation.name)', $term, [self::class, 'orgRow']);
     }
 
     /**
@@ -149,15 +143,11 @@ class IndexPicker
             $Organisation = ClassRegistry::init('Organisation');
             $rows = $Organisation->find('all', [
                 'conditions' => ['AND' => [$Organisation->createConditions($user), ['Organisation.id' => $orgs]]],
-                'fields' => ['Organisation.id', 'Organisation.name'],
+                'fields' => ['Organisation.id', 'Organisation.name', 'Organisation.uuid'],
                 'recursive' => -1,
             ]);
             foreach ($rows as $r) {
-                $out['org'][(string)$r['Organisation']['id']] = [
-                    'value' => (string)$r['Organisation']['id'],
-                    'label' => $r['Organisation']['name'],
-                    'style' => null,
-                ];
+                $out['org'][(string)$r['Organisation']['id']] = self::orgRow($r);
             }
         }
         if (!empty($values['tag'])) {
@@ -186,6 +176,28 @@ class IndexPicker
             }
         }
         return $out;
+    }
+
+    /**
+     * The org's logo when it has one, else the monogram the events index
+     * draws for it.
+     */
+    public static function orgRow(array $r)
+    {
+        App::uses('OrgImgHelper', 'View/Helper');
+        App::uses('EventCardTool', 'Tools/EventOverview');
+        $org = $r['Organisation'];
+        if (OrgImgHelper::imageFile($org) !== null) {
+            $style = ['logo' => Configure::read('MISP.baseurl') . '/organisations/getOrgLogo/' . (int)$org['id']];
+        } else {
+            $mono = EventCardTool::monogram($org);
+            $style = ['mono' => $mono['letters'], 'tint' => $mono['index']];
+        }
+        return [
+            'value' => (string)$org['id'],
+            'label' => $org['name'],
+            'style' => $style,
+        ];
     }
 
     public static function tagRow(array $r)

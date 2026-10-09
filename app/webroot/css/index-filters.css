@@ -120,6 +120,9 @@
 }
 .ifp-badge .misp-icon { width: 10px; height: 10px; }
 .ifp-gicon {flex: none; width: 14px; text-align: center; font-size: .74rem; color: var(--ifp-muted); }
+.ifp-opt .dk-logo { width: 20px; height: 20px; border-radius: 4px; }
+.ifp-opt .dk-logo img { max-width: 20px; max-height: 20px; }
+.ifp-opt .dk-logo.is-mono { font-size: 8.5px; line-height: 1; }
 
 .ifp-status { padding: 8px 6px 4px; color: var(--ifp-muted); }
 .ifp-status[hidden] { display: none; }

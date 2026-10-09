@@ -163,7 +163,7 @@ if ($pickerMode) {
         ($filter_bar['transport'] ?? 'path') === 'query' ? ($this->request->query ?? []) : null
     );
     echo $this->element('genericElements/assetLoader', [
-        'css' => ['index-filters'],
+        'css' => ['org-tile', 'index-filters'],
         'js' => ['index-filters'],
     ]);
 }
