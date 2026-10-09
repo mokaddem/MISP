@@ -308,6 +308,7 @@ if ($canPickOrgs) {
         'source' => $baseurl . '/organisations/pickerSearch',
         'exclude' => true,
         'resolved' => $filterLabels['org'],
+        'suggest' => IndexPicker::orgSuggestions($me, array_column($events ?? [], 'Orgc')),
     ];
 }
 $children[] = [
@@ -371,7 +372,8 @@ if (!empty($show_user_button)) {
     ];
 }
 
-if (!empty($show_org_button)) {
+// With the org picker, the reader's own org heads its list instead.
+if (!empty($show_org_button) && !$canPickOrgs) {
     $ours = $filterState->get('org') === (string)$me['org_id'];
     $children[] = [
         'type' => 'button',

@@ -350,7 +350,8 @@
         var state = stateOf(item.value);
         var pc = open.pc;
         var bar = open.bar;
-        var sub = item.style && item.style.galaxy ? ' <small>' + esc(item.style.galaxy) + '</small>' : '';
+        var subText = (item.style && item.style.galaxy) || item.note;
+        var sub = subText ? ' <small>' + esc(subText) + '</small>' : '';
         var title = item.unresolved ? ' title="' + esc(S(bar, 'unresolved')) + '"' : '';
         var html = '<li class="ifp-opt" role="option" tabindex="-1" data-state="' + state + '"'
             + ' aria-selected="' + (state === 'include') + '" data-value="' + esc(item.value) + '"' + title + '>'
@@ -366,8 +367,23 @@
         return html + '</li>';
     }
 
+    // Before anything is typed: each group's rows not already selected.
+    function suggestHtml() {
+        var multi = open.pc.single ? 'false' : 'true';
+        return open.pc.suggest.map(function (group) {
+            var rows = group.rows.filter(function (r) {
+                return !open.selection.some(function (s) { return s.value === r.value; });
+            });
+            if (!rows.length) { return ''; }
+            return (group.label ? '<div class="ifp-head">' + esc(group.label) + '</div>' : '')
+                + '<ul class="ifp-opts" role="listbox" aria-multiselectable="' + multi + '">' + rows.map(rowHtml).join('') + '</ul>'
+                + (group.more ? '<div class="ifp-more">' + esc(S(open.bar, 'more').replace('%s', group.more)) + '</div>' : '');
+        }).join('');
+    }
+
     function itemFor(value) {
-        var pools = [open.selection, open.results || [], open.pc.options || []];
+        var pools = [open.selection, open.results || [], open.pc.options || []].concat(
+            (open.pc.suggest || []).map(function (group) { return group.rows; }));
         for (var i = 0; i < pools.length; i++) {
             var hit = pools[i].find(function (s) { return String(s.value) === value; });
             if (hit) { return hit; }
@@ -408,6 +424,8 @@
                 return !open.selection.some(function (s) { return s.value === r.value; });
             });
             res.innerHTML = shown.map(rowHtml).join('');
+            var sug = pop.querySelector('.ifp-sug');
+            if (sug) { sug.innerHTML = open.status === 'idle' ? suggestHtml() : ''; }
             status.hidden = false;
             if (open.status === 'idle') {
                 status.textContent = S(bar, 'typeToSearch');
@@ -444,7 +462,7 @@
         if (i !== -1) { open.selection.splice(i, 1); }
         if (open.pc.single) { open.selection = []; }
         if (next !== 'none') {
-            open.selection.push({ value: item.value, label: item.label, style: item.style || null,
+            open.selection.push({ value: item.value, label: item.label, style: item.style || null, note: item.note || null,
                 exclude: next === 'exclude', unresolved: !!item.unresolved });
         }
         open.dirty = true;
@@ -520,6 +538,7 @@
             html += '<div class="ifp-head" hidden>' + esc(S(bar, 'selected')) + '</div>'
                 + '<ul class="ifp-opts ifp-sel" role="listbox" aria-multiselectable="' + multi + '"></ul>';
         }
+        if (pc.suggest && pc.suggest.length && !pc.options) { html += '<div class="ifp-sug"></div>'; }
         html += '<ul class="ifp-opts ifp-res" role="listbox" aria-multiselectable="' + multi + '"></ul>';
         if (!pc.options || local) { html += '<div class="ifp-status" role="status"></div>'; }
         var foot = draft ? S(bar, 'applyDraft') : S(bar, 'applyOnClose');

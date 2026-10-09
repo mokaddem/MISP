@@ -85,6 +85,53 @@ class IndexPicker
     }
 
     /**
+     * The org picker's rows before anything is typed: the reader's own org,
+     * then the creator orgs of the rows on the page, most frequent first.
+     *
+     * @param array $user
+     * @param array $orgs one Organisation (id, name, uuid) per row on the page
+     * @param int $limit
+     * @return array groups of {label, rows, more}
+     */
+    public static function orgSuggestions(array $user, array $orgs, $limit = 10)
+    {
+        if (!self::canPickOrgs($user)) {
+            return [];
+        }
+        $groups = [];
+        $mine = (string)($user['Organisation']['id'] ?? '');
+        if ($mine !== '') {
+            $row = self::orgRow(['Organisation' => $user['Organisation']]);
+            $row['note'] = __('your organisation');
+            $groups[] = ['label' => null, 'rows' => [$row], 'more' => 0];
+        }
+        $counts = [];
+        $seen = [];
+        foreach ($orgs as $org) {
+            $id = (string)($org['id'] ?? '');
+            if ($id === '' || $id === $mine) {
+                continue;
+            }
+            $counts[$id] = ($counts[$id] ?? 0) + 1;
+            $seen[$id] = $org;
+        }
+        uksort($counts, function ($a, $b) use ($counts, $seen) {
+            return $counts[$b] <=> $counts[$a] ?: strcasecmp($seen[$a]['name'] ?? '', $seen[$b]['name'] ?? '');
+        });
+        $ids = array_slice(array_keys($counts), 0, $limit);
+        if ($ids) {
+            $groups[] = [
+                'label' => __('On this page'),
+                'rows' => array_map(function ($id) use ($seen) {
+                    return self::orgRow(['Organisation' => $seen[$id]]);
+                }, $ids),
+                'more' => count($counts) - count($ids),
+            ];
+        }
+        return $groups;
+    }
+
+    /**
      * @param array $user
      * @param string $term
      * @return array

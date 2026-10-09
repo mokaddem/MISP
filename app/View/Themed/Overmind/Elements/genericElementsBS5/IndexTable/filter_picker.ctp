@@ -14,6 +14,7 @@
  * - hint     : line under the list
  * - separator: between values in the URL, '|' unless the index splits on '||'
  * - single   : one value at a time, applied as soon as it is picked
+ * - suggest  : groups listed before anything is typed, [{label, rows, more}]
  *
  * @var array $child
  * @var IndexFilterState $state
@@ -32,6 +33,11 @@ foreach (($child['options'] ?? []) as $option) {
 foreach (($child['resolved'] ?? []) as $value => $row) {
     $known[(string)$value] = $row;
 }
+foreach (($child['suggest'] ?? []) as $group) {
+    foreach ($group['rows'] as $row) {
+        $known[(string)$row['value']] = $row;
+    }
+}
 $selected = [];
 foreach ($pieces as [$value, $excluded]) {
     $row = $known[$value] ?? null;
@@ -39,6 +45,7 @@ foreach ($pieces as [$value, $excluded]) {
         'value' => $value,
         'label' => $row['label'] ?? $value,
         'style' => $row['style'] ?? null,
+        'note' => $row['note'] ?? null,
         'exclude' => $excluded && !empty($child['exclude']),
         'unresolved' => $row === null,
     ];
@@ -55,6 +62,7 @@ $config = [
     'hint' => $child['hint'] ?? null,
     'sep' => $child['separator'] ?? '|',
     'single' => !empty($child['single']),
+    'suggest' => $child['suggest'] ?? null,
 ];
 $count = count($selected);
 ?>
