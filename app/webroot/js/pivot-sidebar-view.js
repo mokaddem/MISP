@@ -702,7 +702,7 @@
         var strip = cardStrip(vm);
         if (strip && strip.childNodes.length) add(root, strip);
         if (vm.entity === 'edge') add(root, edgeEnds(vm));
-        if (vm.entity === 'object') add(root, objectTop(vm));
+        if (vm.entity === 'object') add(root, objectTop(vm, hooks.nav));
         if (hooks.actions && hooks.actions.length) add(root, actionRow(hooks.actions));
 
         drawNotices(root, N, hooks);
@@ -719,7 +719,8 @@
         return root;
     }
 
-    // What the viewer may do to the element: { label, icon, hue, title, muted, run }.
+    // What the viewer may do to the element: { label, icon, hue, title, muted,
+    // run } — or a `menu` of { label, icon, hue, hint, run } to choose from.
     function actionRow(actions) {
         var row = h('div', 'pes-actions');
         actions.forEach(function (a) {
@@ -733,12 +734,37 @@
             if (a.muted) b.setAttribute('aria-disabled', 'true');
             add(b, icon(a.icon));
             add(b, h('span', '', a.label));
+            // Bootstrap toggles a menu itself, from its own click listener.
+            var menu = a.menu && window.bootstrap && window.bootstrap.Dropdown;
+            if (menu) add(row, actionMenu(b, a.menu));
             b.addEventListener('click', function (e) {
                 e.stopPropagation();
-                a.run();
+                if (!menu) a.run();
             });
         });
         return row;
+    }
+
+    function actionMenu(button, items) {
+        button.setAttribute('data-bs-toggle', 'dropdown');
+        button.setAttribute('aria-expanded', 'false');
+        add(button, fa('chevron-down')).className += ' pes-action-caret';
+        var menu = h('ul', 'dropdown-menu pes-action-menu');
+        items.forEach(function (it) {
+            var item = add(add(menu, h('li')), h('button', 'dropdown-item'));
+            item.type = 'button';
+            if (it.hue) item.setAttribute('data-act', it.hue);
+            add(item, icon(it.icon));
+            var text = add(item, h('span', 'pes-action-menu-t'));
+            add(text, h('span', '', it.label));
+            if (it.hint) add(text, h('small', '', it.hint));
+            item.addEventListener('click', function (e) {
+                e.stopPropagation();
+                window.bootstrap.Dropdown.getOrCreateInstance(button).hide();
+                it.run();
+            });
+        });
+        return menu;
     }
 
     function subtitle(vm) {
@@ -836,16 +862,39 @@
         return line;
     }
 
-    function objectTop(vm) {
+    function objectTop(vm, nav) {
         var list = h('ul', 'pes-attrs');
         list.style.marginTop = '8px';
         (vm.card.top || []).forEach(function (t) {
             var li = add(list, h('li', 'pes-attr'));
             add(li, h('div', 'pes-attr-rel', t.relation));
             add(li, attrValue(vm, t));
-            if (t.warninglisted) add(add(li, h('div', 'pes-attr-marks')), warnMark(t));
+            var marks = add(li, h('div', 'pes-attr-marks'));
+            if (t.warninglisted) add(marks, warnMark(t));
+            selectable(li, nav, t.uuid, t.relation || t.type);
         });
         return list;
+    }
+
+    // A listed attribute that is a node on the canvas selects it; a click on
+    // its value link or copy button keeps doing what those do.
+    function selectable(li, nav, uuid, what) {
+        if (!nav || !uuid || !nav.selectable(uuid)) return;
+        li.classList.add('is-selectable');
+        li.tabIndex = 0;
+        li.setAttribute('role', 'button');
+        li.title = 'Select this ' + (what || 'attribute');
+        var marks = li.querySelector('.pes-attr-marks') || add(li, h('div', 'pes-attr-marks'));
+        add(marks, fa('chevron-right')).className += ' pes-attr-go';
+        li.addEventListener('click', function (e) {
+            if (e.target.closest('a, button')) return;
+            nav.select(uuid);
+        });
+        li.addEventListener('keydown', function (e) {
+            if (e.target !== li || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            nav.select(uuid);
+        });
     }
 
     function edgeEnds(vm) {
@@ -935,55 +984,75 @@
 
     function labelsSection(vm, list) {
         var L = vm.labels;
-        var nTags = 0, nClusters = 0;
-        (L.taxonomies || []).forEach(function (g) { nTags += g.tags.length; });
-        (L.galaxies || []).forEach(function (g) { nClusters += g.clusters.length; });
-        var sec = section('labels', 'Tags and clusters', nTags + nClusters || null, nTags ? 'taxonomies' : null, vm);
-        if (!recordKnown(vm) && vm.entity === 'attribute') { recordGate(vm, sec); list.push(sec); return; }
-        if (!nTags && !nClusters) return;
-        var tState = lazyState(vm, 'taxonomies');
-        var described = vm.entity !== 'event';
-        (L.taxonomies || []).forEach(function (g) {
-            var box = add(sec.el, h('div', 'pes-group'));
-            var gh = add(box, h('div', 'pes-group-h'));
-            add(gh, fa('tag'));
-            add(gh, h('span', 'pes-group-name', g.label || 'Plain tags'));
-            if (g.priority) add(gh, tierPill(g.priority));
-            if (described && tState === 'pending' && g.key) add(box, h('span', 'pes-skel w60'));
-            else if (described && g.description) add(box, h('div', 'pes-group-desc', g.description));
-            var chips = add(box, h('div', 'pes-chips'));
-            g.tags.forEach(function (t) { add(chips, tagChip(t.name, t.colour, t.count > 1 ? '×' + t.count : null)); });
-            if (described) g.tags.forEach(function (t) {
-                var m = meaningLine(vm, t);
-                if (m && m.text) {
-                    var p = add(box, h('div', 'pes-meaning'));
-                    add(p, h('b', '', (t.value || t.predicate || t.name) + ' '));
-                    p.appendChild(document.createTextNode(m.text));
-                }
-            });
-            sec.weight += 2;
-        });
-        if (described && tState === 'failed') add(sec.el, h('div', 'pes-entry-sub', 'What these tags mean could not be loaded.'));
+        var tags = [], clusters = [];
+        (L.taxonomies || []).forEach(function (g) { tags = tags.concat(g.tags); });
         (L.galaxies || []).forEach(function (g) {
-            var box = add(sec.el, h('div', 'pes-group'));
-            var gh = add(box, h('div', 'pes-group-h'));
-            add(gh, mi('simple', 'galaxy'));
-            add(gh, h('span', 'pes-group-name', g.label || g.key));
-            if (g.priority) add(gh, tierPill(g.priority));
-            var chips = add(box, h('div', 'pes-chips'));
-            g.clusters.forEach(function (c) {
-                add(chips, clusterChip(c.value, c.count > 1 ? '×' + c.count : null, g.label, c.local));
-            });
-            g.clusters.forEach(function (c) {
-                if (c.detail && c.detail.description) {
-                    var p = add(box, h('div', 'pes-meaning'));
-                    add(p, h('b', '', c.value + ' '));
-                    p.appendChild(document.createTextNode(firstSentence(c.detail.description)));
-                }
-            });
-            sec.weight += 2;
+            clusters = clusters.concat(g.clusters.map(function (c) {
+                return Object.assign({ galaxy: g.label || g.key }, c);
+            }));
         });
+        var sec = section('labels', 'Tags and clusters', tags.length + clusters.length || null,
+                          tags.length ? 'taxonomies' : null, vm);
+        if (!recordKnown(vm) && vm.entity === 'attribute') { recordGate(vm, sec); list.push(sec); return; }
+        if (!tags.length && !clusters.length) return;
+        var described = vm.entity !== 'event';
+        var tState = lazyState(vm, 'taxonomies');
+        if (tags.length) {
+            add(sec.el, chipCollection(tags.map(function (t) {
+                var m = t.meaning;
+                return { name: t.name, colour: t.colour, local: t.local, relationship_type: t.relationship_type,
+                         numerical_value: m && m.numerical_value, count: t.count };
+            }), false));
+            if (described && tState === 'pending') skeleton(sec.el);
+            if (described) tags.forEach(function (t) {
+                var m = meaningLine(vm, t);
+                if (m && m.text) meaning(sec.el, t.value || t.predicate || t.name, m.text);
+            });
+            if (described && tState === 'failed') add(sec.el, h('div', 'pes-entry-sub', 'What these tags mean could not be loaded.'));
+        }
+        if (clusters.length) {
+            add(sec.el, chipCollection(clusters.map(function (c) {
+                return { value: c.value, galaxy: c.galaxy, local: c.local, count: c.count,
+                         description: c.detail && c.detail.description };
+            }), true));
+            clusters.forEach(function (c) {
+                if (c.detail && c.detail.description) meaning(sec.el, c.value, firstSentence(c.detail.description));
+            });
+        }
+        sec.weight += 2 + Math.ceil((tags.length + clusters.length) / 4);
         list.push(sec);
+    }
+
+    function meaning(parent, name, text) {
+        var p = add(parent, h('div', 'pes-meaning'));
+        add(p, h('b', '', name + ' '));
+        p.appendChild(document.createTextNode(text));
+    }
+
+    // Tags or clusters grouped as the event page groups them, each with how
+    // many of the node's attributes carry it.
+    function chipCollection(items, isCluster) {
+        if (!window.TagChips) {
+            var plain = h('div', 'pes-chips');
+            items.forEach(function (it) {
+                var n = it.count > 1 ? '×' + it.count : null;
+                add(plain, isCluster ? clusterChip(it.value, n, it.galaxy, it.local) : tagChip(it.name, it.colour, n));
+            });
+            return plain;
+        }
+        var box = h('div', 'pes-labels');
+        box.innerHTML = isCluster ? window.TagChips.clusters(items, { href: noHref, searchUrl: '' })
+                                  : window.TagChips.collection(items, { searchUrl: '' });
+        var counts = {};
+        items.forEach(function (it) {
+            if (it.count > 1) counts[String(isCluster ? it.value : it.name).trim().toLowerCase()] = it.count;
+        });
+        [].forEach.call(box.querySelectorAll(isCluster ? '[data-cluster-item]' : '[data-tag-item]'), function (unit) {
+            var n = counts[unit.getAttribute(isCluster ? 'data-cluster-name' : 'data-tag-name')];
+            var tail = n && unit.querySelector('.hg-tail');
+            if (tail) add(tail, h('small', 'hg-n', '×' + n)).title = 'On ' + n + ' attributes';
+        });
+        return box;
     }
     function firstSentence(text) {
         var t = String(text).replace(/\s+/g, ' ').trim();
@@ -1186,11 +1255,11 @@
         list.push(sec);
     }
 
-    function attributeRelations(vm, list) {
+    function attributeRelations(vm, list, nav) {
         var rel = vm.relations || {};
         var sec = section('relations', 'Belongs to', null, null, vm);
         var r = [];
-        if (rel.object) r.push(['Object', rel.object.name]);
+        if (rel.object) r.push(['Object', objectLink(rel.object, nav)]);
         if (rel.event) r.push(['Event', rel.event.self ? 'This event (' + rel.event.id + ')' : 'Event ' + rel.event.id]);
         rows(sec, r);
         if (rel.referenced_by && rel.referenced_by.length) {
@@ -1202,6 +1271,15 @@
             });
         }
         list.push(sec);
+    }
+
+    function objectLink(obj, nav) {
+        if (!nav || !obj.uuid || !nav.selectable(obj.uuid)) return obj.name;
+        var b = h('button', 'pes-inline-link', obj.name);
+        b.type = 'button';
+        b.title = 'Select this object';
+        b.addEventListener('click', function () { nav.select(obj.uuid); });
+        return b;
     }
 
     function objectRelations(vm, list) {
@@ -1222,7 +1300,7 @@
         list.push(sec);
     }
 
-    function childrenSection(vm, list) {
+    function childrenSection(vm, list, nav) {
         var kids = vm.children || [];
         var sec = section('children', 'Attributes', kids.length, null, vm);
         var ul = add(sec.el, h('ul', 'pes-attrs'));
@@ -1237,6 +1315,7 @@
             if (k.warninglisted) add(marks, warnMark(k));
             if (k.tags + k.clusters) { add(marks, fa('tag')); marks.appendChild(document.createTextNode(String(k.tags + k.clusters))); }
             if (k.correlations && k.correlations.count) { add(marks, fa('arrows-left-right')); marks.appendChild(document.createTextNode(String(k.correlations.count))); }
+            selectable(li, nav, k.uuid, k.relation || k.type);
         });
         sec.weight += Math.min(kids.length, SHOW);
         if (kids.length > SHOW) {
@@ -1257,7 +1336,7 @@
         return sec;
     }
 
-    function detailsFor(vm) {
+    function detailsFor(vm, nav) {
         var list = [];
         var c = vm.card || {};
         switch (vm.entity) {
@@ -1285,7 +1364,7 @@
             labelsSection(vm, list);
             sightingSection(vm, list);
             seenSection(vm, list);
-            attributeRelations(vm, list);
+            attributeRelations(vm, list, nav);
             analystSection(vm, list);
             var at = recordSection(vm, list, [
                 ['Value', c.value, 'code'], ['Type', c.type, 'code'], ['Category', c.category], ['Relation', c.relation],
@@ -1294,7 +1373,7 @@
             if (!recordKnown(vm)) markRecord(vm, at);
             break;
         case 'object':
-            childrenSection(vm, list);
+            childrenSection(vm, list, nav);
             warninglistSection(vm, list, true);
             labelsSection(vm, list);
             seenSection(vm, list);
@@ -1602,17 +1681,18 @@
     root.MispPivotSidebarView = {
         // The node's identity and card, then what to notice about it. `jump`
         // opens the detail at the section a notice points to; `actions` are
-        // drawn as a row of buttons under the card.
-        header: function (vm, jump, actions) {
+        // drawn as a row of buttons under the card; `nav` { selectable(uuid),
+        // select(uuid) } reaches the node's attributes or its object.
+        header: function (vm, jump, actions, nav) {
             if (vm.entity === 'multi') return Q.header(vm);
             var N = new Notices();
             (NOTICES[vm.entity] || function () {})(vm, N);
-            return drawHeader(h('div'), vm, N, { jump: jump || function () {}, actions: actions || [] });
+            return drawHeader(h('div'), vm, N, { jump: jump || function () {}, actions: actions || [], nav: nav });
         },
         // Everything else, below one fold.
-        detail: function (vm) {
+        detail: function (vm, nav) {
             var slot = h('div');
-            var fold = drawFold(slot, vm, detailsFor(vm));
+            var fold = drawFold(slot, vm, detailsFor(vm, nav));
             return { el: slot.firstChild, reveal: fold.reveal };
         },
         // A multi-selection: the labels and orgs its nodes share.
