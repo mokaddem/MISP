@@ -528,9 +528,17 @@
         return pop;
     }
 
+    function browses(picker) {
+        return !!(picker && pickerCfg(picker).browser && window.IndexFilterBrowser);
+    }
+
     function openPicker(picker) {
         if (!picker || (open && open.picker === picker)) { return; }
         closePicker(true);
+        if (browses(picker)) {
+            window.IndexFilterBrowser.open(picker);
+            return;
+        }
         var bar = barOf(picker);
         var pc = pickerCfg(picker);
         var local = !!pc.options && pc.options.length > LOCAL_MAX;
@@ -642,7 +650,14 @@
         var btn = target.closest('.ifp-btn');
         if (btn) {
             var picker = btn.closest('.ifp-picker');
-            if (open && open.picker === picker) { closePicker(true); } else { openPicker(picker); }
+            if (browses(picker)) {
+                closePicker(true);
+                window.IndexFilterBrowser.toggle(picker);
+            } else if (open && open.picker === picker) {
+                closePicker(true);
+            } else {
+                openPicker(picker);
+            }
             return;
         }
 

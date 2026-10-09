@@ -265,7 +265,9 @@ class GalaxyClustersController extends AppController
 
     /**
      * Galaxy clusters for an index filter picker, valued by tag name:
-     * GET ?q=<term>, or by UUID with &value=uuid.
+     * GET ?q=<term>, or by UUID with &value=uuid. Narrowed with
+     * &galaxy=<type> (an empty term then lists it), &kill_chain=<tactic>,
+     * &in_use=1; &limit= up to 200.
      */
     public function pickerSearch()
     {
@@ -273,7 +275,12 @@ class GalaxyClustersController extends AppController
         App::uses('IndexPicker', 'Tools');
         $valueField = $this->request->query('value') === 'uuid' ? 'uuid' : 'tag_name';
         return $this->RestResponse->viewData(
-            IndexPicker::clusters($this->Auth->user(), $this->request->query('q'), $valueField),
+            IndexPicker::clusters($this->Auth->user(), $this->request->query('q'), $valueField, [
+                'galaxy' => $this->request->query('galaxy'),
+                'kill_chain' => $this->request->query('kill_chain'),
+                'in_use' => $this->request->query('in_use') === '1',
+                'limit' => $this->request->query('limit'),
+            ]),
             'json'
         );
     }

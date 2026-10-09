@@ -320,6 +320,11 @@ $children[] = [
     'all_of' => true,
     'resolved' => $filterLabels['tag'],
     'hint' => __('Event or attribute tags.'),
+    'browser' => [
+        'kind' => 'tag',
+        'scopes' => $baseurl . '/tags/pickerScopes',
+        'tree' => $baseurl . '/tags/pickerTree',
+    ],
 ];
 $children[] = [
     'type' => 'picker',
@@ -330,6 +335,10 @@ $children[] = [
     'exclude' => true,
     'resolved' => $filterLabels['galaxy'],
     'hint' => __('Clusters attached to the event.'),
+    'browser' => [
+        'kind' => 'galaxy',
+        'scopes' => $baseurl . '/galaxies/pickerScopes',
+    ],
 ];
 $distributionOptions = [];
 foreach ([0, 1, 2, 3, 4] as $level) {

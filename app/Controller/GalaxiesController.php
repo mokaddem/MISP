@@ -22,6 +22,17 @@ class GalaxiesController extends AppController
             ),
     );
 
+    /**
+     * What an index's Galaxy picker can narrow to: the galaxies with
+     * clusters the reader may see.
+     */
+    public function pickerScopes()
+    {
+        $this->request->allowMethod(['get']);
+        App::uses('IndexPicker', 'Tools');
+        return $this->RestResponse->viewData(IndexPicker::galaxyScopes($this->Auth->user()), 'json');
+    }
+
     public function index()
     {
         $aclConditions = $this->Galaxy->buildConditions($this->Auth->user());

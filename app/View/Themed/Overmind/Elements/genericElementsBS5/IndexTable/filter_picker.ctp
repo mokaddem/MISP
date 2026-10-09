@@ -14,6 +14,8 @@
  * - hint     : line under the list
  * - separator: between values in the URL, '|' unless the index splits on '||'
  * - single   : one value at a time, applied as soon as it is picked
+ * - browser  : open as a column browser (index-filter-browser.js) instead of
+ *              a list: {kind: 'tag'|'galaxy', scopes: URL, tree: URL (tags)}
  *
  * @var array $child
  * @var IndexFilterState $state
@@ -55,6 +57,7 @@ $config = [
     'hint' => $child['hint'] ?? null,
     'sep' => $child['separator'] ?? '|',
     'single' => !empty($child['single']),
+    'browser' => $child['browser'] ?? null,
 ];
 $count = count($selected);
 ?>
