@@ -5664,6 +5664,16 @@ class Event extends AppModel
         if (!empty($options['to_ids']) || $options['to_ids'] === 0) {
             $conditionsAttributes['AND'][] = array('Attribute.to_ids' => $options['to_ids']);
         }
+        // Only these attributes and objects, each object with its attributes.
+        if (isset($options['elementIds'])) {
+            $attributeIds = array_values($options['elementIds']['attributes'] ?? []) ?: [-1];
+            $objectIds = array_values($options['elementIds']['objects'] ?? []) ?: [-1];
+            $conditionsAttributes['AND'][] = ['OR' => [
+                'Attribute.id' => $attributeIds,
+                'Attribute.object_id' => $objectIds,
+            ]];
+            $conditionsObjects['AND'][] = ['Object.id' => $objectIds];
+        }
 
         // removing this for now, we export the to_ids == 0 attributes too, since there is a to_ids field indicating it in the .xml
         // $conditionsAttributes['AND'] = array('Attribute.to_ids =' => 1);
@@ -5811,12 +5821,16 @@ class Event extends AppModel
             $options['allow_proposal_blocking'] = false; // proposal blocking is not enabled
         }
 
+        // A subset much smaller than its event reads its own tags and references
+        // by id; otherwise the event's are read whole, which is cheaper.
+        $loadedOnly = isset($options['elementIds'])
+            && count($results[0]['Attribute'] ?? []) * 4 < (int)$results[0]['Event']['attribute_count'];
         if (!$options['metadata']) {
-            $this->__attachAttributeTags($results, $options['excludeLocalTags']);
+            $this->__attachAttributeTags($results, $options['excludeLocalTags'], $loadedOnly);
         }
 
         if (!$options['metadata'] && !$flatten) {
-            $this->__attachReferences($results);
+            $this->__attachReferences($results, $loadedOnly);
         }
 
         foreach ($results as &$event) {
@@ -12046,12 +12060,16 @@ class Event extends AppModel
      * Attach references to objects faster than CakePHP.
      * @param array $events
      */
-    private function __attachReferences(array &$events)
+    private function __attachReferences(array &$events, $loadedOnly = false)
     {
         $eventIds = [];
+        $objectIds = [];
         foreach ($events as $event) {
             if (!empty($event['Object'])) {
                 $eventIds[] = $event['Event']['id']; // event contains objects
+                foreach ($event['Object'] as $object) {
+                    $objectIds[] = $object['id'];
+                }
             }
         }
         if (!empty($eventIds)) {
@@ -12060,8 +12078,12 @@ class Event extends AppModel
             unset($schema['event_id']);
             unset($schema['source_uuid']);
 
+            $conditions = ['ObjectReference.event_id' => $eventIds];
+            if ($loadedOnly) {
+                $conditions['ObjectReference.object_id'] = $objectIds;
+            }
             $references = $this->Object->ObjectReference->find('all', [
-                'conditions' => ['ObjectReference.event_id' => $eventIds],
+                'conditions' => $conditions,
                 'fields' => array_keys($schema),
                 'recursive' => -1,
             ]);
@@ -12128,10 +12150,19 @@ class Event extends AppModel
      * @param array $events
      * @param bool $excludeLocalTags
      */
-    private function __attachAttributeTags(array &$events, $excludeLocalTags = false)
+    private function __attachAttributeTags(array &$events, $excludeLocalTags = false, $loadedOnly = false)
     {
         $eventIds = array_column(array_column($events, 'Event'), 'id');
         $conditions = ['AttributeTag.event_id' => $eventIds];
+        if ($loadedOnly) {
+            $attributeIds = [];
+            foreach ($events as $event) {
+                foreach ($event['Attribute'] as $attribute) {
+                    $attributeIds[] = $attribute['id'];
+                }
+            }
+            $conditions['AttributeTag.attribute_id'] = $attributeIds ?: [-1];
+        }
         if ($excludeLocalTags) {
             $conditions['AttributeTag.local'] = false;
         }

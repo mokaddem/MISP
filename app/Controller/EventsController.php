@@ -96,7 +96,7 @@ class EventsController extends AppController
             'editEventTagRelationships', 'editEventGalaxyRelationships',
             'getEventGraphReferences','getEventGraphTags','getEventGraphGeneric',
             'correlatedAttributes', 'correlationCounts', 'cardElements',
-            'taggedEvents', 'saveEnrichment',
+            'taggedEvents', 'saveEnrichment', 'graph',
         ]);
 
         if (in_array($this->request->action, ['checkLocks', 'getDistributionGraph'], true)) {
@@ -8535,6 +8535,84 @@ class EventsController extends AppController
             'event' => $cards[$eventId] ?? null,
             'ui_priorities' => $priorities ?: new stdClass(),
         ], 'json');
+    }
+
+    /**
+     * The Pivot Explorer's graph of an event. GET: the elements it opens on,
+     * as the event view shapes them, with `meta`. POST: what else it can
+     * bring — `mode` 'elements', 'labels' or 'feed-hits' — counted with
+     * `count`, fetched without it.
+     */
+    public function graph($id)
+    {
+        $this->request->allowMethod(['get', 'post']);
+        $user = $this->Auth->user();
+        $event = $this->Event->fetchSimpleEvent($user, $id, [
+            'fields' => ['Event.id', 'Event.uuid', 'Event.timestamp', 'Event.attribute_count'],
+        ]);
+        if (empty($event)) {
+            throw new NotFoundException(__('Invalid event'));
+        }
+        $event = $event['Event'];
+        App::uses('PivotGraphTool', 'Tools/PivotExplorer');
+        $tool = new PivotGraphTool($this->Event);
+        if ($this->request->is('get')) {
+            return $this->RestResponse->viewData($tool->seed($user, $event), 'json');
+        }
+
+        $data = $this->request->data;
+        $strings = function ($key) use ($data) {
+            $values = isset($data[$key]) && is_array($data[$key]) ? $data[$key] : [];
+            return array_values(array_filter($values, function ($v) {
+                return is_string($v) && $v !== '';
+            }));
+        };
+        $text = function ($key) use ($data) {
+            return isset($data[$key]) && is_string($data[$key]) ? trim($data[$key]) : '';
+        };
+        $count = !empty($data['count']);
+        $mode = $data['mode'] ?? 'elements';
+        $tooMany = __('More than %s elements to land. Narrow the search.', PivotSeed::NODE_BUDGET);
+
+        if ($mode === 'labels') {
+            return $this->RestResponse->viewData($tool->labels($user, (int)$event['id']), 'json');
+        }
+        if ($mode === 'feed-hits') {
+            $hits = $tool->feedHits($user, $event, [
+                'q' => $text('q'),
+                'exclude' => $strings('exclude'),
+            ]);
+            if ($count) {
+                $counts = PivotGraphTool::countHits($hits['rows'], $text('source'));
+                return $this->RestResponse->viewData([
+                    'total' => $counts['total'],
+                    'by_source' => $counts['by_source'] ?: new stdClass(),
+                    'sources' => $hits['sources'] ?: new stdClass(),
+                ], 'json');
+            }
+            $payload = $tool->fetchHits($user, (int)$event['id'], PivotGraphTool::fromSource($hits['rows'], $text('source')));
+            if ($payload === null) {
+                throw new BadRequestException($tooMany);
+            }
+            return $this->RestResponse->viewData($payload, 'json');
+        }
+
+        $options = [
+            'q' => $text('q'),
+            'kinds' => isset($data['kinds'])
+                ? array_values(array_intersect($strings('kinds'), ['attribute', 'object']))
+                : ['attribute', 'object'],
+            'category' => $text('category'),
+            'exclude' => $strings('exclude'),
+        ];
+        if ($count) {
+            return $this->RestResponse->viewData($tool->countElements($user, (int)$event['id'], $options), 'json');
+        }
+        $payload = $tool->fetchElements($user, (int)$event['id'], $options);
+        if ($payload === null) {
+            throw new BadRequestException($tooMany);
+        }
+        return $this->RestResponse->viewData($payload, 'json');
     }
 
     /**

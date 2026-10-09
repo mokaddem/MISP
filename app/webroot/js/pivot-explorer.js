@@ -5,7 +5,7 @@
 // The element owns the markup and the server-side values; this file owns all
 // behaviour. The event page's config is read off #pe-card's data-* attributes:
 //
-//   [data-pe-event-id]     event fetched as /events/view/{id}/includeServerCorrelations:1.json
+//   [data-pe-event-id]     event whose graph is fetched from /events/graph/{id}.json
 //   [data-pe-baseurl]      MISP $baseurl, prefixed onto every request
 //   [data-pe-can-edit]     "1" when the viewer may add object references
 //   [data-pe-value-card]   "1" when MISP.value_hover_card is on
@@ -84,6 +84,9 @@
         var _ready       = null;
         var _graph       = null;
         var _event       = null;
+        // What /events/graph said about the seed; null when the host handed
+        // its own payload, which then holds the whole event.
+        var _meta        = null;
 
         /* ── helpers ───────────────────────────────────────────── */
         // data-misp-mode on <html> is dark under Overmind's dark toggle and dark-only themes.
@@ -826,6 +829,9 @@
                 return byUuid[uuid];
             }));
             _ownLabels = labelsOf(recs.map(tagFields));
+            Object.keys(_serverLabels || {}).forEach(function (id) {
+                if (!_ownLabels[id]) _ownLabels[id] = _serverLabels[id];
+            });
             _ownLabelsFor = _event;
             return _ownLabels;
         }
@@ -2261,6 +2267,209 @@
             };
         }
 
+        /* ── the rest of the event, from the server ─────────────── */
+        // The canvas opens on a cut-down event; what lands later is merged
+        // into it, so every reader of _event sees what this page holds. A new
+        // object each time, so the indexes kept per payload rebuild.
+        function asList(x) {
+            return Array.isArray(x) ? x : Object.keys(x || {}).map(function (k) { return x[k]; });
+        }
+
+        function adoptElements(payload) {
+            var ev = (_event && _event.Event) || {};
+            var add = (payload && payload.Event) || {};
+            var known = {};
+            (ev.Attribute || []).forEach(function (a) { known[a.uuid] = true; });
+            (ev.Object || []).forEach(function (o) { known[o.uuid] = true; });
+            var fresh = function (r) { return !known[r.uuid]; };
+            _event = Object.assign({}, _event, { Event: Object.assign({}, ev, {
+                Attribute: (ev.Attribute || []).concat((add.Attribute || []).filter(fresh)),
+                Object:    (ev.Object || []).concat((add.Object || []).filter(fresh)),
+                Feed:      asList(ev.Feed).concat(asList(add.Feed)),
+                Server:    asList(ev.Server).concat(asList(add.Server))
+            }) });
+            return add;
+        }
+
+        function graphPost(body, signal) {
+            return postJson('/events/graph/' + encodeURIComponent(eventId) + '.json', body, signal);
+        }
+
+        function drawnOwn() {
+            return drawnOf(String(eventId));
+        }
+
+        function isDrawn(id) {
+            return !!(_graph && typeof _graph.getMutableNode === 'function' && _graph.getMutableNode(id));
+        }
+
+        // The tags and clusters on the event and its attributes, listed once.
+        var _serverLabels = null, _labelsLoad = null;
+        function serverLabels(signal) {
+            if (!_labelsLoad) {
+                _labelsLoad = graphPost({ mode: 'labels' }, signal).then(function (rec) {
+                    _serverLabels = labelsOf([tagFields(rec || {})]);
+                    _ownLabels = null;
+                    return _serverLabels;
+                }).catch(function (err) {
+                    _labelsLoad = null;
+                    throw err;
+                });
+            }
+            return _labelsLoad;
+        }
+
+        function labelCandidates(labels) {
+            return Object.keys(labels).filter(function (id) { return !isDrawn(id); }).map(function (id) {
+                var l = labels[id];
+                return l.tag ? { kind: 'tag', id: id, rec: l.tag, label: l }
+                             : { kind: 'cluster', id: id, rec: l.cluster, label: l };
+            });
+        }
+
+        function elementsBody(narrowing, count) {
+            return {
+                q:        narrowing.q || '',
+                kinds:    elementKinds(narrowing).filter(function (k) { return k === 'attribute' || k === 'object'; }),
+                category: narrowing.category || '',
+                exclude:  drawnOwn(),
+                count:    count
+            };
+        }
+
+        // Event elements, searched on the server: the page holds only what
+        // is drawn.
+        function serverElementPivot() {
+            return {
+                id:            ELEMENT_PIVOT,
+                label:         'Event elements',
+                origin:        'none',
+                maxCandidates: NODE_BUDGET,
+                summarize: function (nodes, narrowing, ctx) {
+                    narrowing = narrowing || {};
+                    var signal = ctx && ctx.signal;
+                    return Promise.all([graphPost(elementsBody(narrowing, true), signal), serverLabels(signal)])
+                        .then(function (r) {
+                            var counts = r[0] || {}, labels = labelCandidates(r[1]);
+                            var kinds = counts.kinds || {};
+                            var byKind = { attribute: kinds.attribute || 0, object: kinds.object || 0, tag: 0, cluster: 0 };
+                            labels.forEach(function (c) { byKind[c.kind]++; });
+                            var matched = labels.filter(function (c) { return matchesNarrowing(c, narrowing); });
+                            var byCategory = counts.by_category || {};
+                            return {
+                                total: (counts.total || 0) + matched.length,
+                                facets: [
+                                    { key: 'q', label: 'Search', type: 'text' },
+                                    { key: 'element', label: 'Element', type: 'multiselect',
+                                      options: ELEMENT_KINDS.filter(function (k) { return byKind[k.value]; }).map(function (k) {
+                                          return { label: k.label, value: k.value, count: byKind[k.value] };
+                                      }),
+                                      default: DEFAULT_ELEMENT_KINDS },
+                                    countFacet('category', 'Category', 'select', byCategory)
+                                ]
+                            };
+                        });
+                },
+                fetch: function (nodes, narrowing, ctx) {
+                    narrowing = narrowing || {};
+                    var signal = ctx && ctx.signal;
+                    var body = elementsBody(narrowing, false);
+                    var elements = body.kinds.length ? graphPost(body, signal) : Promise.resolve(null);
+                    return Promise.all([elements, serverLabels(signal)]).then(function (r) {
+                        var out = [];
+                        if (r[0]) {
+                            var add = adoptElements(r[0]);
+                            (add.Attribute || []).forEach(function (a) {
+                                if (!isDeleted(a)) out.push(elementNode({ kind: 'attribute', rec: a }));
+                            });
+                            (add.Object || []).forEach(function (o) {
+                                if (!isDeleted(o)) out.push(elementNode({ kind: 'object', rec: o }));
+                            });
+                        }
+                        labelCandidates(r[1]).filter(function (c) { return matchesNarrowing(c, narrowing); })
+                            .forEach(function (c) { out.push(elementNode(c)); });
+                        return { nodes: out, edges: [] };
+                    });
+                }
+            };
+        }
+
+        /* ── pivot: what a feed or server has seen ─────────────── */
+        // Offered when the canvas did not open on these: an event above the
+        // size where the server looks them up, or one with too many to draw.
+        var FEED_HITS_PIVOT = 'feed-hits';
+
+        function offersFeedHits() {
+            return !!_meta && (_meta.feed_hits === 'pivot' || _meta.feed_hits === 'over_budget');
+        }
+
+        function feedHitsBody(narrowing, count) {
+            return { mode: 'feed-hits', q: narrowing.q || '', source: narrowing.source || '',
+                     exclude: drawnOwn(), count: count };
+        }
+
+        // The elements hit, each with an edge from every source that has it.
+        function feedHitsResult(add) {
+            var land = landing();
+            (add.Attribute || []).forEach(function (a) {
+                if (!isDeleted(a)) land.node(elementNode({ kind: 'attribute', rec: a }));
+            });
+            (add.Object || []).forEach(function (o) {
+                if (!isDeleted(o)) land.node(elementNode({ kind: 'object', rec: o }));
+            });
+            SOURCES.forEach(function (s) {
+                var known = sourceMap(add, s.scope);
+                function edgesOf(a) {
+                    if (isDeleted(a)) return;
+                    (a[s.scope] || []).forEach(function (hit) {
+                        var srcId = s.type + ':' + hit.id;
+                        if (!isDrawn(srcId)) {
+                            land.node({ id: srcId, data: sourceNodeData(s.type, known[String(hit.id)] || hit) });
+                        }
+                        land.edge({ id: s.kind + ':' + srcId + ':' + a.uuid, from: srcId, to: 'attr:' + a.uuid,
+                                    data: { kind: s.kind, label: '' } });
+                    });
+                }
+                (add.Attribute || []).forEach(edgesOf);
+                (add.Object || []).forEach(function (o) {
+                    if (!isDeleted(o)) (o.Attribute || []).forEach(edgesOf);
+                });
+            });
+            return land.result();
+        }
+
+        function feedHitsPivot() {
+            return {
+                id:            FEED_HITS_PIVOT,
+                label:         'Seen in feeds and servers',
+                origin:        'none',
+                maxCandidates: NODE_BUDGET,
+                summarize: function (nodes, narrowing, ctx) {
+                    narrowing = narrowing || {};
+                    return graphPost(feedHitsBody(narrowing, true), ctx && ctx.signal).then(function (r) {
+                        var names = r.sources || {}, bySource = r.by_source || {};
+                        return {
+                            total: r.total || 0,
+                            facets: [
+                                { key: 'q', label: 'Search', type: 'text' },
+                                { key: 'source', label: 'Feed or server', type: 'select',
+                                  options: Object.keys(names).sort(function (a, b) {
+                                      return String(names[a]).localeCompare(String(names[b]));
+                                  }).map(function (k) {
+                                      return { label: names[k], value: k, count: bySource[k] || 0 };
+                                  }) }
+                            ]
+                        };
+                    });
+                },
+                fetch: function (nodes, narrowing, ctx) {
+                    return graphPost(feedHitsBody(narrowing || {}, false), ctx && ctx.signal).then(function (payload) {
+                        return feedHitsResult(adoptElements(payload));
+                    });
+                }
+            };
+        }
+
         /* ── pivot: around another event's object ──────────────── */
         // The objects one reference away from it in its own event, either
         // direction, with the references between them.
@@ -2517,6 +2726,7 @@
             if (!graph || typeof graph.on !== 'function' || !graph.pivots) return;
             var drop = function () {
                 graph.pivots.invalidate(ELEMENT_PIVOT);
+                graph.pivots.invalidate(FEED_HITS_PIVOT);
                 graph.pivots.invalidate(SURROUNDINGS_PIVOT);
                 Object.keys(CARD_SLICES).forEach(function (k) { graph.pivots.invalidate(CARD_SLICES[k].id); });
                 graph.pivots.invalidate(MORE_CORRELATIONS_PIVOT);
@@ -2535,6 +2745,7 @@
         // `seededEmpty`: the seed drew nothing. Otherwise the analyst emptied the
         // canvas, and "nothing is related" would be false.
         function emptyStatement(ev, seededEmpty) {
+            if (_meta) return seededStatement(ev, seededEmpty);
             var attrs = 0, objs = 0;
             (ev.Attribute || []).forEach(function (a) { if (!isDeleted(a)) attrs++; });
             (ev.Object || []).forEach(function (o) { if (!isDeleted(o)) objs++; });
@@ -2554,6 +2765,32 @@
             } : {
                 title:  'The canvas is empty',
                 detail: 'The event\'s ' + listed,
+                action: true
+            };
+        }
+
+        // As emptyStatement(), for a canvas opened from /events/graph, which
+        // says why the feed and server hits are not on it.
+        function seededStatement(ev, seededEmpty) {
+            if (String(ev.attribute_count) === '0') {
+                return { title: 'This event has no attributes or objects to draw.', detail: '', action: false };
+            }
+            var listed = 'Its attributes and objects are listed under Event elements, to search and add.';
+            if (!seededEmpty) return { title: 'The canvas is empty', detail: listed, action: true };
+            var hits = '';
+            if (_meta.feed_hits === 'pivot') {
+                hits = ' On an event this size, what feeds and servers have seen is not looked up on opening:'
+                       + ' Seen in feeds and servers brings it.';
+            } else if (_meta.feed_hits === 'over_budget') {
+                hits = ' Feeds and servers have seen more of it than the canvas can open on:'
+                       + ' Seen in feeds and servers brings a part of it.';
+            }
+            var none = _meta.feed_hits === 'pivot' || _meta.feed_hits === 'over_budget'
+                ? 'No object references or analyst relationships to draw.'
+                : 'No object references, analyst relationships or feed and server hits to draw.';
+            return {
+                title:  'Nothing in this event is linked yet',
+                detail: none + ' ' + listed + hits + ' Correlations are fetched from the elements on the canvas.',
                 action: true
             };
         }
@@ -4481,11 +4718,14 @@
         }
 
         function eventPivots() {
-            return [elementPivot(), correlationPivot(), feedEventsPivot(), tagPivot(),
+            return [_meta ? serverElementPivot() : elementPivot()]
+                .concat(offersFeedHits() ? [feedHitsPivot()] : [])
+                .concat([correlationPivot(), feedEventsPivot(), tagPivot(),
                     taggedEventsPivot(), relatedClustersPivot(), relatedClustersPivot('inbound'),
                     surroundingsPivot(),
                     cardElementsPivot('all'), cardElementsPivot('ids'), cardElementsPivot('network'),
-                    moreCorrelationsPivot()].concat(canEnrich ? [enrichPivot()] : []);
+                    moreCorrelationsPivot()])
+                .concat(canEnrich ? [enrichPivot()] : []);
         }
 
         /* ── pivotick options ──────────────────────────────────── */
@@ -4672,12 +4912,18 @@
                 _event = host.event;
                 return Promise.resolve({ event: host.event, data: buildGraphData(host.event) });
             }
-            return fetch(baseurl + '/events/view/' + eventId + '/includeServerCorrelations:1.json', { credentials: 'same-origin' })
+            // As ajax, so the JSON comes back compact rather than pretty-printed.
+            return fetch(baseurl + '/events/graph/' + eventId + '.json', {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
                 .then(function (r) {
                     if (!r.ok) throw new Error(r.status);
                     return r.json();
                 })
-                .then(function (event) {
+                .then(function (payload) {
+                    _meta = payload.meta || {};
+                    var event = { Event: payload.Event };
                     _event = event;
                     return { event: event, data: buildGraphData(event) };
                 });
@@ -4686,8 +4932,9 @@
         function eventOptions(opts, event) {
             opts.UI.emptyState = emptyStateOption((event && event.Event) || {});
             opts.UI.extraPanels = [sharedPanel()];
-            // Only an event with something to show gets the panel (§8.10).
-            if (eventHasAnalystData((event && event.Event) || {})) {
+            // Only an event with something to show gets the panel. A canvas
+            // opened on part of the event cannot tell, so it always does.
+            if (_meta || eventHasAnalystData((event && event.Event) || {})) {
                 opts.UI.extraPanels.push(analystPanel());
             }
         }
