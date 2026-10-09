@@ -41,7 +41,8 @@ class OrgGradeTool
      * Everything a page needs to show and offer grades.
      *
      * @param array $resolution AnalystProfile::resolutionFor()
-     * @return array `grades` (uuid => A…G), `target`, `labels`
+     * @return array `grades` (uuid => A…G), `scale` (grade => factor),
+     *               `target`, `labels`
      */
     public static function reading(array $resolution)
     {
@@ -49,8 +50,10 @@ class OrgGradeTool
         foreach (ValueTrustTool::GRADE_LABELS as $grade => $label) {
             $labels[$grade] = __($label);
         }
+        $plan = ValueTrustTool::planFor($resolution['profile'] ?? null);
         return [
-            'grades' => ValueTrustTool::planFor($resolution['profile'] ?? null)['grades'],
+            'grades' => $plan['grades'],
+            'scale' => $plan['scale'],
             'target' => self::target($resolution),
             'labels' => $labels,
         ];

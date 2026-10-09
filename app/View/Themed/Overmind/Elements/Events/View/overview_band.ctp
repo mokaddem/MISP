@@ -111,10 +111,12 @@ $this->set('headerDescription', '<span class="eo-meta">' . implode('', $meta) . 
 $logo = $this->OrgImg->getOrgLogoV2($orgc, 28);
 $ownerDiffers = !empty($org['id']) && (int)$org['id'] !== (int)($orgc['id'] ?? 0);
 ?>
+<?= $this->OrgGrade->config($orgGrading ?? null) ?>
 <div class="card shadow-sm mb-3 eo-band" data-tour="event-general">
     <div class="eo-band-cell eo-band-org">
-        <div class="eo-org-tile">
+        <div class="eo-org-tile<?= $this->OrgGrade->enabled($orgGrading ?? null) ? ' og-mark is-tile' : '' ?>">
             <?= $logo !== '' ? $logo : '<i class="misp-icon misp-icon-organisation misp-simple"></i>' ?>
+            <?= $this->OrgGrade->badge($orgc, $orgGrading ?? null, true) ?>
         </div>
         <div class="min-w-0">
             <a class="eo-org-name text-truncate" href="<?= h($baseurl . '/organisations/view/' . ($orgc['id'] ?? '')) ?>"><?= h($orgc['name'] ?? '') ?></a>

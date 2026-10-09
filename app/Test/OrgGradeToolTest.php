@@ -66,6 +66,8 @@ class OrgGradeToolTest extends TestCase
         $this->assertSame([self::UUID => 'B'], $reading['grades']);
         $this->assertSame('Usually reliable', $reading['labels']['B']);
         $this->assertSame('No opinion recorded', $reading['labels']['unrated']);
+        $this->assertSame(1.25, $reading['scale']['A']);
+        $this->assertSame(0.0, $reading['scale']['G']);
         $this->assertSame('B', OrgGradeTool::gradeOf($reading['grades'], strtoupper(self::UUID)));
         $this->assertNull(OrgGradeTool::gradeOf($reading['grades'], ''));
     }
